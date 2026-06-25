@@ -1,0 +1,27 @@
+# Dependencies
+node_modules/
+dist/
+coverage/
+generated/
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# IDE / OS
+.idea/
+.vscode/
+.DS_Store
+*.swp
+*.swo
+
+# Logs
+*.log
+npm-debug.log*
+
+# Prisma
+backend/generated/
+
+# Build artifacts
+*.tsbuildinfo

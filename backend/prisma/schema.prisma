@@ -1,0 +1,314 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Get a free hosted Postgres database in seconds: `npx create-db`
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum UserRole {
+  SELLER
+  BUYER
+  ADMIN
+}
+
+enum UserStatus {
+  ACTIVE
+  SELL_BLOCK
+  BUY_BLOCK
+  SUSPENDED
+}
+
+enum InventoryAssetStatus {
+  AVAILABLE
+  LISTED
+  RESERVED
+  SOLD
+  BLOCKED
+}
+
+enum LotStatus {
+  DRAFT
+  ACTIVE
+  RESERVED
+  SOLD
+  CANCELED
+  BLOCKED
+}
+
+enum OrderStatus {
+  CREATED
+  PAYMENT_RESERVED
+  WAITING_TRADE
+  TRADE_CONFIRMED
+  COMPLETED
+  FAILED
+  DISPUTE
+  CANCELED
+}
+
+enum TradeOperationStatus {
+  WAITING
+  CONFIRMED
+  FAILED_SAFE
+  FAILED_DISPUTE
+  TIMEOUT
+}
+
+enum WalletAccountType {
+  AVAILABLE
+  HOLD
+  FROZEN
+}
+
+enum LedgerEntryType {
+  DEPOSIT
+  HOLD_RESERVE
+  HOLD_RELEASE
+  SETTLEMENT_SELLER
+  SETTLEMENT_PLATFORM_COMMISSION
+  REFUND
+  MANUAL_ADJUSTMENT
+}
+
+model User {
+  id          String            @id @default(uuid())
+  steamId     String?           @unique
+  email       String?           @unique
+  username    String
+  role        UserRole
+  status      UserStatus        @default(ACTIVE)
+  tradeUrl    String?
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
+  wallet      Wallet?
+  assets      InventoryAsset[]
+  lots        Lot[]
+  buyOrders   Order[]           @relation("BuyerOrders")
+  sellOrders  Order[]           @relation("SellerOrders")
+  auditEvents AuditLog[]
+  notifications Notification[]
+
+  @@index([role, status])
+}
+
+model ItemDefinition {
+  id             String           @id @default(uuid())
+  game           String           @default("CS2")
+  marketHashName String           @unique
+  weapon         String?
+  rarity         String?
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+  assets         InventoryAsset[]
+}
+
+model InventoryAsset {
+  id               String               @id @default(uuid())
+  ownerId          String
+  itemDefinitionId String
+  assetExternalId  String
+  status           InventoryAssetStatus @default(AVAILABLE)
+  tradable         Boolean              @default(true)
+  tradeLockUntil   DateTime?
+  floatValue       Decimal?             @db.Decimal(8, 6)
+  paintSeed        Int?
+  wear             String?
+  createdAt        DateTime             @default(now())
+  updatedAt        DateTime             @updatedAt
+  owner            User                 @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  itemDefinition   ItemDefinition       @relation(fields: [itemDefinitionId], references: [id], onDelete: Restrict)
+  lot              Lot?
+
+  @@unique([ownerId, assetExternalId])
+  @@index([ownerId, status])
+}
+
+model Lot {
+  id                 String      @id @default(uuid())
+  sellerId           String
+  inventoryAssetId   String      @unique
+  status             LotStatus   @default(DRAFT)
+  priceMinor         BigInt
+  commissionMinor    BigInt
+  sellerReceiveMinor BigInt
+  reservedByUserId   String?
+  createdAt          DateTime    @default(now())
+  updatedAt          DateTime    @updatedAt
+  seller             User        @relation(fields: [sellerId], references: [id], onDelete: Restrict)
+  inventoryAsset     InventoryAsset @relation(fields: [inventoryAssetId], references: [id], onDelete: Restrict)
+  orders             Order[]
+  statusEvents       LotStatusEvent[]
+
+  @@index([sellerId, status])
+  @@index([status, createdAt])
+}
+
+model Order {
+  id              String      @id @default(uuid())
+  lotId           String
+  buyerId         String
+  sellerId        String
+  status          OrderStatus @default(CREATED)
+  amountMinor     BigInt
+  holdAmountMinor BigInt
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+  lot             Lot         @relation(fields: [lotId], references: [id], onDelete: Restrict)
+  buyer           User        @relation("BuyerOrders", fields: [buyerId], references: [id], onDelete: Restrict)
+  seller          User        @relation("SellerOrders", fields: [sellerId], references: [id], onDelete: Restrict)
+  tradeOperation  TradeOperation?
+  hold            Hold?
+  statusEvents    OrderStatusEvent[]
+
+  @@index([buyerId, status])
+  @@index([sellerId, status])
+  @@index([lotId, status])
+}
+
+model LotStatusEvent {
+  id          String     @id @default(uuid())
+  lotId       String
+  fromStatus  LotStatus?
+  toStatus    LotStatus
+  actorUserId String?
+  reason      String?
+  requestId   String?
+  createdAt   DateTime   @default(now())
+  lot         Lot        @relation(fields: [lotId], references: [id], onDelete: Cascade)
+
+  @@index([lotId, createdAt])
+}
+
+model OrderStatusEvent {
+  id          String       @id @default(uuid())
+  orderId     String
+  fromStatus  OrderStatus?
+  toStatus    OrderStatus
+  actorUserId String?
+  reason      String?
+  requestId   String?
+  createdAt   DateTime     @default(now())
+  order       Order        @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@index([orderId, createdAt])
+}
+
+model TradeOperation {
+  id             String               @id @default(uuid())
+  orderId        String               @unique
+  status         TradeOperationStatus @default(WAITING)
+  providerRef    String?
+  failReasonCode String?
+  createdAt      DateTime             @default(now())
+  updatedAt      DateTime             @updatedAt
+  order          Order                @relation(fields: [orderId], references: [id], onDelete: Restrict)
+}
+
+model Wallet {
+  id         String          @id @default(uuid())
+  userId     String          @unique
+  currency   String          @default("USD")
+  createdAt  DateTime        @default(now())
+  updatedAt  DateTime        @updatedAt
+  user       User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  accounts   WalletAccount[]
+  ledgerRows LedgerEntry[]
+  holds      Hold[]
+}
+
+model WalletAccount {
+  id           String            @id @default(uuid())
+  walletId      String
+  type          WalletAccountType
+  balanceMinor  BigInt           @default(0)
+  createdAt     DateTime         @default(now())
+  updatedAt     DateTime         @updatedAt
+  wallet        Wallet           @relation(fields: [walletId], references: [id], onDelete: Cascade)
+
+  @@unique([walletId, type])
+}
+
+model Hold {
+  id           String   @id @default(uuid())
+  orderId       String   @unique
+  walletId      String
+  amountMinor   BigInt
+  capturedMinor BigInt   @default(0)
+  releasedMinor BigInt   @default(0)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  order         Order    @relation(fields: [orderId], references: [id], onDelete: Restrict)
+  wallet        Wallet   @relation(fields: [walletId], references: [id], onDelete: Restrict)
+}
+
+model LedgerEntry {
+  id               String          @id @default(uuid())
+  walletId         String
+  orderId          String?
+  holdId           String?
+  type             LedgerEntryType
+  amountMinor      BigInt
+  idempotencyKey   String
+  referenceGroupId String?
+  metadata         Json?
+  createdAt        DateTime        @default(now())
+  wallet           Wallet          @relation(fields: [walletId], references: [id], onDelete: Restrict)
+
+  @@unique([walletId, idempotencyKey])
+  @@index([orderId, createdAt])
+  @@index([holdId, createdAt])
+}
+
+model AuditLog {
+  id            String   @id @default(uuid())
+  actorUserId   String?
+  entityType    String
+  entityId      String
+  action        String
+  reason        String?
+  beforeState   Json?
+  afterState    Json?
+  requestId     String?
+  idempotencyKey String?
+  createdAt     DateTime @default(now())
+  actorUser     User?    @relation(fields: [actorUserId], references: [id], onDelete: SetNull)
+
+  @@index([entityType, entityId, createdAt])
+  @@index([actorUserId, createdAt])
+}
+
+model OutboxEvent {
+  id           String   @id @default(uuid())
+  eventType    String
+  aggregateType String
+  aggregateId  String
+  payload      Json
+  status       String   @default("PENDING")
+  retryCount   Int      @default(0)
+  nextRetryAt  DateTime?
+  createdAt    DateTime @default(now())
+  processedAt  DateTime?
+
+  @@index([status, createdAt])
+}
+
+model Notification {
+  id        String    @id @default(uuid())
+  userId    String
+  eventType String
+  title     String
+  message   String
+  payload   Json?
+  readAt    DateTime?
+  createdAt DateTime  @default(now())
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+  @@index([userId, readAt])
+}

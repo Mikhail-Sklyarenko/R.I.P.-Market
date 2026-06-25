@@ -1,0 +1,66 @@
+name: CI
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+
+defaults:
+  run:
+    working-directory: backend
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB: cs2_p2p_mvp
+          POSTGRES_USER: cs2
+          POSTGRES_PASSWORD: cs2
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U cs2 -d cs2_p2p_mvp"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    env:
+      DATABASE_URL: postgresql://cs2:cs2@localhost:5432/cs2_p2p_mvp?schema=public
+      JWT_SECRET: ci-jwt-secret
+      AUTH_PROVIDER: mock
+      INVENTORY_PROVIDER: mock
+      TRADE_PROVIDER: mock
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Generate Prisma client
+        run: npm run prisma:generate
+
+      - name: Apply database migrations
+        run: npm run prisma:migrate:deploy
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Build
+        run: npm run build
+
+      - name: Unit tests
+        run: npm test -- --ci --passWithNoTests
+
+      - name: E2E tests
+        run: npm run test:e2e
