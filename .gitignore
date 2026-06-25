@@ -25,3 +25,9 @@ backend/generated/
 
 # Build artifacts
 *.tsbuildinfo
+
+# Frontend
+frontend/dist/
+frontend/node_modules/
+frontend/playwright-report/
+frontend/test-results/

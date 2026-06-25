@@ -1,5 +1,14 @@
-import { Body, Controller, Get, Param, Post, UseGuards } from '@nestjs/common';
-import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
+import {
+  BadRequestException,
+  Body,
+  Controller,
+  Get,
+  Param,
+  Post,
+  Query,
+  UseGuards,
+} from '@nestjs/common';
+import { ApiBearerAuth, ApiQuery, ApiTags } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { CurrentUser } from '../common/current-user.decorator';
 import type { AuthUser } from '../common/auth-user.interface';
@@ -16,6 +25,16 @@ export class LotsController {
   @Post()
   async create(@CurrentUser() user: AuthUser, @Body() body: CreateLotDto) {
     return this.lotsService.create(user.sub, body);
+  }
+
+  @ApiQuery({ name: 'priceMinor', required: true, type: Number })
+  @Get('pricing-preview')
+  getPricingPreview(@Query('priceMinor') priceMinorRaw?: string) {
+    const priceMinor = Number(priceMinorRaw);
+    if (!Number.isInteger(priceMinor) || priceMinor <= 0) {
+      throw new BadRequestException('priceMinor must be a positive integer');
+    }
+    return this.lotsService.getPricingPreview(priceMinor);
   }
 
   @Get()

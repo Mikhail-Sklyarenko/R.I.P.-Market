@@ -1,0 +1,40 @@
+import { defineConfig } from '@playwright/test';
+
+export default defineConfig({
+  testDir: './e2e',
+  timeout: 60_000,
+  retries: process.env.CI ? 1 : 0,
+  use: {
+    baseURL: 'http://localhost:5173',
+    trace: 'on-first-retry',
+  },
+  webServer: [
+    {
+      command:
+        'sh -c "cd ../backend && npm run prisma:migrate:deploy && PORT=3001 npm run start:dev"',
+      url: 'http://localhost:3001/api/v1/health',
+      reuseExistingServer: !process.env.CI,
+      timeout: 120_000,
+      env: {
+        ...process.env,
+        PORT: '3001',
+        FRONTEND_ORIGIN: 'http://localhost:5173',
+        ENABLE_TEST_ROUTES: 'true',
+        AUTH_PROVIDER: 'mock',
+        INVENTORY_PROVIDER: 'mock',
+        TRADE_PROVIDER: 'mock',
+      },
+    },
+    {
+      command: 'npm run dev -- --host 127.0.0.1 --port 5173',
+      cwd: '.',
+      url: 'http://localhost:5173',
+      reuseExistingServer: !process.env.CI,
+      timeout: 120_000,
+      env: {
+        ...process.env,
+        VITE_API_BASE_URL: 'http://localhost:3001/api/v1',
+      },
+    },
+  ],
+});

@@ -2,6 +2,7 @@ import { INestApplication, ValidationPipe } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { App } from 'supertest/types';
 import { AppModule } from '../../src/app.module';
+import { GlobalExceptionFilter } from '../../src/common/errors/global-exception.filter';
 import { OutboxProcessorService } from '../../src/outbox/outbox-processor.service';
 
 export async function createE2eApp(): Promise<INestApplication<App>> {
@@ -17,6 +18,7 @@ export async function createE2eApp(): Promise<INestApplication<App>> {
 
   const app = moduleFixture.createNestApplication();
   app.setGlobalPrefix('api/v1');
+  app.useGlobalFilters(new GlobalExceptionFilter());
   app.useGlobalPipes(
     new ValidationPipe({
       whitelist: true,

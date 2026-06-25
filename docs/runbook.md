@@ -145,3 +145,21 @@ AUTH_PROVIDER=steam INVENTORY_PROVIDER=steam TRADE_PROVIDER=steam npm run start:
 ```
 
 Steam providers throw `NotImplementedException` until wired — use for spike/integration work only.
+
+## 11. Frontend (Phase 1 sell UI)
+
+```bash
+cd ../frontend
+cp .env.example .env
+npm ci
+npm run dev
+```
+
+Seller UI: http://localhost:5173/login
+
+UI E2E (Playwright, backend on port 3001):
+
+```bash
+cd frontend
+npm run test:e2e
+```

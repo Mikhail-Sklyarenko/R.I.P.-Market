@@ -16,6 +16,7 @@ import { NotificationsModule } from './notifications/notifications.module';
 import { ProvidersModule } from './providers/providers.module';
 import { ObservabilityModule } from './common/observability/observability.module';
 import { RequestIdMiddleware } from './common/observability/request-id.middleware';
+import { TestModule } from './test/test.module';
 
 @Module({
   imports: [
@@ -33,6 +34,7 @@ import { RequestIdMiddleware } from './common/observability/request-id.middlewar
     AdminModule,
     OutboxModule,
     NotificationsModule,
+    ...(process.env.ENABLE_TEST_ROUTES === 'true' ? [TestModule] : []),
   ],
   controllers: [AppController],
   providers: [AppService],

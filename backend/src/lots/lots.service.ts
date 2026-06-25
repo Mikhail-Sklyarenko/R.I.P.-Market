@@ -1,12 +1,11 @@
-import {
-  BadRequestException,
-  Injectable,
-  NotFoundException,
-} from '@nestjs/common';
+import { HttpStatus, Injectable } from '@nestjs/common';
 import { InventoryAssetStatus, LotStatus, UserStatus } from '@prisma/client';
+import { AppException } from '../common/errors/app.exception';
+import { ErrorCode } from '../common/errors/error-codes';
 import { toJsonSafe } from '../common/json-safe.util';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateLotDto } from './dto/create-lot.dto';
+import { buildPricingPreview, calculateCommissionMinor } from './lot-pricing.util';
 import { LotStateService } from './lot-state.service';
 
 @Injectable()
@@ -16,31 +15,34 @@ export class LotsService {
     private readonly lotStateService: LotStateService,
   ) {}
 
+  getPricingPreview(priceMinor: number) {
+    return buildPricingPreview(priceMinor);
+  }
+
   async create(sellerId: string, dto: CreateLotDto) {
     const seller = await this.prisma.user.findUnique({
       where: { id: sellerId },
     });
     if (!seller) {
-      throw new NotFoundException('Seller not found');
+      throw new AppException(ErrorCode.NOT_FOUND, 'Seller not found', HttpStatus.NOT_FOUND);
     }
     if (seller.status !== UserStatus.ACTIVE) {
-      throw new BadRequestException('Seller is not ACTIVE');
+      throw new AppException(
+        ErrorCode.SELLER_NOT_ACTIVE,
+        'Your seller account is not active',
+        HttpStatus.BAD_REQUEST,
+      );
     }
 
     const asset = await this.prisma.inventoryAsset.findUnique({
       where: { id: dto.inventoryAssetId },
     });
     if (!asset || asset.ownerId !== sellerId) {
-      throw new NotFoundException('Inventory asset not found for seller');
-    }
-    if (asset.status !== InventoryAssetStatus.AVAILABLE) {
-      throw new BadRequestException('Inventory asset is not available');
-    }
-    if (!asset.tradable) {
-      throw new BadRequestException('Inventory asset is not tradable');
-    }
-    if (asset.tradeLockUntil && asset.tradeLockUntil > new Date()) {
-      throw new BadRequestException('Inventory asset is trade-locked');
+      throw new AppException(
+        ErrorCode.INVENTORY_ASSET_NOT_FOUND,
+        'Inventory item not found',
+        HttpStatus.NOT_FOUND,
+      );
     }
 
     const existingLot = await this.prisma.lot.findFirst({
@@ -50,10 +52,39 @@ export class LotsService {
       },
     });
     if (existingLot) {
-      throw new BadRequestException('Asset already has active or reserved lot');
+      throw new AppException(
+        ErrorCode.LOT_ALREADY_EXISTS_FOR_ASSET,
+        'This item already has an active listing',
+        HttpStatus.BAD_REQUEST,
+        { lotId: existingLot.id },
+      );
     }
 
-    const commissionMinor = this.calculateCommission(dto.priceMinor);
+    if (asset.status !== InventoryAssetStatus.AVAILABLE) {
+      throw new AppException(
+        ErrorCode.INVENTORY_ASSET_NOT_AVAILABLE,
+        'This item is not available for listing',
+        HttpStatus.BAD_REQUEST,
+        { status: asset.status },
+      );
+    }
+    if (!asset.tradable) {
+      throw new AppException(
+        ErrorCode.INVENTORY_ASSET_NOT_TRADABLE,
+        'This item is not tradable',
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+    if (asset.tradeLockUntil && asset.tradeLockUntil > new Date()) {
+      throw new AppException(
+        ErrorCode.INVENTORY_ASSET_TRADE_LOCKED,
+        'This item is trade-locked',
+        HttpStatus.BAD_REQUEST,
+        { tradeLockUntil: asset.tradeLockUntil.toISOString() },
+      );
+    }
+
+    const commissionMinor = calculateCommissionMinor(dto.priceMinor);
     const sellerReceiveMinor = dto.priceMinor - commissionMinor;
 
     const lot = await this.prisma.$transaction(async (tx) => {
@@ -71,12 +102,12 @@ export class LotsService {
         },
       });
 
+      await this.lotStateService.recordListed(tx, created.id, sellerId);
+
       await tx.inventoryAsset.update({
         where: { id: asset.id },
         data: { status: InventoryAssetStatus.LISTED },
       });
-
-      await this.lotStateService.recordListed(tx, created.id, sellerId);
 
       return created;
     });
@@ -103,7 +134,7 @@ export class LotsService {
       },
     });
     if (!lot) {
-      throw new NotFoundException('Lot not found');
+      throw new AppException(ErrorCode.LOT_NOT_FOUND, 'Lot not found', HttpStatus.NOT_FOUND);
     }
     return toJsonSafe(lot);
   }
@@ -125,22 +156,22 @@ export class LotsService {
       include: { inventoryAsset: true },
     });
     if (!lot) {
-      throw new NotFoundException('Lot not found');
+      throw new AppException(ErrorCode.LOT_NOT_FOUND, 'Lot not found', HttpStatus.NOT_FOUND);
     }
     if (lot.sellerId !== sellerId) {
-      throw new BadRequestException('Only lot seller can cancel this lot');
+      throw new AppException(
+        ErrorCode.FORBIDDEN,
+        'Only the lot seller can cancel this listing',
+        HttpStatus.FORBIDDEN,
+      );
     }
 
-    const updated = await this.prisma.$transaction(async (tx) => {
-      await this.lotStateService.transition(tx, {
-        lotId: lot.id,
-        from: lot.status,
-        to: LotStatus.CANCELED,
-        actorUserId: sellerId,
-      });
+    this.lotStateService.ensureTransition(lot.status, LotStatus.CANCELED);
 
-      const updatedLot = await tx.lot.findUnique({
+    const updated = await this.prisma.$transaction(async (tx) => {
+      const updatedLot = await tx.lot.update({
         where: { id: lot.id },
+        data: { status: LotStatus.CANCELED },
         include: {
           inventoryAsset: { include: { itemDefinition: true } },
         },
@@ -154,14 +185,6 @@ export class LotsService {
       return updatedLot;
     });
 
-    if (!updated) {
-      throw new NotFoundException('Lot not found after cancel');
-    }
-
     return toJsonSafe(updated);
-  }
-
-  private calculateCommission(priceMinor: number): number {
-    return Math.floor(priceMinor * 0.05);
   }
 }
