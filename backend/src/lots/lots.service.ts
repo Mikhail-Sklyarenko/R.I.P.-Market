@@ -3,6 +3,7 @@ import { InventoryAssetStatus, LotStatus, UserStatus } from '@prisma/client';
 import { AppException } from '../common/errors/app.exception';
 import { ErrorCode } from '../common/errors/error-codes';
 import { toJsonSafe } from '../common/json-safe.util';
+import { InventoryService } from '../inventory/inventory.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateLotDto } from './dto/create-lot.dto';
 import { buildPricingPreview, calculateCommissionMinor } from './lot-pricing.util';
@@ -13,6 +14,7 @@ export class LotsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly lotStateService: LotStateService,
+    private readonly inventoryService: InventoryService,
   ) {}
 
   getPricingPreview(priceMinor: number) {
@@ -33,6 +35,8 @@ export class LotsService {
         HttpStatus.BAD_REQUEST,
       );
     }
+
+    await this.inventoryService.syncForListing(sellerId, seller.steamId);
 
     const asset = await this.prisma.inventoryAsset.findUnique({
       where: { id: dto.inventoryAssetId },

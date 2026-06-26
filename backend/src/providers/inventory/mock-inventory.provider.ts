@@ -1,7 +1,12 @@
 import { Injectable } from '@nestjs/common';
-import { InventoryAssetStatus } from '@prisma/client';
+import { InventoryAssetStatus, InventorySyncStatus } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
-import { InventoryProvider } from './inventory-provider.interface';
+import { InventorySyncCacheService } from './inventory-sync-cache.service';
+import {
+  InventoryProvider,
+  SyncInventoryOptions,
+  SyncResult,
+} from './inventory-provider.interface';
 
 const DEFAULT_ITEMS = [
   {
@@ -28,42 +33,88 @@ const DEFAULT_ITEMS = [
 export class MockInventoryProvider implements InventoryProvider {
   readonly type = 'mock' as const;
 
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly syncCache: InventorySyncCacheService,
+  ) {}
 
-  async ensureInventoryForUser(ownerId: string): Promise<void> {
+  async syncInventory(
+    ownerId: string,
+    _steamId?: string | null,
+    options?: SyncInventoryOptions,
+  ): Promise<SyncResult> {
+    const force = options?.force ?? false;
+    const latest = await this.syncCache.getLatestRun(ownerId);
+    const now = new Date();
+
+    if (!force && latest && this.syncCache.isCacheValid(latest, now)) {
+      return {
+        status: 'CACHE_HIT',
+        itemCount: latest.itemCount,
+        fetchedAt: latest.fetchedAt,
+        expiresAt: latest.expiresAt,
+        cacheHit: true,
+        stale: false,
+      };
+    }
+
     const existingCount = await this.prisma.inventoryAsset.count({
-      where: { ownerId },
+      where: {
+        ownerId,
+        status: { not: InventoryAssetStatus.REMOVED },
+      },
     });
 
-    if (existingCount > 0) {
-      return;
+    if (existingCount === 0) {
+      for (let i = 0; i < DEFAULT_ITEMS.length; i += 1) {
+        const item = DEFAULT_ITEMS[i];
+        const itemDefinition = await this.prisma.itemDefinition.upsert({
+          where: { marketHashName: item.marketHashName },
+          create: {
+            marketHashName: item.marketHashName,
+            game: 'CS2',
+            weapon: item.weapon,
+            rarity: item.rarity,
+          },
+          update: {},
+        });
+
+        await this.prisma.inventoryAsset.create({
+          data: {
+            ownerId,
+            itemDefinitionId: itemDefinition.id,
+            assetExternalId: `mock-${ownerId}-${i + 1}`,
+            status: InventoryAssetStatus.AVAILABLE,
+            tradable: true,
+            wear: item.wear,
+            paintSeed: 100 + i,
+            floatValue: (0.05 + i * 0.02).toFixed(6),
+          },
+        });
+      }
     }
 
-    for (let i = 0; i < DEFAULT_ITEMS.length; i += 1) {
-      const item = DEFAULT_ITEMS[i];
-      const itemDefinition = await this.prisma.itemDefinition.upsert({
-        where: { marketHashName: item.marketHashName },
-        create: {
-          marketHashName: item.marketHashName,
-          game: 'CS2',
-          weapon: item.weapon,
-          rarity: item.rarity,
-        },
-        update: {},
-      });
+    const itemCount = await this.prisma.inventoryAsset.count({
+      where: {
+        ownerId,
+        status: { not: InventoryAssetStatus.REMOVED },
+      },
+    });
 
-      await this.prisma.inventoryAsset.create({
-        data: {
-          ownerId,
-          itemDefinitionId: itemDefinition.id,
-          assetExternalId: `mock-${ownerId}-${i + 1}`,
-          status: InventoryAssetStatus.AVAILABLE,
-          tradable: true,
-          wear: item.wear,
-          paintSeed: 100 + i,
-          floatValue: (0.05 + i * 0.02).toFixed(6),
-        },
-      });
-    }
+    const run = await this.syncCache.recordRun({
+      userId: ownerId,
+      steamId: _steamId ?? `mock-${ownerId}`,
+      status: InventorySyncStatus.SUCCESS,
+      itemCount,
+    });
+
+    return {
+      status: existingCount > 0 && !force ? 'CACHE_HIT' : 'SUCCESS',
+      itemCount,
+      fetchedAt: run.fetchedAt,
+      expiresAt: run.expiresAt,
+      cacheHit: existingCount > 0 && !force,
+      stale: false,
+    };
   }
 }

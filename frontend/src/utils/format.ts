@@ -40,6 +40,9 @@ export const ERROR_MESSAGES: Record<string, string> = {
   ORDER_NOT_FOUND: 'Order not found.',
   STEAM_AUTH_FAILED: 'Steam sign-in failed. Please try again.',
   STEAM_ALREADY_LINKED: 'This Steam account is already linked to another user.',
+  STEAM_PROFILE_PRIVATE:
+    'Your Steam inventory is private. Set it to public in Steam privacy settings.',
+  INVENTORY_STALE: 'Could not refresh inventory from Steam. Try again shortly.',
   BAD_REQUEST: 'This action is not allowed right now.',
   FORBIDDEN: 'You do not have permission for this action.',
 };

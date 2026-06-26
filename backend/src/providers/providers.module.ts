@@ -5,6 +5,8 @@ import { SteamAuthProvider } from './auth/steam-auth.provider';
 import { SteamProfileService } from './auth/steam-profile.service';
 import { getProvidersConfig } from './config';
 import { MockInventoryProvider } from './inventory/mock-inventory.provider';
+import { InventoryMetricsService } from './inventory/inventory-metrics.service';
+import { InventorySyncCacheService } from './inventory/inventory-sync-cache.service';
 import { SteamInventoryProvider } from './inventory/steam-inventory.provider';
 import { MockTradeProvider } from './trade/mock-trade.provider';
 import { SteamTradeProvider } from './trade/steam-trade.provider';
@@ -19,6 +21,8 @@ import { AUTH_PROVIDER, INVENTORY_PROVIDER, TRADE_PROVIDER } from './tokens';
     SteamProfileService,
     MockInventoryProvider,
     SteamInventoryProvider,
+    InventorySyncCacheService,
+    InventoryMetricsService,
     MockTradeProvider,
     SteamTradeProvider,
     {
@@ -52,6 +56,7 @@ import { AUTH_PROVIDER, INVENTORY_PROVIDER, TRADE_PROVIDER } from './tokens';
     TRADE_PROVIDER,
     MockAuthProvider,
     SteamProfileService,
+    InventoryMetricsService,
   ],
 })
 export class ProvidersModule {}

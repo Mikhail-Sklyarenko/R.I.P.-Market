@@ -3,6 +3,7 @@ import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { HttpMetricsService } from './common/observability/http-metrics.service';
 import { PrismaService } from './prisma/prisma.service';
+import { InventoryMetricsService } from './providers/inventory/inventory-metrics.service';
 import { LedgerReconciliationService } from './wallet/ledger-reconciliation.service';
 
 describe('AppController', () => {
@@ -34,6 +35,16 @@ describe('AppController', () => {
               '3xx': 0,
               '4xx': 0,
               '5xx': 0,
+            })),
+          },
+        },
+        {
+          provide: InventoryMetricsService,
+          useValue: {
+            snapshot: jest.fn(() => ({
+              inventory_sync_total: {},
+              inventory_sync_duration_ms: 0,
+              inventory_sync_count: 0,
             })),
           },
         },

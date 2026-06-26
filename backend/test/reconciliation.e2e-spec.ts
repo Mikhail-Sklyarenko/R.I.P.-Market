@@ -33,7 +33,7 @@ describe('Ledger reconciliation (e2e)', () => {
     const seller = await api.login(UserRole.SELLER);
     const buyer = await api.login(UserRole.BUYER);
     const inventory = await api.getInventory(seller);
-    const assetId = inventory.body[0].id;
+    const assetId = inventory.body.assets[0].id;
     const priceMinor = 100_000;
     const lot = await api.createLot(seller, assetId, priceMinor);
     await api.deposit(buyer, priceMinor * 2, 'reconcile-dep-1');

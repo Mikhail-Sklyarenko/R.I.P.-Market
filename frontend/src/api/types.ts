@@ -59,6 +59,22 @@ export type ItemDefinition = {
   rarity?: string;
 };
 
+export type InventorySyncMeta = {
+  lastSyncedAt: string;
+  expiresAt: string;
+  stale: boolean;
+  cacheHit: boolean;
+  status: string;
+  itemCount: number;
+  warning?: string | null;
+  errorCode?: string | null;
+};
+
+export type InventoryResponse = {
+  assets: InventoryAsset[];
+  sync: InventorySyncMeta;
+};
+
 export type InventoryAsset = {
   id: string;
   status: string;

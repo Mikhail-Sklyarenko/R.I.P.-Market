@@ -30,6 +30,7 @@ enum InventoryAssetStatus {
   RESERVED
   SOLD
   BLOCKED
+  REMOVED
 }
 
 enum LotStatus {
@@ -93,6 +94,7 @@ model User {
   sellOrders  Order[]           @relation("SellerOrders")
   auditEvents AuditLog[]
   notifications Notification[]
+  inventorySyncRuns InventorySyncRun[]
 
   @@index([role, status])
 }
@@ -127,6 +129,26 @@ model InventoryAsset {
 
   @@unique([ownerId, assetExternalId])
   @@index([ownerId, status])
+}
+
+enum InventorySyncStatus {
+  SUCCESS
+  FAILED
+  PARTIAL
+}
+
+model InventorySyncRun {
+  id        String              @id @default(uuid())
+  userId    String
+  steamId   String
+  status    InventorySyncStatus
+  itemCount Int
+  fetchedAt DateTime            @default(now())
+  expiresAt DateTime
+  errorCode String?
+  user      User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, fetchedAt])
 }
 
 model Lot {

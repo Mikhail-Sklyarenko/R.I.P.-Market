@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from './prisma/prisma.service';
+import { InventoryMetricsService } from './providers/inventory/inventory-metrics.service';
 import { LedgerReconciliationService } from './wallet/ledger-reconciliation.service';
 
 @Injectable()
@@ -7,6 +8,7 @@ export class AppService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly ledgerReconciliation: LedgerReconciliationService,
+    private readonly inventoryMetrics: InventoryMetricsService,
   ) {}
 
   async getHealth() {
@@ -33,6 +35,7 @@ export class AppService {
   getMetrics(httpMetrics: { snapshot: () => Record<string, number> }) {
     return {
       http: httpMetrics.snapshot(),
+      inventory: this.inventoryMetrics.snapshot(),
       timestamp: new Date().toISOString(),
     };
   }

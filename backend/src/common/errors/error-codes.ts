@@ -22,6 +22,7 @@ export const ErrorCode = {
   STEAM_AUTH_FAILED: 'STEAM_AUTH_FAILED',
   STEAM_ALREADY_LINKED: 'STEAM_ALREADY_LINKED',
   STEAM_PROFILE_PRIVATE: 'STEAM_PROFILE_PRIVATE',
+  INVENTORY_STALE: 'INVENTORY_STALE',
 } as const;
 
 export type ErrorCodeType = (typeof ErrorCode)[keyof typeof ErrorCode];

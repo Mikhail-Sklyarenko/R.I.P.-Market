@@ -27,7 +27,7 @@ describe('MVP core flows (e2e)', () => {
   async function setupActiveLot(priceMinor = 100_000) {
     const seller = await api.login(UserRole.SELLER);
     const inventory = await api.getInventory(seller);
-    const assetId = inventory.body[0].id;
+    const assetId = inventory.body.assets[0].id;
     const lot = await api.createLot(seller, assetId, priceMinor);
     return { seller, lotId: lot.body.id as string, priceMinor };
   }

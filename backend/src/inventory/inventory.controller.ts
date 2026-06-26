@@ -1,5 +1,14 @@
-import { Controller, Get, Param, Post, UseGuards } from '@nestjs/common';
-import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
+import {
+  Controller,
+  Get,
+  Param,
+  Post,
+  Query,
+  Res,
+  UseGuards,
+} from '@nestjs/common';
+import { ApiBearerAuth, ApiQuery, ApiTags } from '@nestjs/swagger';
+import type { Response } from 'express';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { CurrentUser } from '../common/current-user.decorator';
 import type { AuthUser } from '../common/auth-user.interface';
@@ -12,9 +21,26 @@ import { InventoryService } from './inventory.service';
 export class InventoryController {
   constructor(private readonly inventoryService: InventoryService) {}
 
+  @ApiQuery({ name: 'forceRefresh', required: false, type: Boolean })
   @Get()
-  async getMyInventory(@CurrentUser() user: AuthUser) {
-    return this.inventoryService.getUserInventory(user.sub);
+  async getMyInventory(
+    @CurrentUser() user: AuthUser,
+    @Query('forceRefresh') forceRefresh?: string,
+    @Res({ passthrough: true }) res?: Response,
+  ) {
+    const result = await this.inventoryService.getUserInventory(user.sub, {
+      forceRefresh: forceRefresh === 'true',
+      role: user.role,
+    });
+
+    if (result.sync.stale) {
+      res?.setHeader('X-Inventory-Stale', 'true');
+    }
+    if (result.sync.warning) {
+      res?.setHeader('X-Inventory-Warning', result.sync.warning);
+    }
+
+    return result;
   }
 
   @Post(':assetId/check')

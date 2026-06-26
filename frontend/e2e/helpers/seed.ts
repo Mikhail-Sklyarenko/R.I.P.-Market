@@ -10,13 +10,13 @@ export async function seedActiveLot(request: APIRequestContext, priceMinor = 100
   const inventory = await request.get(`${API_BASE}/inventory`, {
     headers: { Authorization: `Bearer ${sellerBody.accessToken}` },
   });
-  const assets = (await inventory.json()) as Array<{ id: string }>;
+  const assets = (await inventory.json()) as { assets: Array<{ id: string }> };
   const lotResponse = await request.post(`${API_BASE}/lots`, {
     headers: {
       Authorization: `Bearer ${sellerBody.accessToken}`,
       'Content-Type': 'application/json',
     },
-    data: { inventoryAssetId: assets[0].id, priceMinor },
+    data: { inventoryAssetId: assets.assets[0].id, priceMinor },
   });
   const lot = (await lotResponse.json()) as { id: string };
   return { lotId: lot.id, priceMinor, sellerToken: sellerBody.accessToken };

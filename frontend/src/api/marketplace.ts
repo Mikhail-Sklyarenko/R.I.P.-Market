@@ -2,12 +2,12 @@ import { apiRequest, createIdempotencyKey } from './client';
 import type {
   AuthConfig,
   AuthResponse,
-  InventoryAsset,
   LedgerEntry,
   Lot,
   Notification,
   Order,
   PricingPreview,
+  InventoryResponse,
   Wallet,
 } from './types';
 
@@ -44,8 +44,9 @@ export function getLot(lotId: string) {
   return apiRequest<Lot>(`/lots/${lotId}`);
 }
 
-export function getInventory(token: string) {
-  return apiRequest<InventoryAsset[]>('/inventory', { token });
+export function getInventory(token: string, options?: { forceRefresh?: boolean }) {
+  const query = options?.forceRefresh ? '?forceRefresh=true' : '';
+  return apiRequest<InventoryResponse>(`/inventory${query}`, { token });
 }
 
 export function getMyLots(token: string) {

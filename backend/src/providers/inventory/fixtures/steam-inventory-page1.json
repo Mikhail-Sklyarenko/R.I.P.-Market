@@ -1,0 +1,55 @@
+{
+  "success": 1,
+  "assets": [
+    {
+      "appid": 730,
+      "contextid": "2",
+      "assetid": "12345678901",
+      "classid": "310776580",
+      "instanceid": "302028390"
+    },
+    {
+      "appid": 730,
+      "contextid": "2",
+      "assetid": "12345678902",
+      "classid": "310777000",
+      "instanceid": "302028391"
+    }
+  ],
+  "descriptions": [
+    {
+      "classid": "310776580",
+      "instanceid": "302028390",
+      "market_hash_name": "AK-47 | Redline (Field-Tested)",
+      "tradable": 1,
+      "tags": [
+        { "category": "Weapon", "localized_tag_name": "AK-47" },
+        { "category": "Rarity", "localized_tag_name": "Classified" }
+      ]
+    },
+    {
+      "classid": "310777000",
+      "instanceid": "302028391",
+      "market_hash_name": "AWP | Asiimov (Battle-Scarred)",
+      "tradable": 0,
+      "cache_expiration": "2026-07-01T00:00:00Z",
+      "tags": [
+        { "category": "Weapon", "localized_tag_name": "AWP" },
+        { "category": "Rarity", "localized_tag_name": "Covert" }
+      ]
+    }
+  ],
+  "asset_properties": [
+    {
+      "appid": 730,
+      "contextid": "2",
+      "assetid": "12345678901",
+      "asset_properties": [
+        { "propertyid": 1, "float_value": "0.254319" },
+        { "propertyid": 2, "int_value": "661" }
+      ]
+    }
+  ],
+  "more_items": 0,
+  "total_inventory_count": 2
+}

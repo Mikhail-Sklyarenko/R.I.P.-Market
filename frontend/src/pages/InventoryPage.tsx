@@ -1,7 +1,7 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { getInventory } from '../api/sell';
-import type { InventoryAsset } from '../api/types';
+import type { InventoryAsset, InventorySyncMeta } from '../api/types';
 import { useAuth } from '../auth/AuthContext';
 import { ErrorAlert } from '../components/ErrorAlert';
 
@@ -34,19 +34,42 @@ function unavailableReason(asset: InventoryAsset): string {
 export function InventoryPage() {
   const { token } = useAuth();
   const [assets, setAssets] = useState<InventoryAsset[]>([]);
+  const [sync, setSync] = useState<InventorySyncMeta | null>(null);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<unknown>(null);
 
+  const loadInventory = useCallback(
+    async (forceRefresh = false) => {
+      if (!token) {
+        return;
+      }
+      if (forceRefresh) {
+        setRefreshing(true);
+      } else {
+        setLoading(true);
+      }
+      setError(null);
+      try {
+        const response = await getInventory(token, { forceRefresh });
+        setAssets(response.assets);
+        setSync(response.sync);
+      } catch (err: unknown) {
+        setError(err);
+      } finally {
+        setLoading(false);
+        setRefreshing(false);
+      }
+    },
+    [token],
+  );
+
   useEffect(() => {
-    if (!token) {
-      return;
-    }
-    setLoading(true);
-    getInventory(token)
-      .then(setAssets)
-      .catch((err: unknown) => setError(err))
-      .finally(() => setLoading(false));
-  }, [token]);
+    void loadInventory(false);
+  }, [loadInventory]);
+
+  const showStaleBadge =
+    sync?.stale || (sync ? new Date(sync.expiresAt) <= new Date() : false);
 
   return (
     <div className="page">
@@ -54,7 +77,27 @@ export function InventoryPage() {
         <div>
           <h2>Inventory</h2>
           <p className="muted">Choose an item to list on the marketplace.</p>
+          {sync ? (
+            <p className="muted small">
+              Last synced: {new Date(sync.lastSyncedAt).toLocaleString()}
+              {showStaleBadge ? (
+                <span className="badge badge-stale" style={{ marginLeft: '0.5rem' }}>
+                  Stale
+                </span>
+              ) : null}
+              {sync.warning ? <span> · {sync.warning}</span> : null}
+            </p>
+          ) : null}
         </div>
+        <button
+          type="button"
+          className="button secondary"
+          disabled={loading || refreshing}
+          data-testid="inventory-refresh"
+          onClick={() => void loadInventory(true)}
+        >
+          {refreshing ? 'Refreshing…' : 'Refresh from Steam'}
+        </button>
       </div>
 
       <ErrorAlert error={error} />

@@ -22,14 +22,27 @@ export function CreateLotPage() {
 
   const priceMinor = useMemo(() => parseUsdToMinor(priceInput), [priceInput]);
 
+  const listable = useMemo(() => {
+    if (!asset) {
+      return false;
+    }
+    if (asset.status !== 'AVAILABLE' || !asset.tradable) {
+      return false;
+    }
+    if (asset.tradeLockUntil && new Date(asset.tradeLockUntil) > new Date()) {
+      return false;
+    }
+    return true;
+  }, [asset]);
+
   useEffect(() => {
     if (!token || !assetId) {
       return;
     }
     setLoading(true);
     getInventory(token)
-      .then((items) => {
-        const found = items.find((item) => item.id === assetId) ?? null;
+      .then((response) => {
+        const found = response.assets.find((item) => item.id === assetId) ?? null;
         setAsset(found);
         if (!found) {
           setError(new Error('Inventory item not found'));
@@ -99,6 +112,11 @@ export function CreateLotPage() {
         <form className="card form-card" onSubmit={(event) => void handleSubmit(event)}>
           <h3>{asset.itemDefinition.marketHashName}</h3>
           <p className="muted">{asset.wear ?? 'Unknown wear'}</p>
+          {!listable ? (
+            <p className="field-error">
+              This item cannot be listed right now (not tradable or trade-locked).
+            </p>
+          ) : null}
 
           <label className="field">
             <span>Price (USD)</span>
@@ -135,7 +153,7 @@ export function CreateLotPage() {
           <button
             type="submit"
             className="button primary"
-            disabled={submitting || !priceMinor || !!fieldError}
+            disabled={submitting || !priceMinor || !!fieldError || !listable}
             data-testid="submit-listing"
           >
             {submitting ? 'Publishing…' : 'Publish listing'}

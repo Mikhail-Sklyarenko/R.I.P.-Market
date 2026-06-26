@@ -47,7 +47,7 @@ describe('Unified error format (e2e)', () => {
   it('returns business error code for unavailable asset', async () => {
     const seller = await api.login(UserRole.SELLER);
     const inventory = await api.getInventory(seller);
-    const assetId = inventory.body[0].id as string;
+    const assetId = inventory.body.assets[0].id as string;
 
     await api.createLot(seller, assetId, 100_000);
 
