@@ -135,6 +135,7 @@ cd frontend && npm run lint && npm run build && CI=true npm run test:e2e
 
 ---
 
-## Next
+## Related
 
-**Phase 4.3 — Real Trade** (`TRADE_PROVIDER=steam`)
+- [Phase 4.2 — Real Inventory](phase-4-inventory.md)
+- [Phase 4.3 — Trade Status Check](phase-4-trade-poll.md)

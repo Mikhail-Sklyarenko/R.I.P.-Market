@@ -4,7 +4,7 @@ import { getAdminOrderCard, openDispute, resolveDispute } from '../../api/admin'
 import type { AdminOrderCard } from '../../api/types';
 import { useAuth } from '../../auth/AuthContext';
 import { ErrorAlert } from '../../components/ErrorAlert';
-import { formatUsdFromMinor, OPEN_DISPUTE_STATUSES } from '../../utils/format';
+import { formatTradeStatus, formatUsdFromMinor, OPEN_DISPUTE_STATUSES } from '../../utils/format';
 
 function walletBalance(
   wallet: AdminOrderCard['order']['buyer']['wallet'],
@@ -181,7 +181,27 @@ export function AdminOrderCardPage() {
             <dl className="meta-list">
               <div>
                 <dt>Trade status</dt>
-                <dd>{order.tradeOperation?.status ?? '—'}</dd>
+                <dd>{formatTradeStatus(order.tradeOperation?.status)}</dd>
+              </div>
+              <div>
+                <dt>Offer ID</dt>
+                <dd>{order.tradeOperation?.externalOfferId ?? '—'}</dd>
+              </div>
+              <div>
+                <dt>Verification</dt>
+                <dd>{order.tradeOperation?.verificationMode ?? '—'}</dd>
+              </div>
+              <div>
+                <dt>Last checked</dt>
+                <dd>
+                  {order.tradeOperation?.lastCheckedAt
+                    ? new Date(order.tradeOperation.lastCheckedAt).toLocaleString()
+                    : '—'}
+                </dd>
+              </div>
+              <div>
+                <dt>Poll count</dt>
+                <dd>{order.tradeOperation?.checkCount ?? 0}</dd>
               </div>
               <div>
                 <dt>Provider ref</dt>
@@ -213,6 +233,36 @@ export function AdminOrderCardPage() {
               </div>
             </dl>
           </section>
+
+          {card?.tradePollEvents && card.tradePollEvents.length > 0 ? (
+            <section className="card admin-section">
+              <h3>Trade poll history</h3>
+              <div className="table-wrap">
+                <table className="data-table" data-testid="trade-poll-history">
+                  <thead>
+                    <tr>
+                      <th>Checked</th>
+                      <th>Strategy</th>
+                      <th>Offer status</th>
+                      <th>Outcome</th>
+                      <th>Error</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {card.tradePollEvents.map((event) => (
+                      <tr key={event.id}>
+                        <td>{new Date(event.checkedAt).toLocaleString()}</td>
+                        <td>{event.strategy ?? '—'}</td>
+                        <td>{event.offerStatus ?? '—'}</td>
+                        <td>{event.outcome}</td>
+                        <td>{event.error ?? '—'}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </section>
+          ) : null}
 
           {card ? (
             <>

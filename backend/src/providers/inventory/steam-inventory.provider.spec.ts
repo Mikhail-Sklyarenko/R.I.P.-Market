@@ -89,6 +89,14 @@ describe('SteamInventoryProvider', () => {
     expect(result.cacheHit).toBe(true);
   });
 
+  it('throws STEAM_NOT_LINKED for placeholder steam ids', async () => {
+    await expect(
+      provider.syncInventory('user-1', 'steam_mock_seller'),
+    ).rejects.toMatchObject({
+      code: ErrorCode.STEAM_NOT_LINKED,
+    });
+  });
+
   it('throws STEAM_PROFILE_PRIVATE when inventory is private and no cache exists', async () => {
     const privateError = Object.assign(new Error('Steam inventory is private'), {
       code: 'STEAM_PROFILE_PRIVATE',

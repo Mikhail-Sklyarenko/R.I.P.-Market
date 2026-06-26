@@ -1,12 +1,13 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
-import { cancelOrder, getAuthConfig, getOrder, mockTradeSuccess } from '../api/marketplace';
+import { cancelOrder, getAuthConfig, getOrder, mockTradeSuccess, updateOrderTradeReference } from '../api/marketplace';
 import { mockTradeFail, mockTradeTimeout } from '../api/admin';
 import type { Order } from '../api/types';
 import { useAuth } from '../auth/AuthContext';
 import { ErrorAlert } from '../components/ErrorAlert';
 import {
   BUYER_CANCELABLE_STATUSES,
+  formatTradeStatus,
   formatUsdFromMinor,
   MOCK_TRADE_ENABLED,
 } from '../utils/format';
@@ -18,6 +19,9 @@ export function OrderPage() {
   const { token, user } = useAuth();
   const [order, setOrder] = useState<Order | null>(null);
   const [mockTradeEnabled, setMockTradeEnabled] = useState(MOCK_TRADE_ENABLED);
+  const [tradeProvider, setTradeProvider] = useState<'mock' | 'steam'>('mock');
+  const [offerInput, setOfferInput] = useState('');
+  const [savingOffer, setSavingOffer] = useState(false);
   const [loading, setLoading] = useState(true);
   const [completing, setCompleting] = useState(false);
   const [failing, setFailing] = useState<'SAFE' | 'DISPUTE' | 'TIMEOUT' | null>(null);
@@ -40,7 +44,10 @@ export function OrderPage() {
 
   useEffect(() => {
     getAuthConfig()
-      .then((config) => setMockTradeEnabled(config.mockTradeEnabled && MOCK_TRADE_ENABLED))
+      .then((config) => {
+        setMockTradeEnabled(config.mockTradeEnabled && MOCK_TRADE_ENABLED);
+        setTradeProvider(config.tradeProvider);
+      })
       .catch(() => undefined);
   }, []);
 
@@ -61,6 +68,26 @@ export function OrderPage() {
     }, 3000);
     return () => window.clearInterval(timer);
   }, [order, load]);
+
+  async function handleSaveTradeReference() {
+    if (!token || !order || !offerInput.trim()) {
+      return;
+    }
+    setSavingOffer(true);
+    setError(null);
+    try {
+      const updated = await updateOrderTradeReference(token, order.id, {
+        tradeUrl: offerInput.trim(),
+      });
+      setOrder(updated);
+      setOfferInput('');
+      await load();
+    } catch (err) {
+      setError(err);
+    } finally {
+      setSavingOffer(false);
+    }
+  }
 
   async function handleMockSuccess() {
     if (!token || !order) {
@@ -174,8 +201,26 @@ export function OrderPage() {
             </div>
             <div>
               <span>Trade status</span>
-              <strong>{order.tradeOperation?.status ?? '—'}</strong>
+              <strong data-testid="trade-operation-status">
+                {formatTradeStatus(order.tradeOperation?.status)}
+              </strong>
             </div>
+            {order.tradeOperation?.externalOfferId ? (
+              <div>
+                <span>Trade offer ID</span>
+                <strong data-testid="trade-offer-id">
+                  {order.tradeOperation.externalOfferId}
+                </strong>
+              </div>
+            ) : null}
+            {order.tradeOperation?.lastCheckedAt ? (
+              <div>
+                <span>Last checked</span>
+                <strong>
+                  {new Date(order.tradeOperation.lastCheckedAt).toLocaleString()}
+                </strong>
+              </div>
+            ) : null}
             <div>
               <span>Lot status</span>
               <strong>{order.lot.status}</strong>
@@ -183,12 +228,45 @@ export function OrderPage() {
           </div>
 
           {isSeller && order.status === 'WAITING_TRADE' ? (
-            <p className="muted" data-testid="seller-waiting-message">
-              A buyer reserved this item. Waiting for trade completion.
-            </p>
+            <div className="stack" data-testid="seller-trade-panel">
+              <p className="muted">
+                Send the trade offer in Steam, then paste the trade offer ID or URL below.
+              </p>
+              {order.seller?.tradeUrl ? (
+                <p className="muted small">
+                  Your Steam trade URL:{' '}
+                  <a href={order.seller.tradeUrl} target="_blank" rel="noreferrer">
+                    Open Steam trade
+                  </a>
+                </p>
+              ) : null}
+              {!order.tradeOperation?.externalOfferId ? (
+                <>
+                  <label className="field">
+                    <span>Trade offer ID or URL</span>
+                    <input
+                      type="text"
+                      value={offerInput}
+                      onChange={(event) => setOfferInput(event.target.value)}
+                      placeholder="https://steamcommunity.com/tradeoffer/…"
+                      data-testid="trade-offer-input"
+                    />
+                  </label>
+                  <button
+                    type="button"
+                    className="button secondary"
+                    disabled={savingOffer || !offerInput.trim()}
+                    data-testid="save-trade-offer"
+                    onClick={() => void handleSaveTradeReference()}
+                  >
+                    {savingOffer ? 'Saving…' : 'Save trade offer'}
+                  </button>
+                </>
+              ) : null}
+            </div>
           ) : null}
 
-          {isBuyer && order.status === 'WAITING_TRADE' && mockTradeEnabled ? (
+          {isBuyer && order.status === 'WAITING_TRADE' && tradeProvider === 'mock' && mockTradeEnabled ? (
             <div className="dev-panel" data-testid="mock-trade-panel">
               <p className="muted small">Dev/stage: simulate trade outcomes.</p>
               <div className="stack">

@@ -1,5 +1,6 @@
 import { Link, Outlet, useNavigate } from 'react-router-dom';
 import { useAuth } from '../auth/AuthContext';
+import { hasLinkedSteamId } from '../utils/steam-id';
 import { NotificationsBell } from './NotificationsBell';
 
 export function Layout() {
@@ -26,9 +27,11 @@ export function Layout() {
           <Link to="/my/orders">My orders</Link>
           <Link to="/account">Account</Link>
           <NotificationsBell />
-          {user?.steamId ? (
+          {user ? (
             <span className="muted small" title="Linked Steam ID">
-              Steam {user.steamId}
+              {hasLinkedSteamId(user.steamId)
+                ? `Steam ${user.steamId}`
+                : 'Steam not linked'}
             </span>
           ) : null}
           <button

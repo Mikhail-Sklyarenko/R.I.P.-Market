@@ -21,10 +21,20 @@ export class ApiClient {
 
     expect([200, 201]).toContain(response.status);
 
-    return {
+    const session = {
       token: response.body.accessToken,
       userId: response.body.user.id,
     };
+
+    if (process.env.INVENTORY_PROVIDER === 'steam' && role === UserRole.SELLER) {
+      const prisma = this.app.get(PrismaService);
+      await prisma.user.update({
+        where: { id: session.userId },
+        data: { steamId: '76561198000000000' },
+      });
+    }
+
+    return session;
   }
 
   async createBuyerSession(suffix: string): Promise<AuthSession> {

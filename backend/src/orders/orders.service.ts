@@ -12,8 +12,11 @@ import { toJsonSafe } from '../common/json-safe.util';
 import { getAuditContext } from '../common/observability/audit-context';
 import { LotStateService } from '../lots/lot-state.service';
 import { PrismaService } from '../prisma/prisma.service';
+import { getProvidersConfig } from '../providers/config';
+import { parseSteamTradeOfferId } from '../providers/trade/trade-offer.util';
 import { LedgerService } from '../wallet/ledger.service';
 import { CreateOrderDto } from './dto/create-order.dto';
+import { UpdateTradeReferenceDto } from './dto/update-trade-reference.dto';
 import { OrderStateService } from './order-state.service';
 
 type LockedLotRow = {
@@ -171,10 +174,17 @@ export class OrdersService {
           data: { status: InventoryAssetStatus.RESERVED },
         });
 
+        const reservedAsset = await tx.inventoryAsset.findUnique({
+          where: { id: lot.inventoryAssetId },
+          select: { assetExternalId: true },
+        });
+
         await tx.tradeOperation.create({
           data: {
             orderId: createdOrder.id,
             status: TradeOperationStatus.WAITING,
+            verificationMode: this.resolveVerificationMode(),
+            expectedAssetId: reservedAsset?.assetExternalId ?? null,
           },
         });
 
@@ -270,6 +280,8 @@ export class OrdersService {
         },
         tradeOperation: true,
         hold: true,
+        buyer: { select: { id: true, username: true, tradeUrl: true } },
+        seller: { select: { id: true, username: true, tradeUrl: true } },
       },
     });
 
@@ -304,6 +316,67 @@ export class OrdersService {
     });
 
     return toJsonSafe(orders);
+  }
+
+  async updateTradeReference(
+    sellerId: string,
+    orderId: string,
+    dto: UpdateTradeReferenceDto,
+  ) {
+    const order = await this.prisma.order.findUnique({
+      where: { id: orderId },
+      include: { tradeOperation: true },
+    });
+
+    if (!order || order.sellerId !== sellerId) {
+      throw new AppException(
+        ErrorCode.ORDER_NOT_FOUND,
+        'Order not found',
+        HttpStatus.NOT_FOUND,
+      );
+    }
+    if (order.status !== OrderStatus.WAITING_TRADE) {
+      throw new AppException(
+        ErrorCode.BAD_REQUEST,
+        'Trade reference can only be updated while waiting for trade',
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+    if (!order.tradeOperation) {
+      throw new AppException(
+        ErrorCode.NOT_FOUND,
+        'Trade operation not found',
+        HttpStatus.NOT_FOUND,
+      );
+    }
+
+    const offerId =
+      dto.offerId ??
+      (dto.tradeUrl ? parseSteamTradeOfferId(dto.tradeUrl) : null);
+    if (!offerId) {
+      throw new AppException(
+        ErrorCode.VALIDATION_ERROR,
+        'offerId or valid tradeUrl is required',
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+
+    await this.prisma.tradeOperation.update({
+      where: { id: order.tradeOperation.id },
+      data: { externalOfferId: offerId },
+    });
+
+    return this.getById(orderId, sellerId);
+  }
+
+  private resolveVerificationMode(): string {
+    const config = getProvidersConfig();
+    if (config.trade !== 'steam') {
+      return 'MOCK';
+    }
+    return process.env.TRADE_VERIFICATION_MODE === 'SHADOW'
+      ? 'SHADOW'
+      : 'STEAM_POLL';
   }
 
   async cancel(buyerId: string, orderId: string, idempotencyKey: string) {

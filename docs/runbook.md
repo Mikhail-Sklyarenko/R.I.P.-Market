@@ -144,18 +144,18 @@ Also included in `GET /admin/orders/:id` order card response.
 # Mock product (default)
 AUTH_PROVIDER=mock INVENTORY_PROVIDER=mock TRADE_PROVIDER=mock npm run start:dev
 
-# Steam auth only (trade still mock until Phase 4.3+)
+# Steam auth only (trade poll still mock)
 AUTH_PROVIDER=steam STEAM_OPENID_REALM=http://localhost:3000 npm run start:dev
 
-# Steam auth + inventory
-AUTH_PROVIDER=steam INVENTORY_PROVIDER=steam STEAM_OPENID_REALM=http://localhost:3000 npm run start:dev
+# Steam auth + inventory + trade poll
+AUTH_PROVIDER=steam INVENTORY_PROVIDER=steam TRADE_PROVIDER=steam STEAM_OPENID_REALM=http://localhost:3000 STEAM_WEB_API_KEY=your_key npm run start:dev
 ```
 
 See [phase-4-steam-auth.md](phase-4-steam-auth.md) for OpenID callback URLs and staging smoke (`scripts/steam-login-smoke.ts`).
 
 See [phase-4-inventory.md](phase-4-inventory.md) for inventory sync, TTL cache, and staging smoke (`scripts/steam-inventory-smoke.ts`).
 
-`TRADE_PROVIDER=steam` remains a stub until Phase 4.3+.
+See [phase-4-trade-poll.md](phase-4-trade-poll.md) for trade offer reference, poller, and staging checklist.
 
 ## 11. Frontend (Phase 1 sell UI)
 

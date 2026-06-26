@@ -35,5 +35,6 @@ describe('steam-inventory.parser', () => {
     expect(isPrivateInventoryResponse({ success: 15 }, 200)).toBe(true);
     expect(isPrivateInventoryResponse({ success: 1 }, 403)).toBe(true);
     expect(isPrivateInventoryResponse({ success: 1 }, 200)).toBe(false);
+    expect(isPrivateInventoryResponse(null, 404)).toBe(false);
   });
 });

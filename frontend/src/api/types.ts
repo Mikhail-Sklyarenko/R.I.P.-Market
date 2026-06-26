@@ -32,6 +32,8 @@ export class ApiError extends Error {
 
 export type AuthConfig = {
   authProvider: 'mock' | 'steam';
+  inventoryProvider: 'mock' | 'steam';
+  tradeProvider: 'mock' | 'steam';
   steamLoginAvailable: boolean;
   mockLoginAvailable: boolean;
   mockTradeEnabled: boolean;
@@ -105,6 +107,29 @@ export type TradeOperation = {
   status: string;
   providerRef?: string | null;
   failReasonCode?: string | null;
+  externalOfferId?: string | null;
+  lastCheckedAt?: string | null;
+  checkCount?: number;
+  expectedAssetId?: string | null;
+  verificationMode?: string | null;
+  createdAt?: string;
+  updatedAt?: string;
+};
+
+export type OrderParty = {
+  id: string;
+  username: string;
+  tradeUrl?: string | null;
+};
+
+export type TradePollEvent = {
+  id: string;
+  tradeOperationId: string;
+  checkedAt: string;
+  offerStatus?: string | null;
+  outcome: string;
+  strategy?: string | null;
+  error?: string | null;
 };
 
 export type Order = {
@@ -119,6 +144,8 @@ export type Order = {
   lot: Lot;
   tradeOperation?: TradeOperation | null;
   hold?: { id: string; amountMinor: string } | null;
+  buyer?: OrderParty;
+  seller?: OrderParty;
 };
 
 export type WalletAccount = {
@@ -225,6 +252,7 @@ export type AdminOrderCard = {
   outboxEvents: OutboxEvent[];
   orderStatusEvents: StatusEvent[];
   lotStatusEvents: StatusEvent[];
+  tradePollEvents?: TradePollEvent[];
 };
 
 export type DisputeResolution = 'BUYER' | 'SELLER';

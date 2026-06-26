@@ -2,6 +2,7 @@ import { HttpStatus, Injectable, NotFoundException } from '@nestjs/common';
 import { UserRole, UserStatus, WalletAccountType } from '@prisma/client';
 import { AppException } from '../common/errors/app.exception';
 import { ErrorCode } from '../common/errors/error-codes';
+import { isMockSteamId } from '../common/steam-id.util';
 import { toJsonSafe } from '../common/json-safe.util';
 import { PrismaService } from '../prisma/prisma.service';
 import { LedgerService } from '../wallet/ledger.service';
@@ -9,17 +10,12 @@ import { LedgerService } from '../wallet/ledger.service';
 type MockIdentity = {
   role: UserRole;
   username: string;
-  steamId: string;
 };
 
 const MOCK_IDENTITIES: MockIdentity[] = [
-  {
-    role: UserRole.SELLER,
-    username: 'mock_seller',
-    steamId: 'steam_mock_seller',
-  },
-  { role: UserRole.BUYER, username: 'mock_buyer', steamId: 'steam_mock_buyer' },
-  { role: UserRole.ADMIN, username: 'mock_admin', steamId: 'steam_mock_admin' },
+  { role: UserRole.SELLER, username: 'mock_seller' },
+  { role: UserRole.BUYER, username: 'mock_buyer' },
+  { role: UserRole.ADMIN, username: 'mock_admin' },
 ];
 
 @Injectable()
@@ -31,20 +27,41 @@ export class UsersService {
 
   async ensureMockUsers(): Promise<void> {
     for (const identity of MOCK_IDENTITIES) {
-      const user = await this.prisma.user.upsert({
-        where: { steamId: identity.steamId },
-        create: {
-          steamId: identity.steamId,
+      let user = await this.prisma.user.findFirst({
+        where: {
           username: identity.username,
           role: identity.role,
-          status: UserStatus.ACTIVE,
-        },
-        update: {
-          role: identity.role,
-          username: identity.username,
-          status: UserStatus.ACTIVE,
         },
       });
+
+      if (user) {
+        const updates: {
+          username: string;
+          role: UserRole;
+          status: UserStatus;
+          steamId?: null;
+        } = {
+          username: identity.username,
+          role: identity.role,
+          status: UserStatus.ACTIVE,
+        };
+        if (user.steamId && isMockSteamId(user.steamId)) {
+          updates.steamId = null;
+        }
+        user = await this.prisma.user.update({
+          where: { id: user.id },
+          data: updates,
+        });
+      } else {
+        user = await this.prisma.user.create({
+          data: {
+            username: identity.username,
+            role: identity.role,
+            status: UserStatus.ACTIVE,
+            steamId: null,
+          },
+        });
+      }
 
       const wallet = await this.prisma.wallet.upsert({
         where: { userId: user.id },
@@ -81,8 +98,16 @@ export class UsersService {
   async getMockUserByRole(role: UserRole) {
     await this.ensureMockUsers();
 
+    const identity = MOCK_IDENTITIES.find((item) => item.role === role);
+    if (!identity) {
+      throw new NotFoundException(`Mock user for role ${role} not found`);
+    }
+
     const user = await this.prisma.user.findFirst({
-      where: { role },
+      where: {
+        username: identity.username,
+        role: identity.role,
+      },
       include: {
         wallet: {
           include: {

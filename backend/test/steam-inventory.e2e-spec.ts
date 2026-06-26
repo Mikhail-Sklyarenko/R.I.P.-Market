@@ -38,8 +38,33 @@ describe('Steam inventory (e2e)', () => {
     await app.close();
   });
 
-  it('syncs Steam inventory and returns assets with metadata', async () => {
+  async function loginSellerWithSteamId(steamId = '76561198000000000') {
     const seller = await api.login(UserRole.SELLER);
+    await prisma.user.update({
+      where: { id: seller.userId },
+      data: { steamId },
+    });
+    return seller;
+  }
+
+  it('returns STEAM_NOT_LINKED when seller has no linked Steam account', async () => {
+    const seller = await api.login(UserRole.SELLER);
+    await prisma.user.update({
+      where: { id: seller.userId },
+      data: { steamId: null },
+    });
+
+    const response = await request(app.getHttpServer())
+      .get('/api/v1/inventory')
+      .set('Authorization', `Bearer ${seller.token}`)
+      .expect(400);
+
+    expect(response.body.error.code).toBe('STEAM_NOT_LINKED');
+    expect(fetchSpy).not.toHaveBeenCalled();
+  });
+
+  it('syncs Steam inventory and returns assets with metadata', async () => {
+    const seller = await loginSellerWithSteamId();
 
     const response = await request(app.getHttpServer())
       .get('/api/v1/inventory')
@@ -58,7 +83,7 @@ describe('Steam inventory (e2e)', () => {
   });
 
   it('serves cache hit on second request within TTL', async () => {
-    const seller = await api.login(UserRole.SELLER);
+    const seller = await loginSellerWithSteamId();
 
     await request(app.getHttpServer())
       .get('/api/v1/inventory')
@@ -76,7 +101,7 @@ describe('Steam inventory (e2e)', () => {
   });
 
   it('blocks listing a non-tradable synced asset', async () => {
-    const seller = await api.login(UserRole.SELLER);
+    const seller = await loginSellerWithSteamId();
 
     const inventory = await request(app.getHttpServer())
       .get('/api/v1/inventory')
@@ -98,7 +123,7 @@ describe('Steam inventory (e2e)', () => {
   });
 
   it('blocks listing a trade-locked asset after sync', async () => {
-    const seller = await api.login(UserRole.SELLER);
+    const seller = await loginSellerWithSteamId();
 
     const inventory = await request(app.getHttpServer())
       .get('/api/v1/inventory')
@@ -132,7 +157,7 @@ describe('Steam inventory (e2e)', () => {
       return Promise.reject(error);
     });
 
-    const seller = await api.login(UserRole.SELLER);
+    const seller = await loginSellerWithSteamId();
 
     const response = await request(app.getHttpServer())
       .get('/api/v1/inventory')
@@ -144,6 +169,10 @@ describe('Steam inventory (e2e)', () => {
 
   it('rejects forceRefresh for buyers', async () => {
     const buyer = await api.login(UserRole.BUYER);
+    await prisma.user.update({
+      where: { id: buyer.userId },
+      data: { steamId: '76561198000000001' },
+    });
 
     const response = await request(app.getHttpServer())
       .get('/api/v1/inventory?forceRefresh=true')

@@ -48,6 +48,17 @@ export class AuthService {
     return this.buildAuthResponse(user, 'mock');
   }
 
+  async getSessionUser(userId: string) {
+    const user = await this.usersService.getById(userId);
+    return {
+      id: user.id as string,
+      username: user.username as string,
+      role: user.role as string,
+      status: user.status as string,
+      steamId: (user.steamId as string | null) ?? null,
+    };
+  }
+
   async steamCallback(
     openidParams: Record<string, string>,
     linkState?: string,

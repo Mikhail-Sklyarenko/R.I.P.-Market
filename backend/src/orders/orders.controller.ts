@@ -5,6 +5,7 @@ import {
   Get,
   Headers,
   Param,
+  Patch,
   Post,
   UseGuards,
 } from '@nestjs/common';
@@ -13,6 +14,7 @@ import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { CurrentUser } from '../common/current-user.decorator';
 import type { AuthUser } from '../common/auth-user.interface';
 import { CreateOrderDto } from './dto/create-order.dto';
+import { UpdateTradeReferenceDto } from './dto/update-trade-reference.dto';
 import { OrdersService } from './orders.service';
 
 @ApiTags('orders')
@@ -39,6 +41,15 @@ export class OrdersController {
   @Get(':id')
   async getById(@CurrentUser() user: AuthUser, @Param('id') orderId: string) {
     return this.ordersService.getById(orderId, user.sub);
+  }
+
+  @Patch(':id/trade-reference')
+  async updateTradeReference(
+    @CurrentUser() user: AuthUser,
+    @Param('id') orderId: string,
+    @Body() body: UpdateTradeReferenceDto,
+  ) {
+    return this.ordersService.updateTradeReference(user.sub, orderId, body);
   }
 
   @ApiHeader({ name: 'Idempotency-Key', required: true })

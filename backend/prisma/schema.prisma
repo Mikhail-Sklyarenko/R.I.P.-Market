@@ -222,14 +222,35 @@ model OrderStatusEvent {
 }
 
 model TradeOperation {
-  id             String               @id @default(uuid())
-  orderId        String               @unique
-  status         TradeOperationStatus @default(WAITING)
-  providerRef    String?
-  failReasonCode String?
-  createdAt      DateTime             @default(now())
-  updatedAt      DateTime             @updatedAt
-  order          Order                @relation(fields: [orderId], references: [id], onDelete: Restrict)
+  id               String               @id @default(uuid())
+  orderId          String               @unique
+  status           TradeOperationStatus @default(WAITING)
+  providerRef      String?
+  failReasonCode   String?
+  externalOfferId  String?
+  lastCheckedAt    DateTime?
+  checkCount       Int                  @default(0)
+  expectedAssetId  String?
+  verificationMode String?
+  createdAt        DateTime             @default(now())
+  updatedAt        DateTime             @updatedAt
+  order            Order                @relation(fields: [orderId], references: [id], onDelete: Restrict)
+  pollEvents       TradePollEvent[]
+
+  @@index([status, verificationMode])
+}
+
+model TradePollEvent {
+  id               String         @id @default(uuid())
+  tradeOperationId String
+  checkedAt        DateTime       @default(now())
+  offerStatus      String?
+  outcome          String
+  strategy         String?
+  error            String?
+  tradeOperation   TradeOperation @relation(fields: [tradeOperationId], references: [id], onDelete: Cascade)
+
+  @@index([tradeOperationId, checkedAt])
 }
 
 model Wallet {

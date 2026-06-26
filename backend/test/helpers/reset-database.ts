@@ -8,6 +8,7 @@ export async function resetDatabase(prisma: PrismaService): Promise<void> {
       "AuditLog",
       "LedgerEntry",
       "Hold",
+      "TradePollEvent",
       "TradeOperation",
       "OrderStatusEvent",
       "Order",

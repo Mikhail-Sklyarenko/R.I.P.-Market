@@ -141,4 +141,5 @@ cd frontend && npm run lint && npm run build && CI=true npm run test:e2e
 ## Related
 
 - [Phase 4.1 — Steam Auth](phase-4-steam-auth.md)
+- [Phase 4.3 — Trade Status Check](phase-4-trade-poll.md)
 - [Runbook — provider switching](runbook.md#10-provider-switching-dev-only)

@@ -1,14 +1,15 @@
 import { useEffect, useState } from 'react';
-import { getAuthConfig, getSteamLinkUrl } from '../api/marketplace';
+import { getAuthConfig, getAuthMe, getSteamLinkUrl } from '../api/marketplace';
 import type { AuthConfig } from '../api/types';
 import { useAuth } from '../auth/AuthContext';
 import { ErrorAlert } from '../components/ErrorAlert';
+import { hasLinkedSteamId } from '../utils/steam-id';
 
 const API_BASE_URL =
   import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:3000/api/v1';
 
 export function AccountPage() {
-  const { token, user } = useAuth();
+  const { token, user, updateUser } = useAuth();
   const [config, setConfig] = useState<AuthConfig | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<unknown>(null);
@@ -18,6 +19,17 @@ export function AccountPage() {
       .then(setConfig)
       .catch((err: unknown) => setError(err));
   }, []);
+
+  useEffect(() => {
+    if (!token) {
+      return;
+    }
+    getAuthMe(token)
+      .then((sessionUser) => {
+        updateUser(sessionUser);
+      })
+      .catch((err: unknown) => setError(err));
+  }, [token, updateUser]);
 
   async function handleLinkSteam() {
     if (!token) {
@@ -34,8 +46,8 @@ export function AccountPage() {
     }
   }
 
-  const canLinkSteam =
-    Boolean(config?.steamLoginAvailable) && Boolean(user) && !user?.steamId;
+  const steamLinked = hasLinkedSteamId(user?.steamId);
+  const canLinkSteam = Boolean(config?.steamLoginAvailable) && Boolean(user) && !steamLinked;
 
   return (
     <div className="page">
@@ -62,7 +74,9 @@ export function AccountPage() {
           </div>
           <div>
             <dt>Steam ID</dt>
-            <dd data-testid="account-steam-id">{user?.steamId ?? 'Not linked'}</dd>
+            <dd data-testid="account-steam-id">
+              {steamLinked ? user?.steamId : 'Not linked'}
+            </dd>
           </div>
         </dl>
 
@@ -75,7 +89,7 @@ export function AccountPage() {
         {canLinkSteam ? (
           <div className="stack" data-testid="link-steam-panel">
             <p className="muted small">
-              Link your Steam account to use real inventory in later phases.
+              Link your Steam account to sync real CS2 inventory and list items.
             </p>
             <button
               type="button"
@@ -89,13 +103,13 @@ export function AccountPage() {
           </div>
         ) : null}
 
-        {user?.steamId ? (
+        {steamLinked ? (
           <p className="success-text" data-testid="steam-linked-message">
             Steam account linked.
           </p>
         ) : null}
 
-        {!canLinkSteam && !user?.steamId && config?.authProvider === 'mock' ? (
+        {!canLinkSteam && !steamLinked && config?.authProvider === 'mock' ? (
           <p className="muted small" data-testid="steam-link-unavailable">
             Steam linking is available when the backend runs with{' '}
             <code>AUTH_PROVIDER=steam</code>.

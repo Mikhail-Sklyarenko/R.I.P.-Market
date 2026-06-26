@@ -153,15 +153,17 @@ export function parseSteamInventoryResponse(
 }
 
 export function isPrivateInventoryResponse(
-  body: SteamInventoryResponse,
+  body: SteamInventoryResponse | null | undefined,
   statusCode: number,
 ): boolean {
   if (statusCode === 403) {
     return true;
   }
-  return body.success === 15;
+  return body?.success === 15;
 }
 
-export function isEmptyInventoryResponse(body: SteamInventoryResponse): boolean {
-  return (body.assets?.length ?? 0) === 0 && body.success === 1;
+export function isEmptyInventoryResponse(
+  body: SteamInventoryResponse | null | undefined,
+): boolean {
+  return (body?.assets?.length ?? 0) === 0 && body?.success === 1;
 }

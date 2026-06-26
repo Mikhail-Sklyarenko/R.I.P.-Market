@@ -33,6 +33,8 @@ export class AuthController {
       process.env.ALLOW_MOCK_LOGIN_IN_STEAM_MODE === 'true';
     return {
       authProvider: config.auth,
+      inventoryProvider: config.inventory,
+      tradeProvider: config.trade,
       steamLoginAvailable: config.auth === 'steam',
       mockLoginAvailable: config.auth !== 'steam' || allowMockInSteamMode,
       mockTradeEnabled: process.env.ENABLE_MOCK_TRADE !== 'false',
@@ -118,5 +120,12 @@ export class AuthController {
   @Post('mock-login')
   async mockLogin(@Body() body: MockLoginDto) {
     return this.authService.mockLogin(body);
+  }
+
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard)
+  @Get('me')
+  getMe(@CurrentUser() user: AuthUser) {
+    return this.authService.getSessionUser(user.sub);
   }
 }

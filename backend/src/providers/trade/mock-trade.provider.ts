@@ -3,6 +3,7 @@ import {
   TradeCompletionResult,
   TradeCompletionType,
   TradeProvider,
+  TradeVerificationResult,
 } from './trade-provider.interface';
 
 @Injectable()
@@ -35,5 +36,13 @@ export class MockTradeProvider implements TradeProvider {
       default:
         return Promise.resolve({ providerRef: `mock-unknown-${orderId}` });
     }
+  }
+
+  verifyTradeOffer(_tradeOfferId: string): Promise<TradeVerificationResult> {
+    return Promise.resolve({
+      status: 'pending',
+      tradable: null,
+      tradeLockUntil: null,
+    });
   }
 }

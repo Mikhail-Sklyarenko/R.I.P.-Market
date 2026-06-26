@@ -2,6 +2,7 @@ import { HttpStatus, Injectable, Logger } from '@nestjs/common';
 import { InventoryAssetStatus, InventorySyncStatus } from '@prisma/client';
 import { AppException } from '../../common/errors/app.exception';
 import { ErrorCode } from '../../common/errors/error-codes';
+import { isRealSteamId } from '../../common/steam-id.util';
 import { PrismaService } from '../../prisma/prisma.service';
 import { InventoryMetricsService } from './inventory-metrics.service';
 import { InventorySyncCacheService } from './inventory-sync-cache.service';
@@ -44,8 +45,16 @@ export class SteamInventoryProvider implements InventoryProvider {
 
     if (!steamId) {
       throw new AppException(
-        ErrorCode.BAD_REQUEST,
-        'Steam ID is required to sync inventory',
+        ErrorCode.STEAM_NOT_LINKED,
+        'Link your Steam account before syncing inventory',
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+
+    if (!isRealSteamId(steamId)) {
+      throw new AppException(
+        ErrorCode.STEAM_NOT_LINKED,
+        'Link your real Steam account before syncing inventory',
         HttpStatus.BAD_REQUEST,
       );
     }

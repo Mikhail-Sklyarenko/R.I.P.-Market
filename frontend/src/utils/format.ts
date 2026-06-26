@@ -40,12 +40,29 @@ export const ERROR_MESSAGES: Record<string, string> = {
   ORDER_NOT_FOUND: 'Order not found.',
   STEAM_AUTH_FAILED: 'Steam sign-in failed. Please try again.',
   STEAM_ALREADY_LINKED: 'This Steam account is already linked to another user.',
+  STEAM_NOT_LINKED:
+    'Link your Steam account on the Account page before syncing inventory.',
   STEAM_PROFILE_PRIVATE:
     'Your Steam inventory is private. Set it to public in Steam privacy settings.',
   INVENTORY_STALE: 'Could not refresh inventory from Steam. Try again shortly.',
   BAD_REQUEST: 'This action is not allowed right now.',
   FORBIDDEN: 'You do not have permission for this action.',
 };
+
+export const TRADE_STATUS_LABELS: Record<string, string> = {
+  WAITING: 'Waiting for trade',
+  CONFIRMED: 'Trade confirmed',
+  FAILED_SAFE: 'Failed (refunded)',
+  FAILED_DISPUTE: 'Failed (dispute)',
+  TIMEOUT: 'Timed out',
+};
+
+export function formatTradeStatus(status?: string | null): string {
+  if (!status) {
+    return '—';
+  }
+  return TRADE_STATUS_LABELS[status] ?? status;
+}
 
 export const BUYER_CANCELABLE_STATUSES = new Set([
   'CREATED',

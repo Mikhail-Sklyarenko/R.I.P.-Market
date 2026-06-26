@@ -17,6 +17,10 @@ export function getAuthConfig() {
   return apiRequest<AuthConfig>('/auth/config');
 }
 
+export function getAuthMe(token: string) {
+  return apiRequest<AuthResponse['user']>('/auth/me', { token });
+}
+
 export function mockLogin(role: 'SELLER' | 'BUYER' | 'ADMIN') {
   return apiRequest<AuthResponse>('/auth/mock-login', {
     method: 'POST',
@@ -93,6 +97,18 @@ export function createOrder(token: string, lotId: string, idempotencyKey?: strin
 
 export function getOrder(token: string, orderId: string) {
   return apiRequest<Order>(`/orders/${orderId}`, { token });
+}
+
+export function updateOrderTradeReference(
+  token: string,
+  orderId: string,
+  body: { offerId?: string; tradeUrl?: string },
+) {
+  return apiRequest<Order>(`/orders/${orderId}/trade-reference`, {
+    method: 'PATCH',
+    token,
+    body,
+  });
 }
 
 export function listMyOrders(token: string) {

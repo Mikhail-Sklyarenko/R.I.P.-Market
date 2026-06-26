@@ -1,4 +1,11 @@
-import { createContext, useContext, useMemo, useState, type ReactNode } from 'react';
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useMemo,
+  useState,
+  type ReactNode,
+} from 'react';
 import type { AuthUser } from '../api/types';
 
 const STORAGE_KEY = 'rip_market_auth';
@@ -12,6 +19,7 @@ type AuthContextValue = {
   token: string | null;
   user: AuthUser | null;
   login: (token: string, user: AuthUser) => void;
+  updateUser: (user: AuthUser) => void;
   logout: () => void;
 };
 
@@ -32,21 +40,37 @@ function readStoredAuth(): StoredAuth | null {
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [auth, setAuth] = useState<StoredAuth | null>(() => readStoredAuth());
 
+  const login = useCallback((token: string, user: AuthUser) => {
+    const next = { token, user };
+    setAuth(next);
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
+  }, []);
+
+  const updateUser = useCallback((user: AuthUser) => {
+    setAuth((current) => {
+      if (!current) {
+        return current;
+      }
+      const next = { ...current, user };
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
+      return next;
+    });
+  }, []);
+
+  const logout = useCallback(() => {
+    setAuth(null);
+    localStorage.removeItem(STORAGE_KEY);
+  }, []);
+
   const value = useMemo<AuthContextValue>(
     () => ({
       token: auth?.token ?? null,
       user: auth?.user ?? null,
-      login: (token, user) => {
-        const next = { token, user };
-        setAuth(next);
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
-      },
-      logout: () => {
-        setAuth(null);
-        localStorage.removeItem(STORAGE_KEY);
-      },
+      login,
+      updateUser,
+      logout,
     }),
-    [auth],
+    [auth, login, updateUser, logout],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

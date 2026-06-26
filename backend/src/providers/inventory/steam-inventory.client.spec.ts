@@ -33,4 +33,18 @@ describe('steam-inventory.client', () => {
       }),
     ).rejects.toThrow('Steam inventory is private');
   });
+
+  it('throws for invalid steam id responses without crashing on null body', async () => {
+    const fetchFn = jest.fn().mockResolvedValue({
+      status: 404,
+      body: null,
+    });
+
+    await expect(
+      fetchSteamInventoryPage({
+        steamId: 'steam_mock_seller',
+        fetchFn,
+      }),
+    ).rejects.toThrow('Steam inventory API returned 404');
+  });
 });

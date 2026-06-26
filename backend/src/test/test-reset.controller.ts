@@ -20,6 +20,7 @@ export class TestResetController {
         "AuditLog",
         "LedgerEntry",
         "Hold",
+        "TradePollEvent",
         "TradeOperation",
         "OrderStatusEvent",
         "Order",

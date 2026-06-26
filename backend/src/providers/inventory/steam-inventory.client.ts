@@ -22,7 +22,8 @@ async function defaultSteamInventoryFetch(
 
   let body: SteamInventoryResponse = {};
   try {
-    body = (await response.json()) as SteamInventoryResponse;
+    const parsed = (await response.json()) as SteamInventoryResponse | null;
+    body = parsed ?? {};
   } catch {
     body = {};
   }
@@ -56,18 +57,19 @@ export async function fetchSteamInventoryPage(
 
   const { status, body } = await fetchFn(url.toString());
 
+  if (status >= 400) {
+    if (isPrivateInventoryResponse(body, status)) {
+      const error = new Error('Steam inventory is private');
+      (error as Error & { code: string }).code = 'STEAM_PROFILE_PRIVATE';
+      throw error;
+    }
+    throw new Error(`Steam inventory API returned ${status}`);
+  }
+
   if (isPrivateInventoryResponse(body, status)) {
     const error = new Error('Steam inventory is private');
     (error as Error & { code: string }).code = 'STEAM_PROFILE_PRIVATE';
     throw error;
-  }
-
-  if (status >= 500) {
-    throw new Error(`Steam inventory API returned ${status}`);
-  }
-
-  if (status >= 400) {
-    throw new Error(`Steam inventory API returned ${status}`);
   }
 
   return body;

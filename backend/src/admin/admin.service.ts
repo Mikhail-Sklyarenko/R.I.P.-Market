@@ -179,6 +179,14 @@ export class AdminService {
       orderBy: { createdAt: 'asc' },
     });
 
+    const tradePollEvents = order.tradeOperation
+      ? await this.prisma.tradePollEvent.findMany({
+          where: { tradeOperationId: order.tradeOperation.id },
+          orderBy: { checkedAt: 'desc' },
+          take: 50,
+        })
+      : [];
+
     return toJsonSafe({
       order,
       ledgerEntries,
@@ -186,6 +194,7 @@ export class AdminService {
       outboxEvents,
       orderStatusEvents,
       lotStatusEvents,
+      tradePollEvents,
     });
   }
 

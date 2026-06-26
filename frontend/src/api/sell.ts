@@ -2,6 +2,7 @@ export {
   createIdempotencyKey,
   createLot,
   getAuthConfig,
+  getAuthMe,
   getInventory,
   getMyLots,
   getPricingPreview,

@@ -14,6 +14,7 @@ Repository: [github.com/Mikhail-Sklyarenko/R.I.P.-Market](https://github.com/Mik
 | Phase 3 | Gate 3 — dispute ops slice | Closed |
 | Phase 4.1 | Gate 4.1 — Steam auth (OpenID) | Closed (code) |
 | Phase 4.2 | Gate 4.2 — Real inventory (Steam sync) | Closed (code) |
+| Phase 4.3 | Gate 4.3 — Trade status check (Steam poll) | Closed (code) |
 
 ## Quick start
 
@@ -46,6 +47,7 @@ npm run dev
 - [Phase 3 — Dispute Ops](docs/phase-3-dispute-ops.md)
 - [Phase 4.1 — Steam Auth](docs/phase-4-steam-auth.md)
 - [Phase 4.2 — Real Inventory](docs/phase-4-inventory.md)
+- [Phase 4.3 — Trade Status Check](docs/phase-4-trade-poll.md)
 - [Steam spike](docs/steam-spike.md)
 
 ## Project layout
@@ -66,4 +68,4 @@ cd frontend && npm run lint && npm run build && npm run test:e2e
 
 ## Providers
 
-`AUTH_PROVIDER`, `INVENTORY_PROVIDER`, `TRADE_PROVIDER` — `mock` (default) or `steam`. Auth and inventory are implemented; trade remains mock until Phase 4.3+. See phase docs.
+`AUTH_PROVIDER`, `INVENTORY_PROVIDER`, `TRADE_PROVIDER` — `mock` (default) or `steam`. Auth, inventory, and trade status polling are implemented; automated trade-offer bot is deferred. See phase docs.
