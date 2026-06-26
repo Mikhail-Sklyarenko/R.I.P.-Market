@@ -1,5 +1,6 @@
 import { expect, test } from '@playwright/test';
 import { loginAsBuyer } from './helpers/auth';
+import { processPendingOutbox } from './helpers/outbox';
 import { resetDatabase } from './helpers/reset';
 import { seedActiveLot } from './helpers/seed';
 
@@ -58,6 +59,8 @@ test.describe('Buy complete flow', () => {
       summary: { availableMinor: string };
     };
     expect(Number(sellerWalletBody.summary.availableMinor)).toBe(Math.floor(priceMinor * 0.95));
+
+    await processPendingOutbox(request);
 
     await expect
       .poll(async () => {

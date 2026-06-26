@@ -1,7 +1,10 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { HttpStatus, Injectable, NotFoundException } from '@nestjs/common';
 import { UserRole, UserStatus, WalletAccountType } from '@prisma/client';
+import { AppException } from '../common/errors/app.exception';
+import { ErrorCode } from '../common/errors/error-codes';
 import { toJsonSafe } from '../common/json-safe.util';
 import { PrismaService } from '../prisma/prisma.service';
+import { LedgerService } from '../wallet/ledger.service';
 
 type MockIdentity = {
   role: UserRole;
@@ -21,7 +24,10 @@ const MOCK_IDENTITIES: MockIdentity[] = [
 
 @Injectable()
 export class UsersService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly ledgerService: LedgerService,
+  ) {}
 
   async ensureMockUsers(): Promise<void> {
     for (const identity of MOCK_IDENTITIES) {
@@ -91,6 +97,44 @@ export class UsersService {
     }
 
     return toJsonSafe(user);
+  }
+
+  async upsertBySteamId(steamId: string, username?: string) {
+    const user = await this.prisma.user.upsert({
+      where: { steamId },
+      create: {
+        steamId,
+        username: username ?? `steam_${steamId}`,
+        role: UserRole.BUYER,
+        status: UserStatus.ACTIVE,
+      },
+      update: username ? { username } : {},
+    });
+
+    await this.ledgerService.ensureUserWallet(user.id);
+    return user;
+  }
+
+  async linkSteamId(userId: string, steamId: string, username?: string) {
+    const existing = await this.prisma.user.findUnique({ where: { steamId } });
+    if (existing && existing.id !== userId) {
+      throw new AppException(
+        ErrorCode.STEAM_ALREADY_LINKED,
+        'Steam account is already linked to another user',
+        HttpStatus.CONFLICT,
+      );
+    }
+
+    const user = await this.prisma.user.update({
+      where: { id: userId },
+      data: {
+        steamId,
+        ...(username ? { username } : {}),
+      },
+    });
+
+    await this.ledgerService.ensureUserWallet(user.id);
+    return user;
   }
 
   async getById(userId: string) {

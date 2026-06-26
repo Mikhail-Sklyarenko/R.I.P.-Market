@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { cancelOrder, getAuthConfig, getOrder, mockTradeSuccess } from '../api/marketplace';
-import { mockTradeFail } from '../api/admin';
+import { mockTradeFail, mockTradeTimeout } from '../api/admin';
 import type { Order } from '../api/types';
 import { useAuth } from '../auth/AuthContext';
 import { ErrorAlert } from '../components/ErrorAlert';
@@ -20,7 +20,7 @@ export function OrderPage() {
   const [mockTradeEnabled, setMockTradeEnabled] = useState(MOCK_TRADE_ENABLED);
   const [loading, setLoading] = useState(true);
   const [completing, setCompleting] = useState(false);
-  const [failing, setFailing] = useState<'SAFE' | 'DISPUTE' | null>(null);
+  const [failing, setFailing] = useState<'SAFE' | 'DISPUTE' | 'TIMEOUT' | null>(null);
   const [canceling, setCanceling] = useState(false);
   const [error, setError] = useState<unknown>(null);
 
@@ -87,6 +87,23 @@ export function OrderPage() {
     setError(null);
     try {
       const updated = await mockTradeFail(token, order.id, mode);
+      setOrder(updated);
+      await load();
+    } catch (err) {
+      setError(err);
+    } finally {
+      setFailing(null);
+    }
+  }
+
+  async function handleMockTimeout() {
+    if (!token || !order) {
+      return;
+    }
+    setFailing('TIMEOUT');
+    setError(null);
+    try {
+      const updated = await mockTradeTimeout(token, order.id);
       setOrder(updated);
       await load();
     } catch (err) {
@@ -201,6 +218,15 @@ export function OrderPage() {
                   onClick={() => void handleMockFail('DISPUTE')}
                 >
                   {failing === 'DISPUTE' ? 'Failing…' : 'Fail trade (dispute)'}
+                </button>
+                <button
+                  type="button"
+                  className="button secondary"
+                  disabled={completing || failing !== null}
+                  data-testid="mock-trade-timeout"
+                  onClick={() => void handleMockTimeout()}
+                >
+                  {failing === 'TIMEOUT' ? 'Timing out…' : 'Trade timeout (dispute)'}
                 </button>
               </div>
             </div>

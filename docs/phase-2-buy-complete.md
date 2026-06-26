@@ -77,8 +77,13 @@ UI E2E suite (8 tests):
 - `buy-cancel-order.spec.ts` (1)
 - `seller-order-view.spec.ts` (1)
 
-## Out of scope (Phase 3+)
+Full frontend E2E: **16 tests** across sell, buy, and ops flows.
 
-- `mock-fail` / dispute flows in UI
+## Related phases
+
+Dispute ops UI and mock-fail flows are implemented in [Phase 3 — Dispute Ops](phase-3-dispute-ops.md).
+
+## Out of scope (later phases)
+
 - Real Steam trade
-- Admin dispute console UI
+- Admin users / reconciliation console (Phase 4+)

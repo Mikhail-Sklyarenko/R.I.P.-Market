@@ -11,7 +11,7 @@ Repository: [github.com/Mikhail-Sklyarenko/R.I.P.-Market](https://github.com/Mik
 | Phase 0 | Gate 0 — foundation, providers, CI | Closed |
 | Phase 1 | Gate 1 — seller vertical slice | Closed |
 | Phase 2 | Gate 2 — buy + complete slice | Closed |
-| Phase 3 | Gate 3 — dispute ops slice | Closed |
+| Phase 3 | Gate 3 — dispute ops slice | Closed (ideal) |
 
 ## Quick start
 

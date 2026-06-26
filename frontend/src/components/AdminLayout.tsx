@@ -18,6 +18,11 @@ export function AdminLayout() {
           <Link to="/admin/outbox">Outbox</Link>
           <NotificationsBell />
           <span className="muted small">{user?.username}</span>
+          {user?.steamId ? (
+            <span className="muted small" title="Linked Steam ID">
+              Steam {user.steamId}
+            </span>
+          ) : null}
           <button
             type="button"
             className="link-button"

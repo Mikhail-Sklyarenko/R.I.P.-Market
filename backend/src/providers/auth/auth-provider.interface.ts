@@ -7,6 +7,7 @@ export type AuthLoginResult = {
   username: string;
   role: UserRole;
   status: UserStatus;
+  steamId?: string | null;
 };
 
 export type MockAuthLoginParams = {
@@ -16,8 +17,7 @@ export type MockAuthLoginParams = {
 
 export type SteamAuthCallbackParams = {
   kind: 'steam';
-  claimedId: string;
-  identity: string;
+  openidParams: Record<string, string>;
 };
 
 export type AuthLoginParams = MockAuthLoginParams | SteamAuthCallbackParams;

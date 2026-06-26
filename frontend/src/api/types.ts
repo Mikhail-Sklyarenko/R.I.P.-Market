@@ -43,6 +43,7 @@ export type AuthUser = {
   username: string;
   role: string;
   status: string;
+  steamId?: string | null;
 };
 
 export type AuthResponse = {

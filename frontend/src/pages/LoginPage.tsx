@@ -9,6 +9,9 @@ import { getHomePathForRole } from '../utils/format';
 type AuthMode = 'mock' | 'steam';
 type MockRole = 'SELLER' | 'BUYER' | 'ADMIN';
 
+const API_BASE_URL =
+  import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:3000/api/v1';
+
 export function LoginPage() {
   const navigate = useNavigate();
   const { login, token, user } = useAuth();
@@ -26,7 +29,12 @@ export function LoginPage() {
 
   useEffect(() => {
     getAuthConfig()
-      .then(setConfig)
+      .then((nextConfig) => {
+        setConfig(nextConfig);
+        if (nextConfig.authProvider === 'steam') {
+          setMode('steam');
+        }
+      })
       .catch((err: unknown) => setError(err));
   }, []);
 
@@ -48,7 +56,7 @@ export function LoginPage() {
     setLoading(true);
     setError(null);
     try {
-      const returnUrl = `${window.location.origin}/login`;
+      const returnUrl = `${API_BASE_URL}/auth/steam/callback`;
       const response = await getSteamLoginUrl(returnUrl);
       window.location.href = response.url;
     } catch (err) {
@@ -57,31 +65,41 @@ export function LoginPage() {
     }
   }
 
+  const mockAvailable = config?.mockLoginAvailable ?? true;
+  const showMockTab = mockAvailable;
+  const showSteamTab = config?.steamLoginAvailable ?? false;
+
   return (
     <div className="page page-centered">
       <div className="card login-card">
         <p className="eyebrow">R.I.P. Market</p>
         <h1>Sign in</h1>
-        <p className="muted">Mock login for buyer, seller, or admin flows.</p>
+        <p className="muted">
+          {showSteamTab
+            ? 'Sign in with your Steam account or use mock roles in dev.'
+            : 'Mock login for buyer, seller, or admin flows.'}
+        </p>
 
-        <div className="segmented" role="tablist" aria-label="Auth mode">
-          <button
-            type="button"
-            className={mode === 'mock' ? 'segment active' : 'segment'}
-            onClick={() => setMode('mock')}
-          >
-            Mock
-          </button>
-          <button
-            type="button"
-            className={mode === 'steam' ? 'segment active' : 'segment'}
-            onClick={() => setMode('steam')}
-          >
-            Steam
-          </button>
-        </div>
+        {showMockTab && showSteamTab ? (
+          <div className="segmented" role="tablist" aria-label="Auth mode">
+            <button
+              type="button"
+              className={mode === 'mock' ? 'segment active' : 'segment'}
+              onClick={() => setMode('mock')}
+            >
+              Mock
+            </button>
+            <button
+              type="button"
+              className={mode === 'steam' ? 'segment active' : 'segment'}
+              onClick={() => setMode('steam')}
+            >
+              Steam
+            </button>
+          </div>
+        ) : null}
 
-        {mode === 'mock' ? (
+        {mode === 'mock' && showMockTab ? (
           <div className="segmented segmented-3" role="tablist" aria-label="Mock role">
             <button
               type="button"
@@ -116,7 +134,7 @@ export function LoginPage() {
 
         <ErrorAlert error={error} />
 
-        {mode === 'mock' ? (
+        {mode === 'mock' && showMockTab ? (
           <button
             type="button"
             className="button primary"
@@ -126,18 +144,18 @@ export function LoginPage() {
           >
             {loading ? 'Signing in…' : `Continue as mock ${role.toLowerCase()}`}
           </button>
+        ) : showSteamTab ? (
+          <button
+            type="button"
+            className="button primary"
+            disabled={loading}
+            data-testid="login-steam"
+            onClick={() => void handleSteamLogin()}
+          >
+            {loading ? 'Redirecting…' : 'Sign in with Steam'}
+          </button>
         ) : (
-          <div className="stack">
-            <p className="muted">Steam OpenID callback is not wired yet.</p>
-            <button
-              type="button"
-              className="button secondary"
-              disabled={loading || !config?.steamLoginAvailable}
-              onClick={() => void handleSteamLogin()}
-            >
-              {config?.steamLoginAvailable ? 'Open Steam login URL' : 'Steam login unavailable'}
-            </button>
-          </div>
+          <p className="muted">No login methods are available.</p>
         )}
       </div>
     </div>

@@ -1,5 +1,6 @@
 import { expect, test } from '@playwright/test';
 import { buyerPurchaseWaitingTrade, loginAsAdmin, loginAsBuyer } from './helpers/auth';
+import { processPendingOutbox } from './helpers/outbox';
 import { resetDatabase } from './helpers/reset';
 import { seedActiveLot } from './helpers/seed';
 
@@ -18,6 +19,23 @@ test.describe('Ops dispute flow', () => {
     await page.getByTestId('mock-trade-fail-dispute').click();
     await expect(page.getByTestId('order-status')).toHaveText('DISPUTE', { timeout: 15000 });
 
+    const buyerLogin = await request.post(`${apiBase()}/auth/mock-login`, {
+      data: { role: 'BUYER' },
+    });
+    const buyerToken = ((await buyerLogin.json()) as { accessToken: string }).accessToken;
+
+    await processPendingOutbox(request);
+
+    await expect
+      .poll(async () => {
+        const notifications = await request.get(`${apiBase()}/me/notifications`, {
+          headers: { Authorization: `Bearer ${buyerToken}` },
+        });
+        const body = (await notifications.json()) as Array<{ eventType: string }>;
+        return body.some((item) => item.eventType === 'ORDER_DISPUTE_OPENED');
+      })
+      .toBe(true);
+
     const orderUrl = page.url();
     const orderId = orderUrl.split('/orders/')[1];
 
@@ -32,10 +50,6 @@ test.describe('Ops dispute flow', () => {
     await expect(page.getByTestId('admin-order-status')).toHaveText('FAILED', { timeout: 15000 });
     await expect(page.getByTestId('admin-action-success')).toContainText('buyer');
 
-    const buyerLogin = await request.post(`${apiBase()}/auth/mock-login`, {
-      data: { role: 'BUYER' },
-    });
-    const buyerToken = ((await buyerLogin.json()) as { accessToken: string }).accessToken;
     const buyerWallet = await request.get(`${apiBase()}/wallet`, {
       headers: { Authorization: `Bearer ${buyerToken}` },
     });

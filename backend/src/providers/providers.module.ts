@@ -2,6 +2,7 @@ import { Global, Module } from '@nestjs/common';
 import { UsersModule } from '../users/users.module';
 import { MockAuthProvider } from './auth/mock-auth.provider';
 import { SteamAuthProvider } from './auth/steam-auth.provider';
+import { SteamProfileService } from './auth/steam-profile.service';
 import { getProvidersConfig } from './config';
 import { MockInventoryProvider } from './inventory/mock-inventory.provider';
 import { SteamInventoryProvider } from './inventory/steam-inventory.provider';
@@ -15,6 +16,7 @@ import { AUTH_PROVIDER, INVENTORY_PROVIDER, TRADE_PROVIDER } from './tokens';
   providers: [
     MockAuthProvider,
     SteamAuthProvider,
+    SteamProfileService,
     MockInventoryProvider,
     SteamInventoryProvider,
     MockTradeProvider,
@@ -44,6 +46,6 @@ import { AUTH_PROVIDER, INVENTORY_PROVIDER, TRADE_PROVIDER } from './tokens';
       inject: [MockTradeProvider, SteamTradeProvider],
     },
   ],
-  exports: [AUTH_PROVIDER, INVENTORY_PROVIDER, TRADE_PROVIDER],
+  exports: [AUTH_PROVIDER, INVENTORY_PROVIDER, TRADE_PROVIDER, MockAuthProvider],
 })
 export class ProvidersModule {}

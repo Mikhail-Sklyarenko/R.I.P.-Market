@@ -18,7 +18,10 @@ export class OutboxProcessorService {
 
   @Interval(3000)
   async handleInterval(): Promise<void> {
-    if (process.env.JEST_WORKER_ID !== undefined) {
+    if (
+      process.env.JEST_WORKER_ID !== undefined ||
+      process.env.ENABLE_TEST_ROUTES === 'true'
+    ) {
       return;
     }
     await this.processPending();

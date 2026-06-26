@@ -73,3 +73,12 @@ export function mockTradeFail(
     body: { mode },
   });
 }
+
+export function mockTradeTimeout(token: string, orderId: string, idempotencyKey?: string) {
+  return apiRequest<Order>(`/trades/${orderId}/mock-timeout`, {
+    method: 'POST',
+    token,
+    idempotencyKey: idempotencyKey ?? createIdempotencyKey('trade-timeout'),
+    body: {},
+  });
+}

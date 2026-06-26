@@ -26,6 +26,7 @@ export class MockAuthProvider implements AuthProvider {
       username: user.username,
       role: user.role,
       status: user.status,
+      steamId: user.steamId,
     };
   }
 }

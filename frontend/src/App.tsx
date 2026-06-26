@@ -11,6 +11,7 @@ import { CatalogPage } from './pages/CatalogPage';
 import { CreateLotPage } from './pages/CreateLotPage';
 import { InventoryPage } from './pages/InventoryPage';
 import { LoginPage } from './pages/LoginPage';
+import { SteamCallbackPage } from './pages/SteamCallbackPage';
 import { LotPage } from './pages/LotPage';
 import { MyLotsPage } from './pages/MyLotsPage';
 import { MyOrdersPage } from './pages/MyOrdersPage';
@@ -38,6 +39,7 @@ export function App() {
     <AuthProvider>
       <Routes>
         <Route path="/login" element={<LoginPage />} />
+        <Route path="/login/steam/callback" element={<SteamCallbackPage />} />
         <Route element={<ProtectedRoute />}>
           <Route element={<AdminRoute />}>
             <Route element={<AdminLayout />}>
