@@ -11,7 +11,8 @@ Repository: [github.com/Mikhail-Sklyarenko/R.I.P.-Market](https://github.com/Mik
 | Phase 0 | Gate 0 — foundation, providers, CI | Closed |
 | Phase 1 | Gate 1 — seller vertical slice | Closed |
 | Phase 2 | Gate 2 — buy + complete slice | Closed |
-| Phase 3 | Gate 3 — dispute ops slice | Closed (ideal) |
+| Phase 3 | Gate 3 — dispute ops slice | Closed |
+| Phase 4.1 | Gate 4.1 — Steam auth (OpenID) | Closed (code) |
 
 ## Quick start
 
@@ -42,6 +43,7 @@ npm run dev
 - [Phase 1 — Sell slice](docs/phase-1-sell.md)
 - [Phase 2 — Buy + Complete](docs/phase-2-buy-complete.md)
 - [Phase 3 — Dispute Ops](docs/phase-3-dispute-ops.md)
+- [Phase 4.1 — Steam Auth](docs/phase-4-steam-auth.md)
 - [Steam spike](docs/steam-spike.md)
 
 ## Project layout

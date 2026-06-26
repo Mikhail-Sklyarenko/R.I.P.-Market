@@ -38,6 +38,8 @@ export const ERROR_MESSAGES: Record<string, string> = {
   LOT_HAS_OPEN_ORDER: 'Someone else is already buying this lot.',
   BUYER_NOT_ACTIVE: 'Your buyer account is not active.',
   ORDER_NOT_FOUND: 'Order not found.',
+  STEAM_AUTH_FAILED: 'Steam sign-in failed. Please try again.',
+  STEAM_ALREADY_LINKED: 'This Steam account is already linked to another user.',
   BAD_REQUEST: 'This action is not allowed right now.',
   FORBIDDEN: 'You do not have permission for this action.',
 };

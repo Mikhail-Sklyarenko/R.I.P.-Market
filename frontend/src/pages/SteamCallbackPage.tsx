@@ -40,7 +40,11 @@ export function SteamCallbackPage() {
       status,
       steamId: steamId ?? undefined,
     });
-    navigate(getHomePathForRole(role), { replace: true });
+    const linked = searchParams.get('linked') === '1';
+    navigate(getHomePathForRole(role), {
+      replace: true,
+      state: linked ? { steamLinked: true } : undefined,
+    });
   }, [login, navigate, searchParams]);
 
   return (

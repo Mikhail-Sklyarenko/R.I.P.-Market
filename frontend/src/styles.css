@@ -73,6 +73,10 @@ input {
   width: min(100%, 480px);
 }
 
+.account-card {
+  width: min(100%, 560px);
+}
+
 .grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));

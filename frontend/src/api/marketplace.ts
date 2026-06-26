@@ -30,6 +30,12 @@ export function getSteamLoginUrl(returnUrl: string) {
   );
 }
 
+export function getSteamLinkUrl(token: string) {
+  return apiRequest<{ url: string; provider: string }>('/auth/steam/link-url', {
+    token,
+  });
+}
+
 export function listActiveLots() {
   return apiRequest<Lot[]>('/lots');
 }

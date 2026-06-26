@@ -1,4 +1,5 @@
 import {
+  extractOpenIdParams,
   parseSteamId64FromClaimedId,
   verifySteamOpenId,
 } from './steam-openid.util';
@@ -60,6 +61,23 @@ describe('steam-openid.util', () => {
       const postFn = jest.fn().mockResolvedValue('is_valid:false\n');
       const result = await verifySteamOpenId(baseParams, postFn);
       expect(result).toBe(false);
+    });
+  });
+
+  describe('extractOpenIdParams', () => {
+    it('keeps only openid.* query keys', () => {
+      expect(
+        extractOpenIdParams({
+          link_state: 'jwt-token',
+          'openid.mode': 'id_res',
+          'openid.claimed_id':
+            'https://steamcommunity.com/openid/id/76561198000000000',
+        }),
+      ).toEqual({
+        'openid.mode': 'id_res',
+        'openid.claimed_id':
+          'https://steamcommunity.com/openid/id/76561198000000000',
+      });
     });
   });
 });

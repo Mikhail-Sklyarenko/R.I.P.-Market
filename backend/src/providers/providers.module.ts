@@ -46,6 +46,12 @@ import { AUTH_PROVIDER, INVENTORY_PROVIDER, TRADE_PROVIDER } from './tokens';
       inject: [MockTradeProvider, SteamTradeProvider],
     },
   ],
-  exports: [AUTH_PROVIDER, INVENTORY_PROVIDER, TRADE_PROVIDER, MockAuthProvider],
+  exports: [
+    AUTH_PROVIDER,
+    INVENTORY_PROVIDER,
+    TRADE_PROVIDER,
+    MockAuthProvider,
+    SteamProfileService,
+  ],
 })
 export class ProvidersModule {}

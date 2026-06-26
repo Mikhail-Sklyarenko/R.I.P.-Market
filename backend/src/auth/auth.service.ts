@@ -15,6 +15,10 @@ import { AppException } from '../common/errors/app.exception';
 import { ErrorCode } from '../common/errors/error-codes';
 import { UsersService } from '../users/users.service';
 import { MockLoginDto } from './dto/mock-login.dto';
+import { getApiPublicBaseUrl } from './steam-api-base.util';
+
+const STEAM_LINK_PURPOSE = 'steam_link';
+const STEAM_LINK_EXPIRES_IN = '10m';
 
 @Injectable()
 export class AuthService {
@@ -44,12 +48,29 @@ export class AuthService {
     return this.buildAuthResponse(user, 'mock');
   }
 
-  async steamCallback(openidParams: Record<string, string>) {
+  async steamCallback(
+    openidParams: Record<string, string>,
+    linkState?: string,
+  ) {
+    const linkUserId = linkState
+      ? await this.verifySteamLinkState(linkState)
+      : null;
+    if (linkUserId) {
+      return this.steamLink(linkUserId, openidParams);
+    }
+
     const user = await this.authProvider.login({
       kind: 'steam',
       openidParams,
     });
     return this.buildAuthResponse(user);
+  }
+
+  async getSteamLinkLoginUrl(userId: string) {
+    this.requireSteamProvider();
+    const linkState = await this.createSteamLinkState(userId);
+    const returnUrl = `${getApiPublicBaseUrl()}/auth/steam/callback?link_state=${encodeURIComponent(linkState)}`;
+    return this.getSteamLoginUrl(returnUrl);
   }
 
   async steamLink(userId: string, openidParams: Record<string, string>) {
@@ -81,7 +102,10 @@ export class AuthService {
     };
   }
 
-  buildFrontendCallbackUrl(authResponse: Awaited<ReturnType<AuthService['buildAuthResponse']>>) {
+  buildFrontendCallbackUrl(
+    authResponse: Awaited<ReturnType<AuthService['buildAuthResponse']>>,
+    extraParams?: Record<string, string>,
+  ) {
     const frontendOrigin =
       process.env.FRONTEND_ORIGIN ?? 'http://localhost:5173';
     const origin = frontendOrigin.split(',')[0]?.trim() ?? frontendOrigin;
@@ -95,7 +119,34 @@ export class AuthService {
     if (authResponse.user.steamId) {
       params.set('steamId', authResponse.user.steamId);
     }
+    if (extraParams) {
+      for (const [key, value] of Object.entries(extraParams)) {
+        params.set(key, value);
+      }
+    }
     return `${origin}/login/steam/callback?${params.toString()}`;
+  }
+
+  private async createSteamLinkState(userId: string): Promise<string> {
+    return this.jwtService.signAsync(
+      { sub: userId, purpose: STEAM_LINK_PURPOSE },
+      { expiresIn: STEAM_LINK_EXPIRES_IN },
+    );
+  }
+
+  private async verifySteamLinkState(token: string): Promise<string | null> {
+    try {
+      const payload = await this.jwtService.verifyAsync<{
+        sub?: string;
+        purpose?: string;
+      }>(token);
+      if (payload.purpose !== STEAM_LINK_PURPOSE || !payload.sub) {
+        return null;
+      }
+      return payload.sub;
+    } catch {
+      return null;
+    }
   }
 
   private async buildAuthResponse(

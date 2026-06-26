@@ -7,6 +7,7 @@ import { Layout } from './components/Layout';
 import { AdminOrderCardPage } from './pages/admin/AdminOrderCardPage';
 import { AdminOrdersPage } from './pages/admin/AdminOrdersPage';
 import { AdminOutboxPage } from './pages/admin/AdminOutboxPage';
+import { AccountPage } from './pages/AccountPage';
 import { CatalogPage } from './pages/CatalogPage';
 import { CreateLotPage } from './pages/CreateLotPage';
 import { InventoryPage } from './pages/InventoryPage';
@@ -51,6 +52,7 @@ export function App() {
           <Route element={<Layout />}>
             <Route path="/" element={<HomeRedirect />} />
             <Route path="/catalog" element={<CatalogPage />} />
+            <Route path="/account" element={<AccountPage />} />
             <Route path="/lots/:id" element={<LotPage />} />
             <Route path="/wallet" element={<WalletPage />} />
             <Route path="/orders/:id" element={<OrderPage />} />

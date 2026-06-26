@@ -24,6 +24,7 @@ export function Layout() {
           ) : null}
           <Link to="/wallet">Wallet</Link>
           <Link to="/my/orders">My orders</Link>
+          <Link to="/account">Account</Link>
           <NotificationsBell />
           {user?.steamId ? (
             <span className="muted small" title="Linked Steam ID">

@@ -26,7 +26,7 @@ Seller path without Postman: **Login → Inventory → Create lot → My sales**
 |--------|------|------|
 | GET | `/auth/config` | Public |
 | POST | `/auth/mock-login` | Public |
-| GET | `/auth/steam/login-url?returnUrl=` | Public (stub when `AUTH_PROVIDER=mock`) |
+| GET | `/auth/steam/login-url?returnUrl=` | Public (`steamLoginAvailable` when `AUTH_PROVIDER=steam`) |
 | GET | `/inventory` | Bearer |
 | GET | `/lots/pricing-preview?priceMinor=` | Public |
 | POST | `/lots` | Bearer |
@@ -105,6 +105,4 @@ UI E2E enables `ENABLE_TEST_ROUTES=true` and calls `POST /api/v1/test/reset` bef
 
 ## Known limitations
 
-- Steam toggle shows login URL stub; OpenID callback not wired
-- ~~Cancel listing UI deferred to Phase 1.1~~ — cancel ACTIVE listing in My sales (Phase 2 polish)
-- Commission preview also available client-side; backend `pricing-preview` is source of truth
+- Steam sign-in requires `AUTH_PROVIDER=steam` — see [Phase 4.1 — Steam Auth](phase-4-steam-auth.md)

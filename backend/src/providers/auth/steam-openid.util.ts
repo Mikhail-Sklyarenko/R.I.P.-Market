@@ -40,7 +40,7 @@ export function extractOpenIdParams(
 ): Record<string, string> {
   const result: Record<string, string> = {};
   for (const [key, value] of Object.entries(query)) {
-    if (typeof value === 'string') {
+    if (key.startsWith('openid.') && typeof value === 'string') {
       result[key] = value;
     }
   }

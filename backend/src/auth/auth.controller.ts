@@ -55,20 +55,40 @@ export class AuthController {
     return result;
   }
 
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard)
+  @Get('steam/link-url')
+  getSteamLinkUrl(@CurrentUser() user: AuthUser) {
+    const result = this.authService.getSteamLinkLoginUrl(user.sub);
+    if (!result) {
+      throw new BadRequestException(
+        'Steam link is not available with the current auth provider',
+      );
+    }
+    return result;
+  }
+
   @Get('steam/callback')
   async steamCallback(
     @Query() query: Record<string, string | string[] | undefined>,
     @Res() res: Response,
   ) {
+    const linkState =
+      typeof query.link_state === 'string' ? query.link_state : undefined;
     const openidParams = extractOpenIdParams(query);
     if (!openidParams['openid.mode']) {
       throw new BadRequestException('Missing OpenID callback parameters');
     }
 
     try {
-      const authResponse = await this.authService.steamCallback(openidParams);
-      const redirectUrl =
-        this.authService.buildFrontendCallbackUrl(authResponse);
+      const authResponse = await this.authService.steamCallback(
+        openidParams,
+        linkState,
+      );
+      const redirectUrl = this.authService.buildFrontendCallbackUrl(
+        authResponse,
+        linkState ? { linked: '1' } : undefined,
+      );
       return res.redirect(redirectUrl);
     } catch (error) {
       const frontendOrigin =
