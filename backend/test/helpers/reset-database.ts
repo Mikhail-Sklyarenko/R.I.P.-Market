@@ -13,6 +13,7 @@ export async function resetDatabase(prisma: PrismaService): Promise<void> {
       "Order",
       "LotStatusEvent",
       "Lot",
+      "InventorySyncRun",
       "InventoryAsset",
       "ItemDefinition",
       "WalletAccount",

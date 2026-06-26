@@ -43,11 +43,8 @@ test.describe('Seller flow', () => {
     await expect(page).toHaveURL(/\/sell\/my-lots$/);
 
     await page.goto(href!);
-    await page.getByTestId('price-input').fill('500');
-    await page.getByTestId('submit-listing').click();
-
-    await expect(page.getByRole('alert')).toContainText('already has an active listing');
-    await expect(page.getByRole('alert')).toContainText('LOT_ALREADY_EXISTS_FOR_ASSET');
+    await expect(page.getByText('This item cannot be listed right now')).toBeVisible();
+    await expect(page.getByTestId('submit-listing')).toBeDisabled();
   });
 
   test('shows validation feedback for invalid price', async ({ page }) => {

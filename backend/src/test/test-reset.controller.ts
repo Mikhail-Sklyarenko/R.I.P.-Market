@@ -25,6 +25,7 @@ export class TestResetController {
         "Order",
         "LotStatusEvent",
         "Lot",
+        "InventorySyncRun",
         "InventoryAsset",
         "ItemDefinition",
         "WalletAccount",

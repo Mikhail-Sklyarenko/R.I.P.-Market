@@ -92,7 +92,7 @@ Alternative: `POST /auth/steam/link` with `openidParams` (API clients).
 |------|------|------|
 | `STEAM_AUTH_FAILED` | 401 | OpenID verification failed or invalid `claimed_id` |
 | `STEAM_ALREADY_LINKED` | 409 | Link: `steamId` belongs to another user |
-| `STEAM_PROFILE_PRIVATE` | Reserved | Phase 4.2 inventory gates |
+| `STEAM_PROFILE_PRIVATE` | 400 | Inventory: Steam profile/inventory is private (Phase 4.2) |
 
 ---
 
@@ -137,4 +137,4 @@ cd frontend && npm run lint && npm run build && CI=true npm run test:e2e
 
 ## Next
 
-**Phase 4.2 — Real Inventory** (`INVENTORY_PROVIDER=steam`)
+**Phase 4.3 — Real Trade** (`TRADE_PROVIDER=steam`)
