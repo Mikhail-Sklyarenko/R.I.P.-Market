@@ -155,4 +155,42 @@ describe('MVP core flows (e2e)', () => {
     );
     expect(available).toBe(priceMinor);
   });
+
+  it('dispute path: admin resolves in favor of seller', async () => {
+    const { lotId, priceMinor, seller } = await setupActiveLot();
+    const buyer = await api.login(UserRole.BUYER);
+    const admin = await api.login(UserRole.ADMIN);
+
+    await api.deposit(buyer, priceMinor, 'dep-dispute-seller-1');
+    const orderResponse = await api.createOrder(
+      buyer,
+      lotId,
+      'buy-dispute-seller-1',
+    );
+    await api.mockFail(
+      buyer,
+      orderResponse.body.id,
+      'trade-fail-dispute-seller-1',
+      'DISPUTE',
+    );
+
+    const resolveResponse = await api.adminResolveDispute(
+      admin,
+      orderResponse.body.id,
+      'SELLER',
+      'resolve-seller-1',
+    );
+
+    expect([200, 201]).toContain(resolveResponse.status);
+    expect(resolveResponse.body.order.status).toBe('COMPLETED');
+    expect(resolveResponse.body.order.lot.status).toBe('SOLD');
+
+    const sellerWallet = await api.getWallet(seller);
+    const sellerAvailable = Number(
+      sellerWallet.body.accounts.find(
+        (a: { type: string }) => a.type === 'AVAILABLE',
+      ).balanceMinor,
+    );
+    expect(sellerAvailable).toBe(Math.floor(priceMinor * 0.95));
+  });
 });

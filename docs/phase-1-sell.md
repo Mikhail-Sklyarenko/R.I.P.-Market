@@ -106,5 +106,5 @@ UI E2E enables `ENABLE_TEST_ROUTES=true` and calls `POST /api/v1/test/reset` bef
 ## Known limitations
 
 - Steam toggle shows login URL stub; OpenID callback not wired
-- Cancel listing UI deferred to Phase 1.1
+- ~~Cancel listing UI deferred to Phase 1.1~~ — cancel ACTIVE listing in My sales (Phase 2 polish)
 - Commission preview also available client-side; backend `pricing-preview` is source of truth

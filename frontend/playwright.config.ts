@@ -4,6 +4,7 @@ export default defineConfig({
   testDir: './e2e',
   timeout: 60_000,
   retries: process.env.CI ? 1 : 0,
+  workers: 1,
   use: {
     baseURL: 'http://localhost:5173',
     trace: 'on-first-retry',
@@ -34,6 +35,8 @@ export default defineConfig({
       env: {
         ...process.env,
         VITE_API_BASE_URL: 'http://localhost:3001/api/v1',
+        VITE_ENABLE_MOCK_TRADE: 'true',
+        PLAYWRIGHT_API_BASE_URL: 'http://localhost:3001/api/v1',
       },
     },
   ],

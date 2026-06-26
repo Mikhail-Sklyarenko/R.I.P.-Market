@@ -2,10 +2,15 @@ import { ApiError, type ApiErrorPayload } from './types';
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:3000/api/v1';
 
+export function createIdempotencyKey(prefix: string): string {
+  return `${prefix}-${crypto.randomUUID()}`;
+}
+
 type RequestOptions = {
   method?: string;
   token?: string | null;
   body?: unknown;
+  idempotencyKey?: string;
 };
 
 export async function apiRequest<T>(path: string, options: RequestOptions = {}): Promise<T> {
@@ -18,6 +23,9 @@ export async function apiRequest<T>(path: string, options: RequestOptions = {}):
   }
   if (options.token) {
     headers.Authorization = `Bearer ${options.token}`;
+  }
+  if (options.idempotencyKey) {
+    headers['Idempotency-Key'] = options.idempotencyKey;
   }
 
   const response = await fetch(`${API_BASE}${path}`, {
@@ -44,4 +52,8 @@ export async function apiRequest<T>(path: string, options: RequestOptions = {}):
   }
 
   return data as T;
+}
+
+export function getApiBaseUrl(): string {
+  return API_BASE;
 }

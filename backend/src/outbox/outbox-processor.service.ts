@@ -16,7 +16,7 @@ export class OutboxProcessorService {
     private readonly notificationsService: NotificationsService,
   ) {}
 
-  @Interval(10000)
+  @Interval(3000)
   async handleInterval(): Promise<void> {
     if (process.env.JEST_WORKER_ID !== undefined) {
       return;

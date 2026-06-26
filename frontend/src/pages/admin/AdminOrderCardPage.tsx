@@ -1,0 +1,378 @@
+import { type FormEvent, useCallback, useEffect, useState } from 'react';
+import { Link, useParams } from 'react-router-dom';
+import { getAdminOrderCard, openDispute, resolveDispute } from '../../api/admin';
+import type { AdminOrderCard } from '../../api/types';
+import { useAuth } from '../../auth/AuthContext';
+import { ErrorAlert } from '../../components/ErrorAlert';
+import { formatUsdFromMinor, OPEN_DISPUTE_STATUSES } from '../../utils/format';
+
+function walletBalance(
+  wallet: AdminOrderCard['order']['buyer']['wallet'],
+  type: string,
+): string {
+  const account = wallet?.accounts.find((item) => item.type === type);
+  return account ? formatUsdFromMinor(account.balanceMinor) : '—';
+}
+
+export function AdminOrderCardPage() {
+  const { id } = useParams();
+  const { token } = useAuth();
+  const [card, setCard] = useState<AdminOrderCard | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [actionLoading, setActionLoading] = useState<string | null>(null);
+  const [reason, setReason] = useState('');
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  const [error, setError] = useState<unknown>(null);
+
+  const load = useCallback(() => {
+    if (!token || !id) {
+      return Promise.resolve();
+    }
+    return getAdminOrderCard(token, id)
+      .then(setCard)
+      .catch((err: unknown) => setError(err));
+  }, [token, id]);
+
+  useEffect(() => {
+    if (!token || !id) {
+      return;
+    }
+    setLoading(true);
+    load().finally(() => setLoading(false));
+  }, [token, id, load]);
+
+  async function runAction(
+    key: string,
+    action: () => Promise<AdminOrderCard>,
+    message: string,
+  ) {
+    if (!reason.trim() || reason.trim().length < 3) {
+      setError(new Error('Enter a reason (at least 3 characters).'));
+      return;
+    }
+    if (!window.confirm(`Confirm: ${message}?`)) {
+      return;
+    }
+
+    setActionLoading(key);
+    setError(null);
+    setSuccessMessage(null);
+    try {
+      const updated = await action();
+      setCard(updated);
+      setReason('');
+      setSuccessMessage(message);
+    } catch (err) {
+      setError(err);
+    } finally {
+      setActionLoading(null);
+    }
+  }
+
+  async function handleOpenDispute(event: FormEvent) {
+    event.preventDefault();
+    if (!token || !id) {
+      return;
+    }
+    await runAction('open-dispute', () => openDispute(token, id, reason.trim()), 'Dispute opened');
+  }
+
+  async function handleResolve(resolution: 'BUYER' | 'SELLER') {
+    if (!token || !id) {
+      return;
+    }
+    const label = resolution === 'BUYER' ? 'Resolved for buyer' : 'Resolved for seller';
+    await runAction(
+      `resolve-${resolution.toLowerCase()}`,
+      () => resolveDispute(token, id, resolution, reason.trim()),
+      label,
+    );
+  }
+
+  if (!id) {
+    return null;
+  }
+
+  const order = card?.order;
+  const canOpenDispute =
+    order !== undefined &&
+    order.status !== 'DISPUTE' &&
+    OPEN_DISPUTE_STATUSES.has(order.status);
+  const canResolve = order?.status === 'DISPUTE';
+
+  return (
+    <div className="page">
+      <div className="page-header">
+        <div>
+          <h2>Order card</h2>
+          <p className="muted">Ops view: parties, ledger, audit, and actions.</p>
+        </div>
+        <Link to="/admin/orders" className="button secondary">
+          All orders
+        </Link>
+      </div>
+
+      {loading ? <p className="muted">Loading order card…</p> : null}
+
+      {order ? (
+        <div className="admin-card" data-testid="admin-order-card">
+          <section className="card admin-section">
+            <div className="item-card-header">
+              <h3>{order.lot.inventoryAsset.itemDefinition.marketHashName}</h3>
+              <span
+                className={`badge badge-${order.status.toLowerCase()}`}
+                data-testid="admin-order-status"
+              >
+                {order.status}
+              </span>
+            </div>
+            <dl className="meta-list">
+              <div>
+                <dt>Order ID</dt>
+                <dd>{order.id}</dd>
+              </div>
+              <div>
+                <dt>Amount</dt>
+                <dd>{formatUsdFromMinor(order.amountMinor)}</dd>
+              </div>
+              <div>
+                <dt>Created</dt>
+                <dd>{new Date(order.createdAt).toLocaleString()}</dd>
+              </div>
+              <div>
+                <dt>Lot status</dt>
+                <dd>
+                  <span className={`badge badge-${order.lot.status.toLowerCase()}`}>
+                    {order.lot.status}
+                  </span>
+                </dd>
+              </div>
+            </dl>
+          </section>
+
+          <section className="card admin-section">
+            <h3>Parties</h3>
+            <div className="grid">
+              <div>
+                <p className="eyebrow">Buyer</p>
+                <p>
+                  <strong>{order.buyer.username}</strong> ({order.buyer.status})
+                </p>
+                <p className="muted small">
+                  Available: {walletBalance(order.buyer.wallet, 'AVAILABLE')} · Hold:{' '}
+                  {walletBalance(order.buyer.wallet, 'HOLD')}
+                </p>
+              </div>
+              <div>
+                <p className="eyebrow">Seller</p>
+                <p>
+                  <strong>{order.seller.username}</strong> ({order.seller.status})
+                </p>
+                <p className="muted small">
+                  Available: {walletBalance(order.seller.wallet, 'AVAILABLE')} · Hold:{' '}
+                  {walletBalance(order.seller.wallet, 'HOLD')}
+                </p>
+              </div>
+            </div>
+          </section>
+
+          <section className="card admin-section">
+            <h3>Trade & hold</h3>
+            <dl className="meta-list">
+              <div>
+                <dt>Trade status</dt>
+                <dd>{order.tradeOperation?.status ?? '—'}</dd>
+              </div>
+              <div>
+                <dt>Provider ref</dt>
+                <dd>{order.tradeOperation?.providerRef ?? '—'}</dd>
+              </div>
+              <div>
+                <dt>Fail reason</dt>
+                <dd>{order.tradeOperation?.failReasonCode ?? '—'}</dd>
+              </div>
+              <div>
+                <dt>Hold amount</dt>
+                <dd>{order.hold ? formatUsdFromMinor(order.hold.amountMinor) : '—'}</dd>
+              </div>
+              <div>
+                <dt>Captured</dt>
+                <dd>
+                  {order.hold?.capturedMinor
+                    ? formatUsdFromMinor(order.hold.capturedMinor)
+                    : '—'}
+                </dd>
+              </div>
+              <div>
+                <dt>Released</dt>
+                <dd>
+                  {order.hold?.releasedMinor
+                    ? formatUsdFromMinor(order.hold.releasedMinor)
+                    : '—'}
+                </dd>
+              </div>
+            </dl>
+          </section>
+
+          {card ? (
+            <>
+              <section className="card admin-section">
+                <h3>Ledger</h3>
+                <div className="table-wrap">
+                  <table className="data-table" data-testid="admin-ledger-table">
+                    <thead>
+                      <tr>
+                        <th>Type</th>
+                        <th>Amount</th>
+                        <th>Created</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {card.ledgerEntries.map((entry) => (
+                        <tr key={entry.id}>
+                          <td>{entry.type}</td>
+                          <td>{formatUsdFromMinor(entry.amountMinor)}</td>
+                          <td>{new Date(entry.createdAt).toLocaleString()}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </section>
+
+              <section className="card admin-section">
+                <h3>Timeline</h3>
+                <ul className="simple-list" data-testid="admin-order-timeline">
+                  {card.orderStatusEvents.map((event) => (
+                    <li key={event.id}>
+                      Order: {event.fromStatus ?? '—'} → {event.toStatus}
+                      {event.reason ? ` (${event.reason})` : ''}
+                    </li>
+                  ))}
+                </ul>
+                <ul className="simple-list">
+                  {card.lotStatusEvents.map((event) => (
+                    <li key={event.id}>
+                      Lot: {event.fromStatus ?? '—'} → {event.toStatus}
+                    </li>
+                  ))}
+                </ul>
+              </section>
+
+              <section className="card admin-section">
+                <h3>Audit</h3>
+                <div className="table-wrap">
+                  <table className="data-table" data-testid="admin-audit-table">
+                    <thead>
+                      <tr>
+                        <th>Action</th>
+                        <th>Entity</th>
+                        <th>Reason</th>
+                        <th>When</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {card.auditLogs.map((log) => (
+                        <tr key={log.id}>
+                          <td>{log.action}</td>
+                          <td>
+                            {log.entityType}:{log.entityId.slice(0, 8)}…
+                          </td>
+                          <td>{log.reason ?? '—'}</td>
+                          <td>{new Date(log.createdAt).toLocaleString()}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </section>
+
+              <section className="card admin-section">
+                <h3>Outbox (order)</h3>
+                <div className="table-wrap">
+                  <table className="data-table" data-testid="admin-outbox-table">
+                    <thead>
+                      <tr>
+                        <th>Event</th>
+                        <th>Status</th>
+                        <th>Retries</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {card.outboxEvents.map((event) => (
+                        <tr key={event.id} data-testid={`admin-outbox-row-${event.status}`}>
+                          <td>{event.eventType}</td>
+                          <td>{event.status}</td>
+                          <td>{event.retryCount}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </section>
+            </>
+          ) : null}
+
+          <section className="card admin-section" data-testid="admin-actions-panel">
+            <h3>Actions</h3>
+            <label className="field">
+              <span>Reason</span>
+              <textarea
+                className="textarea"
+                value={reason}
+                onChange={(event) => setReason(event.target.value)}
+                data-testid="admin-action-reason"
+                rows={3}
+                placeholder="Required for dispute actions"
+              />
+            </label>
+
+            {canOpenDispute ? (
+              <form onSubmit={(event) => void handleOpenDispute(event)}>
+                <button
+                  type="submit"
+                  className="button secondary"
+                  disabled={actionLoading !== null}
+                  data-testid="admin-open-dispute"
+                >
+                  {actionLoading === 'open-dispute' ? 'Opening…' : 'Open dispute'}
+                </button>
+              </form>
+            ) : null}
+
+            {canResolve ? (
+              <div className="stack">
+                <button
+                  type="button"
+                  className="button primary"
+                  disabled={actionLoading !== null}
+                  data-testid="admin-resolve-buyer"
+                  onClick={() => void handleResolve('BUYER')}
+                >
+                  {actionLoading === 'resolve-buyer' ? 'Resolving…' : 'Resolve for buyer'}
+                </button>
+                <button
+                  type="button"
+                  className="button secondary"
+                  disabled={actionLoading !== null}
+                  data-testid="admin-resolve-seller"
+                  onClick={() => void handleResolve('SELLER')}
+                >
+                  {actionLoading === 'resolve-seller' ? 'Resolving…' : 'Resolve for seller'}
+                </button>
+              </div>
+            ) : null}
+
+            {successMessage ? (
+              <p className="success-text" data-testid="admin-action-success">
+                {successMessage}
+              </p>
+            ) : null}
+          </section>
+
+          <ErrorAlert error={error} />
+        </div>
+      ) : null}
+    </div>
+  );
+}

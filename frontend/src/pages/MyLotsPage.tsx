@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { getMyLots } from '../api/sell';
+import { cancelLot, getMyLots } from '../api/marketplace';
 import type { Lot } from '../api/types';
 import { useAuth } from '../auth/AuthContext';
 import { ErrorAlert } from '../components/ErrorAlert';
@@ -10,6 +10,7 @@ export function MyLotsPage() {
   const { token } = useAuth();
   const [lots, setLots] = useState<Lot[]>([]);
   const [loading, setLoading] = useState(true);
+  const [cancelingId, setCancelingId] = useState<string | null>(null);
   const [error, setError] = useState<unknown>(null);
 
   useEffect(() => {
@@ -22,6 +23,23 @@ export function MyLotsPage() {
       .catch((err: unknown) => setError(err))
       .finally(() => setLoading(false));
   }, [token]);
+
+  async function handleCancel(lotId: string) {
+    if (!token) {
+      return;
+    }
+    setCancelingId(lotId);
+    setError(null);
+    try {
+      await cancelLot(token, lotId);
+      const data = await getMyLots(token);
+      setLots(data);
+    } catch (err) {
+      setError(err);
+    } finally {
+      setCancelingId(null);
+    }
+  }
 
   return (
     <div className="page">
@@ -55,6 +73,7 @@ export function MyLotsPage() {
               <th>Price</th>
               <th>Commission</th>
               <th>You receive</th>
+              <th />
             </tr>
           </thead>
           <tbody>
@@ -67,6 +86,21 @@ export function MyLotsPage() {
                 <td>{formatUsdFromMinor(lot.priceMinor)}</td>
                 <td>{formatUsdFromMinor(lot.commissionMinor)}</td>
                 <td>{formatUsdFromMinor(lot.sellerReceiveMinor)}</td>
+                <td>
+                  {lot.status === 'ACTIVE' ? (
+                    <button
+                      type="button"
+                      className="link-button"
+                      disabled={cancelingId === lot.id}
+                      data-testid={`cancel-lot-${lot.id}`}
+                      onClick={() => void handleCancel(lot.id)}
+                    >
+                      {cancelingId === lot.id ? 'Canceling…' : 'Cancel'}
+                    </button>
+                  ) : lot.status === 'RESERVED' || lot.status === 'SOLD' ? (
+                    <Link to="/my/orders">View orders</Link>
+                  ) : null}
+                </td>
               </tr>
             ))}
           </tbody>

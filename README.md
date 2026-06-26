@@ -1,6 +1,6 @@
 # R.I.P. Market
 
-CS2 P2P marketplace — backend + seller UI (Phase 1 sell slice).
+CS2 P2P marketplace — backend + React UI (sell, buy, and ops flows).
 
 Repository: [github.com/Mikhail-Sklyarenko/R.I.P.-Market](https://github.com/Mikhail-Sklyarenko/R.I.P.-Market)
 
@@ -10,6 +10,8 @@ Repository: [github.com/Mikhail-Sklyarenko/R.I.P.-Market](https://github.com/Mik
 |-------|------|--------|
 | Phase 0 | Gate 0 — foundation, providers, CI | Closed |
 | Phase 1 | Gate 1 — seller vertical slice | Closed |
+| Phase 2 | Gate 2 — buy + complete slice | Closed |
+| Phase 3 | Gate 3 — dispute ops slice | Closed |
 
 ## Quick start
 
@@ -32,19 +34,21 @@ npm run dev
 
 - API: http://localhost:3000/api/v1
 - Swagger: http://localhost:3000/api/docs
-- Seller UI: http://localhost:5173/login
+- UI: http://localhost:5173/login (Seller → `/sell/*`, Buyer → `/catalog`, Admin → `/admin/orders`)
 
 ## Documentation
 
 - [Local runbook](docs/runbook.md)
 - [Phase 1 — Sell slice](docs/phase-1-sell.md)
+- [Phase 2 — Buy + Complete](docs/phase-2-buy-complete.md)
+- [Phase 3 — Dispute Ops](docs/phase-3-dispute-ops.md)
 - [Steam spike](docs/steam-spike.md)
 
 ## Project layout
 
 ```
 backend/     NestJS API, Prisma, PostgreSQL
-frontend/    Vite + React seller UI
+frontend/    Vite + React UI (seller, buyer, admin ops)
 docs/        Runbooks and phase docs
 .github/     CI (backend, frontend, UI e2e)
 ```

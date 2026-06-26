@@ -34,6 +34,8 @@ export type AuthConfig = {
   authProvider: 'mock' | 'steam';
   steamLoginAvailable: boolean;
   mockLoginAvailable: boolean;
+  mockTradeEnabled: boolean;
+  mockDepositEnabled: boolean;
 };
 
 export type AuthUser = {
@@ -80,3 +82,132 @@ export type PricingPreview = {
   commissionMinor: number;
   sellerReceiveMinor: number;
 };
+
+export type TradeOperation = {
+  id: string;
+  status: string;
+  providerRef?: string | null;
+  failReasonCode?: string | null;
+};
+
+export type Order = {
+  id: string;
+  lotId: string;
+  buyerId: string;
+  sellerId: string;
+  status: string;
+  amountMinor: string;
+  holdAmountMinor: string;
+  createdAt: string;
+  lot: Lot;
+  tradeOperation?: TradeOperation | null;
+  hold?: { id: string; amountMinor: string } | null;
+};
+
+export type WalletAccount = {
+  type: string;
+  balanceMinor: string;
+};
+
+export type Wallet = {
+  id: string;
+  currency: string;
+  accounts: WalletAccount[];
+  summary: {
+    availableMinor: string;
+    holdMinor: string;
+    frozenMinor: string;
+    totalMinor: string;
+  };
+};
+
+export type LedgerEntry = {
+  id: string;
+  type: string;
+  amountMinor: string;
+  createdAt: string;
+};
+
+export type Notification = {
+  id: string;
+  eventType: string;
+  title: string;
+  message: string;
+  readAt: string | null;
+  createdAt: string;
+  payload?: Record<string, unknown>;
+};
+
+export type AdminUserSummary = {
+  id: string;
+  username: string;
+  role: string;
+  status: string;
+  wallet?: Wallet | null;
+};
+
+export type AdminOrderSummary = Order & {
+  buyer: AdminUserSummary;
+  seller: AdminUserSummary;
+};
+
+export type HoldDetails = {
+  id: string;
+  amountMinor: string;
+  capturedMinor?: string;
+  releasedMinor?: string;
+};
+
+export type AdminOrderDetails = Order & {
+  buyer: AdminUserSummary;
+  seller: AdminUserSummary;
+  hold?: HoldDetails | null;
+};
+
+export type LedgerEntryDetails = LedgerEntry & {
+  walletId?: string;
+  orderId?: string | null;
+};
+
+export type AuditLogEntry = {
+  id: string;
+  action: string;
+  entityType: string;
+  entityId: string;
+  reason?: string | null;
+  beforeState?: Record<string, unknown> | null;
+  afterState?: Record<string, unknown> | null;
+  createdAt: string;
+  actorUser?: { id: string; username: string; role: string } | null;
+};
+
+export type StatusEvent = {
+  id: string;
+  fromStatus: string | null;
+  toStatus: string;
+  reason?: string | null;
+  createdAt: string;
+};
+
+export type OutboxEvent = {
+  id: string;
+  eventType: string;
+  aggregateType: string;
+  aggregateId: string;
+  status: string;
+  retryCount: number;
+  createdAt: string;
+  processedAt?: string | null;
+  payload?: Record<string, unknown>;
+};
+
+export type AdminOrderCard = {
+  order: AdminOrderDetails;
+  ledgerEntries: LedgerEntryDetails[];
+  auditLogs: AuditLogEntry[];
+  outboxEvents: OutboxEvent[];
+  orderStatusEvents: StatusEvent[];
+  lotStatusEvents: StatusEvent[];
+};
+
+export type DisputeResolution = 'BUYER' | 'SELLER';

@@ -16,6 +16,8 @@ export class AuthController {
       authProvider: config.auth,
       steamLoginAvailable: config.auth === 'steam',
       mockLoginAvailable: true,
+      mockTradeEnabled: process.env.ENABLE_MOCK_TRADE !== 'false',
+      mockDepositEnabled: process.env.ENABLE_MOCK_DEPOSIT !== 'false',
     };
   }
 
