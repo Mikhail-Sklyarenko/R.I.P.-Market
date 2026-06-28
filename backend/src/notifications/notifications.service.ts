@@ -63,6 +63,11 @@ export class NotificationsService {
       return;
     }
 
+    if (eventType === 'TRADE_SHADOW_MISMATCH') {
+      await this.notifyAdminsShadowMismatch(aggregateId, payload);
+      return;
+    }
+
     if (aggregateType !== 'order') {
       return;
     }
@@ -83,6 +88,43 @@ export class NotificationsService {
 
     await this.prisma.notification.createMany({
       data: notifications,
+    });
+  }
+
+  private async notifyAdminsShadowMismatch(
+    orderId: string,
+    payload: Prisma.JsonValue,
+  ): Promise<void> {
+    const admins = await this.prisma.user.findMany({
+      where: { role: UserRole.ADMIN },
+      select: { id: true },
+    });
+
+    if (admins.length === 0) {
+      return;
+    }
+
+    const observed =
+      typeof payload === 'object' &&
+      payload !== null &&
+      'observedStatus' in payload
+        ? String(payload.observedStatus)
+        : 'unknown';
+    const expected =
+      typeof payload === 'object' &&
+      payload !== null &&
+      'expectedStatus' in payload
+        ? String(payload.expectedStatus)
+        : 'unknown';
+
+    await this.prisma.notification.createMany({
+      data: admins.map((admin) => ({
+        userId: admin.id,
+        eventType: 'TRADE_SHADOW_MISMATCH',
+        title: 'Trade shadow mismatch',
+        message: `Order ${orderId.slice(0, 8)}…: observed ${observed}, expected ${expected}.`,
+        payload: payload ?? { orderId },
+      })),
     });
   }
 

@@ -4,6 +4,8 @@ import { OrdersModule } from '../orders/orders.module';
 import { WalletModule } from '../wallet/wallet.module';
 import { TradesController } from './trades.controller';
 import { TradeInventoryDeltaService } from './trade-inventory-delta.service';
+import { TradeShadowComparatorService } from './trade-shadow-comparator.service';
+import { TradeShadowMetricsService } from './trade-shadow-metrics.service';
 import { TradeStatusPollerService } from './trade-status-poller.service';
 import { TradesService } from './trades.service';
 
@@ -14,7 +16,14 @@ import { TradesService } from './trades.service';
     TradesService,
     TradeInventoryDeltaService,
     TradeStatusPollerService,
+    TradeShadowComparatorService,
+    TradeShadowMetricsService,
   ],
-  exports: [TradesService, TradeStatusPollerService],
+  exports: [
+    TradesService,
+    TradeStatusPollerService,
+    TradeShadowComparatorService,
+    TradeShadowMetricsService,
+  ],
 })
 export class TradesModule {}

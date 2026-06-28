@@ -15,6 +15,8 @@ import { LotStateService } from '../lots/lot-state.service';
 import { OrderStateService } from '../orders/order-state.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { LedgerService } from '../wallet/ledger.service';
+import { TradesService } from '../trades/trades.service';
+import { TradeShadowComparatorService } from '../trades/trade-shadow-comparator.service';
 import { DisputeResolution } from './dto/resolve-dispute.dto';
 
 @Injectable()
@@ -24,6 +26,8 @@ export class AdminService {
     private readonly ledgerService: LedgerService,
     private readonly lotStateService: LotStateService,
     private readonly orderStateService: OrderStateService,
+    private readonly tradesService: TradesService,
+    private readonly shadowComparator: TradeShadowComparatorService,
   ) {}
 
   async listUsers() {
@@ -187,6 +191,9 @@ export class AdminService {
         })
       : [];
 
+    const verificationSnapshots =
+      await this.shadowComparator.listSnapshots(orderId);
+
     return toJsonSafe({
       order,
       ledgerEntries,
@@ -195,7 +202,27 @@ export class AdminService {
       orderStatusEvents,
       lotStatusEvents,
       tradePollEvents,
+      verificationSnapshots,
     });
+  }
+
+  async applyObservedStatus(
+    orderId: string,
+    actorUserId: string,
+    idempotencyKey: string,
+  ) {
+    await this.tradesService.applyObservedStatus(
+      orderId,
+      actorUserId,
+      idempotencyKey,
+    );
+    return this.getOrderCard(orderId);
+  }
+
+  async getShadowDashboard() {
+    const mismatchesLast7d =
+      await this.shadowComparator.countMismatchesLast7Days();
+    return { mismatchesLast7d };
   }
 
   async listOrderStatusEvents(orderId: string) {

@@ -19,6 +19,8 @@ import { TRADE_PROVIDER } from '../providers/tokens';
 import type { TradeProvider, TradeVerificationResult } from '../providers/trade/trade-provider.interface';
 import { LedgerService } from '../wallet/ledger.service';
 import { MockFailMode } from './dto/mock-fail.dto';
+import { TradeShadowComparatorService } from './trade-shadow-comparator.service';
+import { isShadowVerificationMode } from './trade-verification.config';
 
 @Injectable()
 export class TradesService {
@@ -28,6 +30,7 @@ export class TradesService {
     private readonly lotStateService: LotStateService,
     private readonly orderStateService: OrderStateService,
     @Inject(TRADE_PROVIDER) private readonly tradeProvider: TradeProvider,
+    private readonly shadowComparator: TradeShadowComparatorService,
   ) {}
 
   async mockSuccess(
@@ -43,12 +46,18 @@ export class TradesService {
       where: {
         entityType: 'order',
         entityId: orderId,
-        action: 'TRADE_MOCK_SUCCESS',
+        action: isShadowVerificationMode()
+          ? 'TRADE_MOCK_SHADOW_COMPARE'
+          : 'TRADE_MOCK_SUCCESS',
         idempotencyKey,
       },
     });
     if (existingAudit) {
       return this.getOrderDetails(orderId);
+    }
+
+    if (isShadowVerificationMode()) {
+      return this.mockSuccessShadowCompare(orderId, actorUserId, idempotencyKey);
     }
 
     const order = await this.prisma.$transaction(async (tx) => {
@@ -183,6 +192,124 @@ export class TradesService {
     });
 
     return toJsonSafe(order);
+  }
+
+  private async mockSuccessShadowCompare(
+    orderId: string,
+    actorUserId: string,
+    idempotencyKey: string,
+  ) {
+    const order = await this.prisma.$transaction(async (tx) => {
+      const current = await tx.order.findUnique({
+        where: { id: orderId },
+        include: { tradeOperation: true },
+      });
+
+      if (!current || !current.tradeOperation) {
+        throw new NotFoundException('Trade operation not found');
+      }
+      if (current.status !== OrderStatus.WAITING_TRADE) {
+        throw new BadRequestException('Order is not in WAITING_TRADE status');
+      }
+      if (current.tradeOperation.status !== TradeOperationStatus.WAITING) {
+        throw new BadRequestException(
+          'Trade operation is not in WAITING status',
+        );
+      }
+
+      await this.shadowComparator.recordSnapshot({
+        orderId,
+        source: 'MOCK_MANUAL',
+        observedStatus: 'accepted',
+        payload: { actorUserId, action: 'mock-success' },
+        tx,
+      });
+
+      await tx.auditLog.create({
+        data: {
+          actorUserId,
+          entityType: 'order',
+          entityId: orderId,
+          action: 'TRADE_MOCK_SHADOW_COMPARE',
+          beforeState: {
+            status: current.status,
+            tradeStatus: current.tradeOperation.status,
+          },
+          afterState: {
+            status: current.status,
+            tradeStatus: current.tradeOperation.status,
+            shadowCompare: true,
+          },
+          idempotencyKey,
+          ...getAuditContext(),
+        },
+      });
+
+      return current;
+    });
+
+    return toJsonSafe(order);
+  }
+
+  async applyObservedStatus(
+    orderId: string,
+    actorUserId: string,
+    idempotencyKey: string,
+  ) {
+    if (!idempotencyKey) {
+      throw new BadRequestException('Idempotency-Key header is required');
+    }
+
+    const existingAudit = await this.prisma.auditLog.findFirst({
+      where: {
+        entityType: 'order',
+        entityId: orderId,
+        action: 'ADMIN_APPLY_OBSERVED_STATUS',
+        idempotencyKey,
+      },
+    });
+    if (existingAudit) {
+      return this.getOrderDetails(orderId);
+    }
+
+    const latestSteam = await this.shadowComparator.getLatestSteamObserved(
+      orderId,
+    );
+    if (!latestSteam) {
+      throw new BadRequestException(
+        'No Steam poll snapshot found for this order',
+      );
+    }
+
+    if (latestSteam === 'accepted') {
+      await this.applyTradeConfirmedFromPoll(orderId);
+    } else if (latestSteam === 'declined' || latestSteam === 'expired') {
+      await this.applyTradeFailedFromPoll(orderId, latestSteam);
+    } else if (latestSteam === 'timeout') {
+      await this.applyTradeTimeout(orderId, {
+        actorUserId,
+        idempotencyKey: `apply-observed-timeout:${idempotencyKey}`,
+        auditAction: 'ADMIN_APPLY_OBSERVED_TIMEOUT',
+      });
+    } else {
+      throw new BadRequestException(
+        `Observed status "${latestSteam}" cannot be applied`,
+      );
+    }
+
+    await this.prisma.auditLog.create({
+      data: {
+        actorUserId,
+        entityType: 'order',
+        entityId: orderId,
+        action: 'ADMIN_APPLY_OBSERVED_STATUS',
+        afterState: { appliedStatus: latestSteam },
+        idempotencyKey,
+        ...getAuditContext(),
+      },
+    });
+
+    return this.getOrderDetails(orderId);
   }
 
   async mockFail(

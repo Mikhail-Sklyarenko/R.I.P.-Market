@@ -38,6 +38,7 @@ export type AuthConfig = {
   mockLoginAvailable: boolean;
   mockTradeEnabled: boolean;
   mockDepositEnabled: boolean;
+  tradeVerificationMode: string;
 };
 
 export type AuthUser = {
@@ -130,6 +131,17 @@ export type TradePollEvent = {
   outcome: string;
   strategy?: string | null;
   error?: string | null;
+};
+
+export type TradeVerificationSnapshot = {
+  id: string;
+  orderId: string;
+  source: string;
+  observedStatus: string;
+  expectedStatus?: string | null;
+  match: boolean;
+  payload?: Record<string, unknown>;
+  createdAt: string;
 };
 
 export type Order = {
@@ -253,6 +265,7 @@ export type AdminOrderCard = {
   orderStatusEvents: StatusEvent[];
   lotStatusEvents: StatusEvent[];
   tradePollEvents?: TradePollEvent[];
+  verificationSnapshots?: TradeVerificationSnapshot[];
 };
 
 export type DisputeResolution = 'BUYER' | 'SELLER';

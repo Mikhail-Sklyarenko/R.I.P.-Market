@@ -39,6 +39,9 @@ export class AuthController {
       mockLoginAvailable: config.auth !== 'steam' || allowMockInSteamMode,
       mockTradeEnabled: process.env.ENABLE_MOCK_TRADE !== 'false',
       mockDepositEnabled: process.env.ENABLE_MOCK_DEPOSIT !== 'false',
+      tradeVerificationMode: (
+        process.env.TRADE_VERIFICATION_MODE ?? 'live'
+      ).toLowerCase(),
     };
   }
 

@@ -1,6 +1,6 @@
 import { type FormEvent, useCallback, useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
-import { getAdminOrderCard, openDispute, resolveDispute } from '../../api/admin';
+import { getAdminOrderCard, openDispute, resolveDispute, applyObservedStatus } from '../../api/admin';
 import type { AdminOrderCard } from '../../api/types';
 import { useAuth } from '../../auth/AuthContext';
 import { ErrorAlert } from '../../components/ErrorAlert';
@@ -69,6 +69,32 @@ export function AdminOrderCardPage() {
     }
   }
 
+  async function handleApplyObservedStatus() {
+    if (!token || !id) {
+      return;
+    }
+    if (
+      !window.confirm(
+        'Apply the latest Steam observed status to this order? Settlement will follow ENABLE_REAL_SETTLEMENT.',
+      )
+    ) {
+      return;
+    }
+
+    setActionLoading('apply-observed');
+    setError(null);
+    setSuccessMessage(null);
+    try {
+      const updated = await applyObservedStatus(token, id);
+      setCard(updated);
+      setSuccessMessage('Observed status applied');
+    } catch (err) {
+      setError(err);
+    } finally {
+      setActionLoading(null);
+    }
+  }
+
   async function handleOpenDispute(event: FormEvent) {
     event.preventDefault();
     if (!token || !id) {
@@ -99,6 +125,17 @@ export function AdminOrderCardPage() {
     order.status !== 'DISPUTE' &&
     OPEN_DISPUTE_STATUSES.has(order.status);
   const canResolve = order?.status === 'DISPUTE';
+  const isShadowOrder = order?.tradeOperation?.verificationMode === 'SHADOW';
+  const latestSteamSnapshot = card?.verificationSnapshots?.find(
+    (snapshot) => snapshot.source === 'STEAM_POLL',
+  );
+  const canApplyObserved =
+    isShadowOrder &&
+    order?.status === 'WAITING_TRADE' &&
+    latestSteamSnapshot !== undefined &&
+    ['accepted', 'declined', 'expired', 'timeout'].includes(
+      latestSteamSnapshot.observedStatus,
+    );
 
   return (
     <div className="page">
@@ -261,6 +298,64 @@ export function AdminOrderCardPage() {
                   </tbody>
                 </table>
               </div>
+            </section>
+          ) : null}
+
+          {isShadowOrder && card?.verificationSnapshots ? (
+            <section className="card admin-section" data-testid="shadow-verification">
+              <h3>Shadow verification</h3>
+              <div className="table-wrap">
+                <table className="data-table" data-testid="shadow-snapshots-table">
+                  <thead>
+                    <tr>
+                      <th>Created</th>
+                      <th>Source</th>
+                      <th>Observed</th>
+                      <th>Expected</th>
+                      <th>Match</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {card.verificationSnapshots.length === 0 ? (
+                      <tr>
+                        <td colSpan={5} className="muted">
+                          No snapshots yet
+                        </td>
+                      </tr>
+                    ) : (
+                      card.verificationSnapshots.map((snapshot) => (
+                        <tr key={snapshot.id}>
+                          <td>{new Date(snapshot.createdAt).toLocaleString()}</td>
+                          <td>{snapshot.source}</td>
+                          <td>{snapshot.observedStatus}</td>
+                          <td>{snapshot.expectedStatus ?? '—'}</td>
+                          <td>
+                            <span
+                              className={`badge ${snapshot.match ? 'badge-completed' : 'badge-dispute'}`}
+                              data-testid={`snapshot-match-${snapshot.match ? 'yes' : 'no'}`}
+                            >
+                              {snapshot.match ? 'Match' : 'Mismatch'}
+                            </span>
+                          </td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
+              {canApplyObserved ? (
+                <button
+                  type="button"
+                  className="button primary"
+                  disabled={actionLoading !== null}
+                  data-testid="admin-apply-observed-status"
+                  onClick={() => void handleApplyObservedStatus()}
+                >
+                  {actionLoading === 'apply-observed'
+                    ? 'Applying…'
+                    : `Apply observed status (${latestSteamSnapshot?.observedStatus})`}
+                </button>
+              ) : null}
             </section>
           ) : null}
 

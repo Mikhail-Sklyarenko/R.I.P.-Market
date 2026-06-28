@@ -13,6 +13,7 @@ import { getAuditContext } from '../common/observability/audit-context';
 import { LotStateService } from '../lots/lot-state.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { getProvidersConfig } from '../providers/config';
+import { resolveOrderVerificationMode } from '../trades/trade-verification.config';
 import { parseSteamTradeOfferId } from '../providers/trade/trade-offer.util';
 import { LedgerService } from '../wallet/ledger.service';
 import { CreateOrderDto } from './dto/create-order.dto';
@@ -374,9 +375,7 @@ export class OrdersService {
     if (config.trade !== 'steam') {
       return 'MOCK';
     }
-    return process.env.TRADE_VERIFICATION_MODE === 'SHADOW'
-      ? 'SHADOW'
-      : 'STEAM_POLL';
+    return resolveOrderVerificationMode();
   }
 
   async cancel(buyerId: string, orderId: string, idempotencyKey: string) {

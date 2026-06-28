@@ -69,6 +69,29 @@ export class AdminController {
   }
 
   @ApiHeader({ name: 'Idempotency-Key', required: true })
+  @Post('orders/:id/apply-observed-status')
+  async applyObservedStatus(
+    @CurrentUser() actor: AuthUser,
+    @Param('id') orderId: string,
+    @Headers('idempotency-key') idempotencyKey?: string,
+  ) {
+    if (!idempotencyKey) {
+      throw new BadRequestException('Idempotency-Key header is required');
+    }
+
+    return this.adminService.applyObservedStatus(
+      orderId,
+      actor.sub,
+      idempotencyKey,
+    );
+  }
+
+  @Get('metrics/shadow')
+  async getShadowMetrics() {
+    return this.adminService.getShadowDashboard();
+  }
+
+  @ApiHeader({ name: 'Idempotency-Key', required: true })
   @Post('orders/:id/dispute')
   async openDispute(
     @CurrentUser() actor: AuthUser,

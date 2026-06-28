@@ -10,6 +10,23 @@ export function getAdminOrderCard(token: string, orderId: string) {
   return apiRequest<AdminOrderCard>(`/admin/orders/${orderId}`, { token });
 }
 
+export function applyObservedStatus(
+  token: string,
+  orderId: string,
+  idempotencyKey?: string,
+) {
+  return apiRequest<AdminOrderCard>(`/admin/orders/${orderId}/apply-observed-status`, {
+    method: 'POST',
+    token,
+    idempotencyKey: idempotencyKey ?? createIdempotencyKey('apply-observed'),
+    body: {},
+  });
+}
+
+export function getShadowMetrics(token: string) {
+  return apiRequest<{ mismatchesLast7d: number }>('/admin/metrics/shadow', { token });
+}
+
 export function openDispute(
   token: string,
   orderId: string,

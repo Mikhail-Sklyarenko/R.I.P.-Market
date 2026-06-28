@@ -51,16 +51,6 @@ export class SteamTradeProvider implements TradeProvider {
   }
 
   async verifyTradeOffer(tradeOfferId: string): Promise<TradeVerificationResult> {
-    const mode = process.env.TRADE_VERIFICATION_MODE ?? 'STEAM_POLL';
-    if (mode === 'SHADOW') {
-      this.logger.debug(`SHADOW verify trade offer ${tradeOfferId}`);
-      return {
-        status: 'pending',
-        tradable: null,
-        tradeLockUntil: null,
-      };
-    }
-
     const apiKey = process.env.STEAM_WEB_API_KEY;
     if (!apiKey) {
       throw new AppException(

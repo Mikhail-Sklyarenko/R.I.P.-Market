@@ -253,6 +253,19 @@ model TradePollEvent {
   @@index([tradeOperationId, checkedAt])
 }
 
+model TradeVerificationSnapshot {
+  id              String   @id @default(uuid())
+  orderId         String
+  source          String
+  observedStatus  String
+  expectedStatus  String?
+  match           Boolean
+  payload         Json
+  createdAt       DateTime @default(now())
+
+  @@index([orderId, createdAt])
+}
+
 model Wallet {
   id         String          @id @default(uuid())
   userId     String          @unique
