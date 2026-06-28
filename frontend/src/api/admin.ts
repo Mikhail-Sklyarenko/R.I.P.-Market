@@ -1,5 +1,13 @@
 import { apiRequest, createIdempotencyKey } from './client';
-import type { AdminOrderCard, AdminOrderSummary, DisputeResolution, OutboxEvent } from './types';
+import type {
+  AdminOrderCard,
+  AdminOrderSummary,
+  DisputeResolution,
+  OutboxEvent,
+  SettlementAllowlistEntry,
+  SettlementAllowlistResponse,
+  SettlementEligibility,
+} from './types';
 import type { Order } from './types';
 
 export function getAdminOrders(token: string) {
@@ -25,6 +33,42 @@ export function applyObservedStatus(
 
 export function getShadowMetrics(token: string) {
   return apiRequest<{ mismatchesLast7d: number }>('/admin/metrics/shadow', { token });
+}
+
+export function getSettlementAllowlist(token: string) {
+  return apiRequest<SettlementAllowlistResponse>('/admin/settlement/allowlist', { token });
+}
+
+export function upsertSettlementAllowlist(
+  token: string,
+  steamId: string,
+  body: { enabled?: boolean; maxOrderMinor?: string; note?: string },
+) {
+  return apiRequest<SettlementAllowlistEntry>(`/admin/settlement/allowlist/${steamId}`, {
+    method: 'POST',
+    token,
+    body,
+  });
+}
+
+export function deleteSettlementAllowlist(token: string, steamId: string) {
+  return apiRequest<{ success: boolean }>(
+    `/admin/settlement/allowlist/${steamId}/delete`,
+    { method: 'POST', token, body: {} },
+  );
+}
+
+export function retrySettlement(token: string, orderId: string, idempotencyKey?: string) {
+  return apiRequest<AdminOrderCard>(`/admin/orders/${orderId}/retry-settlement`, {
+    method: 'POST',
+    token,
+    idempotencyKey: idempotencyKey ?? createIdempotencyKey('retry-settlement'),
+    body: {},
+  });
+}
+
+export function getSettlementEligibility(token: string) {
+  return apiRequest<SettlementEligibility>('/settlement/my-eligibility', { token });
 }
 
 export function openDispute(

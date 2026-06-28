@@ -10,6 +10,7 @@ import { LotsModule } from './lots/lots.module';
 import { WalletModule } from './wallet/wallet.module';
 import { OrdersModule } from './orders/orders.module';
 import { TradesModule } from './trades/trades.module';
+import { SettlementModule } from './settlement/settlement.module';
 import { AdminModule } from './admin/admin.module';
 import { OutboxModule } from './outbox/outbox.module';
 import { NotificationsModule } from './notifications/notifications.module';
@@ -31,6 +32,7 @@ import { TestModule } from './test/test.module';
     WalletModule,
     OrdersModule,
     TradesModule,
+    SettlementModule,
     AdminModule,
     OutboxModule,
     NotificationsModule,

@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { cancelOrder, getAuthConfig, getOrder, mockTradeSuccess, updateOrderTradeReference } from '../api/marketplace';
-import { mockTradeFail, mockTradeTimeout } from '../api/admin';
+import { getSettlementEligibility, mockTradeFail, mockTradeTimeout } from '../api/admin';
 import type { Order } from '../api/types';
 import { useAuth } from '../auth/AuthContext';
 import { ErrorAlert } from '../components/ErrorAlert';
@@ -20,6 +20,9 @@ export function OrderPage() {
   const [order, setOrder] = useState<Order | null>(null);
   const [mockTradeEnabled, setMockTradeEnabled] = useState(MOCK_TRADE_ENABLED);
   const [tradeProvider, setTradeProvider] = useState<'mock' | 'steam'>('mock');
+  const [enableRealSettlement, setEnableRealSettlement] = useState(false);
+  const [liveVerificationMode, setLiveVerificationMode] = useState(false);
+  const [settlementBanner, setSettlementBanner] = useState(false);
   const [offerInput, setOfferInput] = useState('');
   const [savingOffer, setSavingOffer] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -32,6 +35,14 @@ export function OrderPage() {
   const isSeller = user?.id === order?.sellerId;
   const canBuyerCancel =
     isBuyer && order !== null && BUYER_CANCELABLE_STATUSES.has(order.status);
+  const mockBlockedByLiveSettlement =
+    enableRealSettlement && liveVerificationMode && user?.role !== 'ADMIN';
+  const showMockTradePanel =
+    isBuyer &&
+    order?.status === 'WAITING_TRADE' &&
+    mockTradeEnabled &&
+    !mockBlockedByLiveSettlement &&
+    (tradeProvider === 'mock' || user?.role === 'ADMIN');
 
   const load = useCallback(() => {
     if (!token || !id) {
@@ -47,9 +58,20 @@ export function OrderPage() {
       .then((config) => {
         setMockTradeEnabled(config.mockTradeEnabled && MOCK_TRADE_ENABLED);
         setTradeProvider(config.tradeProvider);
+        setEnableRealSettlement(config.enableRealSettlement);
+        setLiveVerificationMode(config.liveVerificationMode);
       })
       .catch(() => undefined);
   }, []);
+
+  useEffect(() => {
+    if (!token) {
+      return;
+    }
+    getSettlementEligibility(token)
+      .then((eligibility) => setSettlementBanner(eligibility.bannerVisible))
+      .catch(() => undefined);
+  }, [token]);
 
   useEffect(() => {
     if (!token || !id) {
@@ -179,6 +201,12 @@ export function OrderPage() {
 
       {loading ? <p className="muted">Loading order…</p> : null}
 
+      {settlementBanner ? (
+        <div className="card notice-banner" data-testid="real-settlement-banner">
+          Real settlement is enabled for your Steam account on this environment.
+        </div>
+      ) : null}
+
       {order ? (
         <div className="card form-card" data-testid="order-page">
           <div className="item-card-header">
@@ -266,7 +294,7 @@ export function OrderPage() {
             </div>
           ) : null}
 
-          {isBuyer && order.status === 'WAITING_TRADE' && tradeProvider === 'mock' && mockTradeEnabled ? (
+          {showMockTradePanel ? (
             <div className="dev-panel" data-testid="mock-trade-panel">
               <p className="muted small">Dev/stage: simulate trade outcomes.</p>
               <div className="stack">

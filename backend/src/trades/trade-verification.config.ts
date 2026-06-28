@@ -16,6 +16,10 @@ export function isShadowVerificationMode(): boolean {
   return getTradeVerificationMode() === 'shadow';
 }
 
+export function isLiveVerificationMode(): boolean {
+  return getTradeVerificationMode() === 'live';
+}
+
 export function resolveOrderVerificationMode(): string {
   const mode = getTradeVerificationMode();
   if (mode === 'off') {

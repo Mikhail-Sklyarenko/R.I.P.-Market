@@ -15,6 +15,8 @@ import type { AuthUser } from '../common/auth-user.interface';
 import { AppException } from '../common/errors/app.exception';
 import { ErrorCode } from '../common/errors/error-codes';
 import { getProvidersConfig } from '../providers/config';
+import { isRealSettlementEnabled } from '../settlement/settlement.config';
+import { isLiveVerificationMode } from '../trades/trade-verification.config';
 import { extractOpenIdParams } from '../providers/auth/steam-openid.util';
 import { MockLoginDto } from './dto/mock-login.dto';
 import { SteamLinkDto } from './dto/steam-link.dto';
@@ -42,6 +44,8 @@ export class AuthController {
       tradeVerificationMode: (
         process.env.TRADE_VERIFICATION_MODE ?? 'live'
       ).toLowerCase(),
+      enableRealSettlement: isRealSettlementEnabled(),
+      liveVerificationMode: isLiveVerificationMode(),
     };
   }
 

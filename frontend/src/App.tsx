@@ -4,6 +4,7 @@ import { AuthProvider } from './auth/AuthContext';
 import { ProtectedRoute } from './auth/ProtectedRoute';
 import { AdminLayout } from './components/AdminLayout';
 import { Layout } from './components/Layout';
+import { AdminAllowlistPage } from './pages/admin/AdminAllowlistPage';
 import { AdminOrderCardPage } from './pages/admin/AdminOrderCardPage';
 import { AdminOrdersPage } from './pages/admin/AdminOrdersPage';
 import { AdminOutboxPage } from './pages/admin/AdminOutboxPage';
@@ -46,6 +47,7 @@ export function App() {
             <Route element={<AdminLayout />}>
               <Route path="/admin/orders" element={<AdminOrdersPage />} />
               <Route path="/admin/orders/:id" element={<AdminOrderCardPage />} />
+              <Route path="/admin/settlement/allowlist" element={<AdminAllowlistPage />} />
               <Route path="/admin/outbox" element={<AdminOutboxPage />} />
             </Route>
           </Route>

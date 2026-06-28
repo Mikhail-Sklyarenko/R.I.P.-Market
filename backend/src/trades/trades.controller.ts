@@ -32,7 +32,12 @@ export class TradesController {
     if (!idempotencyKey) {
       throw new BadRequestException('Idempotency-Key header is required');
     }
-    return this.tradesService.mockSuccess(orderId, actor.sub, idempotencyKey);
+    return this.tradesService.mockSuccess(
+      orderId,
+      actor.sub,
+      idempotencyKey,
+      actor.role,
+    );
   }
 
   @ApiHeader({ name: 'Idempotency-Key', required: true })

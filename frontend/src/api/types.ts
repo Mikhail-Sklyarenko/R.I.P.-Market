@@ -39,6 +39,8 @@ export type AuthConfig = {
   mockTradeEnabled: boolean;
   mockDepositEnabled: boolean;
   tradeVerificationMode: string;
+  enableRealSettlement: boolean;
+  liveVerificationMode: boolean;
 };
 
 export type AuthUser = {
@@ -266,6 +268,31 @@ export type AdminOrderCard = {
   lotStatusEvents: StatusEvent[];
   tradePollEvents?: TradePollEvent[];
   verificationSnapshots?: TradeVerificationSnapshot[];
+  settlement?: SettlementStatus;
+};
+
+export type SettlementStatus =
+  | { allowed: true }
+  | { allowed: false; code: string; reason: string };
+
+export type SettlementAllowlistEntry = {
+  steamId: string;
+  enabled: boolean;
+  maxOrderMinor?: string | null;
+  note?: string | null;
+  createdAt: string;
+};
+
+export type SettlementAllowlistResponse = {
+  envSteamIds: string[];
+  entries: SettlementAllowlistEntry[];
+};
+
+export type SettlementEligibility = {
+  realSettlementEnabled: boolean;
+  steamId: string | null;
+  allowlisted: boolean;
+  bannerVisible: boolean;
 };
 
 export type DisputeResolution = 'BUYER' | 'SELLER';

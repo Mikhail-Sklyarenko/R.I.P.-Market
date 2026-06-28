@@ -15,9 +15,12 @@ import { LotStateService } from '../lots/lot-state.service';
 import { OrderStateService } from '../orders/order-state.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { LedgerService } from '../wallet/ledger.service';
+import { SettlementService } from '../settlement/settlement.service';
+import { getEnvAllowlistSteamIds } from '../settlement/settlement.config';
 import { TradesService } from '../trades/trades.service';
 import { TradeShadowComparatorService } from '../trades/trade-shadow-comparator.service';
 import { DisputeResolution } from './dto/resolve-dispute.dto';
+import { UpsertAllowlistEntryDto } from './dto/upsert-allowlist.dto';
 
 @Injectable()
 export class AdminService {
@@ -28,6 +31,7 @@ export class AdminService {
     private readonly orderStateService: OrderStateService,
     private readonly tradesService: TradesService,
     private readonly shadowComparator: TradeShadowComparatorService,
+    private readonly settlementService: SettlementService,
   ) {}
 
   async listUsers() {
@@ -194,6 +198,8 @@ export class AdminService {
     const verificationSnapshots =
       await this.shadowComparator.listSnapshots(orderId);
 
+    const settlement = await this.settlementService.evaluateOrder(orderId);
+
     return toJsonSafe({
       order,
       ledgerEntries,
@@ -203,7 +209,105 @@ export class AdminService {
       lotStatusEvents,
       tradePollEvents,
       verificationSnapshots,
+      settlement,
     });
+  }
+
+  async retrySettlement(
+    orderId: string,
+    actorUserId: string,
+    idempotencyKey: string,
+  ) {
+    if (!idempotencyKey) {
+      throw new BadRequestException('Idempotency-Key header is required');
+    }
+
+    await this.settlementService.trySettleConfirmedOrder(
+      orderId,
+      `admin-retry-settle:${idempotencyKey}`,
+    );
+
+    await this.prisma.auditLog.create({
+      data: {
+        actorUserId,
+        entityType: 'order',
+        entityId: orderId,
+        action: 'ADMIN_RETRY_SETTLEMENT',
+        idempotencyKey,
+      },
+    });
+
+    return this.getOrderCard(orderId);
+  }
+
+  async listSettlementAllowlist() {
+    const entries = await this.prisma.settlementAllowlistEntry.findMany({
+      orderBy: { createdAt: 'desc' },
+    });
+    return toJsonSafe({
+      envSteamIds: [...getEnvAllowlistSteamIds()],
+      entries,
+    });
+  }
+
+  async upsertSettlementAllowlist(
+    steamId: string,
+    body: UpsertAllowlistEntryDto,
+    actorUserId: string,
+  ) {
+    const maxOrderMinor =
+      body.maxOrderMinor !== undefined && body.maxOrderMinor !== ''
+        ? BigInt(body.maxOrderMinor)
+        : null;
+
+    const entry = await this.prisma.settlementAllowlistEntry.upsert({
+      where: { steamId },
+      create: {
+        steamId,
+        enabled: body.enabled ?? true,
+        maxOrderMinor,
+        note: body.note ?? null,
+      },
+      update: {
+        ...(body.enabled !== undefined ? { enabled: body.enabled } : {}),
+        ...(body.maxOrderMinor !== undefined ? { maxOrderMinor } : {}),
+        ...(body.note !== undefined ? { note: body.note } : {}),
+      },
+    });
+
+    await this.prisma.auditLog.create({
+      data: {
+        actorUserId,
+        entityType: 'settlement_allowlist',
+        entityId: steamId,
+        action: 'SETTLEMENT_ALLOWLIST_UPSERT',
+        afterState: { enabled: entry.enabled, maxOrderMinor: entry.maxOrderMinor?.toString() ?? null },
+      },
+    });
+
+    return toJsonSafe(entry);
+  }
+
+  async deleteSettlementAllowlist(steamId: string, actorUserId: string) {
+    const entry = await this.prisma.settlementAllowlistEntry.findUnique({
+      where: { steamId },
+    });
+    if (!entry) {
+      throw new NotFoundException('Allowlist entry not found');
+    }
+
+    await this.prisma.settlementAllowlistEntry.delete({ where: { steamId } });
+
+    await this.prisma.auditLog.create({
+      data: {
+        actorUserId,
+        entityType: 'settlement_allowlist',
+        entityId: steamId,
+        action: 'SETTLEMENT_ALLOWLIST_DELETE',
+      },
+    });
+
+    return { success: true };
   }
 
   async applyObservedStatus(

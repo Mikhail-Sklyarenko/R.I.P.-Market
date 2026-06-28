@@ -15,6 +15,7 @@ export function AdminLayout() {
         </div>
         <nav className="app-nav">
           <Link to="/admin/orders">Orders</Link>
+          <Link to="/admin/settlement/allowlist">Settlement</Link>
           <Link to="/admin/outbox">Outbox</Link>
           <NotificationsBell />
           <span className="muted small">{user?.username}</span>

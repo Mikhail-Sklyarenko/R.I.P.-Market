@@ -22,6 +22,7 @@ import { OutboxProcessorService } from '../outbox/outbox-processor.service';
 import { OpenDisputeDto } from './dto/open-dispute.dto';
 import { ResolveDisputeDto } from './dto/resolve-dispute.dto';
 import { UpdateUserStatusDto } from './dto/update-user-status.dto';
+import { UpsertAllowlistEntryDto } from './dto/upsert-allowlist.dto';
 
 @ApiTags('admin')
 @ApiBearerAuth()
@@ -89,6 +90,50 @@ export class AdminController {
   @Get('metrics/shadow')
   async getShadowMetrics() {
     return this.adminService.getShadowDashboard();
+  }
+
+  @Get('settlement/allowlist')
+  async listSettlementAllowlist() {
+    return this.adminService.listSettlementAllowlist();
+  }
+
+  @Post('settlement/allowlist/:steamId')
+  async upsertSettlementAllowlist(
+    @CurrentUser() actor: AuthUser,
+    @Param('steamId') steamId: string,
+    @Body() body: UpsertAllowlistEntryDto,
+  ) {
+    return this.adminService.upsertSettlementAllowlist(
+      steamId,
+      body,
+      actor.sub,
+    );
+  }
+
+  @Post('settlement/allowlist/:steamId/delete')
+  async deleteSettlementAllowlist(
+    @CurrentUser() actor: AuthUser,
+    @Param('steamId') steamId: string,
+  ) {
+    return this.adminService.deleteSettlementAllowlist(steamId, actor.sub);
+  }
+
+  @ApiHeader({ name: 'Idempotency-Key', required: true })
+  @Post('orders/:id/retry-settlement')
+  async retrySettlement(
+    @CurrentUser() actor: AuthUser,
+    @Param('id') orderId: string,
+    @Headers('idempotency-key') idempotencyKey?: string,
+  ) {
+    if (!idempotencyKey) {
+      throw new BadRequestException('Idempotency-Key header is required');
+    }
+
+    return this.adminService.retrySettlement(
+      orderId,
+      actor.sub,
+      idempotencyKey,
+    );
   }
 
   @ApiHeader({ name: 'Idempotency-Key', required: true })

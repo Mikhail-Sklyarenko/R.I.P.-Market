@@ -1,6 +1,6 @@
 import { type FormEvent, useCallback, useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
-import { getAdminOrderCard, openDispute, resolveDispute, applyObservedStatus } from '../../api/admin';
+import { getAdminOrderCard, openDispute, resolveDispute, applyObservedStatus, retrySettlement } from '../../api/admin';
 import type { AdminOrderCard } from '../../api/types';
 import { useAuth } from '../../auth/AuthContext';
 import { ErrorAlert } from '../../components/ErrorAlert';
@@ -62,6 +62,26 @@ export function AdminOrderCardPage() {
       setCard(updated);
       setReason('');
       setSuccessMessage(message);
+    } catch (err) {
+      setError(err);
+    } finally {
+      setActionLoading(null);
+    }
+  }
+
+  async function handleRetrySettlement() {
+    if (!token || !id) {
+      return;
+    }
+    if (!window.confirm('Retry real settlement for this order?')) {
+      return;
+    }
+    setActionLoading('retry-settlement');
+    setError(null);
+    try {
+      const updated = await retrySettlement(token, id);
+      setCard(updated);
+      setSuccessMessage('Settlement retry processed');
     } catch (err) {
       setError(err);
     } finally {
@@ -137,6 +157,42 @@ export function AdminOrderCardPage() {
       latestSteamSnapshot.observedStatus,
     );
 
+  const canRetrySettlement =
+    order?.status === 'TRADE_CONFIRMED' &&
+    card?.settlement !== undefined &&
+    card.settlement.allowed === false &&
+    card.settlement.code !== 'TRADE_NOT_CONFIRMED' &&
+    card.settlement.code !== 'ORDER_NOT_TRADE_CONFIRMED';
+
+  function settlementBadge() {
+    const settlement = card?.settlement;
+    if (!settlement) {
+      return null;
+    }
+    if (settlement.allowed) {
+      return (
+        <span className="badge badge-completed" data-testid="settlement-eligible">
+          Real settlement eligible
+        </span>
+      );
+    }
+    if (
+      settlement.code === 'TRADE_NOT_CONFIRMED' ||
+      settlement.code === 'ORDER_NOT_TRADE_CONFIRMED'
+    ) {
+      return (
+        <span className="badge badge-waiting" data-testid="settlement-pending">
+          Awaiting trade confirmation
+        </span>
+      );
+    }
+    return (
+      <span className="badge badge-dispute" data-testid="settlement-blocked" title={settlement.reason}>
+        Settlement blocked
+      </span>
+    );
+  }
+
   return (
     <div className="page">
       <div className="page-header">
@@ -156,13 +212,21 @@ export function AdminOrderCardPage() {
           <section className="card admin-section">
             <div className="item-card-header">
               <h3>{order.lot.inventoryAsset.itemDefinition.marketHashName}</h3>
-              <span
-                className={`badge badge-${order.status.toLowerCase()}`}
-                data-testid="admin-order-status"
-              >
-                {order.status}
-              </span>
+              <div className="stack horizontal">
+                <span
+                  className={`badge badge-${order.status.toLowerCase()}`}
+                  data-testid="admin-order-status"
+                >
+                  {order.status}
+                </span>
+                {settlementBadge()}
+              </div>
             </div>
+            {card?.settlement && !card.settlement.allowed ? (
+              <p className="muted small" data-testid="settlement-block-reason">
+                {card.settlement.reason}
+              </p>
+            ) : null}
             <dl className="meta-list">
               <div>
                 <dt>Order ID</dt>
@@ -471,6 +535,18 @@ export function AdminOrderCardPage() {
                 placeholder="Required for dispute actions"
               />
             </label>
+
+            {canRetrySettlement ? (
+              <button
+                type="button"
+                className="button secondary"
+                disabled={actionLoading !== null}
+                data-testid="admin-retry-settlement"
+                onClick={() => void handleRetrySettlement()}
+              >
+                {actionLoading === 'retry-settlement' ? 'Retrying…' : 'Retry settlement'}
+              </button>
+            ) : null}
 
             {canOpenDispute ? (
               <form onSubmit={(event) => void handleOpenDispute(event)}>

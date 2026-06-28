@@ -259,6 +259,23 @@ export class NotificationsService {
             basePayload,
           ),
         ];
+      case 'SETTLEMENT_BLOCKED':
+        return [
+          this.row(
+            order.buyerId,
+            eventType,
+            'Settlement blocked',
+            'Trade confirmed but settlement was blocked by policy limits.',
+            basePayload,
+          ),
+          this.row(
+            order.sellerId,
+            eventType,
+            'Settlement blocked',
+            'Trade confirmed but settlement was blocked by policy limits.',
+            basePayload,
+          ),
+        ];
       default:
         return [];
     }

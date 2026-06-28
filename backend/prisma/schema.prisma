@@ -266,6 +266,21 @@ model TradeVerificationSnapshot {
   @@index([orderId, createdAt])
 }
 
+model SettlementAllowlistEntry {
+  steamId         String   @id
+  enabled         Boolean  @default(true)
+  maxOrderMinor   BigInt?
+  note            String?
+  createdAt       DateTime @default(now())
+}
+
+model SettlementDailyStats {
+  day           String   @id
+  orderCount    Int      @default(0)
+  volumeMinor   BigInt   @default(0)
+  updatedAt     DateTime @updatedAt
+}
+
 model Wallet {
   id         String          @id @default(uuid())
   userId     String          @unique

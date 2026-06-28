@@ -9,6 +9,7 @@ import {
   LotStatus,
   OrderStatus,
   TradeOperationStatus,
+  UserRole,
 } from '@prisma/client';
 import { getAuditContext } from '../common/observability/audit-context';
 import { toJsonSafe } from '../common/json-safe.util';
@@ -18,9 +19,14 @@ import { PrismaService } from '../prisma/prisma.service';
 import { TRADE_PROVIDER } from '../providers/tokens';
 import type { TradeProvider, TradeVerificationResult } from '../providers/trade/trade-provider.interface';
 import { LedgerService } from '../wallet/ledger.service';
+import { isRealSettlementEnabled } from '../settlement/settlement.config';
+import { SettlementService } from '../settlement/settlement.service';
 import { MockFailMode } from './dto/mock-fail.dto';
 import { TradeShadowComparatorService } from './trade-shadow-comparator.service';
-import { isShadowVerificationMode } from './trade-verification.config';
+import {
+  isLiveVerificationMode,
+  isShadowVerificationMode,
+} from './trade-verification.config';
 
 @Injectable()
 export class TradesService {
@@ -31,12 +37,14 @@ export class TradesService {
     private readonly orderStateService: OrderStateService,
     @Inject(TRADE_PROVIDER) private readonly tradeProvider: TradeProvider,
     private readonly shadowComparator: TradeShadowComparatorService,
+    private readonly settlementService: SettlementService,
   ) {}
 
   async mockSuccess(
     orderId: string,
     actorUserId: string,
     idempotencyKey: string,
+    actorRole: UserRole,
   ) {
     if (!idempotencyKey) {
       throw new BadRequestException('Idempotency-Key header is required');
@@ -60,10 +68,21 @@ export class TradesService {
       return this.mockSuccessShadowCompare(orderId, actorUserId, idempotencyKey);
     }
 
+    this.assertMockTradeAllowed(actorRole);
+
+    const useGuardedSettlement =
+      isLiveVerificationMode() && isRealSettlementEnabled();
+
     const order = await this.prisma.$transaction(async (tx) => {
       const current = await tx.order.findUnique({
         where: { id: orderId },
-        include: { hold: true, lot: true, tradeOperation: true },
+        include: {
+          hold: true,
+          lot: true,
+          tradeOperation: true,
+          buyer: { select: { steamId: true } },
+          seller: { select: { steamId: true } },
+        },
       });
 
       if (!current || !current.hold || !current.tradeOperation) {
@@ -99,43 +118,39 @@ export class TradesService {
         actorUserId,
       });
 
-      await this.ledgerService.settleSale({
-        buyerUserId: current.buyerId,
-        sellerUserId: current.sellerId,
-        orderId: current.id,
-        holdId: current.hold.id,
-        totalAmountMinor: current.hold.amountMinor,
-        sellerReceiveMinor: current.lot.sellerReceiveMinor,
-        commissionMinor: current.lot.commissionMinor,
-        idempotencyKey: `trade-success:${idempotencyKey}`,
-        tx,
-      });
-
-      await tx.hold.update({
-        where: { id: current.hold.id },
-        data: {
-          capturedMinor: current.hold.amountMinor,
-        },
-      });
-
-      await this.orderStateService.transition(tx, {
-        orderId: current.id,
-        from: OrderStatus.TRADE_CONFIRMED,
-        to: OrderStatus.COMPLETED,
-        actorUserId,
-      });
-
-      await this.lotStateService.transition(tx, {
-        lotId: current.lotId,
-        from: current.lot.status,
-        to: LotStatus.SOLD,
-        actorUserId,
-      });
-
-      await tx.inventoryAsset.update({
-        where: { id: current.lot.inventoryAssetId },
-        data: { status: InventoryAssetStatus.SOLD },
-      });
+      let finalStatus: OrderStatus = OrderStatus.TRADE_CONFIRMED;
+      if (useGuardedSettlement) {
+        const settleResult = await this.settlementService.trySettleConfirmedOrder(
+          current.id,
+          `trade-success:${idempotencyKey}`,
+          tx,
+        );
+        finalStatus = settleResult.settled
+          ? OrderStatus.COMPLETED
+          : OrderStatus.TRADE_CONFIRMED;
+      } else {
+        await this.settlementService.settleCompletedOrder(
+          tx,
+          {
+            id: current.id,
+            buyerId: current.buyerId,
+            sellerId: current.sellerId,
+            status: OrderStatus.TRADE_CONFIRMED,
+            amountMinor: current.amountMinor,
+            lotId: current.lotId,
+            buyer: current.buyer,
+            seller: current.seller,
+            hold: current.hold,
+            lot: current.lot,
+            tradeOperation: {
+              status: TradeOperationStatus.CONFIRMED,
+            },
+          },
+          `trade-success:${idempotencyKey}`,
+          actorUserId,
+        );
+        finalStatus = OrderStatus.COMPLETED;
+      }
 
       const completed = await tx.order.findUnique({
         where: { id: current.id },
@@ -163,28 +178,12 @@ export class TradesService {
             tradeStatus: current.tradeOperation.status,
           },
           afterState: {
-            status: OrderStatus.COMPLETED,
+            status: finalStatus,
             tradeStatus: TradeOperationStatus.CONFIRMED,
+            guardedSettlement: useGuardedSettlement,
           },
           idempotencyKey,
           ...getAuditContext(),
-        },
-      });
-
-      await tx.outboxEvent.create({
-        data: {
-          eventType: 'ORDER_COMPLETED',
-          aggregateType: 'order',
-          aggregateId: current.id,
-          payload: { orderId: current.id },
-        },
-      });
-      await tx.outboxEvent.create({
-        data: {
-          eventType: 'SALE_SETTLED',
-          aggregateType: 'order',
-          aggregateId: current.id,
-          payload: { orderId: current.id },
         },
       });
 
@@ -192,6 +191,18 @@ export class TradesService {
     });
 
     return toJsonSafe(order);
+  }
+
+  private assertMockTradeAllowed(actorRole: UserRole) {
+    if (
+      isLiveVerificationMode() &&
+      isRealSettlementEnabled() &&
+      actorRole !== UserRole.ADMIN
+    ) {
+      throw new BadRequestException(
+        'Mock trade completion is disabled in live real-settlement mode',
+      );
+    }
   }
 
   private async mockSuccessShadowCompare(
@@ -668,12 +679,18 @@ export class TradesService {
       return this.getOrderDetails(orderId);
     }
 
-    const settle = process.env.ENABLE_REAL_SETTLEMENT === 'true';
+    const settle = isRealSettlementEnabled();
 
     const order = await this.prisma.$transaction(async (tx) => {
       const current = await tx.order.findUnique({
         where: { id: orderId },
-        include: { hold: true, lot: true, tradeOperation: true },
+        include: {
+          hold: true,
+          lot: true,
+          tradeOperation: true,
+          buyer: { select: { steamId: true } },
+          seller: { select: { steamId: true } },
+        },
       });
 
       if (!current || !current.tradeOperation || !current.hold) {
@@ -702,41 +719,16 @@ export class TradesService {
         reason: 'TRADE_POLL_CONFIRMED',
       });
 
+      let finalStatus: OrderStatus = OrderStatus.TRADE_CONFIRMED;
       if (settle) {
-        await this.ledgerService.settleSale({
-          buyerUserId: current.buyerId,
-          sellerUserId: current.sellerId,
-          orderId: current.id,
-          holdId: current.hold.id,
-          totalAmountMinor: current.hold.amountMinor,
-          sellerReceiveMinor: current.lot.sellerReceiveMinor,
-          commissionMinor: current.lot.commissionMinor,
-          idempotencyKey: `poll-settle:${orderId}`,
+        const settleResult = await this.settlementService.trySettleConfirmedOrder(
+          current.id,
+          `poll-settle:${orderId}`,
           tx,
-        });
-
-        await tx.hold.update({
-          where: { id: current.hold.id },
-          data: { capturedMinor: current.hold.amountMinor },
-        });
-
-        await this.orderStateService.transition(tx, {
-          orderId: current.id,
-          from: OrderStatus.TRADE_CONFIRMED,
-          to: OrderStatus.COMPLETED,
-          reason: 'TRADE_POLL_SETTLED',
-        });
-
-        await this.lotStateService.transition(tx, {
-          lotId: current.lotId,
-          from: current.lot.status,
-          to: LotStatus.SOLD,
-        });
-
-        await tx.inventoryAsset.update({
-          where: { id: current.lot.inventoryAssetId },
-          data: { status: InventoryAssetStatus.SOLD },
-        });
+        );
+        finalStatus = settleResult.settled
+          ? OrderStatus.COMPLETED
+          : OrderStatus.TRADE_CONFIRMED;
       }
 
       await tx.auditLog.create({
@@ -745,25 +737,14 @@ export class TradesService {
           entityId: current.id,
           action: 'TRADE_POLL_CONFIRMED',
           afterState: {
-            status: settle ? OrderStatus.COMPLETED : OrderStatus.TRADE_CONFIRMED,
+            status: finalStatus,
             tradeStatus: TradeOperationStatus.CONFIRMED,
-            settled: settle,
+            settled: finalStatus === OrderStatus.COMPLETED,
           },
           idempotencyKey,
           ...getAuditContext(),
         },
       });
-
-      if (settle) {
-        await tx.outboxEvent.create({
-          data: {
-            eventType: 'ORDER_COMPLETED',
-            aggregateType: 'order',
-            aggregateId: current.id,
-            payload: { orderId: current.id },
-          },
-        });
-      }
 
       return tx.order.findUnique({
         where: { id: current.id },
