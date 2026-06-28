@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { cancelOrder, getAuthConfig, getOrder, mockTradeSuccess, updateOrderTradeReference } from '../api/marketplace';
-import { getSettlementEligibility, mockTradeFail, mockTradeTimeout } from '../api/admin';
+import { mockTradeFail, mockTradeTimeout } from '../api/admin';
+import { getSettlementEligibility } from '../api/settlement';
 import type { Order } from '../api/types';
 import { useAuth } from '../auth/AuthContext';
 import { ErrorAlert } from '../components/ErrorAlert';

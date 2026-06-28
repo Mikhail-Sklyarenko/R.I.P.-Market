@@ -17,11 +17,14 @@ describe('Limited real settlement (e2e)', () => {
     realSettlement: process.env.ENABLE_REAL_SETTLEMENT,
     allowlist: process.env.STEAM_SETTLEMENT_ALLOWLIST_STEAM_IDS,
     maxDailyOrders: process.env.STEAM_SETTLEMENT_MAX_DAILY_ORDERS,
+    maxOrderMinor: process.env.STEAM_SETTLEMENT_MAX_ORDER_MINOR,
+    maxDailyVolume: process.env.STEAM_SETTLEMENT_MAX_DAILY_VOLUME_MINOR,
   };
 
   const buyerSteamId = '76561198000000001';
   const sellerSteamId = '76561198000000002';
   const outsiderSteamId = '76561198000000099';
+  const orderAmountMinor = 10_000;
 
   beforeAll(async () => {
     process.env.TRADE_PROVIDER = 'steam';
@@ -30,6 +33,7 @@ describe('Limited real settlement (e2e)', () => {
     process.env.STEAM_SETTLEMENT_ALLOWLIST_STEAM_IDS = `${buyerSteamId},${sellerSteamId}`;
     process.env.STEAM_SETTLEMENT_MAX_DAILY_ORDERS = '3';
     process.env.STEAM_SETTLEMENT_MAX_ORDER_MINOR = '50000';
+    process.env.STEAM_SETTLEMENT_MAX_DAILY_VOLUME_MINOR = '150000';
     app = await createE2eApp();
     prisma = app.get(PrismaService);
     api = new ApiClient(app);
@@ -45,6 +49,8 @@ describe('Limited real settlement (e2e)', () => {
     process.env.ENABLE_REAL_SETTLEMENT = envBackup.realSettlement;
     process.env.STEAM_SETTLEMENT_ALLOWLIST_STEAM_IDS = envBackup.allowlist;
     process.env.STEAM_SETTLEMENT_MAX_DAILY_ORDERS = envBackup.maxDailyOrders;
+    process.env.STEAM_SETTLEMENT_MAX_ORDER_MINOR = envBackup.maxOrderMinor;
+    process.env.STEAM_SETTLEMENT_MAX_DAILY_VOLUME_MINOR = envBackup.maxDailyVolume;
     await app.close();
   });
 
@@ -64,7 +70,7 @@ describe('Limited real settlement (e2e)', () => {
     });
     const inventory = await api.getInventory(seller);
     const assetId = inventory.body.assets[0].id as string;
-    const lot = await api.createLot(seller, assetId, 100_000);
+    const lot = await api.createLot(seller, assetId, orderAmountMinor);
     await api.deposit(buyer, 250_000, 'settle-dep');
     const order = await api.createOrder(buyer, lot.body.id, 'settle-buy');
     return { buyer, seller, orderId: order.body.id as string };
@@ -145,9 +151,50 @@ describe('Limited real settlement (e2e)', () => {
       .expect(201);
 
     expect(response.body.order.status).toBe('TRADE_CONFIRMED');
-    if (!response.body.settlement.allowed) {
-      expect(response.body.settlement.code).toBe('DAILY_ORDER_LIMIT');
-    }
+    expect(response.body.settlement.allowed).toBe(false);
+    expect(response.body.settlement.code).toBe('DAILY_ORDER_LIMIT');
+  });
+
+  it('enforces daily volume limit', async () => {
+    const admin = await api.login(UserRole.ADMIN);
+    await prisma.settlementDailyStats.create({
+      data: {
+        day: new Date().toISOString().slice(0, 10),
+        orderCount: 0,
+        volumeMinor: 145_000n,
+      },
+    });
+
+    const { orderId } = await createOrderWithSteamIds();
+    await markTradeConfirmed(orderId);
+
+    const response = await request(app.getHttpServer())
+      .post(`/api/v1/admin/orders/${orderId}/retry-settlement`)
+      .set('Authorization', `Bearer ${admin.token}`)
+      .set('Idempotency-Key', 'settle-retry-volume')
+      .send({})
+      .expect(201);
+
+    expect(response.body.order.status).toBe('TRADE_CONFIRMED');
+    expect(response.body.settlement.allowed).toBe(false);
+    expect(response.body.settlement.code).toBe('DAILY_VOLUME_LIMIT');
+  });
+
+  it('exposes settlement eligibility for allowlisted user', async () => {
+    const buyer = await api.login(UserRole.BUYER);
+    await prisma.user.update({
+      where: { id: buyer.userId },
+      data: { steamId: buyerSteamId },
+    });
+
+    const response = await request(app.getHttpServer())
+      .get('/api/v1/settlement/my-eligibility')
+      .set('Authorization', `Bearer ${buyer.token}`)
+      .expect(200);
+
+    expect(response.body.realSettlementEnabled).toBe(true);
+    expect(response.body.allowlisted).toBe(true);
+    expect(response.body.bannerVisible).toBe(true);
   });
 
   it('rejects mock-success for buyer in live real settlement mode', async () => {

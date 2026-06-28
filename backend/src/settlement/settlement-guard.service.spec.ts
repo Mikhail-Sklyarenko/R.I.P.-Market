@@ -2,9 +2,11 @@ import { OrderStatus, TradeOperationStatus } from '@prisma/client';
 import { SettlementGuardService } from './settlement-guard.service';
 import {
   getMaxDailyOrders,
+  getMaxDailyVolumeMinor,
   getMaxOrderMinor,
   isRealSettlementEnabled,
 } from './settlement.config';
+import { isLiveVerificationMode } from '../trades/trade-verification.config';
 
 jest.mock('./settlement.config', () => ({
   ...jest.requireActual('./settlement.config'),
@@ -14,6 +16,10 @@ jest.mock('./settlement.config', () => ({
   getMaxDailyOrders: jest.fn(() => 3),
   getMaxDailyVolumeMinor: jest.fn(() => 150_000n),
   utcDayKey: jest.fn(() => '2026-06-28'),
+}));
+
+jest.mock('../trades/trade-verification.config', () => ({
+  isLiveVerificationMode: jest.fn(() => true),
 }));
 
 describe('SettlementGuardService', () => {
@@ -42,6 +48,9 @@ describe('SettlementGuardService', () => {
     };
     service = new SettlementGuardService(prisma as never);
     (isRealSettlementEnabled as jest.Mock).mockReturnValue(true);
+    (isLiveVerificationMode as jest.Mock).mockReturnValue(true);
+    (getMaxOrderMinor as jest.Mock).mockReturnValue(50_000n);
+    (getMaxDailyVolumeMinor as jest.Mock).mockReturnValue(150_000n);
   });
 
   it('allows when both parties are env-allowlisted', async () => {
@@ -107,6 +116,35 @@ describe('SettlementGuardService', () => {
     expect(result.allowed).toBe(false);
     if (!result.allowed) {
       expect(result.code).toBe('ORDER_AMOUNT_EXCEEDS_LIMIT');
+    }
+  });
+
+  it('blocks when not in live verification mode', async () => {
+    (isLiveVerificationMode as jest.Mock).mockReturnValue(false);
+
+    const result = await service.canSettle(baseOrder);
+    expect(result.allowed).toBe(false);
+    if (!result.allowed) {
+      expect(result.code).toBe('NOT_LIVE_MODE');
+    }
+  });
+
+  it('blocks when daily volume limit would be exceeded', async () => {
+    (getMaxDailyVolumeMinor as jest.Mock).mockReturnValue(150_000n);
+    prisma.settlementDailyStats.findUnique.mockResolvedValue({
+      orderCount: 0,
+      volumeMinor: 145_000n,
+    });
+
+    const result = await service.canSettle({
+      ...baseOrder,
+      amountMinor: 10_000n,
+      buyer: { steamId: '76561198000000001' },
+      seller: { steamId: '76561198000000001' },
+    });
+    expect(result.allowed).toBe(false);
+    if (!result.allowed) {
+      expect(result.code).toBe('DAILY_VOLUME_LIMIT');
     }
   });
 });

@@ -4,6 +4,7 @@ import { AppService } from './app.service';
 import { HttpMetricsService } from './common/observability/http-metrics.service';
 import { PrismaService } from './prisma/prisma.service';
 import { InventoryMetricsService } from './providers/inventory/inventory-metrics.service';
+import { TradeShadowMetricsService } from './trades/trade-shadow-metrics.service';
 import { LedgerReconciliationService } from './wallet/ledger-reconciliation.service';
 
 describe('AppController', () => {
@@ -45,6 +46,14 @@ describe('AppController', () => {
               inventory_sync_total: {},
               inventory_sync_duration_ms: 0,
               inventory_sync_count: 0,
+            })),
+          },
+        },
+        {
+          provide: TradeShadowMetricsService,
+          useValue: {
+            snapshot: jest.fn(() => ({
+              trade_shadow_mismatch_total: 0,
             })),
           },
         },

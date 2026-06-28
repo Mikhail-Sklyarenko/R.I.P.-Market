@@ -15,6 +15,8 @@ Repository: [github.com/Mikhail-Sklyarenko/R.I.P.-Market](https://github.com/Mik
 | Phase 4.1 | Gate 4.1 — Steam auth (OpenID) | Closed (code) |
 | Phase 4.2 | Gate 4.2 — Real inventory (Steam sync) | Closed (code) |
 | Phase 4.3 | Gate 4.3 — Trade status check (Steam poll) | Closed (code) |
+| Phase 4.4 | Gate 4.4 — Shadow verification | Closed (code) |
+| Phase 4.5 | Gate 4.5 — Limited real settlement | Closed (code) |
 
 ## Quick start
 
@@ -48,6 +50,9 @@ npm run dev
 - [Phase 4.1 — Steam Auth](docs/phase-4-steam-auth.md)
 - [Phase 4.2 — Real Inventory](docs/phase-4-inventory.md)
 - [Phase 4.3 — Trade Status Check](docs/phase-4-trade-poll.md)
+- [Phase 4.4 — Shadow Mode](docs/phase-4-shadow.md)
+- [Phase 4.5 — Limited Real Settlement](docs/phase-4-settlement.md)
+- [Phase 4 — Rollout & Rollback](docs/phase-4-steam.md)
 - [Steam spike](docs/steam-spike.md)
 
 ## Project layout

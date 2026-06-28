@@ -6,7 +6,6 @@ import type {
   OutboxEvent,
   SettlementAllowlistEntry,
   SettlementAllowlistResponse,
-  SettlementEligibility,
 } from './types';
 import type { Order } from './types';
 
@@ -65,10 +64,6 @@ export function retrySettlement(token: string, orderId: string, idempotencyKey?:
     idempotencyKey: idempotencyKey ?? createIdempotencyKey('retry-settlement'),
     body: {},
   });
-}
-
-export function getSettlementEligibility(token: string) {
-  return apiRequest<SettlementEligibility>('/settlement/my-eligibility', { token });
 }
 
 export function openDispute(
