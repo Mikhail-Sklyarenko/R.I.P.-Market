@@ -47,11 +47,27 @@ describe('Read API extensions (e2e)', () => {
   it('GET /lots supports catalog filters and pagination', async () => {
     const seller = await api.login(UserRole.SELLER);
     const inventory = await api.getInventory(seller);
-    const assets = inventory.body.assets as Array<{ id: string }>;
+    const assets = inventory.body.assets as Array<{
+      id: string;
+      itemDefinition: { marketHashName: string };
+    }>;
 
-    const cheap = await api.createLot(seller, assets[0].id, 50_000);
-    const mid = await api.createLot(seller, assets[1].id, 150_000);
-    await api.createLot(seller, assets[2].id, 250_000);
+    const akAsset = assets.find((asset) =>
+      asset.itemDefinition.marketHashName.includes('AK-47'),
+    );
+    const awpAsset = assets.find((asset) =>
+      asset.itemDefinition.marketHashName.includes('AWP'),
+    );
+    const otherAsset = assets.find(
+      (asset) => asset.id !== akAsset?.id && asset.id !== awpAsset?.id,
+    );
+    expect(akAsset).toBeDefined();
+    expect(awpAsset).toBeDefined();
+    expect(otherAsset).toBeDefined();
+
+    const cheap = await api.createLot(seller, akAsset!.id, 50_000);
+    const mid = await api.createLot(seller, awpAsset!.id, 150_000);
+    await api.createLot(seller, otherAsset!.id, 250_000);
 
     const searchResponse = await request(app.getHttpServer())
       .get('/api/v1/lots')
@@ -60,6 +76,9 @@ describe('Read API extensions (e2e)', () => {
     expect(searchResponse.status).toBe(200);
     expect(searchResponse.body.items).toHaveLength(1);
     expect(searchResponse.body.items[0].id).toBe(cheap.body.id);
+    expect(
+      searchResponse.body.items[0].inventoryAsset.itemDefinition.marketHashName,
+    ).toContain('AK-47');
     expect(searchResponse.body.total).toBe(1);
 
     const priceResponse = await request(app.getHttpServer())
@@ -171,7 +190,17 @@ describe('Read API extensions (e2e)', () => {
     const { lotId } = await createSellerLot(100_000);
     const buyer = await api.login(UserRole.BUYER);
     await api.deposit(buyer, 200_000, 'dep-read-api-3');
-    await api.createOrder(buyer, lotId, 'order-read-api-3');
+    const order = await api.createOrder(buyer, lotId, 'order-read-api-3');
+
+    await prisma.notification.create({
+      data: {
+        userId: buyer.userId,
+        eventType: 'ORDER_CREATED',
+        title: 'Order created',
+        message: 'Your purchase order was created.',
+        payload: { orderId: order.body.id },
+      },
+    });
 
     const dealsResponse = await request(app.getHttpServer())
       .get('/api/v1/me/notifications')
