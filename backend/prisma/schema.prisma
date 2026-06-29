@@ -105,6 +105,7 @@ model ItemDefinition {
   marketHashName String           @unique
   weapon         String?
   rarity         String?
+  iconUrl        String?
   createdAt      DateTime         @default(now())
   updatedAt      DateTime         @updatedAt
   assets         InventoryAsset[]

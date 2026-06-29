@@ -1,11 +1,13 @@
 import { HttpStatus, Injectable } from '@nestjs/common';
-import { InventoryAssetStatus, LotStatus, UserStatus } from '@prisma/client';
+import { InventoryAssetStatus, LotStatus, Prisma, UserStatus } from '@prisma/client';
 import { AppException } from '../common/errors/app.exception';
 import { ErrorCode } from '../common/errors/error-codes';
 import { toJsonSafe } from '../common/json-safe.util';
 import { InventoryService } from '../inventory/inventory.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateLotDto } from './dto/create-lot.dto';
+import { ListLotsQueryDto } from './dto/list-lots-query.dto';
+import { DEFAULT_LOTS_PAGE_LIMIT, hasLotsListFilters } from './lots-list.util';
 import { buildPricingPreview, calculateCommissionMinor } from './lot-pricing.util';
 import { LotStateService } from './lot-state.service';
 
@@ -122,12 +124,138 @@ export class LotsService {
   async listActive() {
     const lots = await this.prisma.lot.findMany({
       where: { status: LotStatus.ACTIVE },
-      include: {
-        inventoryAsset: { include: { itemDefinition: true } },
-      },
+      include: this.lotInclude(),
       orderBy: { createdAt: 'desc' },
     });
     return toJsonSafe(lots);
+  }
+
+  async listActiveFiltered(query: ListLotsQueryDto) {
+    const page = query.page ?? 1;
+    const limit = query.limit ?? DEFAULT_LOTS_PAGE_LIMIT;
+    const skip = (page - 1) * limit;
+    const where = this.buildActiveLotsWhere(query);
+    const orderBy = this.buildLotsOrderBy(query.sort);
+
+    const [total, lots] = await Promise.all([
+      this.prisma.lot.count({ where }),
+      this.prisma.lot.findMany({
+        where,
+        include: this.lotInclude(),
+        orderBy,
+        skip,
+        take: limit,
+      }),
+    ]);
+
+    return toJsonSafe({
+      items: lots,
+      page,
+      limit,
+      total,
+    });
+  }
+
+  async listSimilar(lotId: string, limit = 6) {
+    const source = await this.prisma.lot.findUnique({
+      where: { id: lotId },
+      include: {
+        inventoryAsset: { include: { itemDefinition: true } },
+      },
+    });
+
+    if (!source) {
+      throw new AppException(ErrorCode.LOT_NOT_FOUND, 'Lot not found', HttpStatus.NOT_FOUND);
+    }
+
+    const itemDefinitionId = source.inventoryAsset.itemDefinitionId;
+    const weapon = source.inventoryAsset.itemDefinition.weapon;
+    const similarLimit = Math.min(Math.max(limit, 1), 24);
+
+    const lots = await this.prisma.lot.findMany({
+      where: {
+        status: LotStatus.ACTIVE,
+        id: { not: lotId },
+        OR: [
+          { inventoryAsset: { itemDefinitionId } },
+          ...(weapon
+            ? [{ inventoryAsset: { itemDefinition: { weapon } } }]
+            : []),
+        ],
+      },
+      include: this.lotInclude(),
+      orderBy: { createdAt: 'desc' },
+      take: similarLimit,
+    });
+
+    return toJsonSafe(lots);
+  }
+
+  private lotInclude() {
+    return {
+      inventoryAsset: { include: { itemDefinition: true } },
+    } as const;
+  }
+
+  private buildActiveLotsWhere(query: ListLotsQueryDto): Prisma.LotWhereInput {
+    const where: Prisma.LotWhereInput = {
+      status: LotStatus.ACTIVE,
+    };
+
+    const itemDefinitionFilter: Prisma.ItemDefinitionWhereInput = {};
+
+    if (query.q) {
+      itemDefinitionFilter.marketHashName = {
+        contains: query.q,
+        mode: 'insensitive',
+      };
+    }
+    if (query.weapon) {
+      itemDefinitionFilter.weapon = {
+        equals: query.weapon,
+        mode: 'insensitive',
+      };
+    }
+    if (query.rarity) {
+      itemDefinitionFilter.rarity = {
+        equals: query.rarity,
+        mode: 'insensitive',
+      };
+    }
+
+    if (Object.keys(itemDefinitionFilter).length > 0) {
+      where.inventoryAsset = {
+        itemDefinition: itemDefinitionFilter,
+      };
+    }
+
+    if (
+      query.minPriceMinor !== undefined ||
+      query.maxPriceMinor !== undefined
+    ) {
+      where.priceMinor = {
+        ...(query.minPriceMinor !== undefined
+          ? { gte: BigInt(query.minPriceMinor) }
+          : {}),
+        ...(query.maxPriceMinor !== undefined
+          ? { lte: BigInt(query.maxPriceMinor) }
+          : {}),
+      };
+    }
+
+    return where;
+  }
+
+  private buildLotsOrderBy(
+    sort?: ListLotsQueryDto['sort'],
+  ): Prisma.LotOrderByWithRelationInput {
+    if (sort === 'price_asc') {
+      return { priceMinor: 'asc' };
+    }
+    if (sort === 'price_desc') {
+      return { priceMinor: 'desc' };
+    }
+    return { createdAt: 'desc' };
   }
 
   async getById(lotId: string) {

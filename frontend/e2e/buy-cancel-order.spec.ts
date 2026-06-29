@@ -9,17 +9,20 @@ test.describe('Buy cancel flow', () => {
   });
 
   test('buyer can cancel order and listing returns to catalog', async ({ page }) => {
-    const { lotId, priceMinor } = await seedActiveLot(page.request);
+    const { lotId } = await seedActiveLot(page.request);
 
     await loginAsBuyer(page);
     await page.goto(`/lots/${lotId}`);
 
     await page.getByTestId('buy-lot-button').click();
+    await expect(page).toHaveURL(/\/checkout$/);
+    await page.getByTestId('checkout-deposit-link').click();
     await expect(page).toHaveURL(/\/wallet/);
     await page.getByTestId('deposit-amount-input').fill('2000');
     await page.getByTestId('deposit-submit').click();
 
-    await page.getByTestId('buy-lot-button').click();
+    await expect(page).toHaveURL(new RegExp(`/lots/${lotId}/checkout$`));
+    await page.getByTestId('confirm-purchase-button').click();
     await expect(page.getByTestId('order-status')).toHaveText('WAITING_TRADE');
 
     await page.getByTestId('cancel-order-button').click();

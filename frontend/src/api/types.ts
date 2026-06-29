@@ -62,6 +62,7 @@ export type ItemDefinition = {
   marketHashName: string;
   weapon?: string;
   rarity?: string;
+  iconUrl?: string | null;
 };
 
 export type InventorySyncMeta = {
@@ -85,12 +86,15 @@ export type InventoryAsset = {
   status: string;
   tradable: boolean;
   tradeLockUntil?: string | null;
-  wear?: string;
+  wear?: string | null;
+  floatValue?: string | null;
+  paintSeed?: number | null;
   itemDefinition: ItemDefinition;
 };
 
 export type Lot = {
   id: string;
+  sellerId?: string;
   status: string;
   priceMinor: string;
   commissionMinor: string;
@@ -146,6 +150,17 @@ export type TradeVerificationSnapshot = {
   createdAt: string;
 };
 
+export type OrderStatusEvent = {
+  id: string;
+  orderId: string;
+  fromStatus?: string | null;
+  toStatus: string;
+  actorUserId?: string | null;
+  reason?: string | null;
+  requestId?: string | null;
+  createdAt: string;
+};
+
 export type Order = {
   id: string;
   lotId: string;
@@ -160,7 +175,33 @@ export type Order = {
   hold?: { id: string; amountMinor: string } | null;
   buyer?: OrderParty;
   seller?: OrderParty;
+  statusEvents?: OrderStatusEvent[];
 };
+
+export type LotsPage = {
+  items: Lot[];
+  page: number;
+  limit: number;
+  total: number;
+};
+
+export type ListLotsParams = {
+  q?: string;
+  minPriceMinor?: number;
+  maxPriceMinor?: number;
+  weapon?: string;
+  rarity?: string;
+  sort?: 'price_asc' | 'price_desc' | 'newest';
+  page?: number;
+  limit?: number;
+};
+
+export type ListMyOrdersParams = {
+  role?: 'buyer' | 'seller';
+  status?: string;
+};
+
+export type NotificationCategory = 'deals' | 'money' | 'system';
 
 export type WalletAccount = {
   type: string;
@@ -184,6 +225,8 @@ export type LedgerEntry = {
   type: string;
   amountMinor: string;
   createdAt: string;
+  orderId?: string | null;
+  metadata?: Record<string, unknown> | null;
 };
 
 export type Notification = {
@@ -201,7 +244,58 @@ export type AdminUserSummary = {
   username: string;
   role: string;
   status: string;
+  steamId?: string | null;
+  createdAt?: string;
   wallet?: Wallet | null;
+  _count?: {
+    lots: number;
+    buyOrders: number;
+    sellOrders: number;
+  };
+};
+
+export type AdminUserCard = {
+  user: AdminUserSummary;
+  auditLogs: AuditLogEntry[];
+  openOrderCount: number;
+  isRestricted: boolean;
+};
+
+export type AdminLotSummary = Lot & {
+  seller: { id: string; username: string; status: string };
+};
+
+export type AdminLotsPage = {
+  items: AdminLotSummary[];
+  page: number;
+  limit: number;
+  total: number;
+};
+
+export type AdminLotCard = {
+  lot: AdminLotSummary & {
+    seller: {
+      id: string;
+      username: string;
+      role: string;
+      status: string;
+      steamId?: string | null;
+    };
+  };
+  statusEvents: StatusEvent[];
+  auditLogs: AuditLogEntry[];
+};
+
+export type ListAdminLotsParams = {
+  status?: string;
+  sellerId?: string;
+  q?: string;
+  page?: number;
+  limit?: number;
+};
+
+export type ListAdminOrdersParams = {
+  status?: string;
 };
 
 export type AdminOrderSummary = Order & {

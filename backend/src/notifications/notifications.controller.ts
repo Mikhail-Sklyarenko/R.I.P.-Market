@@ -11,6 +11,7 @@ import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { CurrentUser } from '../common/current-user.decorator';
 import type { AuthUser } from '../common/auth-user.interface';
 import { NotificationsService } from './notifications.service';
+import { ListNotificationsQueryDto } from './dto/list-notifications-query.dto';
 
 @ApiTags('notifications')
 @ApiBearerAuth()
@@ -20,14 +21,16 @@ export class NotificationsController {
   constructor(private readonly notificationsService: NotificationsService) {}
 
   @ApiQuery({ name: 'unreadOnly', required: false, type: Boolean })
+  @ApiQuery({ name: 'category', required: false, enum: ['deals', 'money', 'system'] })
   @Get()
   async list(
     @CurrentUser() user: AuthUser,
-    @Query('unreadOnly') unreadOnly?: string,
+    @Query() query: ListNotificationsQueryDto,
   ) {
     return this.notificationsService.listForUser(
       user.sub,
-      unreadOnly === 'true',
+      query.unreadOnly === 'true',
+      query.category,
     );
   }
 

@@ -17,6 +17,8 @@ describe('steam-inventory.parser', () => {
       marketHashName: 'AK-47 | Redline (Field-Tested)',
       weapon: 'AK-47',
       rarity: 'Classified',
+      iconUrl:
+        '-9a81dlWLwJ2UUGcVs_nsVze-rNIjLSm9wSizZLQmfJIMWn3kSKfJjx0XfZR2f0XqYh8f_large',
       tradable: true,
       tradeLockUntil: null,
       floatValue: '0.254319',
@@ -25,10 +27,62 @@ describe('steam-inventory.parser', () => {
     });
     expect(parsed[1]).toMatchObject({
       assetExternalId: '12345678902',
+      iconUrl: '-9a81dlWLwJ2UUGcVs_nsVze-rNIjLSm9wSizZLQmfJIMWn3kSKfJjx0XfZR2f0XqYh8g',
       tradable: false,
       wear: 'BS',
       tradeLockUntil: new Date('2026-07-01T00:00:00Z'),
     });
+  });
+
+  it('prefers icon_url_large over icon_url', () => {
+    const parsed = parseSteamInventoryResponse({
+      success: 1,
+      assets: [
+        {
+          appid: 730,
+          contextid: '2',
+          assetid: '1',
+          classid: '1',
+          instanceid: '1',
+        },
+      ],
+      descriptions: [
+        {
+          classid: '1',
+          instanceid: '1',
+          market_hash_name: 'Test Item',
+          icon_url: 'small-icon',
+          icon_url_large: 'large-icon',
+        },
+      ],
+    });
+
+    expect(parsed[0]?.iconUrl).toBe('large-icon');
+  });
+
+  it('falls back to icon_url when icon_url_large is missing', () => {
+    const parsed = parseSteamInventoryResponse({
+      success: 1,
+      assets: [
+        {
+          appid: 730,
+          contextid: '2',
+          assetid: '1',
+          classid: '1',
+          instanceid: '1',
+        },
+      ],
+      descriptions: [
+        {
+          classid: '1',
+          instanceid: '1',
+          market_hash_name: 'Test Item',
+          icon_url: 'small-icon-only',
+        },
+      ],
+    });
+
+    expect(parsed[0]?.iconUrl).toBe('small-icon-only');
   });
 
   it('detects private inventory responses', () => {

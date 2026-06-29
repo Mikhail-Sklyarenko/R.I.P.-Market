@@ -44,8 +44,8 @@ test.describe('Ops dispute flow', () => {
     await expect(page.getByTestId('admin-order-status')).toHaveText('DISPUTE');
 
     await page.getByTestId('admin-action-reason').fill('Buyer did not receive item');
-    page.once('dialog', (dialog) => dialog.accept());
     await page.getByTestId('admin-resolve-buyer').click();
+    await page.getByTestId('admin-reason-modal-confirm').click();
 
     await expect(page.getByTestId('admin-order-status')).toHaveText('FAILED', { timeout: 15000 });
     await expect(page.getByTestId('admin-action-success')).toContainText('buyer');
@@ -72,8 +72,8 @@ test.describe('Ops dispute flow', () => {
     await loginAsAdmin(page);
     await page.goto(`/admin/orders/${orderId}`);
     await page.getByTestId('admin-action-reason').fill('Seller delivered item');
-    page.once('dialog', (dialog) => dialog.accept());
     await page.getByTestId('admin-resolve-seller').click();
+    await page.getByTestId('admin-reason-modal-confirm').click();
 
     await expect(page.getByTestId('admin-order-status')).toHaveText('COMPLETED', { timeout: 15000 });
 

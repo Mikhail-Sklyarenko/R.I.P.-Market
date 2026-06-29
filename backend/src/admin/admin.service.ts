@@ -7,6 +7,7 @@ import {
   InventoryAssetStatus,
   LotStatus,
   OrderStatus,
+  Prisma,
   TradeOperationStatus,
   UserStatus,
 } from '@prisma/client';
@@ -19,8 +20,20 @@ import { SettlementService } from '../settlement/settlement.service';
 import { getEnvAllowlistSteamIds } from '../settlement/settlement.config';
 import { TradesService } from '../trades/trades.service';
 import { TradeShadowComparatorService } from '../trades/trade-shadow-comparator.service';
+import { ListAdminLotsQueryDto } from './dto/list-admin-lots-query.dto';
+import { ListAdminOrdersQueryDto } from './dto/list-admin-orders-query.dto';
 import { DisputeResolution } from './dto/resolve-dispute.dto';
 import { UpsertAllowlistEntryDto } from './dto/upsert-allowlist.dto';
+
+const ADMIN_OPEN_ORDER_STATUSES: OrderStatus[] = [
+  OrderStatus.CREATED,
+  OrderStatus.PAYMENT_RESERVED,
+  OrderStatus.WAITING_TRADE,
+  OrderStatus.TRADE_CONFIRMED,
+  OrderStatus.DISPUTE,
+];
+
+const DEFAULT_ADMIN_LOTS_LIMIT = 50;
 
 @Injectable()
 export class AdminService {
@@ -86,8 +99,9 @@ export class AdminService {
     return toJsonSafe(updated);
   }
 
-  async listOrders() {
+  async listOrders(query: ListAdminOrdersQueryDto = {}) {
     const orders = await this.prisma.order.findMany({
+      where: query.status ? { status: query.status } : {},
       include: {
         buyer: {
           select: { id: true, username: true, role: true, status: true },
@@ -689,5 +703,433 @@ export class AdminService {
     });
 
     return toJsonSafe(updated);
+  }
+
+  async getUser(userId: string) {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      include: {
+        wallet: { include: { accounts: true } },
+        _count: {
+          select: {
+            lots: true,
+            buyOrders: true,
+            sellOrders: true,
+          },
+        },
+      },
+    });
+
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+
+    const [auditLogs, openOrderCount] = await Promise.all([
+      this.prisma.auditLog.findMany({
+        where: { entityType: 'user', entityId: userId },
+        include: {
+          actorUser: { select: { id: true, username: true, role: true } },
+        },
+        orderBy: { createdAt: 'desc' },
+        take: 50,
+      }),
+      this.prisma.order.count({
+        where: {
+          OR: [{ buyerId: userId }, { sellerId: userId }],
+          status: { in: ADMIN_OPEN_ORDER_STATUSES },
+        },
+      }),
+    ]);
+
+    return toJsonSafe({
+      user,
+      auditLogs,
+      openOrderCount,
+      isRestricted: user.status !== UserStatus.ACTIVE,
+    });
+  }
+
+  async restrictUser(
+    userId: string,
+    status: UserStatus,
+    actorUserId: string,
+    reason: string,
+    idempotencyKey: string,
+  ) {
+    if (!idempotencyKey) {
+      throw new BadRequestException('Idempotency-Key header is required');
+    }
+    if (
+      status !== UserStatus.SELL_BLOCK &&
+      status !== UserStatus.BUY_BLOCK &&
+      status !== UserStatus.SUSPENDED
+    ) {
+      throw new BadRequestException('Invalid restriction status');
+    }
+
+    const existing = await this.prisma.auditLog.findFirst({
+      where: {
+        entityType: 'user',
+        entityId: userId,
+        action: 'USER_RESTRICTED',
+        idempotencyKey,
+      },
+    });
+    if (existing) {
+      return this.getUser(userId);
+    }
+
+    const user = await this.prisma.user.findUnique({ where: { id: userId } });
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+
+    await this.prisma.$transaction(async (tx) => {
+      await tx.user.update({
+        where: { id: userId },
+        data: { status },
+      });
+
+      await tx.auditLog.create({
+        data: {
+          actorUserId,
+          entityType: 'user',
+          entityId: userId,
+          action: 'USER_RESTRICTED',
+          reason,
+          beforeState: { status: user.status },
+          afterState: { status },
+          idempotencyKey,
+        },
+      });
+    });
+
+    return this.getUser(userId);
+  }
+
+  async unrestrictUser(
+    userId: string,
+    actorUserId: string,
+    reason: string,
+    idempotencyKey: string,
+  ) {
+    if (!idempotencyKey) {
+      throw new BadRequestException('Idempotency-Key header is required');
+    }
+
+    const existing = await this.prisma.auditLog.findFirst({
+      where: {
+        entityType: 'user',
+        entityId: userId,
+        action: 'USER_UNRESTRICTED',
+        idempotencyKey,
+      },
+    });
+    if (existing) {
+      return this.getUser(userId);
+    }
+
+    const user = await this.prisma.user.findUnique({ where: { id: userId } });
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+    if (user.status === UserStatus.ACTIVE) {
+      return this.getUser(userId);
+    }
+
+    await this.prisma.$transaction(async (tx) => {
+      await tx.user.update({
+        where: { id: userId },
+        data: { status: UserStatus.ACTIVE },
+      });
+
+      await tx.auditLog.create({
+        data: {
+          actorUserId,
+          entityType: 'user',
+          entityId: userId,
+          action: 'USER_UNRESTRICTED',
+          reason,
+          beforeState: { status: user.status },
+          afterState: { status: UserStatus.ACTIVE },
+          idempotencyKey,
+        },
+      });
+    });
+
+    return this.getUser(userId);
+  }
+
+  async listLots(query: ListAdminLotsQueryDto = {}) {
+    const page = query.page ?? 1;
+    const limit = query.limit ?? DEFAULT_ADMIN_LOTS_LIMIT;
+    const skip = (page - 1) * limit;
+
+    const where: Prisma.LotWhereInput = {
+      ...(query.status ? { status: query.status } : {}),
+      ...(query.sellerId ? { sellerId: query.sellerId } : {}),
+      ...(query.q
+        ? {
+            inventoryAsset: {
+              itemDefinition: {
+                marketHashName: {
+                  contains: query.q,
+                  mode: 'insensitive',
+                },
+              },
+            },
+          }
+        : {}),
+    };
+
+    const [total, items] = await Promise.all([
+      this.prisma.lot.count({ where }),
+      this.prisma.lot.findMany({
+        where,
+        include: {
+          seller: { select: { id: true, username: true, status: true } },
+          inventoryAsset: { include: { itemDefinition: true } },
+        },
+        orderBy: { createdAt: 'desc' },
+        skip,
+        take: limit,
+      }),
+    ]);
+
+    return toJsonSafe({ items, page, limit, total });
+  }
+
+  async getLot(lotId: string) {
+    const lot = await this.prisma.lot.findUnique({
+      where: { id: lotId },
+      include: {
+        seller: {
+          select: {
+            id: true,
+            username: true,
+            role: true,
+            status: true,
+            steamId: true,
+          },
+        },
+        inventoryAsset: { include: { itemDefinition: true } },
+      },
+    });
+
+    if (!lot) {
+      throw new NotFoundException('Lot not found');
+    }
+
+    const [statusEvents, auditLogs] = await Promise.all([
+      this.prisma.lotStatusEvent.findMany({
+        where: { lotId },
+        orderBy: { createdAt: 'asc' },
+      }),
+      this.prisma.auditLog.findMany({
+        where: { entityType: 'lot', entityId: lotId },
+        include: {
+          actorUser: { select: { id: true, username: true, role: true } },
+        },
+        orderBy: { createdAt: 'desc' },
+        take: 50,
+      }),
+    ]);
+
+    return toJsonSafe({ lot, statusEvents, auditLogs });
+  }
+
+  async blockLot(
+    lotId: string,
+    actorUserId: string,
+    reason: string,
+    idempotencyKey: string,
+  ) {
+    if (!idempotencyKey) {
+      throw new BadRequestException('Idempotency-Key header is required');
+    }
+
+    const existing = await this.prisma.auditLog.findFirst({
+      where: {
+        entityType: 'lot',
+        entityId: lotId,
+        action: 'ADMIN_LOT_BLOCKED',
+        idempotencyKey,
+      },
+    });
+    if (existing) {
+      return this.getLot(lotId);
+    }
+
+    await this.prisma.$transaction(async (tx) => {
+      const lot = await tx.lot.findUnique({
+        where: { id: lotId },
+        include: { inventoryAsset: true },
+      });
+
+      if (!lot) {
+        throw new NotFoundException('Lot not found');
+      }
+      if (lot.status !== LotStatus.ACTIVE) {
+        throw new BadRequestException('Only ACTIVE lots can be blocked');
+      }
+
+      await this.lotStateService.transition(tx, {
+        lotId,
+        from: lot.status,
+        to: LotStatus.BLOCKED,
+        actorUserId,
+        reason,
+      });
+
+      await tx.inventoryAsset.update({
+        where: { id: lot.inventoryAssetId },
+        data: { status: InventoryAssetStatus.BLOCKED },
+      });
+
+      await tx.auditLog.create({
+        data: {
+          actorUserId,
+          entityType: 'lot',
+          entityId: lotId,
+          action: 'ADMIN_LOT_BLOCKED',
+          reason,
+          beforeState: { status: lot.status },
+          afterState: { status: LotStatus.BLOCKED },
+          idempotencyKey,
+        },
+      });
+    });
+
+    return this.getLot(lotId);
+  }
+
+  async unblockLot(
+    lotId: string,
+    actorUserId: string,
+    reason: string,
+    idempotencyKey: string,
+  ) {
+    if (!idempotencyKey) {
+      throw new BadRequestException('Idempotency-Key header is required');
+    }
+
+    const existing = await this.prisma.auditLog.findFirst({
+      where: {
+        entityType: 'lot',
+        entityId: lotId,
+        action: 'ADMIN_LOT_UNBLOCKED',
+        idempotencyKey,
+      },
+    });
+    if (existing) {
+      return this.getLot(lotId);
+    }
+
+    await this.prisma.$transaction(async (tx) => {
+      const lot = await tx.lot.findUnique({
+        where: { id: lotId },
+        include: { inventoryAsset: true },
+      });
+
+      if (!lot) {
+        throw new NotFoundException('Lot not found');
+      }
+      if (lot.status !== LotStatus.BLOCKED) {
+        throw new BadRequestException('Only BLOCKED lots can be unblocked');
+      }
+
+      await this.lotStateService.transition(tx, {
+        lotId,
+        from: lot.status,
+        to: LotStatus.ACTIVE,
+        actorUserId,
+        reason,
+      });
+
+      await tx.inventoryAsset.update({
+        where: { id: lot.inventoryAssetId },
+        data: { status: InventoryAssetStatus.LISTED },
+      });
+
+      await tx.auditLog.create({
+        data: {
+          actorUserId,
+          entityType: 'lot',
+          entityId: lotId,
+          action: 'ADMIN_LOT_UNBLOCKED',
+          reason,
+          beforeState: { status: lot.status },
+          afterState: { status: LotStatus.ACTIVE },
+          idempotencyKey,
+        },
+      });
+    });
+
+    return this.getLot(lotId);
+  }
+
+  async adminCancelLot(
+    lotId: string,
+    actorUserId: string,
+    reason: string,
+    idempotencyKey: string,
+  ) {
+    if (!idempotencyKey) {
+      throw new BadRequestException('Idempotency-Key header is required');
+    }
+
+    const existing = await this.prisma.auditLog.findFirst({
+      where: {
+        entityType: 'lot',
+        entityId: lotId,
+        action: 'ADMIN_LOT_CANCELED',
+        idempotencyKey,
+      },
+    });
+    if (existing) {
+      return this.getLot(lotId);
+    }
+
+    await this.prisma.$transaction(async (tx) => {
+      const lot = await tx.lot.findUnique({
+        where: { id: lotId },
+        include: { inventoryAsset: true },
+      });
+
+      if (!lot) {
+        throw new NotFoundException('Lot not found');
+      }
+      if (lot.status !== LotStatus.ACTIVE) {
+        throw new BadRequestException('Only ACTIVE lots can be canceled by admin');
+      }
+
+      await this.lotStateService.transition(tx, {
+        lotId,
+        from: lot.status,
+        to: LotStatus.CANCELED,
+        actorUserId,
+        reason,
+      });
+
+      await tx.inventoryAsset.update({
+        where: { id: lot.inventoryAssetId },
+        data: { status: InventoryAssetStatus.AVAILABLE },
+      });
+
+      await tx.auditLog.create({
+        data: {
+          actorUserId,
+          entityType: 'lot',
+          entityId: lotId,
+          action: 'ADMIN_LOT_CANCELED',
+          reason,
+          beforeState: { status: lot.status },
+          afterState: { status: LotStatus.CANCELED },
+          idempotencyKey,
+        },
+      });
+    });
+
+    return this.getLot(lotId);
   }
 }

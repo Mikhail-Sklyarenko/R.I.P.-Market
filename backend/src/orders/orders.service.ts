@@ -17,6 +17,7 @@ import { resolveOrderVerificationMode } from '../trades/trade-verification.confi
 import { parseSteamTradeOfferId } from '../providers/trade/trade-offer.util';
 import { LedgerService } from '../wallet/ledger.service';
 import { CreateOrderDto } from './dto/create-order.dto';
+import { ListMyOrdersQueryDto } from './dto/list-my-orders-query.dto';
 import { UpdateTradeReferenceDto } from './dto/update-trade-reference.dto';
 import { OrderStateService } from './order-state.service';
 
@@ -283,6 +284,9 @@ export class OrdersService {
         hold: true,
         buyer: { select: { id: true, username: true, tradeUrl: true } },
         seller: { select: { id: true, username: true, tradeUrl: true } },
+        statusEvents: {
+          orderBy: { createdAt: 'asc' },
+        },
       },
     });
 
@@ -301,11 +305,28 @@ export class OrdersService {
     return toJsonSafe(order);
   }
 
-  async listMyOrders(userId: string) {
+  async listMyOrders(userId: string, query: ListMyOrdersQueryDto = {}) {
+    const where: {
+      OR?: Array<{ buyerId: string } | { sellerId: string }>;
+      buyerId?: string;
+      sellerId?: string;
+      status?: OrderStatus;
+    } = {};
+
+    if (query.role === 'buyer') {
+      where.buyerId = userId;
+    } else if (query.role === 'seller') {
+      where.sellerId = userId;
+    } else {
+      where.OR = [{ buyerId: userId }, { sellerId: userId }];
+    }
+
+    if (query.status) {
+      where.status = query.status;
+    }
+
     const orders = await this.prisma.order.findMany({
-      where: {
-        OR: [{ buyerId: userId }, { sellerId: userId }],
-      },
+      where,
       include: {
         lot: {
           include: { inventoryAsset: { include: { itemDefinition: true } } },

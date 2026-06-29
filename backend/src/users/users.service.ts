@@ -143,11 +143,18 @@ export class UsersService {
   async linkSteamId(userId: string, steamId: string, username?: string) {
     const existing = await this.prisma.user.findUnique({ where: { steamId } });
     if (existing && existing.id !== userId) {
-      throw new AppException(
-        ErrorCode.STEAM_ALREADY_LINKED,
-        'Steam account is already linked to another user',
-        HttpStatus.CONFLICT,
-      );
+      if (this.isDevSteamLinkReassignEnabled()) {
+        await this.prisma.user.update({
+          where: { id: existing.id },
+          data: { steamId: null },
+        });
+      } else {
+        throw new AppException(
+          ErrorCode.STEAM_ALREADY_LINKED,
+          'Steam account is already linked to another user',
+          HttpStatus.CONFLICT,
+        );
+      }
     }
 
     const user = await this.prisma.user.update({
@@ -179,6 +186,10 @@ export class UsersService {
     }
 
     return toJsonSafe(user);
+  }
+
+  private isDevSteamLinkReassignEnabled(): boolean {
+    return process.env.ALLOW_MOCK_LOGIN_IN_STEAM_MODE === 'true';
   }
 
   async updateTradeUrl(userId: string, tradeUrl: string) {

@@ -3,8 +3,12 @@ import type {
   AuthConfig,
   AuthResponse,
   LedgerEntry,
+  ListLotsParams,
+  ListMyOrdersParams,
   Lot,
+  LotsPage,
   Notification,
+  NotificationCategory,
   Order,
   PricingPreview,
   InventoryResponse,
@@ -40,8 +44,39 @@ export function getSteamLinkUrl(token: string) {
   });
 }
 
+function buildQueryString(
+  params: Record<string, string | number | undefined>,
+): string {
+  const search = new URLSearchParams();
+  for (const [key, value] of Object.entries(params)) {
+    if (value !== undefined && value !== '') {
+      search.set(key, String(value));
+    }
+  }
+  const query = search.toString();
+  return query ? `?${query}` : '';
+}
+
 export function listActiveLots() {
   return apiRequest<Lot[]>('/lots');
+}
+
+export function listLots(params: ListLotsParams) {
+  const query = buildQueryString({
+    q: params.q,
+    minPriceMinor: params.minPriceMinor,
+    maxPriceMinor: params.maxPriceMinor,
+    weapon: params.weapon,
+    rarity: params.rarity,
+    sort: params.sort,
+    page: params.page,
+    limit: params.limit,
+  });
+  return apiRequest<LotsPage>(`/lots${query}`);
+}
+
+export function listSimilarLots(lotId: string, limit = 6) {
+  return apiRequest<Lot[]>(`/lots?similarTo=${encodeURIComponent(lotId)}&limit=${limit}`);
 }
 
 export function getLot(lotId: string) {
@@ -51,6 +86,13 @@ export function getLot(lotId: string) {
 export function getInventory(token: string, options?: { forceRefresh?: boolean }) {
   const query = options?.forceRefresh ? '?forceRefresh=true' : '';
   return apiRequest<InventoryResponse>(`/inventory${query}`, { token });
+}
+
+export function checkInventoryAsset(token: string, assetId: string) {
+  return apiRequest<InventoryResponse['assets'][number]>(`/inventory/${assetId}/check`, {
+    method: 'POST',
+    token,
+  });
 }
 
 export function getMyLots(token: string) {
@@ -111,8 +153,12 @@ export function updateOrderTradeReference(
   });
 }
 
-export function listMyOrders(token: string) {
-  return apiRequest<Order[]>('/me/orders', { token });
+export function listMyOrders(token: string, params?: ListMyOrdersParams) {
+  const query = buildQueryString({
+    role: params?.role,
+    status: params?.status,
+  });
+  return apiRequest<Order[]>(`/me/orders${query}`, { token });
 }
 
 export function mockTradeSuccess(token: string, orderId: string, idempotencyKey?: string) {
@@ -141,13 +187,26 @@ export function cancelLot(token: string, lotId: string) {
   });
 }
 
-export function listNotifications(token: string, unreadOnly = false) {
-  const query = unreadOnly ? '?unreadOnly=true' : '';
+export function listNotifications(
+  token: string,
+  options?: { unreadOnly?: boolean; category?: NotificationCategory },
+) {
+  const query = buildQueryString({
+    unreadOnly: options?.unreadOnly ? 'true' : undefined,
+    category: options?.category,
+  });
   return apiRequest<Notification[]>(`/me/notifications${query}`, { token });
 }
 
 export function markNotificationRead(token: string, notificationId: string) {
   return apiRequest<Notification>(`/me/notifications/${notificationId}/read`, {
+    method: 'PATCH',
+    token,
+  });
+}
+
+export function markAllNotificationsRead(token: string) {
+  return apiRequest<{ success: boolean }>('/me/notifications/read-all', {
     method: 'PATCH',
     token,
   });

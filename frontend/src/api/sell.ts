@@ -1,4 +1,6 @@
 export {
+  cancelLot,
+  checkInventoryAsset,
   createIdempotencyKey,
   createLot,
   getAuthConfig,
@@ -7,5 +9,6 @@ export {
   getMyLots,
   getPricingPreview,
   getSteamLoginUrl,
+  listMyOrders,
   mockLogin,
 } from './marketplace';

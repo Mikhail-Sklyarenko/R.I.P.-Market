@@ -21,15 +21,15 @@ test.describe('Admin open dispute', () => {
     await expect(page.getByTestId('admin-order-status')).toHaveText('WAITING_TRADE');
 
     await page.getByTestId('admin-action-reason').fill('Manual ops escalation');
-    page.once('dialog', (dialog) => dialog.accept());
     await page.getByTestId('admin-open-dispute').click();
+    await page.getByTestId('admin-reason-modal-confirm').click();
 
     await expect(page.getByTestId('admin-order-status')).toHaveText('DISPUTE', { timeout: 15000 });
     await expect(page.getByTestId('admin-action-success')).toContainText('Dispute opened');
 
     await page.getByTestId('admin-action-reason').fill('Buyer did not receive item');
-    page.once('dialog', (dialog) => dialog.accept());
     await page.getByTestId('admin-resolve-buyer').click();
+    await page.getByTestId('admin-reason-modal-confirm').click();
 
     await expect(page.getByTestId('admin-order-status')).toHaveText('FAILED', { timeout: 15000 });
     await expect(page.getByTestId('admin-order-timeline')).toContainText('DISPUTE');

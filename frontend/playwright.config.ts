@@ -19,8 +19,11 @@ export default defineConfig({
       env: {
         ...process.env,
         PORT: '3001',
+        JWT_SECRET: process.env.JWT_SECRET ?? 'playwright-jwt-secret',
         FRONTEND_ORIGIN: 'http://localhost:5173',
         ENABLE_TEST_ROUTES: 'true',
+        ENABLE_MOCK_TRADE: 'true',
+        ENABLE_MOCK_DEPOSIT: 'true',
         AUTH_PROVIDER: 'mock',
         INVENTORY_PROVIDER: 'mock',
         TRADE_PROVIDER: 'mock',

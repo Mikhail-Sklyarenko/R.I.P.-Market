@@ -45,8 +45,8 @@ test.describe('Ops trade timeout', () => {
     await expect(page.getByTestId('admin-order-status')).toHaveText('DISPUTE');
 
     await page.getByTestId('admin-action-reason').fill('Trade timed out in Steam');
-    page.once('dialog', (dialog) => dialog.accept());
     await page.getByTestId('admin-resolve-buyer').click();
+    await page.getByTestId('admin-reason-modal-confirm').click();
 
     await expect(page.getByTestId('admin-order-status')).toHaveText('FAILED', { timeout: 15000 });
   });

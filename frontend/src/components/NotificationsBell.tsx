@@ -1,37 +1,18 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { listNotifications, markNotificationRead } from '../api/marketplace';
-import type { Notification } from '../api/types';
-import { useAuth } from '../auth/AuthContext';
+import { useNotifications } from '../hooks/useNotifications';
+import { NotificationItem } from './NotificationItem';
+
+const DROPDOWN_LIMIT = 10;
 
 export function NotificationsBell() {
-  const { token } = useAuth();
-  const [notifications, setNotifications] = useState<Notification[]>([]);
+  const { notifications, unreadCount, markRead } = useNotifications();
   const [open, setOpen] = useState(false);
 
-  const load = useCallback(() => {
-    if (!token) {
-      return;
+  async function handleRead(notification: { id: string; readAt: string | null }) {
+    if (!notification.readAt) {
+      await markRead(notification.id);
     }
-    listNotifications(token)
-      .then(setNotifications)
-      .catch(() => undefined);
-  }, [token]);
-
-  useEffect(() => {
-    load();
-    const timer = window.setInterval(load, 5000);
-    return () => window.clearInterval(timer);
-  }, [load]);
-
-  const unreadCount = notifications.filter((item) => !item.readAt).length;
-
-  async function handleRead(notification: Notification) {
-    if (!token || notification.readAt) {
-      return;
-    }
-    await markNotificationRead(token, notification.id);
-    load();
   }
 
   return (
@@ -41,37 +22,37 @@ export function NotificationsBell() {
         className="button secondary notifications-button"
         onClick={() => setOpen((value) => !value)}
         data-testid="notifications-button"
+        aria-expanded={open}
       >
         Notifications
-        {unreadCount > 0 ? <span className="notifications-badge">{unreadCount}</span> : null}
+        {unreadCount > 0 ? (
+          <span className="notifications-badge" data-testid="notifications-unread-count">
+            {unreadCount}
+          </span>
+        ) : null}
       </button>
       {open ? (
         <div className="notifications-panel" data-testid="notifications-panel">
           {notifications.length === 0 ? (
             <p className="muted small">No notifications yet.</p>
           ) : (
-            notifications.slice(0, 10).map((notification) => (
-              <button
+            notifications.slice(0, DROPDOWN_LIMIT).map((notification) => (
+              <NotificationItem
                 key={notification.id}
-                type="button"
-                className={`notification-item ${notification.readAt ? '' : 'unread'}`}
-                data-testid={`notification-${notification.eventType}`}
-                onClick={() => void handleRead(notification)}
-              >
-                <strong>{notification.title}</strong>
-                <span>{notification.message}</span>
-                {notification.payload &&
-                typeof notification.payload.orderId === 'string' ? (
-                  <Link
-                    to={`/orders/${notification.payload.orderId}`}
-                    onClick={(event) => event.stopPropagation()}
-                  >
-                    View order
-                  </Link>
-                ) : null}
-              </button>
+                notification={notification}
+                compact
+                onRead={handleRead}
+              />
             ))
           )}
+          <Link
+            to="/notifications"
+            className="notification-view-all"
+            onClick={() => setOpen(false)}
+            data-testid="notifications-view-all"
+          >
+            Все уведомления
+          </Link>
         </div>
       ) : null}
     </div>

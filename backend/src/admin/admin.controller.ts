@@ -19,7 +19,11 @@ import { CurrentUser } from '../common/current-user.decorator';
 import type { AuthUser } from '../common/auth-user.interface';
 import { AdminService } from './admin.service';
 import { OutboxProcessorService } from '../outbox/outbox-processor.service';
+import { AdminReasonDto } from './dto/admin-reason.dto';
+import { ListAdminLotsQueryDto } from './dto/list-admin-lots-query.dto';
+import { ListAdminOrdersQueryDto } from './dto/list-admin-orders-query.dto';
 import { OpenDisputeDto } from './dto/open-dispute.dto';
+import { RestrictUserBodyDto } from './dto/restrict-user-body.dto';
 import { ResolveDisputeDto } from './dto/resolve-dispute.dto';
 import { UpdateUserStatusDto } from './dto/update-user-status.dto';
 import { UpsertAllowlistEntryDto } from './dto/upsert-allowlist.dto';
@@ -40,6 +44,52 @@ export class AdminController {
     return this.adminService.listUsers();
   }
 
+  @Get('users/:id')
+  async getUser(@Param('id') userId: string) {
+    return this.adminService.getUser(userId);
+  }
+
+  @ApiHeader({ name: 'Idempotency-Key', required: true })
+  @Post('users/:id/restrict')
+  async restrictUser(
+    @CurrentUser() actor: AuthUser,
+    @Param('id') userId: string,
+    @Body() body: RestrictUserBodyDto,
+    @Headers('idempotency-key') idempotencyKey?: string,
+  ) {
+    if (!idempotencyKey) {
+      throw new BadRequestException('Idempotency-Key header is required');
+    }
+
+    return this.adminService.restrictUser(
+      userId,
+      body.status,
+      actor.sub,
+      body.reason,
+      idempotencyKey,
+    );
+  }
+
+  @ApiHeader({ name: 'Idempotency-Key', required: true })
+  @Post('users/:id/unrestrict')
+  async unrestrictUser(
+    @CurrentUser() actor: AuthUser,
+    @Param('id') userId: string,
+    @Body() body: AdminReasonDto,
+    @Headers('idempotency-key') idempotencyKey?: string,
+  ) {
+    if (!idempotencyKey) {
+      throw new BadRequestException('Idempotency-Key header is required');
+    }
+
+    return this.adminService.unrestrictUser(
+      userId,
+      actor.sub,
+      body.reason,
+      idempotencyKey,
+    );
+  }
+
   @Patch('users/:id/status')
   async updateUserStatus(
     @CurrentUser() actor: AuthUser,
@@ -50,8 +100,78 @@ export class AdminController {
   }
 
   @Get('orders')
-  async listOrders() {
-    return this.adminService.listOrders();
+  async listOrders(@Query() query: ListAdminOrdersQueryDto) {
+    return this.adminService.listOrders(query);
+  }
+
+  @Get('lots')
+  async listLots(@Query() query: ListAdminLotsQueryDto) {
+    return this.adminService.listLots(query);
+  }
+
+  @Get('lots/:id')
+  async getLot(@Param('id') lotId: string) {
+    return this.adminService.getLot(lotId);
+  }
+
+  @ApiHeader({ name: 'Idempotency-Key', required: true })
+  @Post('lots/:id/block')
+  async blockLot(
+    @CurrentUser() actor: AuthUser,
+    @Param('id') lotId: string,
+    @Body() body: AdminReasonDto,
+    @Headers('idempotency-key') idempotencyKey?: string,
+  ) {
+    if (!idempotencyKey) {
+      throw new BadRequestException('Idempotency-Key header is required');
+    }
+
+    return this.adminService.blockLot(
+      lotId,
+      actor.sub,
+      body.reason,
+      idempotencyKey,
+    );
+  }
+
+  @ApiHeader({ name: 'Idempotency-Key', required: true })
+  @Post('lots/:id/unblock')
+  async unblockLot(
+    @CurrentUser() actor: AuthUser,
+    @Param('id') lotId: string,
+    @Body() body: AdminReasonDto,
+    @Headers('idempotency-key') idempotencyKey?: string,
+  ) {
+    if (!idempotencyKey) {
+      throw new BadRequestException('Idempotency-Key header is required');
+    }
+
+    return this.adminService.unblockLot(
+      lotId,
+      actor.sub,
+      body.reason,
+      idempotencyKey,
+    );
+  }
+
+  @ApiHeader({ name: 'Idempotency-Key', required: true })
+  @Post('lots/:id/cancel')
+  async cancelLot(
+    @CurrentUser() actor: AuthUser,
+    @Param('id') lotId: string,
+    @Body() body: AdminReasonDto,
+    @Headers('idempotency-key') idempotencyKey?: string,
+  ) {
+    if (!idempotencyKey) {
+      throw new BadRequestException('Idempotency-Key header is required');
+    }
+
+    return this.adminService.adminCancelLot(
+      lotId,
+      actor.sub,
+      body.reason,
+      idempotencyKey,
+    );
   }
 
   @Get('orders/:id/status-events')

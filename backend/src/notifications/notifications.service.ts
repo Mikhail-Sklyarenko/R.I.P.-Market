@@ -2,6 +2,8 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { Prisma, UserRole } from '@prisma/client';
 import { toJsonSafe } from '../common/json-safe.util';
 import { PrismaService } from '../prisma/prisma.service';
+import type { NotificationCategory } from './notification-category.util';
+import { notificationCategoryPrefixes } from './notification-category.util';
 
 type OrderContext = {
   id: string;
@@ -13,11 +15,26 @@ type OrderContext = {
 export class NotificationsService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async listForUser(userId: string, unreadOnly = false) {
+  async listForUser(
+    userId: string,
+    unreadOnly = false,
+    category?: NotificationCategory,
+  ) {
+    const categoryPrefixes = category
+      ? notificationCategoryPrefixes(category)
+      : null;
+
     const notifications = await this.prisma.notification.findMany({
       where: {
         userId,
         ...(unreadOnly ? { readAt: null } : {}),
+        ...(categoryPrefixes
+          ? {
+              OR: categoryPrefixes.map((prefix) => ({
+                eventType: { startsWith: prefix },
+              })),
+            }
+          : {}),
       },
       orderBy: { createdAt: 'desc' },
       take: 100,

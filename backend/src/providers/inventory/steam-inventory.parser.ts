@@ -12,6 +12,8 @@ export type SteamInventoryDescription = {
   market_hash_name?: string;
   market_name?: string;
   type?: string;
+  icon_url?: string;
+  icon_url_large?: string;
   tradable?: number;
   market_tradable_restriction?: number;
   cache_expiration?: string;
@@ -46,6 +48,7 @@ export type ParsedSteamAsset = {
   marketHashName: string;
   weapon?: string;
   rarity?: string;
+  iconUrl: string | null;
   tradable: boolean;
   tradeLockUntil: Date | null;
   floatValue: string | null;
@@ -85,6 +88,10 @@ function parseRarityFromTags(
 ): string | undefined {
   const rarityTag = tags?.find((tag) => tag.category === 'Rarity');
   return rarityTag?.localized_tag_name ?? undefined;
+}
+
+function parseIconUrl(description: SteamInventoryDescription): string | null {
+  return description.icon_url_large ?? description.icon_url ?? null;
 }
 
 function parseTradeLockUntil(
@@ -141,6 +148,7 @@ export function parseSteamInventoryResponse(
       marketHashName: description.market_hash_name,
       weapon: parseWeaponFromTags(description.tags),
       rarity: parseRarityFromTags(description.tags),
+      iconUrl: parseIconUrl(description),
       tradable: description.tradable === 1,
       tradeLockUntil: parseTradeLockUntil(description),
       floatValue: floatProp?.float_value ?? null,

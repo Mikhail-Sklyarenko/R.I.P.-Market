@@ -1,15 +1,22 @@
+import type { ReactNode } from 'react';
 import { ApiError } from '../api/types';
 import { ERROR_MESSAGES } from '../utils/format';
 
+type ErrorAlertVariant = 'error' | 'info' | 'warning';
+
 type ErrorAlertProps = {
-  error: unknown;
+  error?: unknown;
+  variant?: ErrorAlertVariant;
+  title?: string;
+  children?: ReactNode;
+  'data-testid'?: string;
 };
 
-export function ErrorAlert({ error }: ErrorAlertProps) {
-  if (!error) {
-    return null;
-  }
-
+function resolveError(error: unknown): {
+  message: string;
+  code?: string;
+  requestId?: string | null;
+} {
   let message = 'Something went wrong. Please try again.';
   let code: string | undefined;
   let requestId: string | null | undefined;
@@ -22,11 +29,39 @@ export function ErrorAlert({ error }: ErrorAlertProps) {
     message = error.message;
   }
 
+  return { message, code, requestId };
+}
+
+export function ErrorAlert({
+  error,
+  variant = 'error',
+  title,
+  children,
+  'data-testid': testId,
+}: ErrorAlertProps) {
+  if (!error && !children && !title) {
+    return null;
+  }
+
+  const resolved = error ? resolveError(error) : null;
+  const alertClass =
+    variant === 'info'
+      ? 'alert alert-info'
+      : variant === 'warning'
+        ? 'alert alert-warning'
+        : 'alert alert-error';
+
   return (
-    <div className="alert alert-error" role="alert">
-      <strong>{message}</strong>
-      {code ? <div className="alert-meta">Code: {code}</div> : null}
-      {requestId ? <div className="alert-meta">Request ID: {requestId}</div> : null}
+    <div className={alertClass} role="alert" data-testid={testId}>
+      {title ? <strong className="alert-title">{title}</strong> : null}
+      {resolved ? <strong>{resolved.message}</strong> : null}
+      {children ? <div className="alert-body">{children}</div> : null}
+      {resolved?.code ? (
+        <div className="alert-meta">Code: {resolved.code}</div>
+      ) : null}
+      {resolved?.requestId ? (
+        <div className="alert-meta">Request ID: {resolved.requestId}</div>
+      ) : null}
     </div>
   );
 }

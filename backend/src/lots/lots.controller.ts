@@ -13,6 +13,8 @@ import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { CurrentUser } from '../common/current-user.decorator';
 import type { AuthUser } from '../common/auth-user.interface';
 import { CreateLotDto } from './dto/create-lot.dto';
+import { ListLotsQueryDto } from './dto/list-lots-query.dto';
+import { hasLotsListFilters } from './lots-list.util';
 import { LotsService } from './lots.service';
 
 @ApiTags('lots')
@@ -38,7 +40,13 @@ export class LotsController {
   }
 
   @Get()
-  async listActive() {
+  async list(@Query() query: ListLotsQueryDto) {
+    if (query.similarTo) {
+      return this.lotsService.listSimilar(query.similarTo, query.limit ?? 6);
+    }
+    if (hasLotsListFilters(query)) {
+      return this.lotsService.listActiveFiltered(query);
+    }
     return this.lotsService.listActive();
   }
 

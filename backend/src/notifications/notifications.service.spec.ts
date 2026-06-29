@@ -37,6 +37,28 @@ describe('NotificationsService', () => {
     });
   });
 
+  it('filters notifications by category prefix', async () => {
+    const findMany = jest.fn().mockResolvedValue([]);
+    const prisma = {
+      notification: { findMany },
+    } as unknown as PrismaService;
+
+    const service = new NotificationsService(prisma);
+    await service.listForUser('user-1', false, 'deals');
+
+    expect(findMany).toHaveBeenCalledWith({
+      where: {
+        userId: 'user-1',
+        OR: [
+          { eventType: { startsWith: 'ORDER_' } },
+          { eventType: { startsWith: 'TRADE_' } },
+        ],
+      },
+      orderBy: { createdAt: 'desc' },
+      take: 100,
+    });
+  });
+
   it('notifies admins for reconciliation failures', async () => {
     const createMany = jest.fn();
     const prisma = {

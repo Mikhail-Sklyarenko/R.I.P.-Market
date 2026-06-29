@@ -21,13 +21,15 @@ test.describe('Buy complete flow', () => {
     await page.getByRole('link', { name: 'View listing' }).first().click();
 
     await page.getByTestId('buy-lot-button').click();
+    await expect(page).toHaveURL(/\/checkout$/);
+    await page.getByTestId('checkout-deposit-link').click();
     await expect(page).toHaveURL(/\/wallet/);
 
     await page.getByTestId('deposit-amount-input').fill('2000');
     await page.getByTestId('deposit-submit').click();
 
-    await expect(page.getByTestId('buy-lot-button')).toBeVisible();
-    await page.getByTestId('buy-lot-button').click();
+    await expect(page).toHaveURL(/\/checkout$/);
+    await page.getByTestId('confirm-purchase-button').click();
 
     await expect(page.getByTestId('order-status')).toHaveText('WAITING_TRADE');
     await page.getByTestId('mock-trade-success').click();

@@ -1,10 +1,21 @@
 import { type FormEvent, useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
-import { createLot, getInventory, getPricingPreview } from '../api/sell';
+import {
+  checkInventoryAsset,
+  createLot,
+  getPricingPreview,
+} from '../api/sell';
 import type { InventoryAsset, PricingPreview } from '../api/types';
 import { useAuth } from '../auth/AuthContext';
 import { ErrorAlert } from '../components/ErrorAlert';
-import { formatUsdFromMinor, parseUsdToMinor } from '../utils/format';
+import { FormField } from '../components/FormField';
+import { ItemPreview } from '../components/ItemPreview';
+import { LoadingState } from '../components/LoadingState';
+import { MoneyDisplay } from '../components/MoneyDisplay';
+import { PageHeader } from '../components/PageHeader';
+import { SellerSaleInfo } from '../components/SellerSaleInfo';
+import { parseUsdToMinor } from '../utils/format';
+import { canListAsset } from '../utils/seller-flow';
 
 export function CreateLotPage() {
   const { token } = useAuth();
@@ -21,33 +32,15 @@ export function CreateLotPage() {
   const [fieldError, setFieldError] = useState<string | null>(null);
 
   const priceMinor = useMemo(() => parseUsdToMinor(priceInput), [priceInput]);
-
-  const listable = useMemo(() => {
-    if (!asset) {
-      return false;
-    }
-    if (asset.status !== 'AVAILABLE' || !asset.tradable) {
-      return false;
-    }
-    if (asset.tradeLockUntil && new Date(asset.tradeLockUntil) > new Date()) {
-      return false;
-    }
-    return true;
-  }, [asset]);
+  const listable = useMemo(() => (asset ? canListAsset(asset) : false), [asset]);
 
   useEffect(() => {
     if (!token || !assetId) {
       return;
     }
     setLoading(true);
-    getInventory(token)
-      .then((response) => {
-        const found = response.assets.find((item) => item.id === assetId) ?? null;
-        setAsset(found);
-        if (!found) {
-          setError(new Error('Inventory item not found'));
-        }
-      })
+    checkInventoryAsset(token, assetId)
+      .then(setAsset)
       .catch((err: unknown) => setError(err))
       .finally(() => setLoading(false));
   }, [token, assetId]);
@@ -74,6 +67,12 @@ export function CreateLotPage() {
     setSubmitting(true);
     setError(null);
     try {
+      const freshAsset = await checkInventoryAsset(token, assetId);
+      setAsset(freshAsset);
+      if (!canListAsset(freshAsset)) {
+        setError(new Error('This item cannot be listed right now'));
+        return;
+      }
       await createLot(token, assetId, priceMinor);
       navigate('/sell/my-lots');
     } catch (err) {
@@ -86,48 +85,54 @@ export function CreateLotPage() {
   if (!assetId) {
     return (
       <div className="page">
-        <div className="card">
-          <p>Missing asset. Go back to inventory and pick an item.</p>
-          <Link to="/sell/inventory">Back to inventory</Link>
-        </div>
+        <EmptyStateMissingAsset />
       </div>
     );
   }
 
   return (
     <div className="page">
-      <div className="page-header">
-        <div>
-          <h2>Create listing</h2>
-          <p className="muted">Set your price and review commission before publishing.</p>
-        </div>
-        <Link to="/sell/inventory" className="button secondary">
-          Back
-        </Link>
-      </div>
+      <PageHeader
+        title="Установка цены"
+        subtitle="Укажите цену и проверьте комиссию перед публикацией."
+        actions={
+          <Link to="/sell/inventory" className="button secondary">
+            Назад
+          </Link>
+        }
+      />
 
-      {loading ? <p className="muted">Loading item…</p> : null}
+      {loading ? <LoadingState message="Загрузка предмета…" /> : null}
 
       {asset ? (
         <form className="card form-card" onSubmit={(event) => void handleSubmit(event)}>
-          <h3>{asset.itemDefinition.marketHashName}</h3>
-          <p className="muted">{asset.wear ?? 'Unknown wear'}</p>
+          <ItemPreview
+            item={asset}
+            title={asset.itemDefinition.marketHashName}
+            size="md"
+          />
+
           {!listable ? (
-            <p className="field-error">
+            <p className="field-error" data-testid="asset-not-listable">
               This item cannot be listed right now (not tradable or trade-locked).
             </p>
           ) : null}
 
-          <label className="field">
-            <span>Price (USD)</span>
+          <p className="muted small" data-testid="price-hint">
+            Подсказка: в staging популярный тестовый диапазон — $500–$2,000. Комиссия
+            маркетплейса фиксирована: 5%.
+          </p>
+
+          <FormField label="Price (USD)" htmlFor="price-input">
             <input
+              id="price-input"
               type="text"
               inputMode="decimal"
               value={priceInput}
               onChange={(event) => setPriceInput(event.target.value)}
               data-testid="price-input"
             />
-          </label>
+          </FormField>
 
           {fieldError ? <p className="field-error">{fieldError}</p> : null}
 
@@ -135,15 +140,15 @@ export function CreateLotPage() {
             <div className="pricing-preview" data-testid="pricing-preview">
               <div>
                 <span>List price</span>
-                <strong>{formatUsdFromMinor(preview.priceMinor)}</strong>
+                <MoneyDisplay minor={preview.priceMinor} strong />
               </div>
               <div>
                 <span>Commission (5%)</span>
-                <strong>{formatUsdFromMinor(preview.commissionMinor)}</strong>
+                <MoneyDisplay minor={preview.commissionMinor} strong />
               </div>
               <div>
                 <span>You receive</span>
-                <strong>{formatUsdFromMinor(preview.sellerReceiveMinor)}</strong>
+                <MoneyDisplay minor={preview.sellerReceiveMinor} strong />
               </div>
             </div>
           ) : null}
@@ -160,6 +165,22 @@ export function CreateLotPage() {
           </button>
         </form>
       ) : null}
+
+      <SellerSaleInfo />
+    </div>
+  );
+}
+
+function EmptyStateMissingAsset() {
+  return (
+    <div className="card empty-state">
+      <h3 className="empty-state-title">Предмет не выбран</h3>
+      <p className="empty-state-message">
+        Вернитесь в инвентарь и выберите предмет для продажи.
+      </p>
+      <Link to="/sell/inventory" className="button primary">
+        К инвентарю
+      </Link>
     </div>
   );
 }

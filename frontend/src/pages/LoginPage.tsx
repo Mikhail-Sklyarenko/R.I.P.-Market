@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { getAuthConfig, getSteamLoginUrl, mockLogin } from '../api/marketplace';
 import type { AuthConfig } from '../api/types';
 import { useAuth } from '../auth/AuthContext';
@@ -12,8 +12,17 @@ type MockRole = 'SELLER' | 'BUYER' | 'ADMIN';
 const API_BASE_URL =
   import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:3000/api/v1';
 
+function safeReturnUrl(raw: string | null): string | null {
+  if (!raw || !raw.startsWith('/') || raw.startsWith('//')) {
+    return null;
+  }
+  return raw;
+}
+
 export function LoginPage() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const returnUrl = safeReturnUrl(searchParams.get('returnUrl'));
   const { login, token, user } = useAuth();
   const [mode, setMode] = useState<AuthMode>('mock');
   const [role, setRole] = useState<MockRole>('BUYER');
@@ -23,9 +32,9 @@ export function LoginPage() {
 
   useEffect(() => {
     if (token && user) {
-      navigate(getHomePathForRole(user.role), { replace: true });
+      navigate(returnUrl ?? getHomePathForRole(user.role), { replace: true });
     }
-  }, [token, user, navigate]);
+  }, [token, user, navigate, returnUrl]);
 
   useEffect(() => {
     getAuthConfig()
@@ -44,7 +53,7 @@ export function LoginPage() {
     try {
       const response = await mockLogin(role);
       login(response.accessToken, response.user);
-      navigate(getHomePathForRole(response.user.role));
+      navigate(returnUrl ?? getHomePathForRole(response.user.role));
     } catch (err) {
       setError(err);
     } finally {

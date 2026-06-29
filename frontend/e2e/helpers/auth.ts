@@ -26,10 +26,12 @@ export async function loginAsAdmin(page: Page) {
 export async function buyerPurchaseWaitingTrade(page: Page, depositAmount = '2000') {
   await page.getByRole('link', { name: 'View listing' }).first().click();
   await page.getByTestId('buy-lot-button').click();
+  await expect(page).toHaveURL(/\/checkout$/);
+  await page.getByTestId('checkout-deposit-link').click();
   await expect(page).toHaveURL(/\/wallet/);
   await page.getByTestId('deposit-amount-input').fill(depositAmount);
   await page.getByTestId('deposit-submit').click();
-  await expect(page.getByTestId('buy-lot-button')).toBeVisible();
-  await page.getByTestId('buy-lot-button').click();
+  await expect(page).toHaveURL(/\/checkout$/);
+  await page.getByTestId('confirm-purchase-button').click();
   await expect(page.getByTestId('order-status')).toHaveText('WAITING_TRADE');
 }

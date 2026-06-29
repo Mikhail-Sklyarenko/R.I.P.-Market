@@ -18,6 +18,7 @@ describe('UsersService (Steam identity)', () => {
   let ledgerService: { ensureUserWallet: jest.Mock };
 
   beforeEach(() => {
+    delete process.env.ALLOW_MOCK_LOGIN_IN_STEAM_MODE;
     prisma = {
       user: {
         upsert: jest.fn(),
@@ -96,5 +97,38 @@ describe('UsersService (Steam identity)', () => {
       expect((error as AppException).code).toBe(ErrorCode.STEAM_ALREADY_LINKED);
       expect((error as AppException).getStatus()).toBe(HttpStatus.CONFLICT);
     }
+  });
+
+  it('linkSteamId reassigns steamId in dev mock-login mode', async () => {
+    process.env.ALLOW_MOCK_LOGIN_IN_STEAM_MODE = 'true';
+    prisma.user.findUnique.mockResolvedValue({
+      id: 'other-user',
+      steamId: '76561198111111111',
+    });
+    prisma.user.update
+      .mockResolvedValueOnce({ id: 'other-user', steamId: null })
+      .mockResolvedValueOnce({
+        id: 'user-2',
+        steamId: '76561198111111111',
+        username: 'mock_seller',
+        role: UserRole.SELLER,
+        status: UserStatus.ACTIVE,
+      });
+
+    await service.linkSteamId('user-2', '76561198111111111', 'PlayerOne');
+
+    expect(prisma.user.update).toHaveBeenNthCalledWith(1, {
+      where: { id: 'other-user' },
+      data: { steamId: null },
+    });
+    expect(prisma.user.update).toHaveBeenNthCalledWith(2, {
+      where: { id: 'user-2' },
+      data: {
+        steamId: '76561198111111111',
+        username: 'PlayerOne',
+      },
+    });
+
+    delete process.env.ALLOW_MOCK_LOGIN_IN_STEAM_MODE;
   });
 });

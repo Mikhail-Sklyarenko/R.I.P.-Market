@@ -1,86 +1,216 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { listMyOrders } from '../api/marketplace';
 import type { Order } from '../api/types';
 import { useAuth } from '../auth/AuthContext';
+import { EmptyState } from '../components/EmptyState';
 import { ErrorAlert } from '../components/ErrorAlert';
-import { formatUsdFromMinor } from '../utils/format';
+import { LoadingState } from '../components/LoadingState';
+import { MoneyDisplay } from '../components/MoneyDisplay';
+import { PageHeader } from '../components/PageHeader';
+import { StatusBadge } from '../components/StatusBadge';
+import { formatOrderStatus } from '../utils/order-flow';
+import {
+  filterOrders,
+  formatOrderRoleLabel,
+  getDealNextStepShort,
+  getOrderRole,
+  getOrderSummaryCounts,
+  isActiveOrderStatus,
+  type OrderRoleFilter,
+  type OrderStatusFilter,
+} from '../utils/my-orders';
 
 export function MyOrdersPage() {
   const { token, user } = useAuth();
+  const [summaryOrders, setSummaryOrders] = useState<Order[]>([]);
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<unknown>(null);
+  const [roleFilter, setRoleFilter] = useState<OrderRoleFilter>('all');
+  const [statusFilter, setStatusFilter] = useState<OrderStatusFilter>('all');
+
+  const apiParams = useMemo(() => {
+    const role = roleFilter === 'all' ? undefined : roleFilter;
+    const status =
+      statusFilter === 'waiting'
+        ? 'WAITING_TRADE'
+        : statusFilter === 'completed'
+          ? 'COMPLETED'
+          : statusFilter === 'review'
+            ? 'DISPUTE'
+            : undefined;
+    return { role, status };
+  }, [roleFilter, statusFilter]);
+
+  useEffect(() => {
+    if (!token) {
+      return;
+    }
+    listMyOrders(token)
+      .then(setSummaryOrders)
+      .catch((err: unknown) => setError(err));
+  }, [token]);
 
   useEffect(() => {
     if (!token) {
       return;
     }
     setLoading(true);
-    listMyOrders(token)
-      .then(setOrders)
+    listMyOrders(token, apiParams)
+      .then((data) => {
+        if (statusFilter === 'active') {
+          setOrders(data.filter((order) => isActiveOrderStatus(order.status)));
+          return;
+        }
+        setOrders(data);
+      })
       .catch((err: unknown) => setError(err))
       .finally(() => setLoading(false));
-  }, [token]);
+  }, [token, apiParams, statusFilter]);
+
+  const summary = useMemo(
+    () => getOrderSummaryCounts(summaryOrders),
+    [summaryOrders],
+  );
+
+  const filteredOrders = useMemo(
+    () => filterOrders(orders, user?.id, 'all', 'all'),
+    [orders, user?.id],
+  );
 
   return (
     <div className="page">
-      <div className="page-header">
-        <div>
-          <h2>My orders</h2>
-          <p className="muted">Purchases and sales for your account.</p>
-        </div>
-      </div>
+      <PageHeader
+        title="Мои сделки"
+        subtitle="Покупки и продажи в одном списке."
+      />
 
       <ErrorAlert error={error} />
 
-      {loading ? <p className="muted">Loading orders…</p> : null}
+      {loading ? <LoadingState message="Загрузка сделок…" /> : null}
 
-      {!loading && orders.length === 0 ? (
-        <div className="card">
-          <p>No orders yet.</p>
-          <Link to="/catalog">Browse catalog</Link>
+      {!loading && summaryOrders.length > 0 ? (
+        <div className="deals-summary-grid" data-testid="my-orders-summary">
+          <div className="card seller-summary-card">
+            <span className="eyebrow">Активные</span>
+            <strong className="seller-summary-count">{summary.active}</strong>
+          </div>
+          <div className="card seller-summary-card">
+            <span className="eyebrow">Ожидают передачи</span>
+            <strong className="seller-summary-count">{summary.waitingTrade}</strong>
+          </div>
+          <div className="card seller-summary-card">
+            <span className="eyebrow">Завершены</span>
+            <strong className="seller-summary-count">{summary.completed}</strong>
+          </div>
+          <div className="card seller-summary-card">
+            <span className="eyebrow">На проверке</span>
+            <strong className="seller-summary-count">{summary.review}</strong>
+          </div>
         </div>
       ) : null}
 
-      <div className="table-wrap">
-        <table className="data-table" data-testid="my-orders-table">
-          <thead>
-            <tr>
-              <th>Item</th>
-              <th>Role</th>
-              <th>Status</th>
-              <th>Amount</th>
-              <th />
-            </tr>
-          </thead>
-          <tbody>
-            {orders.map((order) => {
-              const role =
-                user?.id === order.buyerId
-                  ? 'Buyer'
-                  : user?.id === order.sellerId
-                    ? 'Seller'
-                    : '—';
-              return (
-                <tr key={order.id} data-testid={`order-row-${order.status}`}>
-                  <td>{order.lot.inventoryAsset.itemDefinition.marketHashName}</td>
-                  <td>{role}</td>
-                  <td>
-                    <span className={`badge badge-${order.status.toLowerCase()}`}>
-                      {order.status}
-                    </span>
-                  </td>
-                  <td>{formatUsdFromMinor(order.amountMinor)}</td>
-                  <td>
-                    <Link to={`/orders/${order.id}`}>Open</Link>
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
-      </div>
+      {!loading && orders.length > 0 ? (
+        <div className="card deals-filters" data-testid="my-orders-filters">
+          <div className="catalog-filters-row">
+            <label className="field catalog-filter-field">
+              <span className="field-label">Роль</span>
+              <select
+                value={roleFilter}
+                onChange={(event) =>
+                  setRoleFilter(event.target.value as OrderRoleFilter)
+                }
+                data-testid="my-orders-role-filter"
+              >
+                <option value="all">Все</option>
+                <option value="buyer">Покупатель</option>
+                <option value="seller">Продавец</option>
+              </select>
+            </label>
+            <label className="field catalog-filter-field">
+              <span className="field-label">Статус</span>
+              <select
+                value={statusFilter}
+                onChange={(event) =>
+                  setStatusFilter(event.target.value as OrderStatusFilter)
+                }
+                data-testid="my-orders-status-filter"
+              >
+                <option value="all">Все</option>
+                <option value="active">Активные</option>
+                <option value="waiting">Ожидают передачи</option>
+                <option value="completed">Завершены</option>
+                <option value="review">На проверке</option>
+              </select>
+            </label>
+          </div>
+        </div>
+      ) : null}
+
+      {!loading && orders.length === 0 ? (
+        <EmptyState
+          title="Сделок пока нет"
+          message="Купите лот в каталоге или выставьте предмет на продажу."
+          action={
+            <Link to="/catalog" className="button primary">
+              В каталог
+            </Link>
+          }
+        />
+      ) : null}
+
+      {filteredOrders.length > 0 ? (
+        <div className="table-wrap">
+          <table className="data-table" data-testid="my-orders-table">
+            <thead>
+              <tr>
+                <th>Предмет</th>
+                <th>Роль</th>
+                <th>Сумма</th>
+                <th>Статус</th>
+                <th>Следующий шаг</th>
+                <th>Дата</th>
+                <th />
+              </tr>
+            </thead>
+            <tbody>
+              {filteredOrders.map((order) => {
+                const role = getOrderRole(order, user?.id);
+                return (
+                  <tr key={order.id} data-testid={`order-row-${order.status}`}>
+                    <td>{order.lot.inventoryAsset.itemDefinition.marketHashName}</td>
+                    <td>{formatOrderRoleLabel(role)}</td>
+                    <td>
+                      <MoneyDisplay minor={order.amountMinor} />
+                    </td>
+                    <td>
+                      <StatusBadge
+                        status={order.status}
+                        label={formatOrderStatus(order.status)}
+                      />
+                      <span className="sr-only">{order.status}</span>
+                    </td>
+                    <td data-testid={`order-next-step-${order.id}`}>
+                      {getDealNextStepShort(order, role)}
+                    </td>
+                    <td>{new Date(order.createdAt).toLocaleString()}</td>
+                    <td>
+                      <Link to={`/orders/${order.id}`}>Open</Link>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      ) : null}
+
+      {!loading && orders.length > 0 && filteredOrders.length === 0 ? (
+        <div className="card">
+          <p className="muted">Нет сделок по выбранным фильтрам.</p>
+        </div>
+      ) : null}
     </div>
   );
 }

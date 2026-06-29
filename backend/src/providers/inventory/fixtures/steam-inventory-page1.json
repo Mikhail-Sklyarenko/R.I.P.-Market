@@ -21,6 +21,8 @@
       "classid": "310776580",
       "instanceid": "302028390",
       "market_hash_name": "AK-47 | Redline (Field-Tested)",
+      "icon_url": "-9a81dlWLwJ2UUGcVs_nsVze-rNIjLSm9wSizZLQmfJIMWn3kSKfJjx0XfZR2f0XqYh8f",
+      "icon_url_large": "-9a81dlWLwJ2UUGcVs_nsVze-rNIjLSm9wSizZLQmfJIMWn3kSKfJjx0XfZR2f0XqYh8f_large",
       "tradable": 1,
       "tags": [
         { "category": "Weapon", "localized_tag_name": "AK-47" },
@@ -31,6 +33,7 @@
       "classid": "310777000",
       "instanceid": "302028391",
       "market_hash_name": "AWP | Asiimov (Battle-Scarred)",
+      "icon_url": "-9a81dlWLwJ2UUGcVs_nsVze-rNIjLSm9wSizZLQmfJIMWn3kSKfJjx0XfZR2f0XqYh8g",
       "tradable": 0,
       "cache_expiration": "2026-07-01T00:00:00Z",
       "tags": [

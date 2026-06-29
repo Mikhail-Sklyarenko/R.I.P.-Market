@@ -1,8 +1,9 @@
-import { type FormEvent, useCallback, useEffect, useState } from 'react';
+import { type FormEvent, useCallback, useEffect, useMemo, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { getAdminOrderCard, openDispute, resolveDispute, applyObservedStatus, retrySettlement } from '../../api/admin';
 import type { AdminOrderCard } from '../../api/types';
 import { useAuth } from '../../auth/AuthContext';
+import { AdminConfirmModal } from '../../components/AdminConfirmModal';
 import { ErrorAlert } from '../../components/ErrorAlert';
 import { formatTradeStatus, formatUsdFromMinor, OPEN_DISPUTE_STATUSES } from '../../utils/format';
 
@@ -23,6 +24,12 @@ export function AdminOrderCardPage() {
   const [reason, setReason] = useState('');
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [error, setError] = useState<unknown>(null);
+  const [confirmState, setConfirmState] = useState<{
+    title: string;
+    message: string;
+    confirmLabel?: string;
+    action: () => Promise<void>;
+  } | null>(null);
 
   const load = useCallback(() => {
     if (!token || !id) {
@@ -50,69 +57,80 @@ export function AdminOrderCardPage() {
       setError(new Error('Enter a reason (at least 3 characters).'));
       return;
     }
-    if (!window.confirm(`Confirm: ${message}?`)) {
-      return;
-    }
 
-    setActionLoading(key);
-    setError(null);
-    setSuccessMessage(null);
-    try {
-      const updated = await action();
-      setCard(updated);
-      setReason('');
-      setSuccessMessage(message);
-    } catch (err) {
-      setError(err);
-    } finally {
-      setActionLoading(null);
-    }
+    setConfirmState({
+      title: 'Confirm action',
+      message: `Confirm: ${message}?`,
+      confirmLabel: 'Confirm',
+      action: async () => {
+        setActionLoading(key);
+        setError(null);
+        setSuccessMessage(null);
+        try {
+          const updated = await action();
+          setCard(updated);
+          setReason('');
+          setSuccessMessage(message);
+        } catch (err) {
+          setError(err);
+        } finally {
+          setActionLoading(null);
+          setConfirmState(null);
+        }
+      },
+    });
   }
 
   async function handleRetrySettlement() {
     if (!token || !id) {
       return;
     }
-    if (!window.confirm('Retry real settlement for this order?')) {
-      return;
-    }
-    setActionLoading('retry-settlement');
-    setError(null);
-    try {
-      const updated = await retrySettlement(token, id);
-      setCard(updated);
-      setSuccessMessage('Settlement retry processed');
-    } catch (err) {
-      setError(err);
-    } finally {
-      setActionLoading(null);
-    }
+    setConfirmState({
+      title: 'Retry settlement',
+      message: 'Retry real settlement for this order?',
+      confirmLabel: 'Retry settlement',
+      action: async () => {
+        setActionLoading('retry-settlement');
+        setError(null);
+        try {
+          const updated = await retrySettlement(token, id);
+          setCard(updated);
+          setSuccessMessage('Settlement retry processed');
+        } catch (err) {
+          setError(err);
+        } finally {
+          setActionLoading(null);
+          setConfirmState(null);
+        }
+      },
+    });
   }
 
   async function handleApplyObservedStatus() {
     if (!token || !id) {
       return;
     }
-    if (
-      !window.confirm(
+    setConfirmState({
+      title: 'Apply observed status',
+      message:
         'Apply the latest Steam observed status to this order? Settlement will follow ENABLE_REAL_SETTLEMENT.',
-      )
-    ) {
-      return;
-    }
-
-    setActionLoading('apply-observed');
-    setError(null);
-    setSuccessMessage(null);
-    try {
-      const updated = await applyObservedStatus(token, id);
-      setCard(updated);
-      setSuccessMessage('Observed status applied');
-    } catch (err) {
-      setError(err);
-    } finally {
-      setActionLoading(null);
-    }
+      confirmLabel: 'Apply status',
+      action: async () => {
+        setActionLoading('apply-observed');
+        setError(null);
+        setSuccessMessage(null);
+        try {
+          const updated = await applyObservedStatus(token, id);
+          setCard(updated);
+          setSuccessMessage('Observed status applied');
+        } catch (err) {
+          setError(err);
+        } finally {
+          setActionLoading(null);
+          setConfirmState(null);
+        }
+      },
+    });
   }
 
   async function handleOpenDispute(event: FormEvent) {
@@ -134,6 +152,28 @@ export function AdminOrderCardPage() {
       label,
     );
   }
+
+  const timelineEvents = useMemo(() => {
+    if (!card) {
+      return [];
+    }
+    const orderEvents = card.orderStatusEvents.map((event) => ({
+      id: `order-${event.id}`,
+      label: `Order: ${event.fromStatus ?? '—'} → ${event.toStatus}`,
+      reason: event.reason,
+      createdAt: event.createdAt,
+    }));
+    const lotEvents = card.lotStatusEvents.map((event) => ({
+      id: `lot-${event.id}`,
+      label: `Lot: ${event.fromStatus ?? '—'} → ${event.toStatus}`,
+      reason: event.reason,
+      createdAt: event.createdAt,
+    }));
+    return [...orderEvents, ...lotEvents].sort(
+      (left, right) =>
+        new Date(left.createdAt).getTime() - new Date(right.createdAt).getTime(),
+    );
+  }, [card]);
 
   if (!id) {
     return null;
@@ -452,17 +492,14 @@ export function AdminOrderCardPage() {
               <section className="card admin-section">
                 <h3>Timeline</h3>
                 <ul className="simple-list" data-testid="admin-order-timeline">
-                  {card.orderStatusEvents.map((event) => (
+                  {timelineEvents.map((event) => (
                     <li key={event.id}>
-                      Order: {event.fromStatus ?? '—'} → {event.toStatus}
+                      {event.label}
                       {event.reason ? ` (${event.reason})` : ''}
-                    </li>
-                  ))}
-                </ul>
-                <ul className="simple-list">
-                  {card.lotStatusEvents.map((event) => (
-                    <li key={event.id}>
-                      Lot: {event.fromStatus ?? '—'} → {event.toStatus}
+                      <span className="muted small">
+                        {' '}
+                        · {new Date(event.createdAt).toLocaleString()}
+                      </span>
                     </li>
                   ))}
                 </ul>
@@ -594,6 +631,20 @@ export function AdminOrderCardPage() {
           <ErrorAlert error={error} />
         </div>
       ) : null}
+
+      <AdminConfirmModal
+        open={confirmState !== null}
+        title={confirmState?.title ?? 'Confirm'}
+        message={confirmState?.message ?? ''}
+        confirmLabel={confirmState?.confirmLabel}
+        loading={actionLoading !== null}
+        onCancel={() => setConfirmState(null)}
+        onConfirm={() => {
+          if (confirmState) {
+            void confirmState.action();
+          }
+        }}
+      />
     </div>
   );
 }

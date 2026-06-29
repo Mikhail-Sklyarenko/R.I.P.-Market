@@ -174,10 +174,12 @@ export class SteamInventoryProvider implements InventoryProvider {
           game: 'CS2',
           weapon: item.weapon,
           rarity: item.rarity,
+          iconUrl: item.iconUrl,
         },
         update: {
           weapon: item.weapon ?? undefined,
           rarity: item.rarity ?? undefined,
+          iconUrl: item.iconUrl ?? undefined,
         },
       });
 

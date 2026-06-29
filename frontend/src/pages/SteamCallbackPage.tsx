@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../auth/AuthContext';
 import { ErrorAlert } from '../components/ErrorAlert';
-import { getHomePathForRole } from '../utils/format';
+import { ERROR_MESSAGES, getHomePathForRole } from '../utils/format';
 
 export function SteamCallbackPage() {
   const navigate = useNavigate();
@@ -13,11 +13,11 @@ export function SteamCallbackPage() {
   useEffect(() => {
     const errorCode = searchParams.get('error');
     if (errorCode) {
-      setError(
-        new Error(
-          searchParams.get('message') ?? 'Steam authentication failed',
-        ),
-      );
+      const message =
+        ERROR_MESSAGES[errorCode] ??
+        searchParams.get('message') ??
+        'Steam authentication failed';
+      setError(new Error(message));
       return;
     }
 
