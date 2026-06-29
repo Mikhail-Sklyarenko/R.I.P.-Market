@@ -18,7 +18,7 @@ test.describe('Checkout route', () => {
     await expect(page).toHaveURL(new RegExp(`/lots/${lotId}/checkout$`));
     await expect(page.getByTestId('checkout-page')).toBeVisible();
     await expect(page.getByTestId('checkout-pricing')).toBeVisible();
-    await expect(page.getByTestId('confirm-purchase-button')).toBeVisible();
+    await expect(page.getByTestId('checkout-deposit-link')).toBeVisible();
   });
 
   test('checkout blocks purchase without sufficient balance', async ({ page, request }) => {

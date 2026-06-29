@@ -8,7 +8,7 @@ test.describe('Wallet hold and refund', () => {
     await resetDatabase(request);
   });
 
-  test('hold increases during purchase and returns after cancel', async ({ page }) => {
+  test('hold increases during purchase and returns after cancel', async ({ page, request }) => {
     const { lotId, priceMinor } = await seedActiveLot(request);
 
     await loginAsBuyer(page);

@@ -17,7 +17,7 @@ export async function loginAsBuyer(page: Page) {
 export async function loginAsAdmin(page: Page) {
   await page.goto('/login');
   await page.evaluate(() => localStorage.removeItem('rip_market_auth'));
-  await page.reload();
+  await page.goto('/login');
   await page.getByRole('button', { name: 'Admin', exact: true }).click();
   await page.getByTestId('login-admin').click();
   await expect(page).toHaveURL(/\/admin\/orders$/);

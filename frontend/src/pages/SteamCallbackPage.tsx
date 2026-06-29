@@ -14,8 +14,8 @@ export function SteamCallbackPage() {
     const errorCode = searchParams.get('error');
     if (errorCode) {
       const message =
-        ERROR_MESSAGES[errorCode] ??
         searchParams.get('message') ??
+        ERROR_MESSAGES[errorCode] ??
         'Steam authentication failed';
       setError(new Error(message));
       return;

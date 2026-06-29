@@ -1,6 +1,7 @@
 import { expect, test } from '@playwright/test';
 import { loginAsBuyer, loginAsSeller } from './helpers/auth';
 import { resetDatabase } from './helpers/reset';
+import { seedActiveLot } from './helpers/seed';
 
 test.describe('Main navigation', () => {
   test.beforeEach(async ({ request }) => {
@@ -33,7 +34,8 @@ test.describe('Main navigation', () => {
     await expect(page).toHaveURL(/\/sell\/inventory$/);
   });
 
-  test('guest can open catalog and lot without auth', async ({ page }) => {
+  test('guest can open catalog and lot without auth', async ({ page, request }) => {
+    await seedActiveLot(request);
     await page.goto('/catalog');
     await expect(page.getByTestId('catalog-grid')).toBeVisible();
 

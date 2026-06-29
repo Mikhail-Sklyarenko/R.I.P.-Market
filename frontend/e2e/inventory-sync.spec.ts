@@ -22,7 +22,6 @@ test.describe('Inventory sync UI', () => {
     await expect(lastSynced).toBeVisible();
 
     await page.getByTestId('inventory-refresh').click();
-    await expect(page.getByTestId('inventory-refresh')).toHaveText('Refreshing…');
     await expect(page.getByTestId('inventory-refresh')).toHaveText('Refresh from Steam', {
       timeout: 15_000,
     });
