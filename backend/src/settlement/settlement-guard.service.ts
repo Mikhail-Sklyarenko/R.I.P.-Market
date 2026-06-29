@@ -15,7 +15,10 @@ import {
   isRealSettlementEnabled,
   utcDayKey,
 } from './settlement.config';
-import type { SettlementGuardResult, SettlementBlockCode } from './settlement.types';
+import type {
+  SettlementGuardResult,
+  SettlementBlockCode,
+} from './settlement.types';
 
 export type SettlementOrderContext = {
   id: string;
@@ -175,6 +178,9 @@ export class SettlementGuardService {
   }
 }
 
-function blocked(code: SettlementBlockCode, reason: string): SettlementGuardResult {
+function blocked(
+  code: SettlementBlockCode,
+  reason: string,
+): SettlementGuardResult {
   return { allowed: false, code, reason };
 }

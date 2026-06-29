@@ -17,7 +17,10 @@ import { LotStateService } from '../lots/lot-state.service';
 import { OrderStateService } from '../orders/order-state.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { TRADE_PROVIDER } from '../providers/tokens';
-import type { TradeProvider, TradeVerificationResult } from '../providers/trade/trade-provider.interface';
+import type {
+  TradeProvider,
+  TradeVerificationResult,
+} from '../providers/trade/trade-provider.interface';
 import { LedgerService } from '../wallet/ledger.service';
 import { isRealSettlementEnabled } from '../settlement/settlement.config';
 import { SettlementService } from '../settlement/settlement.service';
@@ -65,7 +68,11 @@ export class TradesService {
     }
 
     if (isShadowVerificationMode()) {
-      return this.mockSuccessShadowCompare(orderId, actorUserId, idempotencyKey);
+      return this.mockSuccessShadowCompare(
+        orderId,
+        actorUserId,
+        idempotencyKey,
+      );
     }
 
     this.assertMockTradeAllowed(actorRole);
@@ -120,11 +127,12 @@ export class TradesService {
 
       let finalStatus: OrderStatus = OrderStatus.TRADE_CONFIRMED;
       if (useGuardedSettlement) {
-        const settleResult = await this.settlementService.trySettleConfirmedOrder(
-          current.id,
-          `trade-success:${idempotencyKey}`,
-          tx,
-        );
+        const settleResult =
+          await this.settlementService.trySettleConfirmedOrder(
+            current.id,
+            `trade-success:${idempotencyKey}`,
+            tx,
+          );
         finalStatus = settleResult.settled
           ? OrderStatus.COMPLETED
           : OrderStatus.TRADE_CONFIRMED;
@@ -283,9 +291,8 @@ export class TradesService {
       return this.getOrderDetails(orderId);
     }
 
-    const latestSteam = await this.shadowComparator.getLatestSteamObserved(
-      orderId,
-    );
+    const latestSteam =
+      await this.shadowComparator.getLatestSteamObserved(orderId);
     if (!latestSteam) {
       throw new BadRequestException(
         'No Steam poll snapshot found for this order',
@@ -721,11 +728,12 @@ export class TradesService {
 
       let finalStatus: OrderStatus = OrderStatus.TRADE_CONFIRMED;
       if (settle) {
-        const settleResult = await this.settlementService.trySettleConfirmedOrder(
-          current.id,
-          `poll-settle:${orderId}`,
-          tx,
-        );
+        const settleResult =
+          await this.settlementService.trySettleConfirmedOrder(
+            current.id,
+            `poll-settle:${orderId}`,
+            tx,
+          );
         finalStatus = settleResult.settled
           ? OrderStatus.COMPLETED
           : OrderStatus.TRADE_CONFIRMED;
@@ -761,12 +769,11 @@ export class TradesService {
     return toJsonSafe(order);
   }
 
-  async applyTradeFailedFromPoll(
-    orderId: string,
-    reason: 'declined' | 'expired' | string,
-  ) {
+  async applyTradeFailedFromPoll(orderId: string, reason: string) {
     const mode =
-      process.env.TRADE_FAIL_MODE === 'SAFE' ? MockFailMode.SAFE : MockFailMode.DISPUTE;
+      process.env.TRADE_FAIL_MODE === 'SAFE'
+        ? MockFailMode.SAFE
+        : MockFailMode.DISPUTE;
     const idempotencyKey = `poll-fail:${orderId}:${reason}`;
 
     const existingAudit = await this.prisma.auditLog.findFirst({
@@ -888,7 +895,9 @@ export class TradesService {
       await tx.outboxEvent.create({
         data: {
           eventType:
-            mode === MockFailMode.SAFE ? 'ORDER_FAILED' : 'ORDER_DISPUTE_OPENED',
+            mode === MockFailMode.SAFE
+              ? 'ORDER_FAILED'
+              : 'ORDER_DISPUTE_OPENED',
           aggregateType: 'order',
           aggregateId: current.id,
           payload: { orderId: current.id, reasonCode: reason },

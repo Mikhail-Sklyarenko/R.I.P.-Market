@@ -5,7 +5,6 @@ import { SteamInventoryProvider } from './steam-inventory.provider';
 import { InventoryMetricsService } from './inventory-metrics.service';
 import * as steamClient from './steam-inventory.client';
 import fixture from './fixtures/steam-inventory-page1.json';
-import { SteamInventoryResponse } from './steam-inventory.parser';
 
 describe('SteamInventoryProvider', () => {
   let provider: SteamInventoryProvider;
@@ -18,7 +17,10 @@ describe('SteamInventoryProvider', () => {
     };
   };
   let syncCache: jest.Mocked<
-    Pick<InventorySyncCacheService, 'getLatestRun' | 'recordRun' | 'isCacheValid' | 'isWithinRateLimit'>
+    Pick<
+      InventorySyncCacheService,
+      'getLatestRun' | 'recordRun' | 'isCacheValid' | 'isWithinRateLimit'
+    >
   >;
   let metrics: InventoryMetricsService;
 
@@ -50,9 +52,9 @@ describe('SteamInventoryProvider', () => {
       metrics,
     );
 
-    jest.spyOn(steamClient, 'fetchAllSteamInventoryPages').mockResolvedValue(
-      fixture as SteamInventoryResponse,
-    );
+    jest
+      .spyOn(steamClient, 'fetchAllSteamInventoryPages')
+      .mockResolvedValue(fixture);
   });
 
   afterEach(() => {
@@ -98,9 +100,12 @@ describe('SteamInventoryProvider', () => {
   });
 
   it('throws STEAM_PROFILE_PRIVATE when inventory is private and no cache exists', async () => {
-    const privateError = Object.assign(new Error('Steam inventory is private'), {
-      code: 'STEAM_PROFILE_PRIVATE',
-    });
+    const privateError = Object.assign(
+      new Error('Steam inventory is private'),
+      {
+        code: 'STEAM_PROFILE_PRIVATE',
+      },
+    );
     jest
       .spyOn(steamClient, 'fetchAllSteamInventoryPages')
       .mockRejectedValue(privateError);

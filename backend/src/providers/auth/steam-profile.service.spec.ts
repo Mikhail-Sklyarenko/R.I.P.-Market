@@ -11,7 +11,9 @@ describe('SteamProfileService', () => {
   it('returns null when STEAM_WEB_API_KEY is not set', async () => {
     delete process.env.STEAM_WEB_API_KEY;
     const service = new SteamProfileService();
-    await expect(service.fetchPersonaName('76561198000000000')).resolves.toBeNull();
+    await expect(
+      service.fetchPersonaName('76561198000000000'),
+    ).resolves.toBeNull();
   });
 
   it('returns persona name from GetPlayerSummaries', async () => {
@@ -38,6 +40,8 @@ describe('SteamProfileService', () => {
       ok: false,
     } as Response);
 
-    await expect(service.fetchPersonaName('76561198000000000')).resolves.toBeNull();
+    await expect(
+      service.fetchPersonaName('76561198000000000'),
+    ).resolves.toBeNull();
   });
 });

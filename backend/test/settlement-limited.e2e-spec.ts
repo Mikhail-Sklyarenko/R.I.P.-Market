@@ -50,7 +50,8 @@ describe('Limited real settlement (e2e)', () => {
     process.env.STEAM_SETTLEMENT_ALLOWLIST_STEAM_IDS = envBackup.allowlist;
     process.env.STEAM_SETTLEMENT_MAX_DAILY_ORDERS = envBackup.maxDailyOrders;
     process.env.STEAM_SETTLEMENT_MAX_ORDER_MINOR = envBackup.maxOrderMinor;
-    process.env.STEAM_SETTLEMENT_MAX_DAILY_VOLUME_MINOR = envBackup.maxDailyVolume;
+    process.env.STEAM_SETTLEMENT_MAX_DAILY_VOLUME_MINOR =
+      envBackup.maxDailyVolume;
     await app.close();
   });
 

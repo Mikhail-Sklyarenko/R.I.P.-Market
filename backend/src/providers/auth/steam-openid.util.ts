@@ -1,5 +1,4 @@
-export const STEAM_OPENID_ENDPOINT =
-  'https://steamcommunity.com/openid/login';
+export const STEAM_OPENID_ENDPOINT = 'https://steamcommunity.com/openid/login';
 
 const STEAM_CLAIMED_ID_PATTERN =
   /^https?:\/\/steamcommunity\.com\/openid\/id\/(\d+)$/;

@@ -1,6 +1,10 @@
 export type InventoryProviderType = 'mock' | 'steam';
 
-export type InventorySyncStatus = 'SUCCESS' | 'FAILED' | 'PARTIAL' | 'CACHE_HIT';
+export type InventorySyncStatus =
+  | 'SUCCESS'
+  | 'FAILED'
+  | 'PARTIAL'
+  | 'CACHE_HIT';
 
 export type SyncResult = {
   status: InventorySyncStatus;

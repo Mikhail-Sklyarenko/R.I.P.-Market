@@ -3,8 +3,7 @@ import {
   SteamInventoryResponse,
 } from './steam-inventory.parser';
 
-export const STEAM_INVENTORY_BASE_URL =
-  'https://steamcommunity.com/inventory';
+export const STEAM_INVENTORY_BASE_URL = 'https://steamcommunity.com/inventory';
 
 export type SteamInventoryFetchFn = (
   url: string,

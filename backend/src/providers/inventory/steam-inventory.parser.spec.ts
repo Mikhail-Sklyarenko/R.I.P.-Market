@@ -2,14 +2,11 @@ import fixture from './fixtures/steam-inventory-page1.json';
 import {
   isPrivateInventoryResponse,
   parseSteamInventoryResponse,
-  SteamInventoryResponse,
 } from './steam-inventory.parser';
 
 describe('steam-inventory.parser', () => {
   it('maps Steam inventory JSON to parsed assets', () => {
-    const parsed = parseSteamInventoryResponse(
-      fixture as SteamInventoryResponse,
-    );
+    const parsed = parseSteamInventoryResponse(fixture);
 
     expect(parsed).toHaveLength(2);
     expect(parsed[0]).toEqual({
@@ -27,7 +24,8 @@ describe('steam-inventory.parser', () => {
     });
     expect(parsed[1]).toMatchObject({
       assetExternalId: '12345678902',
-      iconUrl: '-9a81dlWLwJ2UUGcVs_nsVze-rNIjLSm9wSizZLQmfJIMWn3kSKfJjx0XfZR2f0XqYh8g',
+      iconUrl:
+        '-9a81dlWLwJ2UUGcVs_nsVze-rNIjLSm9wSizZLQmfJIMWn3kSKfJjx0XfZR2f0XqYh8g',
       tradable: false,
       wear: 'BS',
       tradeLockUntil: new Date('2026-07-01T00:00:00Z'),

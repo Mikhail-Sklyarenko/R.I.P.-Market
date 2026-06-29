@@ -1,4 +1,9 @@
-import { HttpStatus, Inject, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  HttpStatus,
+  Inject,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { InventoryAssetStatus } from '@prisma/client';
 import { AppException } from '../common/errors/app.exception';
 import { ErrorCode } from '../common/errors/error-codes';
@@ -87,9 +92,7 @@ export class InventoryService {
     });
 
     const force =
-      !latest ||
-      latest.expiresAt <= new Date() ||
-      latest.status !== 'SUCCESS';
+      !latest || latest.expiresAt <= new Date() || latest.status !== 'SUCCESS';
 
     const syncResult = await this.inventoryProvider.syncInventory(
       ownerId,

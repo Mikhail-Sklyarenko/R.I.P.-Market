@@ -63,7 +63,11 @@ export class OrdersService {
 
     const buyer = await this.prisma.user.findUnique({ where: { id: buyerId } });
     if (!buyer) {
-      throw new AppException(ErrorCode.NOT_FOUND, 'Buyer not found', HttpStatus.NOT_FOUND);
+      throw new AppException(
+        ErrorCode.NOT_FOUND,
+        'Buyer not found',
+        HttpStatus.NOT_FOUND,
+      );
     }
     if (buyer.status !== UserStatus.ACTIVE) {
       throw new AppException(
@@ -84,7 +88,11 @@ export class OrdersService {
 
         const lot = lockedLots[0];
         if (!lot) {
-          throw new AppException(ErrorCode.LOT_NOT_FOUND, 'Lot not found', HttpStatus.NOT_FOUND);
+          throw new AppException(
+            ErrorCode.LOT_NOT_FOUND,
+            'Lot not found',
+            HttpStatus.NOT_FOUND,
+          );
         }
         if (lot.status !== LotStatus.ACTIVE) {
           throw new AppException(
@@ -154,7 +162,11 @@ export class OrdersService {
           tx,
         });
 
-        await this.orderStateService.recordCreated(tx, createdOrder.id, buyerId);
+        await this.orderStateService.recordCreated(
+          tx,
+          createdOrder.id,
+          buyerId,
+        );
 
         await this.orderStateService.transition(tx, {
           orderId: createdOrder.id,
@@ -201,7 +213,9 @@ export class OrdersService {
           where: { id: createdOrder.id },
           include: {
             lot: {
-              include: { inventoryAsset: { include: { itemDefinition: true } } },
+              include: {
+                inventoryAsset: { include: { itemDefinition: true } },
+              },
             },
             tradeOperation: true,
             hold: true,
@@ -291,7 +305,11 @@ export class OrdersService {
     });
 
     if (!order) {
-      throw new AppException(ErrorCode.ORDER_NOT_FOUND, 'Order not found', HttpStatus.NOT_FOUND);
+      throw new AppException(
+        ErrorCode.ORDER_NOT_FOUND,
+        'Order not found',
+        HttpStatus.NOT_FOUND,
+      );
     }
 
     if (
@@ -299,7 +317,11 @@ export class OrdersService {
       order.buyerId !== requesterId &&
       order.sellerId !== requesterId
     ) {
-      throw new AppException(ErrorCode.ORDER_NOT_FOUND, 'Order not found', HttpStatus.NOT_FOUND);
+      throw new AppException(
+        ErrorCode.ORDER_NOT_FOUND,
+        'Order not found',
+        HttpStatus.NOT_FOUND,
+      );
     }
 
     return toJsonSafe(order);
@@ -428,10 +450,18 @@ export class OrdersService {
       });
 
       if (!current) {
-        throw new AppException(ErrorCode.ORDER_NOT_FOUND, 'Order not found', HttpStatus.NOT_FOUND);
+        throw new AppException(
+          ErrorCode.ORDER_NOT_FOUND,
+          'Order not found',
+          HttpStatus.NOT_FOUND,
+        );
       }
       if (current.buyerId !== buyerId) {
-        throw new AppException(ErrorCode.FORBIDDEN, 'Only buyer can cancel this order', HttpStatus.FORBIDDEN);
+        throw new AppException(
+          ErrorCode.FORBIDDEN,
+          'Only buyer can cancel this order',
+          HttpStatus.FORBIDDEN,
+        );
       }
       if (!this.orderStateService.isOpenStatus(current.status)) {
         throw new AppException(
@@ -449,7 +479,11 @@ export class OrdersService {
       }
 
       if (!current.hold) {
-        throw new AppException(ErrorCode.BAD_REQUEST, 'Order hold not found', HttpStatus.BAD_REQUEST);
+        throw new AppException(
+          ErrorCode.BAD_REQUEST,
+          'Order hold not found',
+          HttpStatus.BAD_REQUEST,
+        );
       }
 
       await this.ledgerService.refundHold({

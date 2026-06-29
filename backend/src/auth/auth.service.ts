@@ -51,11 +51,11 @@ export class AuthService {
   async getSessionUser(userId: string) {
     const user = await this.usersService.getById(userId);
     return {
-      id: user.id as string,
-      username: user.username as string,
+      id: user.id,
+      username: user.username,
       role: user.role as string,
       status: user.status as string,
-      steamId: (user.steamId as string | null) ?? null,
+      steamId: user.steamId ?? null,
     };
   }
 

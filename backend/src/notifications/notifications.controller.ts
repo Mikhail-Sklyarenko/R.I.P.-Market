@@ -21,7 +21,11 @@ export class NotificationsController {
   constructor(private readonly notificationsService: NotificationsService) {}
 
   @ApiQuery({ name: 'unreadOnly', required: false, type: Boolean })
-  @ApiQuery({ name: 'category', required: false, enum: ['deals', 'money', 'system'] })
+  @ApiQuery({
+    name: 'category',
+    required: false,
+    enum: ['deals', 'money', 'system'],
+  })
   @Get()
   async list(
     @CurrentUser() user: AuthUser,

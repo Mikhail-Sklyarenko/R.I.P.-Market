@@ -12,10 +12,8 @@ const OPENID_PARAMS = {
   'openid.ns': 'http://specs.openid.net/auth/2.0',
   'openid.mode': 'id_res',
   'openid.op_endpoint': 'https://steamcommunity.com/openid/login',
-  'openid.claimed_id':
-    'https://steamcommunity.com/openid/id/76561198999999999',
-  'openid.identity':
-    'https://steamcommunity.com/openid/id/76561198999999999',
+  'openid.claimed_id': 'https://steamcommunity.com/openid/id/76561198999999999',
+  'openid.identity': 'https://steamcommunity.com/openid/id/76561198999999999',
   'openid.return_to': 'http://localhost:3000/api/v1/auth/steam/callback',
   'openid.response_nonce': '2026-06-26T12:00:00Zabc',
   'openid.assoc_handle': '1234567890',
@@ -74,7 +72,10 @@ describe('Steam auth (e2e)', () => {
         status: 'ACTIVE',
       },
     });
-    const token = await jwt.signAsync({ sub: existing.id, role: UserRole.SELLER });
+    const token = await jwt.signAsync({
+      sub: existing.id,
+      role: UserRole.SELLER,
+    });
 
     const linkUrlResponse = await request(app.getHttpServer())
       .get('/api/v1/auth/steam/link-url')
@@ -94,9 +95,13 @@ describe('Steam auth (e2e)', () => {
       .expect(302);
 
     expect(callbackResponse.headers.location).toContain('linked=1');
-    expect(callbackResponse.headers.location).toContain('steamId=76561198999999999');
+    expect(callbackResponse.headers.location).toContain(
+      'steamId=76561198999999999',
+    );
 
-    const updated = await prisma.user.findUnique({ where: { id: existing.id } });
+    const updated = await prisma.user.findUnique({
+      where: { id: existing.id },
+    });
     expect(updated?.steamId).toBe('76561198999999999');
   });
 

@@ -66,7 +66,9 @@ describe('Unified error format (e2e)', () => {
   });
 
   it('returns unauthorized error format', async () => {
-    const response = await request(app.getHttpServer()).get('/api/v1/inventory');
+    const response = await request(app.getHttpServer()).get(
+      '/api/v1/inventory',
+    );
 
     expect(response.status).toBe(401);
     expect(response.body.error).toMatchObject({

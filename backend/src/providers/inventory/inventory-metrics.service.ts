@@ -1,10 +1,6 @@
 import { Injectable } from '@nestjs/common';
 
-type InventorySyncMetricStatus =
-  | 'SUCCESS'
-  | 'FAILED'
-  | 'PARTIAL'
-  | 'CACHE_HIT';
+type InventorySyncMetricStatus = 'SUCCESS' | 'FAILED' | 'PARTIAL' | 'CACHE_HIT';
 
 @Injectable()
 export class InventoryMetricsService {

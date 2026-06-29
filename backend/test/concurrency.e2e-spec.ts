@@ -30,7 +30,11 @@ describe('Concurrency protections (e2e)', () => {
     const buyerB = await api.createBuyerSession('second');
 
     const inventory = await api.getInventory(seller);
-    const lot = await api.createLot(seller, inventory.body.assets[0].id, 50_000);
+    const lot = await api.createLot(
+      seller,
+      inventory.body.assets[0].id,
+      50_000,
+    );
 
     await api.deposit(buyerA, 100_000, 'dep-db-a');
     await api.deposit(buyerB, 100_000, 'dep-db-b');
@@ -55,7 +59,11 @@ describe('Concurrency protections (e2e)', () => {
     const buyer = await api.login(UserRole.BUYER);
 
     const inventory = await api.getInventory(seller);
-    const lot = await api.createLot(seller, inventory.body.assets[0].id, 80_000);
+    const lot = await api.createLot(
+      seller,
+      inventory.body.assets[0].id,
+      80_000,
+    );
     await api.deposit(buyer, 200_000, 'dep-ds-1');
 
     const order = await api.createOrder(buyer, lot.body.id, 'buy-ds-1');
@@ -89,7 +97,11 @@ describe('Concurrency protections (e2e)', () => {
     const buyer = await api.login(UserRole.BUYER);
 
     const inventory = await api.getInventory(seller);
-    const lot = await api.createLot(seller, inventory.body.assets[0].id, 60_000);
+    const lot = await api.createLot(
+      seller,
+      inventory.body.assets[0].id,
+      60_000,
+    );
     await api.deposit(buyer, 150_000, 'dep-ds-2');
 
     const order = await api.createOrder(buyer, lot.body.id, 'buy-ds-2');

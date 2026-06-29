@@ -50,7 +50,9 @@ export class SteamTradeProvider implements TradeProvider {
     );
   }
 
-  async verifyTradeOffer(tradeOfferId: string): Promise<TradeVerificationResult> {
+  async verifyTradeOffer(
+    tradeOfferId: string,
+  ): Promise<TradeVerificationResult> {
     const apiKey = process.env.STEAM_WEB_API_KEY;
     if (!apiKey) {
       throw new AppException(
@@ -77,7 +79,8 @@ export class SteamTradeProvider implements TradeProvider {
 
     const data = (await response.json()) as SteamTradeOfferResponse;
     const state = data.response?.offer?.trade_offer_state;
-    const status = state !== undefined ? (STATE_MAP[state] ?? 'unknown') : 'unknown';
+    const status =
+      state !== undefined ? (STATE_MAP[state] ?? 'unknown') : 'unknown';
 
     return {
       status,

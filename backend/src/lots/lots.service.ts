@@ -1,5 +1,10 @@
 import { HttpStatus, Injectable } from '@nestjs/common';
-import { InventoryAssetStatus, LotStatus, Prisma, UserStatus } from '@prisma/client';
+import {
+  InventoryAssetStatus,
+  LotStatus,
+  Prisma,
+  UserStatus,
+} from '@prisma/client';
 import { AppException } from '../common/errors/app.exception';
 import { ErrorCode } from '../common/errors/error-codes';
 import { toJsonSafe } from '../common/json-safe.util';
@@ -7,8 +12,11 @@ import { InventoryService } from '../inventory/inventory.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateLotDto } from './dto/create-lot.dto';
 import { ListLotsQueryDto } from './dto/list-lots-query.dto';
-import { DEFAULT_LOTS_PAGE_LIMIT, hasLotsListFilters } from './lots-list.util';
-import { buildPricingPreview, calculateCommissionMinor } from './lot-pricing.util';
+import { DEFAULT_LOTS_PAGE_LIMIT } from './lots-list.util';
+import {
+  buildPricingPreview,
+  calculateCommissionMinor,
+} from './lot-pricing.util';
 import { LotStateService } from './lot-state.service';
 
 @Injectable()
@@ -28,7 +36,11 @@ export class LotsService {
       where: { id: sellerId },
     });
     if (!seller) {
-      throw new AppException(ErrorCode.NOT_FOUND, 'Seller not found', HttpStatus.NOT_FOUND);
+      throw new AppException(
+        ErrorCode.NOT_FOUND,
+        'Seller not found',
+        HttpStatus.NOT_FOUND,
+      );
     }
     if (seller.status !== UserStatus.ACTIVE) {
       throw new AppException(
@@ -165,7 +177,11 @@ export class LotsService {
     });
 
     if (!source) {
-      throw new AppException(ErrorCode.LOT_NOT_FOUND, 'Lot not found', HttpStatus.NOT_FOUND);
+      throw new AppException(
+        ErrorCode.LOT_NOT_FOUND,
+        'Lot not found',
+        HttpStatus.NOT_FOUND,
+      );
     }
 
     const itemDefinitionId = source.inventoryAsset.itemDefinitionId;
@@ -266,7 +282,11 @@ export class LotsService {
       },
     });
     if (!lot) {
-      throw new AppException(ErrorCode.LOT_NOT_FOUND, 'Lot not found', HttpStatus.NOT_FOUND);
+      throw new AppException(
+        ErrorCode.LOT_NOT_FOUND,
+        'Lot not found',
+        HttpStatus.NOT_FOUND,
+      );
     }
     return toJsonSafe(lot);
   }
@@ -288,7 +308,11 @@ export class LotsService {
       include: { inventoryAsset: true },
     });
     if (!lot) {
-      throw new AppException(ErrorCode.LOT_NOT_FOUND, 'Lot not found', HttpStatus.NOT_FOUND);
+      throw new AppException(
+        ErrorCode.LOT_NOT_FOUND,
+        'Lot not found',
+        HttpStatus.NOT_FOUND,
+      );
     }
     if (lot.sellerId !== sellerId) {
       throw new AppException(

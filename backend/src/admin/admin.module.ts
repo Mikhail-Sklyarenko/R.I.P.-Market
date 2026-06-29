@@ -10,7 +10,14 @@ import { AdminService } from './admin.service';
 import { RolesGuard } from '../auth/roles.guard';
 
 @Module({
-  imports: [WalletModule, LotsModule, OrdersModule, OutboxModule, TradesModule, SettlementModule],
+  imports: [
+    WalletModule,
+    LotsModule,
+    OrdersModule,
+    OutboxModule,
+    TradesModule,
+    SettlementModule,
+  ],
   controllers: [AdminController],
   providers: [AdminService, RolesGuard],
 })

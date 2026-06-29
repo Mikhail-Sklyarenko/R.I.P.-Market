@@ -21,6 +21,6 @@ describe('hasLotsListFilters', () => {
   });
 
   it('returns false when only similarTo would be used', () => {
-    expect(hasLotsListFilters({ similarTo: 'lot-id' } as never)).toBe(false);
+    expect(hasLotsListFilters({ similarTo: 'lot-id' })).toBe(false);
   });
 });

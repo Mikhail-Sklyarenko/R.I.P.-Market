@@ -8,15 +8,20 @@ import {
 } from './settlement.config';
 import { isLiveVerificationMode } from '../trades/trade-verification.config';
 
-jest.mock('./settlement.config', () => ({
-  ...jest.requireActual('./settlement.config'),
-  isRealSettlementEnabled: jest.fn(() => true),
-  getEnvAllowlistSteamIds: jest.fn(() => new Set(['76561198000000001'])),
-  getMaxOrderMinor: jest.fn(() => 50_000n),
-  getMaxDailyOrders: jest.fn(() => 3),
-  getMaxDailyVolumeMinor: jest.fn(() => 150_000n),
-  utcDayKey: jest.fn(() => '2026-06-28'),
-}));
+jest.mock('./settlement.config', () => {
+  const actual = jest.requireActual<typeof import('./settlement.config')>(
+    './settlement.config',
+  );
+  return {
+    ...actual,
+    isRealSettlementEnabled: jest.fn(() => true),
+    getEnvAllowlistSteamIds: jest.fn(() => new Set(['76561198000000001'])),
+    getMaxOrderMinor: jest.fn(() => 50_000n),
+    getMaxDailyOrders: jest.fn(() => 3),
+    getMaxDailyVolumeMinor: jest.fn(() => 150_000n),
+    utcDayKey: jest.fn(() => '2026-06-28'),
+  };
+});
 
 jest.mock('../trades/trade-verification.config', () => ({
   isLiveVerificationMode: jest.fn(() => true),
@@ -43,8 +48,7 @@ describe('SettlementGuardService', () => {
     prisma = {
       settlementAllowlistEntry: { findUnique: jest.fn() },
       settlementDailyStats: { findUnique: jest.fn() },
-      ledgerEntry: { findFirst: jest.fn().mockResolvedValue(null),
-      },
+      ledgerEntry: { findFirst: jest.fn().mockResolvedValue(null) },
     };
     service = new SettlementGuardService(prisma as never);
     (isRealSettlementEnabled as jest.Mock).mockReturnValue(true);

@@ -124,14 +124,16 @@ export class NotificationsService {
     const observed =
       typeof payload === 'object' &&
       payload !== null &&
-      'observedStatus' in payload
-        ? String(payload.observedStatus)
+      'observedStatus' in payload &&
+      typeof payload.observedStatus === 'string'
+        ? payload.observedStatus
         : 'unknown';
     const expected =
       typeof payload === 'object' &&
       payload !== null &&
-      'expectedStatus' in payload
-        ? String(payload.expectedStatus)
+      'expectedStatus' in payload &&
+      typeof payload.expectedStatus === 'string'
+        ? payload.expectedStatus
         : 'unknown';
 
     await this.prisma.notification.createMany({

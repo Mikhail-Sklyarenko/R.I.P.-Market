@@ -67,8 +67,8 @@ export class AuthController {
   @ApiBearerAuth()
   @UseGuards(JwtAuthGuard)
   @Get('steam/link-url')
-  getSteamLinkUrl(@CurrentUser() user: AuthUser) {
-    const result = this.authService.getSteamLinkLoginUrl(user.sub);
+  async getSteamLinkUrl(@CurrentUser() user: AuthUser) {
+    const result = await this.authService.getSteamLinkLoginUrl(user.sub);
     if (!result) {
       throw new BadRequestException(
         'Steam link is not available with the current auth provider',
@@ -104,7 +104,9 @@ export class AuthController {
         process.env.FRONTEND_ORIGIN ?? 'http://localhost:5173';
       const origin = frontendOrigin.split(',')[0]?.trim() ?? frontendOrigin;
       const code =
-        error instanceof AppException ? error.code : ErrorCode.STEAM_AUTH_FAILED;
+        error instanceof AppException
+          ? error.code
+          : ErrorCode.STEAM_AUTH_FAILED;
       const message =
         error instanceof Error ? error.message : 'Steam authentication failed';
       const params = new URLSearchParams({ error: code, message });
@@ -117,10 +119,7 @@ export class AuthController {
   @ApiBearerAuth()
   @UseGuards(JwtAuthGuard)
   @Post('steam/link')
-  async steamLink(
-    @CurrentUser() user: AuthUser,
-    @Body() body: SteamLinkDto,
-  ) {
+  async steamLink(@CurrentUser() user: AuthUser, @Body() body: SteamLinkDto) {
     return this.authService.steamLink(user.sub, body.openidParams);
   }
 

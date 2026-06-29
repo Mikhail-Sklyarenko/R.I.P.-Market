@@ -25,7 +25,9 @@ export class InventoryStaleCleanupService {
     });
 
     if (result.count > 0) {
-      this.logger.log(`Marked ${result.count} stale inventory assets as REMOVED`);
+      this.logger.log(
+        `Marked ${result.count} stale inventory assets as REMOVED`,
+      );
     }
   }
 }

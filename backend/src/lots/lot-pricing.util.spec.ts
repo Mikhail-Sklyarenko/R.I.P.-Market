@@ -1,4 +1,7 @@
-import { buildPricingPreview, calculateCommissionMinor } from './lot-pricing.util';
+import {
+  buildPricingPreview,
+  calculateCommissionMinor,
+} from './lot-pricing.util';
 
 describe('lot-pricing.util', () => {
   it('calculates 5% commission with floor', () => {

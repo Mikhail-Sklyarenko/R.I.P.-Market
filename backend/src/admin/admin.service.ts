@@ -295,7 +295,10 @@ export class AdminService {
         entityType: 'settlement_allowlist',
         entityId: steamId,
         action: 'SETTLEMENT_ALLOWLIST_UPSERT',
-        afterState: { enabled: entry.enabled, maxOrderMinor: entry.maxOrderMinor?.toString() ?? null },
+        afterState: {
+          enabled: entry.enabled,
+          maxOrderMinor: entry.maxOrderMinor?.toString() ?? null,
+        },
       },
     });
 
@@ -1100,7 +1103,9 @@ export class AdminService {
         throw new NotFoundException('Lot not found');
       }
       if (lot.status !== LotStatus.ACTIVE) {
-        throw new BadRequestException('Only ACTIVE lots can be canceled by admin');
+        throw new BadRequestException(
+          'Only ACTIVE lots can be canceled by admin',
+        );
       }
 
       await this.lotStateService.transition(tx, {

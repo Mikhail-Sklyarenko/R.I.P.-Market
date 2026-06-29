@@ -1,7 +1,9 @@
 export const MOCK_STEAM_ID_PREFIX = 'steam_mock_';
 
 export function isMockSteamId(steamId: string | null | undefined): boolean {
-  return typeof steamId === 'string' && steamId.startsWith(MOCK_STEAM_ID_PREFIX);
+  return (
+    typeof steamId === 'string' && steamId.startsWith(MOCK_STEAM_ID_PREFIX)
+  );
 }
 
 /** SteamID64 for individual Steam accounts. */

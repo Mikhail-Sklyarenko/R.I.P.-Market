@@ -1,5 +1,3 @@
-import { OrderStatus, TradeOperationStatus } from '@prisma/client';
-
 import { TradeStatusPollerService } from './trade-status-poller.service';
 import { TradesService } from './trades.service';
 
@@ -22,7 +20,9 @@ describe('TradeStatusPollerService', () => {
               lot: {
                 inventoryAsset: {
                   assetExternalId: 'asset-1',
-                  itemDefinition: { marketHashName: 'AK-47 | Redline (Field-Tested)' },
+                  itemDefinition: {
+                    marketHashName: 'AK-47 | Redline (Field-Tested)',
+                  },
                 },
               },
               buyer: { id: 'buyer-1', steamId: 'buyer-steam' },
@@ -78,7 +78,9 @@ describe('TradeStatusPollerService', () => {
               lot: {
                 inventoryAsset: {
                   assetExternalId: 'asset-1',
-                  itemDefinition: { marketHashName: 'AK-47 | Redline (Field-Tested)' },
+                  itemDefinition: {
+                    marketHashName: 'AK-47 | Redline (Field-Tested)',
+                  },
                 },
               },
               buyer: { id: 'buyer-1', steamId: 'buyer-steam' },

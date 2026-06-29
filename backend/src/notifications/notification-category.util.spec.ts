@@ -5,10 +5,7 @@ import {
 
 describe('notificationCategoryPrefixes', () => {
   it('maps deals category to order and trade prefixes', () => {
-    expect(notificationCategoryPrefixes('deals')).toEqual([
-      'ORDER_',
-      'TRADE_',
-    ]);
+    expect(notificationCategoryPrefixes('deals')).toEqual(['ORDER_', 'TRADE_']);
   });
 
   it('maps money category to sale and settlement prefixes', () => {

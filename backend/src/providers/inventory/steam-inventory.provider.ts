@@ -64,24 +64,33 @@ export class SteamInventoryProvider implements InventoryProvider {
 
     if (!force && latest && this.syncCache.isCacheValid(latest, now)) {
       const result = this.toSyncResult(latest, true, false);
-      this.recordMetrics('CACHE_HIT', startedAt, steamId, result.itemCount, true);
+      this.recordMetrics(
+        'CACHE_HIT',
+        startedAt,
+        steamId,
+        result.itemCount,
+        true,
+      );
       return result;
     }
 
-    if (
-      !force &&
-      latest &&
-      this.syncCache.isWithinRateLimit(latest, now)
-    ) {
+    if (!force && latest && this.syncCache.isWithinRateLimit(latest, now)) {
       const stale =
-        latest.status !== InventorySyncStatus.SUCCESS || latest.expiresAt <= now;
+        latest.status !== InventorySyncStatus.SUCCESS ||
+        latest.expiresAt <= now;
       const result = this.toSyncResult(
         latest,
         true,
         stale,
         stale ? 'Steam sync rate-limited; serving cached inventory' : null,
       );
-      this.recordMetrics('CACHE_HIT', startedAt, steamId, result.itemCount, true);
+      this.recordMetrics(
+        'CACHE_HIT',
+        startedAt,
+        steamId,
+        result.itemCount,
+        true,
+      );
       return result;
     }
 
@@ -135,7 +144,13 @@ export class SteamInventoryProvider implements InventoryProvider {
           true,
           this.resolveWarning(error),
         );
-        this.recordMetrics('FAILED', startedAt, steamId, result.itemCount, true);
+        this.recordMetrics(
+          'FAILED',
+          startedAt,
+          steamId,
+          result.itemCount,
+          true,
+        );
         return result;
       }
 

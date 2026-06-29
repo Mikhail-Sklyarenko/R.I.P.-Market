@@ -4,7 +4,6 @@ import request from 'supertest';
 import { App } from 'supertest/types';
 import * as steamClient from '../src/providers/inventory/steam-inventory.client';
 import fixture from '../src/providers/inventory/fixtures/steam-inventory-page1.json';
-import { SteamInventoryResponse } from '../src/providers/inventory/steam-inventory.parser';
 import { PrismaService } from '../src/prisma/prisma.service';
 import { ApiClient } from './helpers/api-client';
 import { createE2eApp } from './helpers/bootstrap-e2e-app';
@@ -24,7 +23,7 @@ describe('Steam inventory (e2e)', () => {
     api = new ApiClient(app);
     fetchSpy = jest
       .spyOn(steamClient, 'fetchAllSteamInventoryPages')
-      .mockResolvedValue(fixture as SteamInventoryResponse);
+      .mockResolvedValue(fixture);
   });
 
   beforeEach(async () => {

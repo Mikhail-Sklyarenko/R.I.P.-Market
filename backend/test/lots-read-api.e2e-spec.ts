@@ -102,7 +102,11 @@ describe('Read API extensions (e2e)', () => {
     const inventoryB = await api.getInventory(sellerB);
     const akAssetIdB = inventoryB.body.assets[0].id as string;
     const similarLot = await api.createLot(sellerB, akAssetIdB, 120_000);
-    await api.createLot(sellerB, inventoryB.body.assets[1].id as string, 130_000);
+    await api.createLot(
+      sellerB,
+      inventoryB.body.assets[1].id as string,
+      130_000,
+    );
 
     const response = await request(app.getHttpServer())
       .get('/api/v1/lots')
@@ -119,7 +123,11 @@ describe('Read API extensions (e2e)', () => {
     const buyer = await api.login(UserRole.BUYER);
     await api.deposit(buyer, 200_000, 'dep-read-api-1');
 
-    const orderResponse = await api.createOrder(buyer, lotId, 'order-read-api-1');
+    const orderResponse = await api.createOrder(
+      buyer,
+      lotId,
+      'order-read-api-1',
+    );
     const orderId = orderResponse.body.id as string;
 
     const response = await request(app.getHttpServer())
@@ -173,9 +181,10 @@ describe('Read API extensions (e2e)', () => {
     expect(dealsResponse.status).toBe(200);
     expect(dealsResponse.body.length).toBeGreaterThan(0);
     expect(
-      dealsResponse.body.every((item: { eventType: string }) =>
-        item.eventType.startsWith('ORDER_') ||
-        item.eventType.startsWith('TRADE_'),
+      dealsResponse.body.every(
+        (item: { eventType: string }) =>
+          item.eventType.startsWith('ORDER_') ||
+          item.eventType.startsWith('TRADE_'),
       ),
     ).toBe(true);
 

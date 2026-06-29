@@ -38,7 +38,10 @@ export class GlobalExceptionFilter implements ExceptionFilter {
     response.status(body.statusCode).json({ error: body });
   }
 
-  private toErrorBody(exception: unknown, requestId: string | null): ApiErrorBody {
+  private toErrorBody(
+    exception: unknown,
+    requestId: string | null,
+  ): ApiErrorBody {
     if (exception instanceof AppException) {
       return {
         code: exception.code,
@@ -62,11 +65,14 @@ export class GlobalExceptionFilter implements ExceptionFilter {
     };
   }
 
-  private fromHttpException(exception: HttpException, requestId: string | null): ApiErrorBody {
+  private fromHttpException(
+    exception: HttpException,
+    requestId: string | null,
+  ): ApiErrorBody {
     const statusCode = exception.getStatus();
     const raw = exception.getResponse();
 
-    if (statusCode === HttpStatus.UNAUTHORIZED) {
+    if (statusCode === Number(HttpStatus.UNAUTHORIZED)) {
       return {
         code: ErrorCode.UNAUTHORIZED,
         message: this.extractMessage(raw) ?? 'Unauthorized',
@@ -75,7 +81,7 @@ export class GlobalExceptionFilter implements ExceptionFilter {
       };
     }
 
-    if (statusCode === HttpStatus.FORBIDDEN) {
+    if (statusCode === Number(HttpStatus.FORBIDDEN)) {
       return {
         code: ErrorCode.FORBIDDEN,
         message: this.extractMessage(raw) ?? 'Forbidden',
@@ -84,7 +90,7 @@ export class GlobalExceptionFilter implements ExceptionFilter {
       };
     }
 
-    if (statusCode === HttpStatus.NOT_FOUND) {
+    if (statusCode === Number(HttpStatus.NOT_FOUND)) {
       return {
         code: ErrorCode.NOT_FOUND,
         message: this.extractMessage(raw) ?? 'Not found',
@@ -93,7 +99,11 @@ export class GlobalExceptionFilter implements ExceptionFilter {
       };
     }
 
-    if (statusCode === HttpStatus.BAD_REQUEST && typeof raw === 'object' && raw !== null) {
+    if (
+      statusCode === Number(HttpStatus.BAD_REQUEST) &&
+      typeof raw === 'object' &&
+      raw !== null
+    ) {
       const payload = raw as { message?: unknown };
       if (Array.isArray(payload.message)) {
         return {
@@ -101,13 +111,16 @@ export class GlobalExceptionFilter implements ExceptionFilter {
           message: 'Validation failed',
           statusCode,
           requestId,
-          fields: payload.message.map((entry) => this.parseValidationEntry(entry)),
+          fields: payload.message.map((entry) =>
+            this.parseValidationEntry(entry),
+          ),
         };
       }
     }
 
     return {
-      code: statusCode >= 500 ? ErrorCode.INTERNAL_ERROR : ErrorCode.BAD_REQUEST,
+      code:
+        statusCode >= 500 ? ErrorCode.INTERNAL_ERROR : ErrorCode.BAD_REQUEST,
       message: this.extractMessage(raw) ?? exception.message,
       statusCode,
       requestId,
@@ -119,7 +132,7 @@ export class GlobalExceptionFilter implements ExceptionFilter {
       return raw;
     }
     if (typeof raw === 'object' && raw !== null && 'message' in raw) {
-      const message = (raw as { message: unknown }).message;
+      const message = raw.message;
       if (typeof message === 'string') {
         return message;
       }
@@ -130,7 +143,10 @@ export class GlobalExceptionFilter implements ExceptionFilter {
     return undefined;
   }
 
-  private parseValidationEntry(entry: unknown): { field: string; message: string } {
+  private parseValidationEntry(entry: unknown): {
+    field: string;
+    message: string;
+  } {
     if (typeof entry === 'string') {
       return { field: 'body', message: entry };
     }

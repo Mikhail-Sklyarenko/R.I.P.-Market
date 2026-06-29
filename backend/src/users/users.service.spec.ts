@@ -45,7 +45,10 @@ describe('UsersService (Steam identity)', () => {
     };
     prisma.user.upsert.mockResolvedValue(user);
 
-    const result = await service.upsertBySteamId('76561198000000000', 'PlayerOne');
+    const result = await service.upsertBySteamId(
+      '76561198000000000',
+      'PlayerOne',
+    );
 
     expect(prisma.user.upsert).toHaveBeenCalledWith({
       where: { steamId: '76561198000000000' },

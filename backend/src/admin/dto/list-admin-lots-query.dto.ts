@@ -1,5 +1,14 @@
 import { Type } from 'class-transformer';
-import { IsEnum, IsIn, IsInt, IsOptional, IsPositive, IsString, IsUUID, Max, Min } from 'class-validator';
+import {
+  IsEnum,
+  IsInt,
+  IsOptional,
+  IsPositive,
+  IsString,
+  IsUUID,
+  Max,
+  Min,
+} from 'class-validator';
 import { LotStatus } from '@prisma/client';
 
 export class ListAdminLotsQueryDto {

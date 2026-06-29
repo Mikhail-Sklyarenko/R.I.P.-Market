@@ -48,7 +48,11 @@ describe('steam-openid.util', () => {
     });
 
     it('posts check_authentication and returns true when Steam confirms', async () => {
-      const postFn = jest.fn().mockResolvedValue('ns:http://specs.openid.net/auth/2.0\nis_valid:true\n');
+      const postFn = jest
+        .fn()
+        .mockResolvedValue(
+          'ns:http://specs.openid.net/auth/2.0\nis_valid:true\n',
+        );
       const result = await verifySteamOpenId(baseParams, postFn);
       expect(result).toBe(true);
       expect(postFn).toHaveBeenCalledWith(

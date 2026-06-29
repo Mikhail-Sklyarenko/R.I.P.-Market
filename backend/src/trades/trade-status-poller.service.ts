@@ -163,7 +163,9 @@ export class TradeStatusPollerService implements OnModuleInit {
         this.backoffUntil.set(operation.orderId, Date.now() + backoffMs);
         await this.recordPollEvent(operation.id, {
           outcome: 'ERROR',
-          strategy: operation.externalOfferId ? 'OFFER_POLL' : 'INVENTORY_DELTA',
+          strategy: operation.externalOfferId
+            ? 'OFFER_POLL'
+            : 'INVENTORY_DELTA',
           offerStatus: null,
           error: 'rate_limited',
         });
@@ -232,14 +234,19 @@ export class TradeStatusPollerService implements OnModuleInit {
       return true;
     }
 
-    if (verification.status === 'declined' || verification.status === 'expired') {
+    if (
+      verification.status === 'declined' ||
+      verification.status === 'expired'
+    ) {
       await this.tradesService.applyTradeFailedFromPoll(
         operation.orderId,
         verification.status,
       );
       await this.recordPollEvent(operation.id, {
         outcome:
-          process.env.TRADE_FAIL_MODE === 'SAFE' ? 'FAILED_SAFE' : 'FAILED_DISPUTE',
+          process.env.TRADE_FAIL_MODE === 'SAFE'
+            ? 'FAILED_SAFE'
+            : 'FAILED_DISPUTE',
         strategy: 'OFFER_POLL',
         offerStatus: verification.status,
       });

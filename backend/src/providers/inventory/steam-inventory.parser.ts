@@ -123,10 +123,7 @@ export function parseSteamInventoryResponse(
 
   const propertiesByAssetId = new Map<string, SteamAssetProperty[]>();
   for (const entry of assetProperties) {
-    propertiesByAssetId.set(
-      entry.assetid,
-      entry.asset_properties ?? [],
-    );
+    propertiesByAssetId.set(entry.assetid, entry.asset_properties ?? []);
   }
 
   const parsed: ParsedSteamAsset[] = [];

@@ -1,6 +1,5 @@
 import { HttpStatus } from '@nestjs/common';
 import { UserRole, UserStatus } from '@prisma/client';
-import { AppException } from '../../common/errors/app.exception';
 import { ErrorCode } from '../../common/errors/error-codes';
 import { UsersService } from '../../users/users.service';
 import { SteamAuthProvider } from './steam-auth.provider';
@@ -10,14 +9,15 @@ import * as steamOpenId from './steam-openid.util';
 describe('SteamAuthProvider', () => {
   let provider: SteamAuthProvider;
   let usersService: jest.Mocked<Pick<UsersService, 'upsertBySteamId'>>;
-  let steamProfileService: jest.Mocked<Pick<SteamProfileService, 'fetchPersonaName'>>;
+  let steamProfileService: jest.Mocked<
+    Pick<SteamProfileService, 'fetchPersonaName'>
+  >;
 
   const openidParams = {
     'openid.mode': 'id_res',
     'openid.claimed_id':
       'https://steamcommunity.com/openid/id/76561198000000000',
-    'openid.identity':
-      'https://steamcommunity.com/openid/id/76561198000000000',
+    'openid.identity': 'https://steamcommunity.com/openid/id/76561198000000000',
   };
 
   beforeEach(() => {
@@ -29,7 +29,7 @@ describe('SteamAuthProvider', () => {
     };
     provider = new SteamAuthProvider(
       usersService as unknown as UsersService,
-      steamProfileService as unknown as SteamProfileService,
+      steamProfileService,
     );
     jest.spyOn(steamOpenId, 'verifySteamOpenId').mockResolvedValue(true);
   });

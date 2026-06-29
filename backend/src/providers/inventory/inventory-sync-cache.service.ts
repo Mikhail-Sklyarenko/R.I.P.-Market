@@ -54,10 +54,7 @@ export class InventorySyncCacheService {
     return run.status === InventorySyncStatus.SUCCESS && run.expiresAt > now;
   }
 
-  isWithinRateLimit(
-    run: { fetchedAt: Date },
-    now = new Date(),
-  ): boolean {
+  isWithinRateLimit(run: { fetchedAt: Date }, now = new Date()): boolean {
     return (
       now.getTime() - run.fetchedAt.getTime() < getInventorySyncMinIntervalMs()
     );
