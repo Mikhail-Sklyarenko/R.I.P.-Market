@@ -1,10 +1,11 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { getAuthConfig, getSteamLoginUrl, mockLogin } from '../api/marketplace';
+import { getAuthConfig, getSteamLoginUrl, getUserMe, mockLogin } from '../api/marketplace';
 import type { AuthConfig } from '../api/types';
 import { useAuth } from '../auth/AuthContext';
 import { ErrorAlert } from '../components/ErrorAlert';
 import { getHomePathForRole } from '../utils/format';
+import { profileToAuthUser } from '../utils/user-profile';
 
 type AuthMode = 'mock' | 'steam';
 type MockRole = 'SELLER' | 'BUYER' | 'ADMIN';
@@ -52,8 +53,9 @@ export function LoginPage() {
     setError(null);
     try {
       const response = await mockLogin(role);
-      login(response.accessToken, response.user);
-      navigate(returnUrl ?? getHomePathForRole(response.user.role));
+      const profile = await getUserMe(response.accessToken);
+      login(response.accessToken, profileToAuthUser(profile));
+      navigate(returnUrl ?? getHomePathForRole(profile.role));
     } catch (err) {
       setError(err);
     } finally {

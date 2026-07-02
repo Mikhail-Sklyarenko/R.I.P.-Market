@@ -9,8 +9,10 @@ import { LoadingState } from '../components/LoadingState';
 import { MoneyDisplay } from '../components/MoneyDisplay';
 import { PageHeader } from '../components/PageHeader';
 import { StatusBadge } from '../components/StatusBadge';
+import { useWalletSummary } from '../hooks/useWalletSummary';
 import { formatOrderStatus } from '../utils/order-flow';
 import {
+  computeSellerPendingReceiveMinor,
   filterOrders,
   formatOrderRoleLabel,
   getDealNextStepShort,
@@ -23,6 +25,7 @@ import {
 
 export function MyOrdersPage() {
   const { token, user } = useAuth();
+  const { summary: walletSummary } = useWalletSummary();
   const [summaryOrders, setSummaryOrders] = useState<Order[]>([]);
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
@@ -74,6 +77,11 @@ export function MyOrdersPage() {
     [summaryOrders],
   );
 
+  const pendingReceiveMinor = useMemo(
+    () => computeSellerPendingReceiveMinor(summaryOrders, user?.id),
+    [summaryOrders, user?.id],
+  );
+
   const filteredOrders = useMemo(
     () => filterOrders(orders, user?.id, 'all', 'all'),
     [orders, user?.id],
@@ -87,6 +95,31 @@ export function MyOrdersPage() {
       />
 
       <ErrorAlert error={error} />
+
+      {walletSummary ? (
+        <div
+          className="wallet-balance-grid my-orders-wallet-summary"
+          data-testid="my-orders-wallet-summary"
+        >
+          <div className="card wallet-balance-card" data-testid="my-orders-available">
+            <span className="eyebrow">Доступно</span>
+            <MoneyDisplay minor={walletSummary.availableMinor} strong />
+          </div>
+          <div className="card wallet-balance-card" data-testid="my-orders-hold">
+            <span className="eyebrow">В hold</span>
+            <MoneyDisplay minor={walletSummary.holdMinor} strong />
+          </div>
+          {pendingReceiveMinor > 0 ? (
+            <div
+              className="card wallet-balance-card"
+              data-testid="my-orders-pending-receive"
+            >
+              <span className="eyebrow">К получению</span>
+              <MoneyDisplay minor={pendingReceiveMinor} strong />
+            </div>
+          ) : null}
+        </div>
+      ) : null}
 
       {loading ? <LoadingState message="Загрузка сделок…" /> : null}
 
@@ -196,7 +229,12 @@ export function MyOrdersPage() {
                     </td>
                     <td>{new Date(order.createdAt).toLocaleString()}</td>
                     <td>
-                      <Link to={`/orders/${order.id}`}>Open</Link>
+                      <Link
+                        to={`/orders/${order.id}`}
+                        data-testid={`open-order-${order.id}`}
+                      >
+                        Открыть
+                      </Link>
                     </td>
                   </tr>
                 );

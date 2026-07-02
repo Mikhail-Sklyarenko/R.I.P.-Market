@@ -10,7 +10,15 @@ import { InventorySyncCacheService } from './inventory/inventory-sync-cache.serv
 import { SteamInventoryProvider } from './inventory/steam-inventory.provider';
 import { MockTradeProvider } from './trade/mock-trade.provider';
 import { SteamTradeProvider } from './trade/steam-trade.provider';
-import { AUTH_PROVIDER, INVENTORY_PROVIDER, TRADE_PROVIDER } from './tokens';
+import { MockPaymentProvider } from './payment/mock-payment.provider';
+import { CryptoTronGatewayProvider } from './payment/crypto-tron-gateway.provider';
+import { E2eCryptoPaymentProvider } from './payment/e2e-crypto-payment.provider';
+import {
+  AUTH_PROVIDER,
+  INVENTORY_PROVIDER,
+  PAYMENT_PROVIDER,
+  TRADE_PROVIDER,
+} from './tokens';
 
 @Global()
 @Module({
@@ -25,6 +33,9 @@ import { AUTH_PROVIDER, INVENTORY_PROVIDER, TRADE_PROVIDER } from './tokens';
     InventoryMetricsService,
     MockTradeProvider,
     SteamTradeProvider,
+    MockPaymentProvider,
+    CryptoTronGatewayProvider,
+    E2eCryptoPaymentProvider,
     {
       provide: AUTH_PROVIDER,
       useFactory: (mock: MockAuthProvider, steam: SteamAuthProvider) => {
@@ -49,11 +60,34 @@ import { AUTH_PROVIDER, INVENTORY_PROVIDER, TRADE_PROVIDER } from './tokens';
       },
       inject: [MockTradeProvider, SteamTradeProvider],
     },
+    {
+      provide: PAYMENT_PROVIDER,
+      useFactory: (
+        mock: MockPaymentProvider,
+        crypto: CryptoTronGatewayProvider,
+        e2eCrypto: E2eCryptoPaymentProvider,
+      ) => {
+        const payment = getProvidersConfig().payment;
+        if (payment !== 'crypto_tron') {
+          return mock;
+        }
+        if (process.env.ENABLE_TEST_ROUTES === 'true') {
+          return e2eCrypto;
+        }
+        return crypto;
+      },
+      inject: [
+        MockPaymentProvider,
+        CryptoTronGatewayProvider,
+        E2eCryptoPaymentProvider,
+      ],
+    },
   ],
   exports: [
     AUTH_PROVIDER,
     INVENTORY_PROVIDER,
     TRADE_PROVIDER,
+    PAYMENT_PROVIDER,
     MockAuthProvider,
     SteamProfileService,
     InventoryMetricsService,

@@ -38,9 +38,62 @@ export type AuthConfig = {
   mockLoginAvailable: boolean;
   mockTradeEnabled: boolean;
   mockDepositEnabled: boolean;
+  paymentProvider: 'mock' | 'crypto_tron';
+  cryptoPaymentsEnabled: boolean;
+  minDepositMinor: number;
+  minWithdrawMinor: number;
+  withdrawFeeMinor: number;
+  usdtNetwork: string;
+  usdtToken: string;
   tradeVerificationMode: string;
   enableRealSettlement: boolean;
   liveVerificationMode: boolean;
+  tradeTimeoutMinutes: number;
+};
+
+export type WalletDepositInfo = {
+  address: string;
+  network: string;
+  token: string;
+  minDepositMinor: number;
+  qrData: string;
+  walletIndex: number;
+};
+
+export type WalletDepositStatus = {
+  intents: Array<{
+    id: string;
+    status: string;
+    depositAddress: string;
+    createdAt: string;
+  }>;
+  events: Array<{
+    id: string;
+    eventType: string;
+    amountMinor: string;
+    createdAt: string;
+  }>;
+};
+
+export type WithdrawalRequest = {
+  id: string;
+  userId: string;
+  amountMinor: string;
+  feeMinor: string;
+  netMinor: string;
+  toAddress: string;
+  status:
+    | 'PENDING_REVIEW'
+    | 'APPROVED'
+    | 'PROCESSING'
+    | 'PAID'
+    | 'REJECTED'
+    | 'FAILED';
+  payoutTxHash?: string | null;
+  rejectReason?: string | null;
+  createdAt: string;
+  updatedAt: string;
+  paidAt?: string | null;
 };
 
 export type AuthUser = {
@@ -49,7 +102,10 @@ export type AuthUser = {
   role: string;
   status: string;
   steamId?: string | null;
+  tradeUrl?: string | null;
 };
+
+export type UserProfile = AuthUser;
 
 export type AuthResponse = {
   accessToken: string;

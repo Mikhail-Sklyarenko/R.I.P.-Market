@@ -1,5 +1,6 @@
 import { useNavigate } from 'react-router-dom';
 import type { Notification } from '../api/types';
+import { useAuth } from '../auth/AuthContext';
 import {
   getNotificationDisplay,
   getNotificationTargetPath,
@@ -17,7 +18,8 @@ export function NotificationItem({
   compact = false,
 }: NotificationItemProps) {
   const navigate = useNavigate();
-  const display = getNotificationDisplay(notification);
+  const { user } = useAuth();
+  const display = getNotificationDisplay(notification, user?.id);
   const targetPath = getNotificationTargetPath(notification);
 
   async function handleClick() {
@@ -40,7 +42,7 @@ export function NotificationItem({
       <span className={compact ? 'small muted' : ''}>{display.message}</span>
       {targetPath ? (
         <span className="small notification-item-link">
-          {targetPath.startsWith('/orders/') ? 'Open' : 'К кошельку'}
+          {targetPath.startsWith('/orders/') ? 'Открыть' : 'К кошельку'}
         </span>
       ) : null}
     </button>

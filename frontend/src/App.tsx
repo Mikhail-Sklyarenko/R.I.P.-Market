@@ -22,6 +22,7 @@ import { MyLotsPage } from './pages/MyLotsPage';
 import { MyOrdersPage } from './pages/MyOrdersPage';
 import { NotificationsPage } from './pages/NotificationsPage';
 import { OrderPage } from './pages/OrderPage';
+import { SupportPage } from './pages/SupportPage';
 import { WalletPage } from './pages/WalletPage';
 import { getHomePathForRole } from './utils/format';
 
@@ -50,6 +51,7 @@ export function App() {
         <Route element={<Layout />}>
           <Route path="/catalog" element={<CatalogPage />} />
           <Route path="/lots/:id" element={<LotPage />} />
+          <Route path="/support" element={<SupportPage />} />
 
           <Route element={<ProtectedRoute />}>
             <Route path="/" element={<HomeRedirect />} />

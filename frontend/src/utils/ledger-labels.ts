@@ -8,6 +8,10 @@ export const LEDGER_ENTRY_LABELS: Record<string, string> = {
   SETTLEMENT_SELLER: 'Выплата продавцу',
   SETTLEMENT_PLATFORM_COMMISSION: 'Комиссия платформы',
   REFUND: 'Возврат средств',
+  WITHDRAWAL: 'Вывод USDT',
+  WITHDRAWAL_REFUND: 'Возврат вывода',
+  WITHDRAW: 'Вывод USDT',
+  WITHDRAW_FEE: 'Комиссия вывода',
   MANUAL_ADJUSTMENT: 'Ручная корректировка',
 };
 

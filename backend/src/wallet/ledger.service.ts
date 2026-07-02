@@ -25,15 +25,299 @@ export class LedgerService {
     amountMinor: bigint,
     idempotencyKey: string,
   ): Promise<LedgerOperationResult> {
-    if (amountMinor <= 0n) {
+    return this.deposit({
+      userId,
+      amountMinor,
+      idempotencyKey,
+      metadata: { source: 'mock' },
+    });
+  }
+
+  async deposit(params: {
+    userId: string;
+    amountMinor: bigint;
+    idempotencyKey: string;
+    metadata?: Prisma.InputJsonValue;
+    tx?: TxClient;
+  }): Promise<LedgerOperationResult> {
+    if (params.amountMinor <= 0n) {
       throw new BadRequestException('Deposit amount must be positive');
     }
 
-    const wallet = await this.ensureUserWallet(userId);
+    const wallet = await this.ensureUserWallet(params.userId);
+    const execute = async (client: TxClient) =>
+      this.applyDeposit(client, {
+        walletId: wallet.id,
+        amountMinor: params.amountMinor,
+        idempotencyKey: params.idempotencyKey,
+        metadata: params.metadata,
+      });
 
-    return this.prisma.$transaction((tx) =>
-      this.applyDeposit(tx, wallet.id, amountMinor, idempotencyKey),
-    );
+    return params.tx ? execute(params.tx) : this.prisma.$transaction(execute);
+  }
+
+  async withdraw(params: {
+    userId: string;
+    amountMinor: bigint;
+    feeMinor: bigint;
+    netMinor: bigint;
+    idempotencyKey: string;
+    withdrawalRequestId: string;
+    fromFrozen?: boolean;
+    metadata?: Prisma.InputJsonValue;
+    tx?: TxClient;
+  }): Promise<LedgerOperationResult> {
+    if (params.amountMinor <= 0n || params.feeMinor < 0n || params.netMinor <= 0n) {
+      throw new BadRequestException('Withdrawal amounts must be positive');
+    }
+
+    if (params.netMinor + params.feeMinor !== params.amountMinor) {
+      throw new BadRequestException('Withdrawal amounts are not balanced');
+    }
+
+    const wallet = await this.ensureUserWallet(params.userId);
+    const accountType = params.fromFrozen
+      ? WalletAccountType.FROZEN
+      : WalletAccountType.AVAILABLE;
+
+    const execute = async (client: TxClient) => {
+      const existing = await this.findExistingOperation(
+        client,
+        wallet.id,
+        params.idempotencyKey,
+      );
+      if (existing) {
+        return existing;
+      }
+
+      const balance = await this.getAccountBalance(
+        client,
+        wallet.id,
+        accountType,
+      );
+      if (balance < params.amountMinor) {
+        throw new BadRequestException('Insufficient balance for withdrawal');
+      }
+
+      const referenceGroupId = crypto.randomUUID();
+
+      await client.walletAccount.update({
+        where: {
+          walletId_type: { walletId: wallet.id, type: accountType },
+        },
+        data: { balanceMinor: { decrement: params.amountMinor } },
+      });
+
+      const withdrawEntry = await client.ledgerEntry.create({
+        data: {
+          walletId: wallet.id,
+          type: LedgerEntryType.WITHDRAW,
+          amountMinor: -params.netMinor,
+          idempotencyKey: params.idempotencyKey,
+          referenceGroupId,
+          metadata: {
+            withdrawalRequestId: params.withdrawalRequestId,
+            netMinor: params.netMinor.toString(),
+            ...(params.metadata as object | undefined),
+          },
+        },
+      });
+
+      const feeEntry = await client.ledgerEntry.create({
+        data: {
+          walletId: wallet.id,
+          type: LedgerEntryType.WITHDRAW_FEE,
+          amountMinor: -params.feeMinor,
+          idempotencyKey: `${params.idempotencyKey}:fee`,
+          referenceGroupId,
+          metadata: {
+            withdrawalRequestId: params.withdrawalRequestId,
+            feeMinor: params.feeMinor.toString(),
+          },
+        },
+      });
+
+      return {
+        referenceGroupId,
+        entries: [
+          {
+            id: withdrawEntry.id,
+            type: withdrawEntry.type,
+            amountMinor: withdrawEntry.amountMinor.toString(),
+          },
+          {
+            id: feeEntry.id,
+            type: feeEntry.type,
+            amountMinor: feeEntry.amountMinor.toString(),
+          },
+        ],
+      };
+    };
+
+    return params.tx ? execute(params.tx) : this.prisma.$transaction(execute);
+  }
+
+  async freezeForWithdrawal(params: {
+    userId: string;
+    amountMinor: bigint;
+    tx?: TxClient;
+  }): Promise<void> {
+    if (params.amountMinor <= 0n) {
+      throw new BadRequestException('Freeze amount must be positive');
+    }
+
+    const wallet = await this.ensureUserWallet(params.userId);
+    const execute = async (client: TxClient) => {
+      const available = await this.getAccountBalance(
+        client,
+        wallet.id,
+        WalletAccountType.AVAILABLE,
+      );
+      if (available < params.amountMinor) {
+        throw new BadRequestException('Insufficient available balance');
+      }
+
+      await client.walletAccount.update({
+        where: {
+          walletId_type: {
+            walletId: wallet.id,
+            type: WalletAccountType.AVAILABLE,
+          },
+        },
+        data: { balanceMinor: { decrement: params.amountMinor } },
+      });
+
+      await client.walletAccount.update({
+        where: {
+          walletId_type: {
+            walletId: wallet.id,
+            type: WalletAccountType.FROZEN,
+          },
+        },
+        data: { balanceMinor: { increment: params.amountMinor } },
+      });
+    };
+
+    if (params.tx) {
+      await execute(params.tx);
+      return;
+    }
+
+    await this.prisma.$transaction(execute);
+  }
+
+  async releaseWithdrawHold(params: {
+    userId: string;
+    amountMinor: bigint;
+    tx?: TxClient;
+  }): Promise<void> {
+    if (params.amountMinor <= 0n) {
+      throw new BadRequestException('Release amount must be positive');
+    }
+
+    const wallet = await this.ensureUserWallet(params.userId);
+    const execute = async (client: TxClient) => {
+      const frozen = await this.getAccountBalance(
+        client,
+        wallet.id,
+        WalletAccountType.FROZEN,
+      );
+      if (frozen < params.amountMinor) {
+        throw new BadRequestException('Insufficient frozen balance to release');
+      }
+
+      await client.walletAccount.update({
+        where: {
+          walletId_type: {
+            walletId: wallet.id,
+            type: WalletAccountType.FROZEN,
+          },
+        },
+        data: { balanceMinor: { decrement: params.amountMinor } },
+      });
+
+      await client.walletAccount.update({
+        where: {
+          walletId_type: {
+            walletId: wallet.id,
+            type: WalletAccountType.AVAILABLE,
+          },
+        },
+        data: { balanceMinor: { increment: params.amountMinor } },
+      });
+    };
+
+    if (params.tx) {
+      await execute(params.tx);
+      return;
+    }
+
+    await this.prisma.$transaction(execute);
+  }
+
+  async refundWithdrawal(params: {
+    userId: string;
+    amountMinor: bigint;
+    idempotencyKey: string;
+    reason: string;
+    withdrawalRequestId: string;
+    tx?: TxClient;
+  }): Promise<LedgerOperationResult> {
+    if (params.amountMinor <= 0n) {
+      throw new BadRequestException('Refund amount must be positive');
+    }
+
+    const wallet = await this.ensureUserWallet(params.userId);
+    const execute = async (client: TxClient) => {
+      const existing = await this.findExistingOperation(
+        client,
+        wallet.id,
+        params.idempotencyKey,
+      );
+      if (existing) {
+        return existing;
+      }
+
+      const referenceGroupId = crypto.randomUUID();
+
+      await client.walletAccount.update({
+        where: {
+          walletId_type: {
+            walletId: wallet.id,
+            type: WalletAccountType.AVAILABLE,
+          },
+        },
+        data: { balanceMinor: { increment: params.amountMinor } },
+      });
+
+      const entry = await client.ledgerEntry.create({
+        data: {
+          walletId: wallet.id,
+          type: LedgerEntryType.MANUAL_ADJUSTMENT,
+          amountMinor: params.amountMinor,
+          idempotencyKey: params.idempotencyKey,
+          referenceGroupId,
+          metadata: {
+            reason: params.reason,
+            withdrawalRequestId: params.withdrawalRequestId,
+            action: 'withdrawal_refund',
+          },
+        },
+      });
+
+      return {
+        referenceGroupId,
+        entries: [
+          {
+            id: entry.id,
+            type: entry.type,
+            amountMinor: entry.amountMinor.toString(),
+          },
+        ],
+      };
+    };
+
+    return params.tx ? execute(params.tx) : this.prisma.$transaction(execute);
   }
 
   async reservePurchaseHold(params: {
@@ -484,14 +768,17 @@ export class LedgerService {
 
   private async applyDeposit(
     tx: TxClient,
-    walletId: string,
-    amountMinor: bigint,
-    idempotencyKey: string,
+    params: {
+      walletId: string;
+      amountMinor: bigint;
+      idempotencyKey: string;
+      metadata?: Prisma.InputJsonValue;
+    },
   ): Promise<LedgerOperationResult> {
     const existing = await this.findExistingOperation(
       tx,
-      walletId,
-      idempotencyKey,
+      params.walletId,
+      params.idempotencyKey,
     );
     if (existing) {
       return existing;
@@ -501,19 +788,19 @@ export class LedgerService {
 
     await tx.walletAccount.update({
       where: {
-        walletId_type: { walletId, type: WalletAccountType.AVAILABLE },
+        walletId_type: { walletId: params.walletId, type: WalletAccountType.AVAILABLE },
       },
-      data: { balanceMinor: { increment: amountMinor } },
+      data: { balanceMinor: { increment: params.amountMinor } },
     });
 
     const entry = await tx.ledgerEntry.create({
       data: {
-        walletId,
+        walletId: params.walletId,
         type: LedgerEntryType.DEPOSIT,
-        amountMinor,
-        idempotencyKey,
+        amountMinor: params.amountMinor,
+        idempotencyKey: params.idempotencyKey,
         referenceGroupId,
-        metadata: { source: 'mock' },
+        metadata: params.metadata ?? { source: 'mock' },
       },
     });
 

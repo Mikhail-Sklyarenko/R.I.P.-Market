@@ -43,6 +43,9 @@ npm run dev
 
 ## Documentation
 
+- [USDT TRC-20 payments (staging / runbook)](docs/payments-crypto-tron.md)
+- [Release v1 checklist](docs/RELEASE.md)
+- [QA / manual testing](TESTING.md)
 - [Local runbook](docs/runbook.md)
 - [Phase 1 — Sell slice](docs/phase-1-sell.md)
 - [Phase 2 — Buy + Complete](docs/phase-2-buy-complete.md)
@@ -60,6 +63,7 @@ npm run dev
 ```
 backend/     NestJS API, Prisma, PostgreSQL
 frontend/    Vite + React UI (seller, buyer, admin ops)
+crypto-gateway/  USDT TRC-20 payment tunnel (api, scanner, signer)
 docs/        Runbooks and phase docs
 .github/     CI (backend, frontend, UI e2e)
 ```
@@ -68,8 +72,10 @@ docs/        Runbooks and phase docs
 
 ```bash
 cd backend && npm test && npm run test:e2e
-cd frontend && npm run lint && npm run build && npm run test:e2e
+cd frontend && npm run lint && npm run build && npm run test:unit && npm run test:e2e
 ```
+
+Полный чеклист релиза: [docs/RELEASE.md](docs/RELEASE.md).
 
 ## Providers
 

@@ -1,0 +1,138 @@
+# Staging stack: USDT TRC-20 crypto gateway + optional platform Postgres.
+#
+# Gateway only (scanner + API; signer in prod profile):
+#   docker compose -f docker-compose.staging.yml up -d
+#
+# Include signer (requires GATEWAY_MNEMONIC + GATEWAY_HOT_WALLET_ADDRESS in .env):
+#   docker compose -f docker-compose.staging.yml --profile prod up -d
+#
+# Platform API is expected on the same Docker network (or reachable WEBHOOK_URL).
+# See docs/payments-crypto-tron.md
+
+name: rip-market-staging
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: rip-platform-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: cs2_p2p_mvp
+      POSTGRES_USER: cs2
+      POSTGRES_PASSWORD: ${PLATFORM_POSTGRES_PASSWORD:-cs2}
+    ports:
+      - '5432:5432'
+    volumes:
+      - platform_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U cs2 -d cs2_p2p_mvp']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  crypto-gateway-db:
+    image: postgres:16-alpine
+    container_name: rip-crypto-gateway-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: gateway
+      POSTGRES_PASSWORD: ${GATEWAY_POSTGRES_PASSWORD:-gateway}
+      POSTGRES_DB: crypto_gateway
+    ports:
+      - '5433:5432'
+    volumes:
+      - crypto_gateway_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U gateway -d crypto_gateway']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  crypto-gateway-api:
+    build:
+      context: ./crypto-gateway
+      dockerfile: Dockerfile
+    image: rip-crypto-gateway:latest
+    container_name: rip-crypto-gateway-api
+    restart: unless-stopped
+    depends_on:
+      crypto-gateway-db:
+        condition: service_healthy
+    ports:
+      - '3001:3001'
+    environment:
+      DATABASE_URL: postgresql://gateway:${GATEWAY_POSTGRES_PASSWORD:-gateway}@crypto-gateway-db:5432/crypto_gateway?schema=public
+      PORT: '3001'
+      API_KEY: ${CRYPTO_GATEWAY_API_KEY:?set CRYPTO_GATEWAY_API_KEY}
+      WEBHOOK_SECRET: ${CRYPTO_GATEWAY_WEBHOOK_SECRET:?set CRYPTO_GATEWAY_WEBHOOK_SECRET}
+      WEBHOOK_URL: ${PLATFORM_WEBHOOK_URL:-http://host.docker.internal:3000/api/v1/payments/webhooks/crypto}
+      USDT_CONTRACT: ${USDT_CONTRACT:-TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t}
+      MIN_CONFIRMATIONS: ${MIN_CONFIRMATIONS:-19}
+      MIN_DEPOSIT_SUN: ${MIN_DEPOSIT_SUN:-5000000}
+      TRON_GRID_API_KEY: ${TRON_GRID_API_KEY:-}
+      TRON_GRID_BASE_URL: ${TRON_GRID_BASE_URL:-https://api.trongrid.io}
+      XPUB: ${GATEWAY_XPUB:?set GATEWAY_XPUB for deposit address derivation}
+    command: >
+      sh -c "npm run prisma:migrate:deploy && node dist/api/server.js"
+    healthcheck:
+      test:
+        [
+          'CMD-SHELL',
+          "node -e \"fetch('http://127.0.0.1:3001/v1/health').then((r)=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))\"",
+        ]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+  crypto-gateway-scanner:
+    image: rip-crypto-gateway:latest
+    container_name: rip-crypto-gateway-scanner
+    restart: unless-stopped
+    depends_on:
+      crypto-gateway-api:
+        condition: service_healthy
+      crypto-gateway-db:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql://gateway:${GATEWAY_POSTGRES_PASSWORD:-gateway}@crypto-gateway-db:5432/crypto_gateway?schema=public
+      API_KEY: ${CRYPTO_GATEWAY_API_KEY:?set CRYPTO_GATEWAY_API_KEY}
+      WEBHOOK_SECRET: ${CRYPTO_GATEWAY_WEBHOOK_SECRET:?set CRYPTO_GATEWAY_WEBHOOK_SECRET}
+      WEBHOOK_URL: ${PLATFORM_WEBHOOK_URL:-http://host.docker.internal:3000/api/v1/payments/webhooks/crypto}
+      USDT_CONTRACT: ${USDT_CONTRACT:-TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t}
+      MIN_CONFIRMATIONS: ${MIN_CONFIRMATIONS:-19}
+      MIN_DEPOSIT_SUN: ${MIN_DEPOSIT_SUN:-5000000}
+      TRON_GRID_API_KEY: ${TRON_GRID_API_KEY:-}
+      TRON_GRID_BASE_URL: ${TRON_GRID_BASE_URL:-https://api.trongrid.io}
+      SCANNER_INTERVAL_MS: ${SCANNER_INTERVAL_MS:-15000}
+      XPUB: ${GATEWAY_XPUB:?set GATEWAY_XPUB}
+    command: ['node', 'dist/scanner/scanner.js']
+
+  crypto-gateway-signer:
+    profiles: ['prod']
+    image: rip-crypto-gateway:latest
+    container_name: rip-crypto-gateway-signer
+    restart: unless-stopped
+    depends_on:
+      crypto-gateway-api:
+        condition: service_healthy
+      crypto-gateway-db:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql://gateway:${GATEWAY_POSTGRES_PASSWORD:-gateway}@crypto-gateway-db:5432/crypto_gateway?schema=public
+      API_KEY: ${CRYPTO_GATEWAY_API_KEY:?set CRYPTO_GATEWAY_API_KEY}
+      WEBHOOK_SECRET: ${CRYPTO_GATEWAY_WEBHOOK_SECRET:?set CRYPTO_GATEWAY_WEBHOOK_SECRET}
+      WEBHOOK_URL: ${PLATFORM_WEBHOOK_URL:-http://host.docker.internal:3000/api/v1/payments/webhooks/crypto}
+      USDT_CONTRACT: ${USDT_CONTRACT:-TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t}
+      TRON_GRID_API_KEY: ${TRON_GRID_API_KEY:-}
+      TRON_GRID_BASE_URL: ${TRON_GRID_BASE_URL:-https://api.trongrid.io}
+      MNEMONIC: ${GATEWAY_MNEMONIC:-}
+      HOT_WALLET_ADDRESS: ${GATEWAY_HOT_WALLET_ADDRESS:-}
+      SWEEP_INTERVAL_HOURS: ${SWEEP_INTERVAL_HOURS:-6}
+      WITHDRAWAL_FEE_SUN: ${WITHDRAWAL_FEE_SUN:-0}
+      MAX_WITHDRAWAL_SUN: ${MAX_WITHDRAWAL_SUN:-100000000000}
+    command: ['node', 'dist/signer/signer.js']
+
+volumes:
+  platform_postgres_data:
+  crypto_gateway_postgres_data:

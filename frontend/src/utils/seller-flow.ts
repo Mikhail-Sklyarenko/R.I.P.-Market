@@ -1,3 +1,104 @@
+export const LOT_STATUS_LABELS: Record<string, string> = {
+  ACTIVE: 'Активен',
+  RESERVED: 'В сделке',
+  SOLD: 'Продан',
+  CANCELED: 'Отменён',
+  BLOCKED: 'Заблокирован',
+};
+
+export const LOT_SUMMARY_LABELS: Record<string, string> = {
+  ACTIVE: 'Активные',
+  RESERVED: 'В сделке',
+  SOLD: 'Продано',
+  CANCELED: 'Отменены',
+};
+
+export function formatLotStatus(status: string): string {
+  return LOT_STATUS_LABELS[status] ?? status;
+}
+
+export type InventoryStatusFilter = 'all' | 'AVAILABLE' | 'LISTED' | 'RESERVED';
+
+export const INVENTORY_STATUS_FILTERS: Array<{
+  id: InventoryStatusFilter;
+  label: string;
+}> = [
+  { id: 'all', label: 'Все' },
+  { id: 'AVAILABLE', label: 'Доступен' },
+  { id: 'LISTED', label: 'Выставлен' },
+  { id: 'RESERVED', label: 'В сделке' },
+];
+
+export type LotStatusFilter = 'all' | 'ACTIVE' | 'RESERVED' | 'SOLD' | 'CANCELED';
+
+export const LOT_STATUS_FILTERS: Array<{ id: LotStatusFilter; label: string }> = [
+  { id: 'all', label: 'Все' },
+  { id: 'ACTIVE', label: 'Активные' },
+  { id: 'RESERVED', label: 'В сделке' },
+  { id: 'SOLD', label: 'Продано' },
+  { id: 'CANCELED', label: 'Отменены' },
+];
+
+export const PENDING_PAYOUT_ORDER_STATUSES = new Set([
+  'PAYMENT_RESERVED',
+  'WAITING_TRADE',
+  'TRADE_CONFIRMED',
+]);
+
+export function computeSellerPendingReceiveMinor(
+  orders: Array<{
+    sellerId: string;
+    status: string;
+    lot: { sellerReceiveMinor: string };
+  }>,
+  sellerId?: string | null,
+): number {
+  if (!sellerId) {
+    return 0;
+  }
+  let total = 0;
+  for (const order of orders) {
+    if (order.sellerId !== sellerId) {
+      continue;
+    }
+    if (!PENDING_PAYOUT_ORDER_STATUSES.has(order.status)) {
+      continue;
+    }
+    total += Number(order.lot.sellerReceiveMinor);
+  }
+  return total;
+}
+
+export function filterInventoryAssets<
+  T extends { status: string; itemDefinition: { marketHashName: string } },
+>(assets: T[], search: string, statusFilter: InventoryStatusFilter): T[] {
+  const query = search.trim().toLowerCase();
+  return assets.filter((asset) => {
+    if (statusFilter !== 'all' && asset.status !== statusFilter) {
+      return false;
+    }
+    if (!query) {
+      return true;
+    }
+    return asset.itemDefinition.marketHashName.toLowerCase().includes(query);
+  });
+}
+
+export function filterSellerLots<
+  T extends { status: string; inventoryAsset: { itemDefinition: { marketHashName: string } } },
+>(lots: T[], search: string, statusFilter: LotStatusFilter): T[] {
+  const query = search.trim().toLowerCase();
+  return lots.filter((lot) => {
+    if (statusFilter !== 'all' && lot.status !== statusFilter) {
+      return false;
+    }
+    if (!query) {
+      return true;
+    }
+    return lot.inventoryAsset.itemDefinition.marketHashName.toLowerCase().includes(query);
+  });
+}
+
 export const SELLER_SALE_STEPS = [
   'Выставляете предмет и указываете цену.',
   'Покупатель резервирует средства — лот переходит в RESERVED.',

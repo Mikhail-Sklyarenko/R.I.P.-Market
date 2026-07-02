@@ -255,6 +255,27 @@ export class LedgerReconciliationService {
       }
     }
 
+    const staleWithdrawals = await this.prisma.withdrawalRequest.findMany({
+      where: {
+        status: 'PROCESSING',
+        createdAt: { lt: new Date(Date.now() - 24 * 60 * 60 * 1000) },
+      },
+      take: 100,
+    });
+
+    for (const withdrawal of staleWithdrawals) {
+      issues.push({
+        code: 'WITHDRAWAL_STALE',
+        message: 'Processing withdrawal is older than 24 hours',
+        entityType: 'withdrawalRequest',
+        entityId: withdrawal.id,
+        details: {
+          userId: withdrawal.userId,
+          amountMinor: withdrawal.amountMinor.toString(),
+        },
+      });
+    }
+
     return {
       ok: issues.length === 0,
       checkedAt: new Date().toISOString(),

@@ -2,22 +2,30 @@ import { useEffect, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../auth/AuthContext';
 import { ErrorAlert } from '../components/ErrorAlert';
-import { ERROR_MESSAGES, getHomePathForRole } from '../utils/format';
+import {
+  getHomePathForRole,
+  getSteamCallbackActions,
+  getSteamCallbackMessage,
+} from '../utils/format';
 
 export function SteamCallbackPage() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const { login } = useAuth();
-  const [error, setError] = useState<unknown>(null);
+  const [error, setError] = useState<{
+    code: string | null;
+    message: string;
+  } | null>(null);
 
   useEffect(() => {
     const errorCode = searchParams.get('error');
-    if (errorCode) {
-      const message =
-        searchParams.get('message') ??
-        ERROR_MESSAGES[errorCode] ??
-        'Steam authentication failed';
-      setError(new Error(message));
+    const messageParam = searchParams.get('message');
+
+    if (errorCode || (messageParam && !searchParams.get('accessToken'))) {
+      setError({
+        code: errorCode,
+        message: getSteamCallbackMessage(errorCode, messageParam),
+      });
       return;
     }
 
@@ -29,7 +37,10 @@ export function SteamCallbackPage() {
     const steamId = searchParams.get('steamId');
 
     if (!accessToken || !userId || !username || !role || !status) {
-      setError(new Error('Incomplete Steam login response'));
+      setError({
+        code: null,
+        message: 'Ответ Steam неполный. Попробуйте войти снова.',
+      });
       return;
     }
 
@@ -47,20 +58,33 @@ export function SteamCallbackPage() {
     });
   }, [login, navigate, searchParams]);
 
+  const actions = error ? getSteamCallbackActions(error.code) : [];
+
   return (
     <div className="page page-centered">
-      <div className="card login-card">
+      <div className="card login-card" data-testid="steam-callback-page">
         <p className="eyebrow">R.I.P. Market</p>
-        <h1>Steam sign-in</h1>
+        <h1>Вход через Steam</h1>
         {error ? (
           <>
-            <ErrorAlert error={error} />
-            <Link className="button secondary" to="/login">
-              Back to login
-            </Link>
+            <ErrorAlert error={new Error(error.message)} />
+            {error.code === 'STEAM_ALREADY_LINKED' ? (
+              <p className="muted small steam-callback-hint">
+                Если этот Steam уже привязан к вашему аккаунту, войдите под ним. Если Steam
+                привязан к другому пользователю — используйте тот аккаунт или обратитесь в
+                поддержку.
+              </p>
+            ) : null}
+            <div className="steam-callback-actions">
+              {actions.map((action) => (
+                <Link key={`${action.href}-${action.label}`} className="button secondary" to={action.href}>
+                  {action.label}
+                </Link>
+              ))}
+            </div>
           </>
         ) : (
-          <p className="muted">Completing Steam sign-in…</p>
+          <p className="muted">Завершаем вход через Steam…</p>
         )}
       </div>
     </div>

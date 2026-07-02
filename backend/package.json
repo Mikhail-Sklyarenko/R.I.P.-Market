@@ -23,7 +23,8 @@
     "prisma:generate": "prisma generate",
     "prisma:migrate:dev": "prisma migrate dev",
     "prisma:migrate:deploy": "prisma migrate deploy",
-    "reconcile:ledger": "ts-node -r tsconfig-paths/register src/scripts/reconcile-ledger.ts"
+    "reconcile:ledger": "ts-node -r tsconfig-paths/register src/scripts/reconcile-ledger.ts",
+    "reconcile:payments": "ts-node -r tsconfig-paths/register src/scripts/reconcile-payments.ts"
   },
   "dependencies": {
     "@nestjs/common": "^11.0.1",

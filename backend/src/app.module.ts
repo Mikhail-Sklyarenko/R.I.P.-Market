@@ -15,6 +15,7 @@ import { AdminModule } from './admin/admin.module';
 import { OutboxModule } from './outbox/outbox.module';
 import { NotificationsModule } from './notifications/notifications.module';
 import { ProvidersModule } from './providers/providers.module';
+import { PaymentsModule } from './payments/payments.module';
 import { ObservabilityModule } from './common/observability/observability.module';
 import { RequestIdMiddleware } from './common/observability/request-id.middleware';
 import { TestModule } from './test/test.module';
@@ -36,6 +37,7 @@ import { TestModule } from './test/test.module';
     AdminModule,
     OutboxModule,
     NotificationsModule,
+    PaymentsModule,
     ...(process.env.ENABLE_TEST_ROUTES === 'true' ? [TestModule] : []),
   ],
   controllers: [AppController],

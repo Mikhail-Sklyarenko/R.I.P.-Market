@@ -1,7 +1,10 @@
 import { expect, test } from '@playwright/test';
 import { loginAsBuyer, loginAsSeller } from './helpers/auth';
+import { fundWallet } from './helpers/crypto-payments';
 import { resetDatabase } from './helpers/reset';
 import { seedActiveLot, seedOpenOrder } from './helpers/seed';
+
+const API_BASE = process.env.PLAYWRIGHT_API_BASE_URL ?? 'http://localhost:3001/api/v1';
 
 test.describe('Buy error handling', () => {
   test.beforeEach(async ({ request }) => {
@@ -10,6 +13,7 @@ test.describe('Buy error handling', () => {
 
   test('redirects to wallet with deposit banner when balance is insufficient', async ({
     page,
+    request,
   }) => {
     const { lotId } = await seedActiveLot(page.request);
 
@@ -18,14 +22,19 @@ test.describe('Buy error handling', () => {
 
     await page.getByTestId('buy-lot-button').click();
     await expect(page).toHaveURL(/\/checkout$/);
+    await expect(page.getByTestId('purchase-trade-hint')).toBeVisible();
     await page.getByTestId('checkout-deposit-link').click();
     await expect(page).toHaveURL(/\/wallet/);
     await expect(page.getByTestId('deposit-needed-banner')).toBeVisible();
-    await expect(page.getByTestId('deposit-needed-banner')).toContainText('$1,000.00');
+    await expect(page.getByTestId('deposit-needed-banner')).toBeVisible();
+    await expect(page.getByTestId('deposit-needed-banner')).toContainText('1,000.00');
 
-    await page.getByTestId('deposit-amount-input').fill('2000');
-    await page.getByTestId('deposit-submit').click();
-    await expect(page).toHaveURL(new RegExp(`/lots/${lotId}/checkout$`));
+    const buyerLogin = await request.post(`${API_BASE}/auth/mock-login`, {
+      data: { role: 'BUYER' },
+    });
+    const buyerBody = (await buyerLogin.json()) as { accessToken: string };
+    await fundWallet(request, buyerBody.accessToken, 200_000);
+    await page.goto(`/lots/${lotId}/checkout`);
   });
 
   test('seller account cannot buy listings', async ({ page }) => {

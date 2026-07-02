@@ -24,7 +24,7 @@ export function NotificationsBell() {
         data-testid="notifications-button"
         aria-expanded={open}
       >
-        Notifications
+        Уведомления
         {unreadCount > 0 ? (
           <span className="notifications-badge" data-testid="notifications-unread-count">
             {unreadCount}
@@ -34,7 +34,7 @@ export function NotificationsBell() {
       {open ? (
         <div className="notifications-panel" data-testid="notifications-panel">
           {notifications.length === 0 ? (
-            <p className="muted small">No notifications yet.</p>
+            <p className="muted small">Уведомлений пока нет.</p>
           ) : (
             notifications.slice(0, DROPDOWN_LIMIT).map((notification) => (
               <NotificationItem

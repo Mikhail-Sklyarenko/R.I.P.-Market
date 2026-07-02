@@ -11,6 +11,8 @@ describe('LedgerReconciliationService', () => {
       order: { findMany: jest.fn(async () => []) },
       ledgerEntry: { findMany: jest.fn(async () => []) },
       wallet: { findMany: jest.fn(async () => []) },
+      cryptoWithdrawal: { findMany: jest.fn(async () => []) },
+      withdrawalRequest: { findMany: jest.fn(async () => []) },
     } as unknown as PrismaService;
 
     service = new LedgerReconciliationService(prisma);

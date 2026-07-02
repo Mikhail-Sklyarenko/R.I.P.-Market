@@ -18,6 +18,8 @@ test.describe('Checkout route', () => {
     await expect(page).toHaveURL(new RegExp(`/lots/${lotId}/checkout$`));
     await expect(page.getByTestId('checkout-page')).toBeVisible();
     await expect(page.getByTestId('checkout-pricing')).toBeVisible();
+    await expect(page.getByTestId('purchase-trade-hint')).toBeVisible();
+    await expect(page.getByTestId('escrow-notice')).toBeVisible();
     await expect(page.getByTestId('checkout-deposit-link')).toBeVisible();
   });
 

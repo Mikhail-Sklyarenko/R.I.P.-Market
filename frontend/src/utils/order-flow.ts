@@ -141,9 +141,33 @@ export function getOrderNextAction(
   return null;
 }
 
-export const DEAL_FLOW_STEPS = [
-  'Подтверждаете покупку — средства резервируются (hold) на кошельке.',
-  'Продавец отправляет trade offer в Steam.',
-  'Вы принимаете обмен — только после этого средства переводятся продавцу.',
-  'Если обмен не состоялся — hold снимается, деньги возвращаются.',
+export type DealFlowStepItem = {
+  key: string;
+  title: string;
+  description: string;
+};
+
+export const DEAL_FLOW_STEP_ITEMS: readonly DealFlowStepItem[] = [
+  {
+    key: 'reserve',
+    title: 'Резерв средств',
+    description: 'Подтверждаете покупку — средства резервируются (hold) на кошельке.',
+  },
+  {
+    key: 'trade-offer',
+    title: 'Обмен в Steam',
+    description: 'Продавец отправляет trade offer в Steam.',
+  },
+  {
+    key: 'accept',
+    title: 'Принятие обмена',
+    description: 'Вы принимаете обмен — только после этого средства переводятся продавцу.',
+  },
+  {
+    key: 'refund',
+    title: 'Возврат при сбое',
+    description: 'Если обмен не состоялся — hold снимается, деньги возвращаются.',
+  },
 ] as const;
+
+export const DEAL_FLOW_STEPS = DEAL_FLOW_STEP_ITEMS.map((step) => step.description);

@@ -1,9 +1,18 @@
-import { useEffect, useState } from 'react';
-import { getAuthConfig, getAuthMe, getSteamLinkUrl } from '../api/marketplace';
+import { useEffect, useRef, useState } from 'react';
+import {
+  getAuthConfig,
+  getSteamLinkUrl,
+  getUserMe,
+  updateTradeUrl,
+} from '../api/marketplace';
 import type { AuthConfig } from '../api/types';
 import { useAuth } from '../auth/AuthContext';
 import { ErrorAlert } from '../components/ErrorAlert';
+import { ReadinessChecklist } from '../components/ReadinessChecklist';
 import { hasLinkedSteamId } from '../utils/steam-id';
+import { isValidSteamTradeUrl } from '../utils/trade-url';
+import { profileToAuthUser } from '../utils/user-profile';
+import { formatUserRole, formatUserStatus } from '../utils/format';
 
 const API_BASE_URL =
   import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:3000/api/v1';
@@ -11,8 +20,17 @@ const API_BASE_URL =
 export function AccountPage() {
   const { token, user, updateUser } = useAuth();
   const [config, setConfig] = useState<AuthConfig | null>(null);
-  const [loading, setLoading] = useState(false);
+  const [tradeUrlInput, setTradeUrlInput] = useState('');
+  const [linkLoading, setLinkLoading] = useState(false);
+  const [saveLoading, setSaveLoading] = useState(false);
+  const [tradeUrlError, setTradeUrlError] = useState<string | null>(null);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [error, setError] = useState<unknown>(null);
+  const tradeUrlDirtyRef = useRef(false);
+
+  useEffect(() => {
+    tradeUrlDirtyRef.current = false;
+  }, [token]);
 
   useEffect(() => {
     getAuthConfig()
@@ -24,103 +42,211 @@ export function AccountPage() {
     if (!token) {
       return;
     }
-    getAuthMe(token)
-      .then((sessionUser) => {
-        updateUser(sessionUser);
+    getUserMe(token)
+      .then((profile) => {
+        updateUser(profileToAuthUser(profile));
+        if (!tradeUrlDirtyRef.current) {
+          setTradeUrlInput(profile.tradeUrl ?? '');
+        }
       })
       .catch((err: unknown) => setError(err));
-  }, [token, updateUser]);
+    // Load profile once per session token; avoid refetch after updateUser on save.
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- updateUser is stable enough for profile sync on save
+  }, [token]);
 
   async function handleLinkSteam() {
     if (!token) {
       return;
     }
-    setLoading(true);
+    setLinkLoading(true);
     setError(null);
     try {
       const response = await getSteamLinkUrl(token);
       window.location.href = response.url;
     } catch (err) {
       setError(err);
-      setLoading(false);
+      setLinkLoading(false);
+    }
+  }
+
+  async function handleSaveTradeUrl() {
+    if (!token) {
+      return;
+    }
+
+    const trimmed = tradeUrlInput.trim();
+    if (!trimmed) {
+      setTradeUrlError('Укажите Trade URL из Steam.');
+      return;
+    }
+    if (!isValidSteamTradeUrl(trimmed)) {
+      setTradeUrlError(
+        'Некорректная ссылка. Нужен URL вида https://steamcommunity.com/tradeoffer/new/?partner=…&token=…',
+      );
+      return;
+    }
+
+    setSaveLoading(true);
+    setTradeUrlError(null);
+    setSuccessMessage(null);
+    setError(null);
+
+    try {
+      const profile = await updateTradeUrl(token, trimmed);
+      updateUser(profileToAuthUser(profile));
+      tradeUrlDirtyRef.current = false;
+      setTradeUrlInput(profile.tradeUrl ?? trimmed);
+      setSuccessMessage('Ссылка на обмен сохранена.');
+    } catch (err) {
+      setError(err);
+    } finally {
+      setSaveLoading(false);
     }
   }
 
   const steamLinked = hasLinkedSteamId(user?.steamId);
   const canLinkSteam = Boolean(config?.steamLoginAvailable) && Boolean(user) && !steamLinked;
+  const showDevAuthHint = import.meta.env.DEV;
 
   return (
     <div className="page">
       <div className="page-header">
         <div>
-          <h2>Account</h2>
-          <p className="muted">Profile and Steam identity.</p>
+          <h2>Аккаунт</h2>
+          <p className="muted">Профиль, Steam и настройки для сделок.</p>
         </div>
       </div>
 
-      <div className="card form-card account-card" data-testid="account-page">
-        <dl className="meta-list">
-          <div>
-            <dt>Username</dt>
-            <dd data-testid="account-username">{user?.username ?? '—'}</dd>
-          </div>
-          <div>
-            <dt>Role</dt>
-            <dd data-testid="account-role">{user?.role ?? '—'}</dd>
-          </div>
-          <div>
-            <dt>Status</dt>
-            <dd data-testid="account-status">{user?.status ?? '—'}</dd>
-          </div>
-          <div>
-            <dt>Steam ID</dt>
-            <dd data-testid="account-steam-id">
-              {steamLinked ? user?.steamId : 'Not linked'}
-            </dd>
-          </div>
-        </dl>
+      <div className="stack account-page-stack">
+        <div data-testid="account-readiness">
+          <ReadinessChecklist user={user} config={config} />
+        </div>
 
-        {config ? (
-          <p className="muted small">
-            Auth provider: <strong>{config.authProvider}</strong>
-          </p>
-        ) : null}
+        <div className="card form-card account-card" data-testid="account-page">
+          <dl className="meta-list">
+            <div>
+              <dt>Имя пользователя</dt>
+              <dd data-testid="account-username">{user?.username ?? '—'}</dd>
+            </div>
+            <div>
+              <dt>Роль</dt>
+              <dd data-testid="account-role">{formatUserRole(user?.role)}</dd>
+            </div>
+            <div>
+              <dt>Статус</dt>
+              <dd data-testid="account-status">{formatUserStatus(user?.status)}</dd>
+            </div>
+            <div>
+              <dt>Steam ID</dt>
+              <dd data-testid="account-steam-id">
+                {steamLinked ? user?.steamId : 'Не привязан'}
+              </dd>
+            </div>
+          </dl>
 
-        {canLinkSteam ? (
-          <div className="stack" data-testid="link-steam-panel">
+          {showDevAuthHint && config ? (
             <p className="muted small">
-              Link your Steam account to sync real CS2 inventory and list items.
+              Dev: провайдер авторизации — <strong>{config.authProvider}</strong>
+              {config.authProvider === 'steam' ? (
+                <>
+                  {' '}
+                  · callback: <code>{API_BASE_URL}/auth/steam/callback</code>
+                </>
+              ) : null}
             </p>
+          ) : null}
+
+          {canLinkSteam ? (
+            <div className="stack" data-testid="link-steam-panel">
+              <p className="muted small">
+                Привяжите Steam, чтобы синхронизировать CS2-инвентарь и участвовать в сделках.
+              </p>
+              <button
+                type="button"
+                className="button primary"
+                disabled={linkLoading}
+                data-testid="link-steam-button"
+                onClick={() => void handleLinkSteam()}
+              >
+                {linkLoading ? 'Перенаправление…' : 'Привязать Steam'}
+              </button>
+            </div>
+          ) : null}
+
+          {steamLinked ? (
+            <p className="success-text" data-testid="steam-linked-message">
+              Steam-аккаунт привязан.
+            </p>
+          ) : null}
+
+          {!canLinkSteam && !steamLinked && config?.authProvider === 'mock' ? (
+            <p className="muted small" data-testid="steam-link-unavailable">
+              Привязка Steam доступна, когда backend запущен с{' '}
+              <code>AUTH_PROVIDER=steam</code>.
+            </p>
+          ) : null}
+
+          <div className="account-trade-url-section">
+            <h3 className="account-section-title">Ссылка на обмен Steam</h3>
+            <p className="muted small">
+              Ссылка нужна для обменов в Steam. Покупателям и продавцам её указывать рекомендуется.
+            </p>
+
+            <label className="field">
+              <span className="field-label">Ссылка на обмен</span>
+              <input
+                type="url"
+                value={tradeUrlInput}
+                onChange={(event) => {
+                  tradeUrlDirtyRef.current = true;
+                  setTradeUrlInput(event.target.value);
+                  setTradeUrlError(null);
+                  setSuccessMessage(null);
+                }}
+                placeholder="https://steamcommunity.com/tradeoffer/new/?partner=…&token=…"
+                data-testid="account-trade-url-input"
+              />
+            </label>
+
+            {tradeUrlError ? (
+              <p className="alert alert-error" role="alert">
+                {tradeUrlError}
+              </p>
+            ) : null}
+
+            {successMessage ? (
+              <p className="success-text" data-testid="account-trade-url-success">
+                {successMessage}
+              </p>
+            ) : null}
+
             <button
               type="button"
               className="button primary"
-              disabled={loading}
-              data-testid="link-steam-button"
-              onClick={() => void handleLinkSteam()}
+              disabled={saveLoading || !token}
+              data-testid="account-trade-url-save"
+              onClick={() => void handleSaveTradeUrl()}
             >
-              {loading ? 'Redirecting…' : 'Link Steam account'}
+              {saveLoading ? 'Сохранение…' : 'Сохранить ссылку'}
             </button>
+
+            <details className="account-trade-url-help">
+              <summary>Как получить ссылку на обмен</summary>
+              <ol className="account-trade-url-steps">
+                <li>Откройте Steam → раздел «Инвентарь» → «Предложения обмена».</li>
+                <li>
+                  Нажмите «Кто может присылать мне предложения обмена?» справа от списка
+                  предложений.
+                </li>
+                <li>
+                  Скопируйте ссылку «Создать ссылку на обмен» и вставьте её в поле выше.
+                </li>
+              </ol>
+            </details>
           </div>
-        ) : null}
 
-        {steamLinked ? (
-          <p className="success-text" data-testid="steam-linked-message">
-            Steam account linked.
-          </p>
-        ) : null}
-
-        {!canLinkSteam && !steamLinked && config?.authProvider === 'mock' ? (
-          <p className="muted small" data-testid="steam-link-unavailable">
-            Steam linking is available when the backend runs with{' '}
-            <code>AUTH_PROVIDER=steam</code>.
-          </p>
-        ) : null}
-
-        <p className="muted small">
-          Steam login callback: <code>{API_BASE_URL}/auth/steam/callback</code>
-        </p>
-
-        <ErrorAlert error={error} />
+          <ErrorAlert error={error} />
+        </div>
       </div>
     </div>
   );

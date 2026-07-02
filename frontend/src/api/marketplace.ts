@@ -12,7 +12,11 @@ import type {
   Order,
   PricingPreview,
   InventoryResponse,
+  UserProfile,
   Wallet,
+  WalletDepositInfo,
+  WalletDepositStatus,
+  WithdrawalRequest,
 } from './types';
 
 export { createIdempotencyKey };
@@ -23,6 +27,18 @@ export function getAuthConfig() {
 
 export function getAuthMe(token: string) {
   return apiRequest<AuthResponse['user']>('/auth/me', { token });
+}
+
+export function getUserMe(token: string) {
+  return apiRequest<UserProfile>('/users/me', { token });
+}
+
+export function updateTradeUrl(token: string, tradeUrl: string) {
+  return apiRequest<UserProfile>('/users/me/trade-url', {
+    method: 'PATCH',
+    token,
+    body: { tradeUrl },
+  });
 }
 
 export function mockLogin(role: 'SELLER' | 'BUYER' | 'ADMIN') {
@@ -125,6 +141,31 @@ export function mockDeposit(token: string, amountMinor: number, idempotencyKey?:
     token,
     idempotencyKey: idempotencyKey ?? createIdempotencyKey('deposit'),
     body: { amountMinor },
+  });
+}
+
+export function getWalletDeposit(token: string) {
+  return apiRequest<WalletDepositInfo>('/wallet/deposit', { token });
+}
+
+export function getWalletDepositStatus(token: string) {
+  return apiRequest<WalletDepositStatus>('/wallet/deposit/status', { token });
+}
+
+export function getWalletWithdrawals(token: string) {
+  return apiRequest<WithdrawalRequest[]>('/wallet/withdrawals', { token });
+}
+
+export function createWalletWithdrawal(
+  token: string,
+  body: { toAddress: string; amountMinor: number },
+  idempotencyKey?: string,
+) {
+  return apiRequest<WithdrawalRequest>('/wallet/withdrawals', {
+    method: 'POST',
+    token,
+    idempotencyKey: idempotencyKey ?? createIdempotencyKey('withdrawal'),
+    body,
   });
 }
 

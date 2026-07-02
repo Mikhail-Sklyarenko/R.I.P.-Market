@@ -1,8 +1,11 @@
 import { expect, test } from '@playwright/test';
 import { loginAsBuyer } from './helpers/auth';
+import { fundWallet } from './helpers/crypto-payments';
 import { processPendingOutbox } from './helpers/outbox';
 import { resetDatabase } from './helpers/reset';
 import { seedActiveLot } from './helpers/seed';
+
+const API_BASE = process.env.PLAYWRIGHT_API_BASE_URL ?? 'http://localhost:3001/api/v1';
 
 test.describe('Buy complete flow', () => {
   test.beforeEach(async ({ request }) => {
@@ -18,17 +21,22 @@ test.describe('Buy complete flow', () => {
     await loginAsBuyer(page);
 
     await expect(page.getByTestId('catalog-grid').locator('article').first()).toBeVisible();
-    await page.getByRole('link', { name: 'View listing' }).first().click();
+    await page.getByTestId('catalog-open-lot').first().click();
 
     await page.getByTestId('buy-lot-button').click();
     await expect(page).toHaveURL(/\/checkout$/);
     await page.getByTestId('checkout-deposit-link').click();
     await expect(page).toHaveURL(/\/wallet/);
 
-    await page.getByTestId('deposit-amount-input').fill('2000');
-    await page.getByTestId('deposit-submit').click();
-
-    await expect(page).toHaveURL(/\/checkout$/);
+    const returnUrl = new URL(page.url()).searchParams.get('returnUrl');
+    const buyerLogin = await request.post(`${API_BASE}/auth/mock-login`, {
+      data: { role: 'BUYER' },
+    });
+    const buyerBody = (await buyerLogin.json()) as { accessToken: string };
+    await fundWallet(request, buyerBody.accessToken, 200_000);
+    if (returnUrl) {
+      await page.goto(returnUrl);
+    }
     await page.getByTestId('confirm-purchase-button').click();
 
     await expect(page.getByTestId('order-status')).toHaveText('WAITING_TRADE');

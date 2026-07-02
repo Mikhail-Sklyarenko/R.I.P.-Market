@@ -80,6 +80,20 @@ export class NotificationsService {
       return;
     }
 
+    if (aggregateType === 'wallet' && eventType === 'DEPOSIT_COMPLETED') {
+      await this.notifyWalletDepositConfirmed(payload);
+      return;
+    }
+
+    if (aggregateType === 'wallet' && eventType === 'DEPOSIT_CONFIRMED') {
+      await this.notifyWalletDepositConfirmed(payload);
+      return;
+    }
+
+    if (aggregateType === 'wallet' && eventType === 'WITHDRAWAL_REQUESTED') {
+      return;
+    }
+
     if (eventType === 'TRADE_SHADOW_MISMATCH') {
       await this.notifyAdminsShadowMismatch(aggregateId, payload);
       return;
@@ -168,14 +182,54 @@ export class NotificationsService {
         ? payload.issueCount
         : 0;
 
+    const title =
+      eventType === 'PAYMENT_RECONCILIATION_FAILED'
+        ? 'Payment reconciliation failed'
+        : 'Ledger reconciliation failed';
+    const scope =
+      eventType === 'PAYMENT_RECONCILIATION_FAILED' ? 'payment' : 'ledger';
+
     await this.prisma.notification.createMany({
       data: admins.map((admin) => ({
         userId: admin.id,
         eventType,
-        title: 'Ledger reconciliation failed',
-        message: `Found ${issueCount} issue(s) during ledger reconciliation.`,
+        title,
+        message: `Found ${issueCount} issue(s) during ${scope} reconciliation.`,
         payload: payload ?? {},
       })),
+    });
+  }
+
+  private async notifyWalletDepositConfirmed(
+    payload: Prisma.JsonValue,
+  ): Promise<void> {
+    const userId =
+      typeof payload === 'object' &&
+      payload !== null &&
+      'userId' in payload &&
+      typeof payload.userId === 'string'
+        ? payload.userId
+        : null;
+    if (!userId) {
+      return;
+    }
+
+    const amountMinor =
+      typeof payload === 'object' &&
+      payload !== null &&
+      'amountMinor' in payload &&
+      typeof payload.amountMinor === 'string'
+        ? payload.amountMinor
+        : '0';
+
+    await this.prisma.notification.create({
+      data: {
+        userId,
+        eventType: 'DEPOSIT_CONFIRMED',
+        title: 'Пополнение зачислено',
+        message: `На баланс зачислено $${(Number(amountMinor) / 100).toFixed(2)} (USDT TRC-20).`,
+        payload: payload ?? {},
+      },
     });
   }
 

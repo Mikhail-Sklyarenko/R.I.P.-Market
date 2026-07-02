@@ -2,6 +2,7 @@ import {
   BadRequestException,
   Body,
   Controller,
+  ForbiddenException,
   Get,
   Headers,
   Param,
@@ -43,6 +44,10 @@ export class WalletController {
     @Body() body: MockDepositDto,
     @Headers('idempotency-key') idempotencyKey?: string,
   ) {
+    if (process.env.ENABLE_MOCK_DEPOSIT === 'false') {
+      throw new ForbiddenException('Mock deposit is disabled');
+    }
+
     if (!idempotencyKey) {
       throw new BadRequestException('Idempotency-Key header is required');
     }

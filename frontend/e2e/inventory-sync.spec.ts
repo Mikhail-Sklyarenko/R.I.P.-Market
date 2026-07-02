@@ -10,22 +10,22 @@ test.describe('Inventory sync UI', () => {
   test('shows sync metadata and tradable items on load', async ({ page }) => {
     await loginAsSeller(page);
 
-    await expect(page.getByText(/Last synced:/)).toBeVisible();
+    await expect(page.getByText(/Последняя синхронизация:/)).toBeVisible();
     await expect(page.getByTestId('inventory-refresh')).toBeVisible();
-    await expect(page.getByRole('link', { name: 'List item' }).first()).toBeVisible();
+    await expect(page.getByRole('link', { name: 'Выставить' }).first()).toBeVisible();
   });
 
   test('refresh from Steam reloads inventory', async ({ page }) => {
     await loginAsSeller(page);
 
-    const lastSynced = page.getByText(/Last synced:/);
+    const lastSynced = page.getByText(/Последняя синхронизация:/);
     await expect(lastSynced).toBeVisible();
 
     await page.getByTestId('inventory-refresh').click();
-    await expect(page.getByTestId('inventory-refresh')).toHaveText('Refresh from Steam', {
+    await expect(page.getByTestId('inventory-refresh')).toHaveText('Обновить из Steam', {
       timeout: 15_000,
     });
     await expect(lastSynced).toBeVisible();
-    await expect(page.getByRole('link', { name: 'List item' }).first()).toBeVisible();
+    await expect(page.getByRole('link', { name: 'Выставить' }).first()).toBeVisible();
   });
 });

@@ -1,0 +1,103 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum PaymentStatus {
+  detected
+  held
+  credited
+  rejected
+}
+
+enum WithdrawalStatus {
+  pending
+  processing
+  paid
+  failed
+}
+
+model WalletRegistry {
+  walletIndex Int      @id
+  address     String   @unique
+  createdAt   DateTime @default(now())
+}
+
+model WalletCounter {
+  id   Int @id @default(1)
+  next Int @default(0)
+}
+
+model GatewayUser {
+  id             String   @id @default(uuid())
+  externalUserId String   @unique
+  walletIndex    Int      @unique
+  address        String   @unique
+  balanceSun     BigInt   @default(0)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  payments       Payment[]
+  withdrawals    Withdrawal[]
+}
+
+model Payment {
+  id             String        @id @default(uuid())
+  txHash         String        @unique
+  userId         String
+  address        String
+  amountSun      BigInt
+  confirmations  Int           @default(0)
+  status         PaymentStatus @default(detected)
+  blockNumber    BigInt?
+  creditedAt     DateTime?
+  webhookEventId String?       @unique
+  rejectReason   String?
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+  user           GatewayUser   @relation(fields: [userId], references: [id], onDelete: Restrict)
+
+  @@index([userId, createdAt])
+  @@index([status, createdAt])
+}
+
+model Withdrawal {
+  id             String           @id @default(uuid())
+  userId         String
+  toAddress      String
+  amountSun      BigInt
+  feeSun         BigInt           @default(0)
+  status         WithdrawalStatus @default(pending)
+  payoutTxHash   String?          @unique
+  failReason     String?
+  webhookEventId String?
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+  user           GatewayUser      @relation(fields: [userId], references: [id], onDelete: Restrict)
+
+  @@index([userId, createdAt])
+  @@index([status, createdAt])
+}
+
+model ScannerState {
+  id        Int      @id @default(1)
+  lastBlock BigInt   @default(0)
+  updatedAt DateTime @updatedAt
+}
+
+model WebhookDelivery {
+  id          String    @id @default(uuid())
+  eventId     String    @unique
+  eventType   String
+  payload     Json
+  status      String    @default("pending")
+  attempts    Int       @default(0)
+  nextRetryAt DateTime?
+  lastError   String?
+  deliveredAt DateTime?
+  createdAt   DateTime  @default(now())
+
+  @@index([status, nextRetryAt])
+}

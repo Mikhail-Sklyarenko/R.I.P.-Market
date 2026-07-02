@@ -74,7 +74,27 @@ enum LedgerEntryType {
   SETTLEMENT_SELLER
   SETTLEMENT_PLATFORM_COMMISSION
   REFUND
+  WITHDRAWAL
+  WITHDRAWAL_REFUND
+  WITHDRAW
+  WITHDRAW_FEE
   MANUAL_ADJUSTMENT
+}
+
+enum PaymentIntentStatus {
+  PENDING
+  SUCCEEDED
+  FAILED
+  EXPIRED
+}
+
+enum WithdrawalRequestStatus {
+  PENDING_REVIEW
+  APPROVED
+  PROCESSING
+  PAID
+  REJECTED
+  FAILED
 }
 
 model User {
@@ -383,4 +403,61 @@ model Notification {
 
   @@index([userId, createdAt])
   @@index([userId, readAt])
+}
+
+model PaymentIntent {
+  id             String              @id @default(uuid())
+  userId         String
+  provider       String              @default("crypto_tron")
+  amountMinor    BigInt?
+  currency       String              @default("USD")
+  status         PaymentIntentStatus
+  providerRef    String?
+  depositAddress String?
+  idempotencyKey String              @unique
+  metadata       Json?
+  createdAt      DateTime            @default(now())
+  updatedAt      DateTime            @updatedAt
+
+  @@index([userId, status])
+}
+
+model PaymentEvent {
+  id              String    @id @default(uuid())
+  provider        String
+  providerEventId String    @unique
+  eventType       String
+  paymentIntentId String?
+  userId          String
+  amountMinor     BigInt
+  payload         Json
+  processedAt     DateTime?
+  createdAt       DateTime  @default(now())
+}
+
+model WithdrawalRequest {
+  id             String                  @id @default(uuid())
+  userId         String
+  amountMinor    BigInt
+  feeMinor       BigInt
+  netMinor       BigInt
+  toAddress      String
+  status         WithdrawalRequestStatus
+  gatewayRef     String?
+  payoutTxHash   String?
+  idempotencyKey String                  @unique
+  reviewedBy     String?
+  rejectReason   String?
+  createdAt      DateTime                @default(now())
+  updatedAt      DateTime                @updatedAt
+  paidAt         DateTime?
+
+  @@index([userId, status])
+}
+
+model UserCryptoDeposit {
+  userId         String   @id
+  depositAddress String   @unique
+  walletIndex    Int      @unique
+  createdAt      DateTime @default(now())
 }

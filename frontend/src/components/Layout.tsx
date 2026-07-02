@@ -1,5 +1,7 @@
 import { Link, NavLink, Outlet } from 'react-router-dom';
 import { useAuth } from '../auth/AuthContext';
+import { useWalletSummary } from '../hooks/useWalletSummary';
+import { MoneyDisplay } from './MoneyDisplay';
 import { NotificationsBell } from './NotificationsBell';
 import { UserMenu } from './UserMenu';
 
@@ -9,6 +11,7 @@ function navLinkClass({ isActive }: { isActive: boolean }) {
 
 export function Layout() {
   const { token, user } = useAuth();
+  const { summary: walletSummary } = useWalletSummary();
   const isAuthenticated = Boolean(token);
   const isSeller = user?.role === 'SELLER';
 
@@ -26,14 +29,26 @@ export function Layout() {
               Каталог
             </NavLink>
             {isAuthenticated && isSeller ? (
-              <NavLink
-                to="/sell/inventory"
-                className={navLinkClass}
-                data-testid="nav-sell"
-              >
-                Продать
-              </NavLink>
+              <>
+                <NavLink
+                  to="/sell/inventory"
+                  className={navLinkClass}
+                  data-testid="nav-sell"
+                >
+                  Продать
+                </NavLink>
+                <NavLink
+                  to="/sell/my-lots"
+                  className={navLinkClass}
+                  data-testid="nav-my-lots"
+                >
+                  Мои лоты
+                </NavLink>
+              </>
             ) : null}
+            <NavLink to="/support" className={navLinkClass} data-testid="nav-support">
+              Поддержка
+            </NavLink>
             {isAuthenticated ? (
               <>
                 <NavLink
@@ -53,6 +68,17 @@ export function Layout() {
               </>
             ) : null}
           </nav>
+
+          {isAuthenticated && walletSummary ? (
+            <Link
+              to="/wallet"
+              className="header-wallet-balance"
+              data-testid="header-wallet-balance"
+              title="Доступный баланс"
+            >
+              <MoneyDisplay minor={walletSummary.availableMinor} strong />
+            </Link>
+          ) : null}
 
           {isAuthenticated ? <NotificationsBell /> : null}
           <UserMenu />

@@ -1,16 +1,23 @@
 import type { Notification } from '../api/types';
 
+export type NotificationRecipientRole = 'buyer' | 'seller';
+
+export const ACTION_REQUIRED_EVENT_TYPES = new Set([
+  'TRADE_OPERATION_CREATED',
+  'ORDER_DISPUTE_OPENED',
+]);
+
 export const NOTIFICATION_EVENT_LABELS: Record<
   string,
   { title: string; message: string }
 > = {
   ORDER_CREATED: {
-    title: 'Сделка создана',
-    message: 'Заказ оформлен, средства зарезервированы.',
+    title: 'Сделка оформлена',
+    message: 'Средства зарезервированы. Дождитесь trade offer от продавца.',
   },
   TRADE_OPERATION_CREATED: {
-    title: 'Нужен обмен в Steam',
-    message: 'Передайте предмет покупателю для завершения сделки.',
+    title: 'Отправьте trade offer',
+    message: 'Передайте предмет покупателю в Steam для завершения сделки.',
   },
   ORDER_COMPLETED: {
     title: 'Сделка завершена',
@@ -22,7 +29,7 @@ export const NOTIFICATION_EVENT_LABELS: Record<
   },
   ORDER_DISPUTE_OPENED: {
     title: 'Открыт спор',
-    message: 'По сделке открыт спор. Ожидайте решения поддержки.',
+    message: 'Откройте сделку и следуйте инструкциям поддержки.',
   },
   SALE_SETTLED: {
     title: 'Выплата за продажу',
@@ -34,7 +41,7 @@ export const NOTIFICATION_EVENT_LABELS: Record<
   },
   TRADE_SHADOW_MISMATCH: {
     title: 'Расхождение trade-статуса',
-    message: 'Обнаружено несоответствие статуса обмена. Требуется проверка.',
+    message: 'Обнаружено несоответствие статуса обмена. Откройте сделку для проверки.',
   },
   RECONCILIATION_FAILED: {
     title: 'Ошибка сверки ledger',
@@ -44,10 +51,97 @@ export const NOTIFICATION_EVENT_LABELS: Record<
 
 const WALLET_LINK_EVENT_TYPES = new Set(['SALE_SETTLED', 'SETTLEMENT_BLOCKED']);
 
-export function getNotificationDisplay(notification: Notification): {
+function readPayloadRecord(
+  value: unknown,
+): Record<string, unknown> | null {
+  if (typeof value === 'object' && value !== null) {
+    return value as Record<string, unknown>;
+  }
+  return null;
+}
+
+export function getNotificationRecipientRole(
+  notification: Notification,
+  userId?: string | null,
+): NotificationRecipientRole | null {
+  const payload = notification.payload;
+  const explicitRole = payload?.role;
+  if (explicitRole === 'buyer' || explicitRole === 'seller') {
+    return explicitRole;
+  }
+
+  if (!userId) {
+    return null;
+  }
+
+  const outboxPayload = readPayloadRecord(payload?.outboxPayload);
+  if (outboxPayload) {
+    if (outboxPayload.buyerId === userId) {
+      return 'buyer';
+    }
+    if (outboxPayload.sellerId === userId) {
+      return 'seller';
+    }
+  }
+
+  return null;
+}
+
+function getOrderCreatedDisplay(role: NotificationRecipientRole | null): {
   title: string;
   message: string;
 } {
+  if (role === 'seller') {
+    return {
+      title: 'Новая покупка',
+      message: 'Покупатель оплатил лот — отправьте trade offer в Steam.',
+    };
+  }
+  return {
+    title: 'Сделка оформлена',
+    message: 'Средства зарезервированы. Дождитесь trade offer от продавца.',
+  };
+}
+
+function getTradeOperationDisplay(role: NotificationRecipientRole | null): {
+  title: string;
+  message: string;
+} {
+  if (role === 'buyer') {
+    return {
+      title: 'Примите обмен в Steam',
+      message: 'Продавец готов передать предмет — примите trade offer.',
+    };
+  }
+  return NOTIFICATION_EVENT_LABELS.TRADE_OPERATION_CREATED;
+}
+
+export function isActionRequiredNotification(
+  notification: Notification,
+  userId?: string | null,
+): boolean {
+  if (notification.eventType === 'ORDER_CREATED') {
+    return getNotificationRecipientRole(notification, userId) === 'buyer';
+  }
+  return ACTION_REQUIRED_EVENT_TYPES.has(notification.eventType);
+}
+
+export function getNotificationDisplay(
+  notification: Notification,
+  userId?: string | null,
+): {
+  title: string;
+  message: string;
+} {
+  const role = getNotificationRecipientRole(notification, userId);
+
+  if (notification.eventType === 'ORDER_CREATED') {
+    return getOrderCreatedDisplay(role);
+  }
+  if (notification.eventType === 'TRADE_OPERATION_CREATED') {
+    return getTradeOperationDisplay(role);
+  }
+
   const mapped = NOTIFICATION_EVENT_LABELS[notification.eventType];
   if (mapped) {
     return mapped;
@@ -92,6 +186,7 @@ export const NOTIFICATION_CATEGORY_FILTER_OPTIONS = [
 
 export const NOTIFICATION_EVENT_FILTER_OPTIONS = [
   { value: 'all', label: 'Все типы' },
+  { value: 'action_required', label: 'Требуют действия' },
   { value: 'ORDER_CREATED', label: 'Создание сделки' },
   { value: 'ORDER_COMPLETED', label: 'Завершение' },
   { value: 'ORDER_FAILED', label: 'Неудача' },

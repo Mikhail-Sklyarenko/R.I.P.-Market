@@ -1,12 +1,14 @@
 import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import type { NotificationCategory } from '../api/types';
+import { useAuth } from '../auth/AuthContext';
 import { useNotifications } from '../hooks/useNotifications';
 import { ErrorAlert } from '../components/ErrorAlert';
 import { LoadingState } from '../components/LoadingState';
 import { NotificationItem } from '../components/NotificationItem';
 import { PageHeader } from '../components/PageHeader';
 import {
+  isActionRequiredNotification,
   NOTIFICATION_CATEGORY_FILTER_OPTIONS,
   NOTIFICATION_EVENT_FILTER_OPTIONS,
 } from '../utils/notification-labels';
@@ -15,6 +17,7 @@ type EventTypeFilter = (typeof NOTIFICATION_EVENT_FILTER_OPTIONS)[number]['value
 type CategoryFilter = (typeof NOTIFICATION_CATEGORY_FILTER_OPTIONS)[number]['value'];
 
 export function NotificationsPage() {
+  const { user } = useAuth();
   const [categoryFilter, setCategoryFilter] = useState<CategoryFilter>('all');
   const category: NotificationCategory | undefined =
     categoryFilter === 'all' ? undefined : categoryFilter;
@@ -29,12 +32,15 @@ export function NotificationsPage() {
       if (showUnreadOnly && notification.readAt) {
         return false;
       }
+      if (eventFilter === 'action_required') {
+        return isActionRequiredNotification(notification, user?.id);
+      }
       if (eventFilter !== 'all' && notification.eventType !== eventFilter) {
         return false;
       }
       return true;
     });
-  }, [notifications, eventFilter, showUnreadOnly]);
+  }, [notifications, eventFilter, showUnreadOnly, user?.id]);
 
   return (
     <div className="page">

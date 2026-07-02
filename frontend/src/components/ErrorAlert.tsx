@@ -17,7 +17,7 @@ function resolveError(error: unknown): {
   code?: string;
   requestId?: string | null;
 } {
-  let message = 'Something went wrong. Please try again.';
+  let message = 'Что-то пошло не так. Попробуйте ещё раз.';
   let code: string | undefined;
   let requestId: string | null | undefined;
 
@@ -57,10 +57,10 @@ export function ErrorAlert({
       {resolved ? <strong>{resolved.message}</strong> : null}
       {children ? <div className="alert-body">{children}</div> : null}
       {resolved?.code ? (
-        <div className="alert-meta">Code: {resolved.code}</div>
+        <div className="alert-meta">Код: {resolved.code}</div>
       ) : null}
       {resolved?.requestId ? (
-        <div className="alert-meta">Request ID: {resolved.requestId}</div>
+        <div className="alert-meta">ID запроса: {resolved.requestId}</div>
       ) : null}
     </div>
   );

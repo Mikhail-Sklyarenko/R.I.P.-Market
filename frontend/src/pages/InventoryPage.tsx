@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { getAuthConfig, getAuthMe, getInventory, getMyLots } from '../api/sell';
+import { getAuthConfig, getInventory, getMyLots, getUserMe } from '../api/sell';
 import type { AuthConfig, InventoryAsset, InventorySyncMeta, Lot } from '../api/types';
 import { useAuth } from '../auth/AuthContext';
 import { EmptyState } from '../components/EmptyState';
@@ -14,8 +14,12 @@ import { hasLinkedSteamId } from '../utils/steam-id';
 import {
   assetUnavailableReason,
   canListAsset,
+  filterInventoryAssets,
   formatAssetStatus,
+  INVENTORY_STATUS_FILTERS,
+  type InventoryStatusFilter,
 } from '../utils/seller-flow';
+import { profileToAuthUser } from '../utils/user-profile';
 
 export function InventoryPage() {
   const { token, user, updateUser } = useAuth();
@@ -26,10 +30,13 @@ export function InventoryPage() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<unknown>(null);
+  const [search, setSearch] = useState('');
+  const [statusFilter, setStatusFilter] = useState<InventoryStatusFilter>('all');
 
   const inventoryProvider = config?.inventoryProvider ?? 'mock';
   const requiresSteamLink = inventoryProvider === 'steam';
   const steamLinked = !requiresSteamLink || hasLinkedSteamId(user?.steamId);
+  const tradeUrlReady = Boolean(user?.tradeUrl?.trim());
 
   const lotByAssetId = useMemo(() => {
     const map = new Map<string, Lot>();
@@ -78,17 +85,17 @@ export function InventoryPage() {
     let cancelled = false;
     setLoading(true);
 
-    getAuthMe(token)
-      .then(async (sessionUser) => {
+    getUserMe(token)
+      .then(async (profile) => {
         if (cancelled) {
           return;
         }
-        updateUser(sessionUser);
+        updateUser(profileToAuthUser(profile));
         const authConfig = await getAuthConfig();
         setConfig(authConfig);
         const linked =
           authConfig.inventoryProvider !== 'steam' ||
-          hasLinkedSteamId(sessionUser.steamId);
+          hasLinkedSteamId(profile.steamId);
         if (!linked) {
           setAssets([]);
           setSync(null);
@@ -126,6 +133,11 @@ export function InventoryPage() {
   const showStaleBadge =
     sync?.stale || (sync ? new Date(sync.expiresAt) <= new Date() : false);
 
+  const filteredAssets = useMemo(
+    () => filterInventoryAssets(assets, search, statusFilter),
+    [assets, search, statusFilter],
+  );
+
   function renderAssetAction(asset: InventoryAsset) {
     const listable = canListAsset(asset);
     const activeLot = lotByAssetId.get(asset.id);
@@ -137,7 +149,7 @@ export function InventoryPage() {
           to={`/sell/lots/new?assetId=${asset.id}`}
           data-testid={`list-asset-${asset.id}`}
         >
-          List item
+          Выставить
         </Link>
       );
     }
@@ -161,7 +173,7 @@ export function InventoryPage() {
         disabled
         title={assetUnavailableReason(asset)}
       >
-        Cannot list
+        Недоступен
       </button>
     );
   }
@@ -179,17 +191,23 @@ export function InventoryPage() {
             data-testid="inventory-refresh"
             onClick={() => void loadInventory(true)}
           >
-            {refreshing ? 'Refreshing…' : 'Refresh from Steam'}
+            {refreshing ? 'Обновление…' : 'Обновить из Steam'}
           </button>
         }
       />
 
+      {!steamLinked && requiresSteamLink ? (
+        <p className="muted small" data-testid="inventory-refresh-hint">
+          Обновление недоступно: сначала привяжите Steam в настройках аккаунта.
+        </p>
+      ) : null}
+
       {sync ? (
         <p className="muted small">
-          Last synced: {new Date(sync.lastSyncedAt).toLocaleString()}
+          Последняя синхронизация: {new Date(sync.lastSyncedAt).toLocaleString()}
           {showStaleBadge ? (
             <span className="badge badge-stale" style={{ marginLeft: '0.5rem' }}>
-              Stale
+              Устарело
             </span>
           ) : null}
           {sync.warning ? <span> · {sync.warning}</span> : null}
@@ -199,10 +217,25 @@ export function InventoryPage() {
       <ErrorAlert error={error} />
 
       {!steamLinked && requiresSteamLink ? (
-        <div className="card" data-testid="steam-link-required">
-          <p>Привяжите Steam-аккаунт, чтобы загрузить инвентарь.</p>
+        <div className="card inventory-readiness-banner" data-testid="steam-link-required">
+          <p>
+            Сначала привяжите Steam и укажите Trade URL — без этого инвентарь и обмены недоступны.
+          </p>
           <Link className="button primary" to="/account">
             Перейти в аккаунт
+          </Link>
+        </div>
+      ) : null}
+
+      {steamLinked && !tradeUrlReady ? (
+        <div className="alert alert-warning" data-testid="inventory-trade-url-warning">
+          <strong>Trade URL не указан</strong>
+          <p className="alert-body">
+            Перед выставлением предметов укажите Trade URL в настройках аккаунта — продавцам и
+            покупателям он нужен для обменов в Steam.
+          </p>
+          <Link className="button secondary sm" to="/account">
+            Указать Trade URL
           </Link>
         </div>
       ) : null}
@@ -216,9 +249,52 @@ export function InventoryPage() {
         />
       ) : null}
 
+      {steamLinked && !loading && assets.length > 0 ? (
+        <div className="card inventory-filters" data-testid="inventory-filters">
+          <div className="inventory-filters-row">
+            <label className="field catalog-filter-field">
+              <span className="field-label">Поиск</span>
+              <input
+                type="search"
+                value={search}
+                onChange={(event) => setSearch(event.target.value)}
+                placeholder="Название скина…"
+                data-testid="inventory-search"
+              />
+            </label>
+            <label className="field catalog-filter-field">
+              <span className="field-label">Статус</span>
+              <select
+                value={statusFilter}
+                onChange={(event) =>
+                  setStatusFilter(event.target.value as InventoryStatusFilter)
+                }
+                data-testid="inventory-status-filter"
+              >
+                {INVENTORY_STATUS_FILTERS.map((option) => (
+                  <option key={option.id} value={option.id}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+          </div>
+          <p className="muted small inventory-filter-total" data-testid="inventory-filter-total">
+            Показано: {filteredAssets.length} из {assets.length}
+          </p>
+        </div>
+      ) : null}
+
+      {steamLinked && !loading && assets.length > 0 && filteredAssets.length === 0 ? (
+        <EmptyState
+          title="Ничего не найдено"
+          message="Измените поиск или фильтр статуса."
+        />
+      ) : null}
+
       <div className="grid">
         {steamLinked
-          ? assets.map((asset) => {
+          ? filteredAssets.map((asset) => {
               const listable = canListAsset(asset);
               return (
                 <article
@@ -239,12 +315,17 @@ export function InventoryPage() {
                   </div>
                   <dl className="meta-list">
                     <div>
-                      <dt>Tradable</dt>
-                      <dd>{asset.tradable ? 'Yes' : 'No'}</dd>
+                      <dt>Обмен</dt>
+                      <dd>{asset.tradable ? 'Да' : 'Нет'}</dd>
                     </div>
                   </dl>
                   {!listable ? (
                     <p className="muted small">{assetUnavailableReason(asset)}</p>
+                  ) : null}
+                  {listable && steamLinked && !tradeUrlReady ? (
+                    <p className="muted small inventory-list-trade-url-hint">
+                      Рекомендуем указать Trade URL в аккаунте перед выставлением лота.
+                    </p>
                   ) : null}
                   {renderAssetAction(asset)}
                 </article>

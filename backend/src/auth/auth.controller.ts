@@ -15,6 +15,7 @@ import type { AuthUser } from '../common/auth-user.interface';
 import { AppException } from '../common/errors/app.exception';
 import { ErrorCode } from '../common/errors/error-codes';
 import { getProvidersConfig } from '../providers/config';
+import { getPaymentConfig } from '../providers/payment/payment.config';
 import { isRealSettlementEnabled } from '../settlement/settlement.config';
 import { isLiveVerificationMode } from '../trades/trade-verification.config';
 import { extractOpenIdParams } from '../providers/auth/steam-openid.util';
@@ -31,6 +32,7 @@ export class AuthController {
   @Get('config')
   getConfig() {
     const config = getProvidersConfig();
+    const paymentConfig = getPaymentConfig();
     const allowMockInSteamMode =
       process.env.ALLOW_MOCK_LOGIN_IN_STEAM_MODE === 'true';
     return {
@@ -40,12 +42,23 @@ export class AuthController {
       steamLoginAvailable: config.auth === 'steam',
       mockLoginAvailable: config.auth !== 'steam' || allowMockInSteamMode,
       mockTradeEnabled: process.env.ENABLE_MOCK_TRADE !== 'false',
-      mockDepositEnabled: process.env.ENABLE_MOCK_DEPOSIT !== 'false',
+      mockDepositEnabled: paymentConfig.mockDepositEnabled,
+      paymentProvider: config.payment,
+      cryptoPaymentsEnabled: config.payment === 'crypto_tron',
+      minDepositMinor: paymentConfig.minDepositMinor,
+      minWithdrawMinor: paymentConfig.minWithdrawMinor,
+      withdrawFeeMinor: paymentConfig.withdrawFeeMinor,
+      usdtNetwork: 'TRON',
+      usdtToken: 'USDT TRC-20',
       tradeVerificationMode: (
         process.env.TRADE_VERIFICATION_MODE ?? 'live'
       ).toLowerCase(),
       enableRealSettlement: isRealSettlementEnabled(),
       liveVerificationMode: isLiveVerificationMode(),
+      tradeTimeoutMinutes: Math.max(
+        1,
+        Number(process.env.TRADE_TIMEOUT_MINUTES ?? 60) || 60,
+      ),
     };
   }
 

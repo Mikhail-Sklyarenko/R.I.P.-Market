@@ -99,6 +99,14 @@ Checks:
 
 Exit code `1` if issues are found (CLI script).
 
+Payment reconciliation (crypto_tron only), daily at 04:00 UTC:
+
+```bash
+npm run reconcile:payments
+```
+
+Admin API: `GET /admin/payments/reconciliation`. See [payments-crypto-tron.md](payments-crypto-tron.md).
+
 On failure, the daily cron (03:00 UTC) and manual admin reconcile (`POST /admin/reconciliation/ledger`) publish an outbox event `RECONCILIATION_FAILED`. The outbox processor delivers in-app notifications to all `ADMIN` users.
 
 ## 7. Status events

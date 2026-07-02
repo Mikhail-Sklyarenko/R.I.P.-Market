@@ -1,5 +1,8 @@
 import type { Order } from '../api/types';
 import { getOrderNextAction } from './order-flow';
+import { computeSellerPendingReceiveMinor } from './seller-flow';
+
+export { computeSellerPendingReceiveMinor };
 
 export type OrderRole = 'buyer' | 'seller' | 'other';
 
@@ -18,10 +21,10 @@ export function getOrderRole(order: Order, userId?: string | null): OrderRole {
 
 export function formatOrderRoleLabel(role: OrderRole): string {
   if (role === 'buyer') {
-    return 'Buyer';
+    return 'Покупатель';
   }
   if (role === 'seller') {
-    return 'Seller';
+    return 'Продавец';
   }
   return '—';
 }

@@ -28,7 +28,14 @@ test.describe('Steam callback page', () => {
 
   test('shows error when callback is incomplete', async ({ page }) => {
     await page.goto('/login/steam/callback?error=STEAM_AUTH_FAILED&message=Verification%20failed');
-    await expect(page.getByRole('alert')).toContainText('Verification failed');
-    await expect(page.getByRole('link', { name: 'Back to login' })).toBeVisible();
+    await expect(page.getByRole('alert')).toContainText('Не удалось войти через Steam');
+    await expect(page.getByRole('link', { name: 'Вернуться ко входу' })).toBeVisible();
+  });
+
+  test('shows actionable copy when Steam is already linked', async ({ page }) => {
+    await page.goto('/login/steam/callback?error=STEAM_ALREADY_LINKED');
+    await expect(page.getByRole('alert')).toContainText('уже привязан');
+    await expect(page.getByRole('link', { name: 'Войти в другой аккаунт' })).toBeVisible();
+    await expect(page.getByRole('link', { name: 'Открыть аккаунт' })).toBeVisible();
   });
 });

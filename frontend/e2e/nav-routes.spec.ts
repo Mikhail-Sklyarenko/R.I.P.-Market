@@ -39,7 +39,7 @@ test.describe('Main navigation', () => {
     await page.goto('/catalog');
     await expect(page.getByTestId('catalog-grid')).toBeVisible();
 
-    await page.getByRole('link', { name: 'View listing' }).first().click();
+    await page.getByTestId('catalog-open-lot').first().click();
     await expect(page).toHaveURL(/\/lots\//);
     await expect(page.getByTestId('buy-lot-button')).toBeVisible();
   });

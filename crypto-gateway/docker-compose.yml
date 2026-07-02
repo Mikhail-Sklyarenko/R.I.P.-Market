@@ -1,0 +1,14 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: gateway
+      POSTGRES_PASSWORD: gateway
+      POSTGRES_DB: crypto_gateway
+    ports:
+      - '5433:5432'
+    volumes:
+      - crypto_gateway_pg:/var/lib/postgresql/data
+
+volumes:
+  crypto_gateway_pg:

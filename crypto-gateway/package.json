@@ -1,0 +1,40 @@
+{
+  "name": "crypto-gateway",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "start:api": "node dist/api/server.js",
+    "start:scanner": "node dist/scanner/scanner.js",
+    "start:signer": "node dist/signer/signer.js",
+    "dev:api": "tsx src/api/server.ts",
+    "dev:scanner": "tsx src/scanner/scanner.ts",
+    "dev:signer": "tsx src/signer/signer.ts",
+    "prisma:generate": "prisma generate",
+    "prisma:migrate:dev": "prisma migrate dev",
+    "prisma:migrate:deploy": "prisma migrate deploy",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "verify-wallets": "node scripts/verify-wallets.js"
+  },
+  "dependencies": {
+    "@prisma/client": "^7.8.0",
+    "@scure/bip32": "^1.7.0",
+    "@scure/bip39": "^1.6.0",
+    "dotenv": "^16.4.7",
+    "express": "^4.21.2",
+    "@prisma/adapter-pg": "^7.8.0",
+    "pg": "^8.22.0",
+    "tronweb": "^6.0.0"
+  },
+  "devDependencies": {
+    "@types/express": "^5.0.0",
+    "@types/node": "^24.0.0",
+    "@types/pg": "^8.20.0",
+    "prisma": "^7.8.0",
+    "tsx": "^4.19.3",
+    "typescript": "^5.7.3",
+    "vitest": "^3.0.5"
+  }
+}

@@ -1,6 +1,9 @@
 import { expect, test } from '@playwright/test';
 import { loginAsBuyer, loginAsSeller } from './helpers/auth';
+import { fundWallet } from './helpers/crypto-payments';
 import { resetDatabase } from './helpers/reset';
+
+const API_BASE = process.env.PLAYWRIGHT_API_BASE_URL ?? 'http://localhost:3001/api/v1';
 
 test.describe('Smoke: sell list and buyer complete', () => {
   test.beforeEach(async ({ request }) => {
@@ -9,10 +12,11 @@ test.describe('Smoke: sell list and buyer complete', () => {
 
   test('seller lists item, buyer purchases via checkout and completes trade', async ({
     page,
+    request,
   }) => {
     await loginAsSeller(page);
 
-    await page.getByRole('link', { name: 'List item' }).first().click();
+    await page.getByRole('link', { name: 'Выставить' }).first().click();
     await page.getByTestId('price-input').fill('1000');
     await page.getByTestId('submit-listing').click();
     await expect(page).toHaveURL(/\/sell\/my-lots$/);
@@ -21,15 +25,22 @@ test.describe('Smoke: sell list and buyer complete', () => {
     await page.evaluate(() => localStorage.removeItem('rip_market_auth'));
     await loginAsBuyer(page);
 
-    await page.getByRole('link', { name: 'View listing' }).first().click();
+    await page.getByTestId('catalog-open-lot').first().click();
     await page.getByTestId('buy-lot-button').click();
     await expect(page).toHaveURL(/\/checkout$/);
     await expect(page.getByTestId('checkout-page')).toBeVisible();
 
     await page.getByTestId('checkout-deposit-link').click();
-    await page.getByTestId('deposit-amount-input').fill('2000');
-    await page.getByTestId('deposit-submit').click();
-    await expect(page).toHaveURL(/\/checkout$/);
+    await expect(page).toHaveURL(/\/wallet/);
+    const returnUrl = new URL(page.url()).searchParams.get('returnUrl');
+    const buyerLogin = await request.post(`${API_BASE}/auth/mock-login`, {
+      data: { role: 'BUYER' },
+    });
+    const buyerBody = (await buyerLogin.json()) as { accessToken: string };
+    await fundWallet(request, buyerBody.accessToken, 200_000);
+    if (returnUrl) {
+      await page.goto(returnUrl);
+    }
 
     await page.getByTestId('confirm-purchase-button').click();
     await expect(page.getByTestId('order-status')).toHaveText('WAITING_TRADE');

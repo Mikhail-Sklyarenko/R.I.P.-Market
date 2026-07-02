@@ -9,6 +9,8 @@ export {
   getMyLots,
   getPricingPreview,
   getSteamLoginUrl,
+  getUserMe,
   listMyOrders,
   mockLogin,
+  updateTradeUrl,
 } from './marketplace';

@@ -2,11 +2,14 @@ import {
   createContext,
   useCallback,
   useContext,
+  useEffect,
   useMemo,
   useState,
   type ReactNode,
 } from 'react';
+import { getUserMe } from '../api/marketplace';
 import type { AuthUser } from '../api/types';
+import { profileToAuthUser } from '../utils/user-profile';
 
 const STORAGE_KEY = 'rip_market_auth';
 
@@ -61,6 +64,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setAuth(null);
     localStorage.removeItem(STORAGE_KEY);
   }, []);
+
+  useEffect(() => {
+    if (!auth?.token) {
+      return;
+    }
+
+    let cancelled = false;
+    getUserMe(auth.token)
+      .then((profile) => {
+        if (!cancelled) {
+          updateUser(profileToAuthUser(profile));
+        }
+      })
+      .catch(() => undefined);
+
+    return () => {
+      cancelled = true;
+    };
+  }, [auth?.token, updateUser]);
 
   const value = useMemo<AuthContextValue>(
     () => ({

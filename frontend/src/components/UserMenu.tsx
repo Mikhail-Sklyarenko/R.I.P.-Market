@@ -30,9 +30,7 @@ export function UserMenu() {
   }
 
   const isAdmin = user.role === 'ADMIN';
-  const steamLabel = hasLinkedSteamId(user.steamId)
-    ? `Steam ${user.steamId}`
-    : 'Steam не привязан';
+  const steamLinked = hasLinkedSteamId(user.steamId);
 
   return (
     <div className="user-menu" ref={menuRef}>
@@ -47,9 +45,20 @@ export function UserMenu() {
       </button>
       {open ? (
         <div className="user-menu-panel" data-testid="user-menu-panel">
-          <div className="user-menu-meta" title="Linked Steam ID">
-            {steamLabel}
-          </div>
+          {steamLinked ? (
+            <div className="user-menu-meta" title="Привязанный Steam ID">
+              Steam {user.steamId}
+            </div>
+          ) : (
+            <Link
+              to="/account"
+              className="user-menu-meta user-menu-meta-link"
+              data-testid="user-menu-steam-link"
+              onClick={() => setOpen(false)}
+            >
+              Steam не привязан
+            </Link>
+          )}
           <Link
             to="/account"
             className="user-menu-item"

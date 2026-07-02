@@ -5,6 +5,10 @@ export async function resetDatabase(prisma: PrismaService): Promise<void> {
     TRUNCATE TABLE
       "Notification",
       "OutboxEvent",
+      "PaymentEvent",
+      "PaymentIntent",
+      "WithdrawalRequest",
+      "UserCryptoDeposit",
       "AuditLog",
       "LedgerEntry",
       "Hold",

@@ -27,9 +27,11 @@ describe('Steam auth (e2e)', () => {
   let prisma: PrismaService;
   let jwt: JwtService;
   const previousAuthProvider = process.env.AUTH_PROVIDER;
+  const previousAllowMockInSteamMode = process.env.ALLOW_MOCK_LOGIN_IN_STEAM_MODE;
 
   beforeAll(async () => {
     process.env.AUTH_PROVIDER = 'steam';
+    delete process.env.ALLOW_MOCK_LOGIN_IN_STEAM_MODE;
     app = await createE2eApp();
     prisma = app.get(PrismaService);
     jwt = app.get(JwtService);
@@ -43,6 +45,11 @@ describe('Steam auth (e2e)', () => {
   afterAll(async () => {
     jest.restoreAllMocks();
     process.env.AUTH_PROVIDER = previousAuthProvider;
+    if (previousAllowMockInSteamMode === undefined) {
+      delete process.env.ALLOW_MOCK_LOGIN_IN_STEAM_MODE;
+    } else {
+      process.env.ALLOW_MOCK_LOGIN_IN_STEAM_MODE = previousAllowMockInSteamMode;
+    }
     await app.close();
   });
 

@@ -1,12 +1,18 @@
 import { useEffect, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
-import { createOrder, getLot } from '../api/marketplace';
+import { createOrder, getAuthConfig, getLot } from '../api/marketplace';
 import { useAuth } from '../auth/AuthContext';
+import { DealFlowSteps } from '../components/DealFlowSteps';
 import { ErrorAlert } from '../components/ErrorAlert';
+import { EscrowNotice } from '../components/EscrowNotice';
 import { ItemPreview } from '../components/ItemPreview';
 import { LoadingState } from '../components/LoadingState';
 import { MoneyDisplay } from '../components/MoneyDisplay';
 import { PageHeader } from '../components/PageHeader';
+import {
+  isPurchaseBlockedBySteam,
+  PurchaseReadinessAlerts,
+} from '../components/PurchaseReadinessAlerts';
 import { useWalletSummary } from '../hooks/useWalletSummary';
 
 export function CheckoutPage() {
@@ -18,6 +24,7 @@ export function CheckoutPage() {
   const [loading, setLoading] = useState(true);
   const [confirming, setConfirming] = useState(false);
   const [error, setError] = useState<unknown>(null);
+  const [requiresSteamLink, setRequiresSteamLink] = useState(false);
 
   const checkoutPath = id ? `/lots/${id}/checkout` : '/catalog';
   const priceMinor = lot ? Number(lot.priceMinor) : 0;
@@ -26,12 +33,20 @@ export function CheckoutPage() {
   const remainder =
     availableMinor !== null && priceMinor > 0 ? availableMinor - priceMinor : null;
   const isOwnLot = Boolean(lot && user && lot.sellerId === user.id);
+  const steamPurchaseBlocked = isPurchaseBlockedBySteam(user, requiresSteamLink);
   const canConfirm =
     lot?.status === 'ACTIVE' &&
     !insufficient &&
     user?.role !== 'SELLER' &&
     !isOwnLot &&
+    !steamPurchaseBlocked &&
     !confirming;
+
+  useEffect(() => {
+    getAuthConfig()
+      .then((config) => setRequiresSteamLink(config.inventoryProvider === 'steam'))
+      .catch(() => undefined);
+  }, []);
 
   useEffect(() => {
     if (!id) {
@@ -151,12 +166,6 @@ export function CheckoutPage() {
             </div>
           ) : null}
 
-          {insufficient ? (
-            <ErrorAlert variant="info" title="Недостаточно средств">
-              Пополните кошелёк, чтобы подтвердить покупку.
-            </ErrorAlert>
-          ) : null}
-
           {isOwnLot ? (
             <p className="muted" data-testid="own-lot-message">
               Вы не можете купить свой лот.
@@ -168,6 +177,18 @@ export function CheckoutPage() {
               Войдите как покупатель, чтобы оформить покупку.
             </p>
           ) : null}
+
+          <PurchaseReadinessAlerts
+            user={user}
+            requiresSteamLink={requiresSteamLink}
+            authenticated={Boolean(token && user)}
+            insufficientBalance={insufficient}
+            neededMinor={priceMinor}
+            walletDepositHref={`/wallet?returnUrl=${encodeURIComponent(checkoutPath)}&needed=${priceMinor}`}
+          />
+
+          <DealFlowSteps compact />
+          <EscrowNotice />
 
           <ErrorAlert error={error} />
 
