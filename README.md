@@ -48,6 +48,7 @@ npm run dev
 - [Release v1 checklist](docs/RELEASE.md)
 - [QA / manual testing](TESTING.md)
 - [QA staging guide — p2pcs.ru](docs/QA-STAGING-p2pcs.md)
+- [QA — тестирование Chrome-расширения](docs/QA-EXTENSION-TESTING.md)
 - [Local runbook](docs/runbook.md)
 - [Phase 1 — Sell slice](docs/phase-1-sell.md)
 - [Phase 2 — Buy + Complete](docs/phase-2-buy-complete.md)

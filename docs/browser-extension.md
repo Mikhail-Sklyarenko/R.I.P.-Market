@@ -4,7 +4,7 @@ Chrome MV3 extension for automatic trade offer creation on seller purchases.
 
 ## Build
 
-**Для тестировщиков (без сборки):** скачайте zip с [GitHub Releases](https://github.com/Mikhail-Sklyarenko/R.I.P.-Market/releases) (`rip-market-browser-extension-v*.zip`), распакуйте и в Chrome выберите папку **`dist`** внутри архива.
+**Для тестировщиков (без сборки):** подробная инструкция — [QA-EXTENSION-TESTING.md](./QA-EXTENSION-TESTING.md). Кратко: скачайте zip с [GitHub Releases](https://github.com/Mikhail-Sklyarenko/R.I.P.-Market/releases) (`rip-market-browser-extension-v*.zip`), распакуйте и в Chrome выберите папку **`dist`** внутри архива.
 
 **Для разработчиков:**
 
