@@ -31,3 +31,6 @@ frontend/dist/
 frontend/node_modules/
 frontend/playwright-report/
 frontend/test-results/
+
+# Browser extension release artifacts
+browser-extension/rip-market-browser-extension-v*.zip
