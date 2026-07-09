@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import type { Order } from '../api/types';
+import { ExtensionTaskProgress } from './ExtensionTaskProgress';
 import { ItemPreview } from './ItemPreview';
 import { formatTradePollStatus, SELLER_TRADE_INSTRUCTIONS } from '../utils/order-trade';
 
@@ -7,6 +8,7 @@ type OrderTradeSellerPanelProps = {
   order: Order;
   offerInput: string;
   savingOffer: boolean;
+  extensionMode?: boolean;
   onOfferInputChange: (value: string) => void;
   onSaveTradeReference: () => void;
 };
@@ -19,6 +21,7 @@ export function OrderTradeSellerPanel({
   order,
   offerInput,
   savingOffer,
+  extensionMode = false,
   onOfferInputChange,
   onSaveTradeReference,
 }: OrderTradeSellerPanelProps) {
@@ -26,6 +29,17 @@ export function OrderTradeSellerPanel({
   const buyerTradeUrl = order.buyer?.tradeUrl?.trim() ?? '';
   const pollStatus = formatTradePollStatus(order.tradeOperation);
   const hasOfferSaved = Boolean(order.tradeOperation?.externalOfferId);
+  const tradeTask = order.tradeTask;
+  const isConfirmPending = tradeTask?.executionPhase === 'CONFIRM_PENDING';
+  const extensionHandling =
+    extensionMode &&
+    tradeTask &&
+    tradeTask.status !== 'EXPIRED' &&
+    tradeTask.status !== 'FAILED' &&
+    tradeTask.executionPhase !== 'OFFER_FAILED';
+  const showManualForm = !extensionHandling || !hasOfferSaved;
+  const itemMarketHashName =
+    order.lot.inventoryAsset.itemDefinition.marketHashName ?? null;
 
   async function handleCopyBuyerTradeUrl() {
     if (!buyerTradeUrl) {
@@ -39,9 +53,31 @@ export function OrderTradeSellerPanel({
   return (
     <div className="card order-trade-panel" data-testid="seller-trade-panel">
       <h3 className="order-trade-panel-title">Обмен в Steam — продавец</h3>
+
+      {extensionMode && extensionHandling && isConfirmPending ? (
+        <div className="extension-seller-cta" data-testid="seller-extension-guard-cta">
+          <strong>Осталось подтвердить Guard</strong>
+          <p className="muted small">
+            Расширение уже создало обмен. Откройте Steam Mobile и подтвердите отправку.
+          </p>
+        </div>
+      ) : null}
+
       <p className="muted small" data-testid="seller-waiting-message">
-        Отправьте trade offer покупателю и укажите ссылку на предложение ниже.
+        {extensionMode
+          ? extensionHandling && !isConfirmPending
+            ? 'Расширение добавит предмет в trade offer автоматически. Вам останется подтвердить обмен в Steam Guard, если потребуется.'
+            : 'Расширение отправит trade offer автоматически. Подтвердите в Steam Guard при необходимости.'
+          : 'Отправьте trade offer покупателю и укажите ссылку на предложение ниже.'}
       </p>
+
+      {extensionMode ? (
+        <ExtensionTaskProgress
+          tradeTask={order.tradeTask}
+          manualFallbackVisible={showManualForm}
+          itemMarketHashName={itemMarketHashName}
+        />
+      ) : null}
 
       <ItemPreview
         item={order.lot.inventoryAsset}
@@ -94,7 +130,7 @@ export function OrderTradeSellerPanel({
         Статус проверки: <strong>{pollStatus}</strong>
       </p>
 
-      {!hasOfferSaved ? (
+      {!hasOfferSaved && showManualForm ? (
         <>
           <label className="field">
             <span className="field-label">Ссылка или ID trade offer</span>

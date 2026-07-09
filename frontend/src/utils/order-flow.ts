@@ -5,6 +5,7 @@ export const ORDER_STATUS_LABELS: Record<string, string> = {
   PAYMENT_RESERVED: 'Средства зарезервированы',
   WAITING_TRADE: 'Ожидание обмена в Steam',
   TRADE_CONFIRMED: 'Обмен подтверждён',
+  SETTLEMENT_HOLD: 'Удержание средств (8 дней)',
   COMPLETED: 'Сделка завершена',
   CANCELED: 'Сделка отменена',
   FAILED: 'Сделка не состоялась',
@@ -25,21 +26,43 @@ const HAPPY_PATH = [
   'COMPLETED',
 ] as const;
 
+const HAPPY_PATH_WITH_HOLD = [
+  'CREATED',
+  'PAYMENT_RESERVED',
+  'WAITING_TRADE',
+  'TRADE_CONFIRMED',
+  'SETTLEMENT_HOLD',
+  'COMPLETED',
+] as const;
+
 const STEP_LABELS: Record<string, string> = {
   CREATED: 'Создание сделки',
   PAYMENT_RESERVED: 'Резерв средств',
   WAITING_TRADE: 'Обмен в Steam',
   TRADE_CONFIRMED: 'Подтверждение',
+  SETTLEMENT_HOLD: 'Удержание 8 дней',
   COMPLETED: 'Завершение',
 };
+
+function resolveHappyPath(status: string): readonly string[] {
+  if (status === 'SETTLEMENT_HOLD') {
+    return HAPPY_PATH_WITH_HOLD;
+  }
+  if (status === 'COMPLETED') {
+    return HAPPY_PATH_WITH_HOLD;
+  }
+  return HAPPY_PATH;
+}
 
 export function formatOrderStatus(status: string): string {
   return ORDER_STATUS_LABELS[status] ?? status;
 }
 
 export function getOrderSteps(status: string): OrderStep[] {
+  const path = resolveHappyPath(status);
+
   if (status === 'COMPLETED') {
-    return HAPPY_PATH.map((key) => ({
+    return path.map((key) => ({
       key,
       label: STEP_LABELS[key],
       state: 'done' as const,
@@ -47,8 +70,8 @@ export function getOrderSteps(status: string): OrderStep[] {
   }
 
   if (status === 'CANCELED' || status === 'FAILED' || status === 'DISPUTE') {
-    const failIndex = HAPPY_PATH.indexOf('WAITING_TRADE');
-    return HAPPY_PATH.map((key, index) => ({
+    const failIndex = path.indexOf('WAITING_TRADE');
+    return path.map((key, index) => ({
       key,
       label: STEP_LABELS[key],
       state:
@@ -56,12 +79,9 @@ export function getOrderSteps(status: string): OrderStep[] {
     }));
   }
 
-  const currentIndex = Math.max(
-    HAPPY_PATH.indexOf(status as (typeof HAPPY_PATH)[number]),
-    0,
-  );
+  const currentIndex = Math.max(path.indexOf(status), 0);
 
-  return HAPPY_PATH.map((key, index) => ({
+  return path.map((key, index) => ({
     key,
     label: STEP_LABELS[key],
     state:
@@ -112,6 +132,13 @@ export function getOrderNextAction(
         description: 'Ожидаем финального расчёта. Страница обновится автоматически.',
       };
     }
+    if (order.status === 'SETTLEMENT_HOLD') {
+      return {
+        title: 'Средства на удержании',
+        description:
+          'Обмен подтверждён. Выплата продавцу будет доступна после 8-дневного периода удержания.',
+      };
+    }
     return {
       title: 'Ожидайте',
       description: 'Сделка обрабатывается. Статус обновится автоматически.',
@@ -130,6 +157,13 @@ export function getOrderNextAction(
       return {
         title: 'Обмен подтверждён',
         description: 'Ожидаем выплату на ваш кошелёк.',
+      };
+    }
+    if (order.status === 'SETTLEMENT_HOLD') {
+      return {
+        title: 'Удержание средств',
+        description:
+          'Сделка подтверждена. Средства будут зачислены после окончания 8-дневного hold.',
       };
     }
     return {

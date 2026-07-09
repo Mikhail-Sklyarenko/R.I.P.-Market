@@ -4,29 +4,29 @@ import { OrderStatus, TradeOperationStatus } from '@prisma/client';
 import { getProvidersConfig } from '../providers/config';
 import { SteamTradeRateLimitError } from '../providers/trade/steam-trade.provider';
 import { PrismaService } from '../prisma/prisma.service';
+import { ExtensionFlowMetricsService } from '../common/observability/extension-flow-metrics.service';
+import {
+  DeliveryVerificationEngineService,
+  type DeliveryVerificationOperation,
+} from './delivery-verification-engine.service';
+import type { DeliveryVerificationEvidence } from './delivery-verification.types';
 import { TradeShadowComparatorService } from './trade-shadow-comparator.service';
 import { assertShadowModeConfig } from './trade-verification.config';
 import { TradesService } from './trades.service';
-import { TradeInventoryDeltaService } from './trade-inventory-delta.service';
 
 const POLLABLE_MODES = new Set(['STEAM_POLL', 'SHADOW']);
-
-function getTradeTimeoutMs(): number {
-  const minutes = Number(process.env.TRADE_TIMEOUT_MINUTES ?? 60);
-  return Number.isFinite(minutes) && minutes > 0 ? minutes * 60_000 : 3_600_000;
-}
 
 @Injectable()
 export class TradeStatusPollerService implements OnModuleInit {
   private readonly logger = new Logger(TradeStatusPollerService.name);
   private processing = false;
-  private readonly backoffUntil = new Map<string, number>();
 
   constructor(
     private readonly prisma: PrismaService,
     private readonly tradesService: TradesService,
-    private readonly inventoryDelta: TradeInventoryDeltaService,
+    private readonly deliveryEngine: DeliveryVerificationEngineService,
     private readonly shadowComparator: TradeShadowComparatorService,
+    private readonly extensionFlowMetrics: ExtensionFlowMetricsService,
   ) {}
 
   onModuleInit(): void {
@@ -80,13 +80,14 @@ export class TradeStatusPollerService implements OnModuleInit {
       });
 
       for (const operation of operations) {
-        const backoff = this.backoffUntil.get(operation.orderId);
-        if (backoff && backoff > Date.now()) {
+        if (this.deliveryEngine.isInBackoff(operation.orderId)) {
           continue;
         }
 
         checked += 1;
-        const transitioned = await this.checkOperation(operation);
+        const transitioned = await this.checkOperation(
+          operation as DeliveryVerificationOperation,
+        );
         if (transitioned) {
           transitions += 1;
         }
@@ -98,86 +99,113 @@ export class TradeStatusPollerService implements OnModuleInit {
     return { checked, transitions };
   }
 
-  private async checkOperation(operation: {
-    id: string;
-    orderId: string;
-    externalOfferId: string | null;
-    expectedAssetId: string | null;
-    verificationMode: string | null;
-    order: {
-      id: string;
-      buyerId: string;
-      sellerId: string;
-      createdAt: Date;
-      lot: {
-        inventoryAsset: {
-          assetExternalId: string;
-          itemDefinition: { marketHashName: string };
-        };
-      };
-      buyer: { id: string; steamId: string | null };
-      seller: { id: string; steamId: string | null };
-    };
-  }): Promise<boolean> {
+  private async checkOperation(
+    operation: DeliveryVerificationOperation,
+  ): Promise<boolean> {
     const isShadow = operation.verificationMode === 'SHADOW';
-    const timeoutAt = new Date(
-      operation.order.createdAt.getTime() + getTradeTimeoutMs(),
-    );
 
     try {
-      if (new Date() >= timeoutAt) {
-        if (isShadow) {
-          await this.shadowComparator.recordSnapshot({
-            orderId: operation.orderId,
-            source: 'STEAM_POLL',
-            observedStatus: 'timeout',
-            payload: { strategy: 'TIMEOUT' },
-          });
-          await this.recordPollEvent(operation.id, {
-            outcome: 'TIMEOUT',
-            strategy: 'TIMEOUT',
-            offerStatus: 'timeout',
-          });
+      const evaluation = await this.deliveryEngine.evaluate(operation);
+      const { decision, offerStatus, inventoryDelta, evidence } = evaluation;
+
+      await this.recordPollEvent(operation.id, {
+        outcome: decision.pollOutcome,
+        strategy: operation.externalOfferId
+          ? 'OFFER_POLL+INVENTORY_DELTA'
+          : 'INVENTORY_DELTA',
+        offerStatus: offerStatus ?? inventoryDelta,
+        error:
+          decision.action === 'BACKOFF' ? 'rate_limited' : undefined,
+        reasonCode: decision.reasonCode,
+      });
+
+      if (isShadow) {
+        await this.recordShadowSnapshot(operation, decision, evidence);
+        return false;
+      }
+
+      switch (decision.action) {
+        case 'BACKOFF': {
+          this.deliveryEngine.registerRateLimitBackoff(operation.orderId);
           return false;
         }
-
-        await this.tradesService.applyTradeTimeout(operation.orderId, {
-          idempotencyKey: `poll-timeout:${operation.orderId}`,
-          auditAction: 'TRADE_POLL_TIMEOUT',
-        });
-        await this.recordPollEvent(operation.id, {
-          outcome: 'TIMEOUT',
-          strategy: 'TIMEOUT',
-          offerStatus: null,
-        });
-        return true;
+        case 'WAIT':
+          return false;
+        case 'TIMEOUT': {
+          await this.tradesService.applyTradeTimeout(operation.orderId, {
+            idempotencyKey: `poll-timeout:${operation.orderId}`,
+            auditAction: 'TRADE_POLL_TIMEOUT',
+          });
+          return true;
+        }
+        case 'CONFIRM': {
+          this.deliveryEngine.clearBackoff(operation.orderId);
+          await this.tradesService.applyTradeConfirmedFromPoll(
+            operation.orderId,
+            evidence,
+          );
+          return true;
+        }
+        case 'FAIL': {
+          this.deliveryEngine.clearBackoff(operation.orderId);
+          await this.tradesService.applyTradeFailedFromPoll(
+            operation.orderId,
+            decision.reasonCode,
+          );
+          return true;
+        }
+        case 'DISPUTE': {
+          this.deliveryEngine.clearBackoff(operation.orderId);
+          this.extensionFlowMetrics.recordVerifyMismatch({
+            orderId: operation.orderId,
+            reasonCode: decision.reasonCode,
+            source: 'delivery_engine',
+          });
+          if (
+            decision.reason === 'OFFER_UNKNOWN' ||
+            decision.reason === 'DELIVERY_VERIFICATION_UNKNOWN' ||
+            decision.reason === 'INVENTORY_UNKNOWN_EXHAUSTED'
+          ) {
+            await this.tradesService.applyUnknownTradeStateFromPoll(
+              operation.orderId,
+              decision.reasonCode,
+            );
+          } else {
+            await this.tradesService.applyTradeFailedFromPoll(
+              operation.orderId,
+              decision.reasonCode,
+            );
+          }
+          return true;
+        }
+        default:
+          return false;
       }
-
-      if (operation.externalOfferId) {
-        return await this.checkOfferStatus(operation, isShadow);
-      }
-      return await this.checkInventoryDelta(operation, isShadow);
     } catch (error) {
       if (error instanceof SteamTradeRateLimitError) {
-        const backoffMs = Number(process.env.TRADE_POLL_BACKOFF_MS ?? 120_000);
-        this.backoffUntil.set(operation.orderId, Date.now() + backoffMs);
+        const delayMs = this.deliveryEngine.registerRateLimitBackoff(
+          operation.orderId,
+        );
         await this.recordPollEvent(operation.id, {
           outcome: 'ERROR',
           strategy: operation.externalOfferId
-            ? 'OFFER_POLL'
+            ? 'OFFER_POLL+INVENTORY_DELTA'
             : 'INVENTORY_DELTA',
           offerStatus: null,
           error: 'rate_limited',
+          reasonCode: 'RATE_LIMITED',
         });
         this.logger.warn(
-          `Steam 429 for order ${operation.orderId}, backing off ${backoffMs}ms`,
+          `Steam 429 for order ${operation.orderId}, backing off ${delayMs}ms`,
         );
         return false;
       }
 
       await this.recordPollEvent(operation.id, {
         outcome: 'ERROR',
-        strategy: operation.externalOfferId ? 'OFFER_POLL' : 'INVENTORY_DELTA',
+        strategy: operation.externalOfferId
+          ? 'OFFER_POLL+INVENTORY_DELTA'
+          : 'INVENTORY_DELTA',
         offerStatus: null,
         error: error instanceof Error ? error.message : 'unknown',
       });
@@ -193,125 +221,25 @@ export class TradeStatusPollerService implements OnModuleInit {
     }
   }
 
-  private async checkOfferStatus(
-    operation: {
-      id: string;
-      orderId: string;
-      externalOfferId: string | null;
-    },
-    isShadow: boolean,
-  ): Promise<boolean> {
-    const verification = await this.tradesService.verifyOffer(
-      operation.externalOfferId!,
-    );
-
-    await this.recordPollEvent(operation.id, {
-      outcome: 'NO_CHANGE',
-      strategy: 'OFFER_POLL',
-      offerStatus: verification.status,
+  private async recordShadowSnapshot(
+    operation: DeliveryVerificationOperation,
+    decision: { action: string; reasonCode: string },
+    evidence: DeliveryVerificationEvidence,
+  ) {
+    const observedStatus =
+      evidence.offerStatus ??
+      (evidence.inventoryDelta === 'confirmed' ? 'accepted' : 'pending');
+    await this.shadowComparator.recordSnapshot({
+      orderId: operation.orderId,
+      source: 'STEAM_POLL',
+      observedStatus,
+      payload: {
+        strategy: 'DELIVERY_VERIFICATION_ENGINE',
+        decision: decision.action,
+        reasonCode: decision.reasonCode,
+        evidence,
+      },
     });
-
-    if (isShadow) {
-      await this.shadowComparator.recordSnapshot({
-        orderId: operation.orderId,
-        source: 'STEAM_POLL',
-        observedStatus: verification.status,
-        payload: {
-          strategy: 'OFFER_POLL',
-          offerId: operation.externalOfferId,
-        },
-      });
-      return false;
-    }
-
-    if (verification.status === 'accepted') {
-      await this.tradesService.applyTradeConfirmedFromPoll(operation.orderId);
-      await this.recordPollEvent(operation.id, {
-        outcome: 'CONFIRMED',
-        strategy: 'OFFER_POLL',
-        offerStatus: verification.status,
-      });
-      return true;
-    }
-
-    if (
-      verification.status === 'declined' ||
-      verification.status === 'expired'
-    ) {
-      await this.tradesService.applyTradeFailedFromPoll(
-        operation.orderId,
-        verification.status,
-      );
-      await this.recordPollEvent(operation.id, {
-        outcome:
-          process.env.TRADE_FAIL_MODE === 'SAFE'
-            ? 'FAILED_SAFE'
-            : 'FAILED_DISPUTE',
-        strategy: 'OFFER_POLL',
-        offerStatus: verification.status,
-      });
-      return true;
-    }
-
-    return false;
-  }
-
-  private async checkInventoryDelta(
-    operation: {
-      id: string;
-      orderId: string;
-      expectedAssetId: string | null;
-      order: {
-        buyerId: string;
-        sellerId: string;
-        lot: {
-          inventoryAsset: {
-            assetExternalId: string;
-            itemDefinition: { marketHashName: string };
-          };
-        };
-        buyer: { id: string; steamId: string | null };
-        seller: { id: string; steamId: string | null };
-      };
-    },
-    isShadow: boolean,
-  ): Promise<boolean> {
-    const expected =
-      operation.expectedAssetId ??
-      operation.order.lot.inventoryAsset.assetExternalId;
-
-    const result = await this.inventoryDelta.verify(
-      operation.order.sellerId,
-      operation.order.buyerId,
-      operation.order.seller.steamId,
-      operation.order.buyer.steamId,
-      expected,
-      operation.order.lot.inventoryAsset.itemDefinition.marketHashName,
-    );
-
-    await this.recordPollEvent(operation.id, {
-      outcome: result === 'confirmed' ? 'CONFIRMED' : 'NO_CHANGE',
-      strategy: 'INVENTORY_DELTA',
-      offerStatus: result,
-    });
-
-    if (isShadow) {
-      const observedStatus = result === 'confirmed' ? 'accepted' : 'pending';
-      await this.shadowComparator.recordSnapshot({
-        orderId: operation.orderId,
-        source: 'STEAM_POLL',
-        observedStatus,
-        payload: { strategy: 'INVENTORY_DELTA', inventoryResult: result },
-      });
-      return false;
-    }
-
-    if (result === 'confirmed') {
-      await this.tradesService.applyTradeConfirmedFromPoll(operation.orderId);
-      return true;
-    }
-
-    return false;
   }
 
   private async recordPollEvent(
@@ -321,6 +249,7 @@ export class TradeStatusPollerService implements OnModuleInit {
       strategy: string;
       offerStatus: string | null;
       error?: string;
+      reasonCode?: string;
     },
   ) {
     await this.prisma.tradePollEvent.create({
@@ -329,7 +258,7 @@ export class TradeStatusPollerService implements OnModuleInit {
         outcome: params.outcome,
         strategy: params.strategy,
         offerStatus: params.offerStatus,
-        error: params.error ?? null,
+        error: params.error ?? params.reasonCode ?? null,
       },
     });
   }

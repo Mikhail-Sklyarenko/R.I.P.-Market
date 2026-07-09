@@ -35,6 +35,7 @@ export function SteamCallbackPage() {
     const role = searchParams.get('role');
     const status = searchParams.get('status');
     const steamId = searchParams.get('steamId');
+    const steamPersonaName = searchParams.get('steamPersonaName');
 
     if (!accessToken || !userId || !username || !role || !status) {
       setError({
@@ -50,9 +51,10 @@ export function SteamCallbackPage() {
       role,
       status,
       steamId: steamId ?? undefined,
+      steamPersonaName: steamPersonaName ?? undefined,
     });
     const linked = searchParams.get('linked') === '1';
-    navigate(getHomePathForRole(role), {
+    navigate(linked ? '/account' : getHomePathForRole(role), {
       replace: true,
       state: linked ? { steamLinked: true } : undefined,
     });

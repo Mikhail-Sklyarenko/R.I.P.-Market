@@ -128,6 +128,18 @@ export class ApiClient {
       .send({ mode });
   }
 
+  async mockTimeout(
+    session: AuthSession,
+    orderId: string,
+    idempotencyKey: string,
+  ) {
+    return request(this.app.getHttpServer())
+      .post(`/api/v1/trades/${orderId}/mock-timeout`)
+      .set('Authorization', `Bearer ${session.token}`)
+      .set('Idempotency-Key', idempotencyKey)
+      .send({});
+  }
+
   async getWallet(session: AuthSession) {
     return request(this.app.getHttpServer())
       .get('/api/v1/wallet')

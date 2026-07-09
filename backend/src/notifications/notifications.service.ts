@@ -99,6 +99,24 @@ export class NotificationsService {
       return;
     }
 
+    if (eventType === 'OPS_ALERT') {
+      await this.notifyAdminsOpsAlert(aggregateId, payload);
+      return;
+    }
+
+    if (eventType === 'EXTENSION_SECURITY_ALERT') {
+      await this.notifyAdminsExtensionSecurityAlert(aggregateId, payload);
+      return;
+    }
+
+    if (
+      eventType === 'TRADE_TASK_FAILED' ||
+      eventType === 'TRADE_TASK_OFFER_FAILED'
+    ) {
+      await this.notifyAdminsTradeTaskFailure(eventType, aggregateId, payload);
+      return;
+    }
+
     if (aggregateType !== 'order') {
       return;
     }
@@ -157,6 +175,109 @@ export class NotificationsService {
         title: 'Trade shadow mismatch',
         message: `Order ${orderId.slice(0, 8)}…: observed ${observed}, expected ${expected}.`,
         payload: payload ?? { orderId },
+      })),
+    });
+  }
+
+  private async notifyAdminsOpsAlert(
+    alertId: string,
+    payload: Prisma.JsonValue,
+  ): Promise<void> {
+    const admins = await this.prisma.user.findMany({
+      where: { role: UserRole.ADMIN },
+      select: { id: true },
+    });
+    if (admins.length === 0) {
+      return;
+    }
+
+    const detail =
+      typeof payload === 'object' && payload !== null ? payload : {};
+    const count5m =
+      'count_5m' in detail && typeof detail.count_5m === 'number'
+        ? detail.count_5m
+        : null;
+
+    await this.prisma.notification.createMany({
+      data: admins.map((admin) => ({
+        userId: admin.id,
+        eventType: 'OPS_ALERT',
+        title: `Ops alert: ${alertId}`,
+        message:
+          count5m !== null
+            ? `Alert ${alertId} fired (${count5m} events in 5m window).`
+            : `Alert ${alertId} fired. Review extension-flow dashboard.`,
+        payload: payload ?? { alertId },
+      })),
+    });
+  }
+
+  private async notifyAdminsExtensionSecurityAlert(
+    sessionId: string,
+    payload: Prisma.JsonValue,
+  ): Promise<void> {
+    const admins = await this.prisma.user.findMany({
+      where: { role: UserRole.ADMIN },
+      select: { id: true },
+    });
+    if (admins.length === 0) {
+      return;
+    }
+
+    const code =
+      typeof payload === 'object' &&
+      payload !== null &&
+      'code' in payload &&
+      typeof payload.code === 'string'
+        ? payload.code
+        : 'unknown';
+
+    await this.prisma.notification.createMany({
+      data: admins.map((admin) => ({
+        userId: admin.id,
+        eventType: 'EXTENSION_SECURITY_ALERT',
+        title: 'Extension security alert',
+        message: `Session ${sessionId.slice(0, 8)}…: ${code}`,
+        payload: payload ?? { sessionId },
+      })),
+    });
+  }
+
+  private async notifyAdminsTradeTaskFailure(
+    eventType: string,
+    taskId: string,
+    payload: Prisma.JsonValue,
+  ): Promise<void> {
+    const admins = await this.prisma.user.findMany({
+      where: { role: UserRole.ADMIN },
+      select: { id: true },
+    });
+    if (admins.length === 0) {
+      return;
+    }
+
+    const orderId =
+      typeof payload === 'object' &&
+      payload !== null &&
+      'orderId' in payload &&
+      typeof payload.orderId === 'string'
+        ? payload.orderId
+        : 'unknown';
+    const reasonCode =
+      typeof payload === 'object' &&
+      payload !== null &&
+      'reasonCode' in payload &&
+      typeof payload.reasonCode === 'string'
+        ? payload.reasonCode
+        : 'unknown';
+
+    await this.prisma.notification.createMany({
+      data: admins.map((admin) => ({
+        userId: admin.id,
+        eventType,
+        title: 'Extension trade task failed',
+        message: `Task ${taskId.slice(0, 8)}… on order ${orderId.slice(0, 8)}…: ${reasonCode}`,
+        payload: payload ?? { taskId },
       })),
     });
   }

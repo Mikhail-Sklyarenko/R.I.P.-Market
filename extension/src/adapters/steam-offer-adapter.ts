@@ -1,0 +1,16 @@
+import type {
+  DraftOfferInput,
+  DraftOfferResult,
+  SendOfferHooks,
+  SendOfferResult,
+  SteamInventoryItem,
+} from '../types.js';
+
+export interface SteamOfferAdapter {
+  resolveSessionSteamId(): Promise<string | null>;
+  loadSellerInventory(
+    sellerSteamId?: string | null,
+  ): Promise<SteamInventoryItem[] | null>;
+  draftOffer(input: DraftOfferInput): Promise<DraftOfferResult>;
+  sendOffer(draftId: string, hooks?: SendOfferHooks): Promise<SendOfferResult>;
+}

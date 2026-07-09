@@ -56,6 +56,8 @@ export class AuthService {
       role: user.role as string,
       status: user.status as string,
       steamId: user.steamId ?? null,
+      steamPersonaName: user.steamPersonaName ?? null,
+      tradeUrl: user.tradeUrl ?? null,
     };
   }
 
@@ -100,6 +102,8 @@ export class AuthService {
       role: user.role,
       status: user.status,
       steamId: user.steamId,
+      steamPersonaName: user.steamPersonaName,
+      tradeUrl: user.tradeUrl,
     });
   }
 
@@ -129,6 +133,9 @@ export class AuthService {
     });
     if (authResponse.user.steamId) {
       params.set('steamId', authResponse.user.steamId);
+    }
+    if (authResponse.user.steamPersonaName) {
+      params.set('steamPersonaName', authResponse.user.steamPersonaName);
     }
     if (extraParams) {
       for (const [key, value] of Object.entries(extraParams)) {
@@ -167,6 +174,8 @@ export class AuthService {
       role: string;
       status: string;
       steamId?: string | null;
+      steamPersonaName?: string | null;
+      tradeUrl?: string | null;
     },
     providerOverride?: string,
   ) {
@@ -182,6 +191,8 @@ export class AuthService {
         role: user.role,
         status: user.status,
         steamId: user.steamId ?? null,
+        steamPersonaName: user.steamPersonaName ?? null,
+        tradeUrl: user.tradeUrl ?? null,
       },
       provider: providerOverride ?? this.authProvider.type,
     };

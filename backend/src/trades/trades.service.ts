@@ -25,6 +25,9 @@ import { LedgerService } from '../wallet/ledger.service';
 import { isRealSettlementEnabled } from '../settlement/settlement.config';
 import { SettlementService } from '../settlement/settlement.service';
 import { MockFailMode } from './dto/mock-fail.dto';
+import { ExtensionFlowMetricsService } from '../common/observability/extension-flow-metrics.service';
+import { isExtensionFirstTradeFlowEnabled } from './extension-trade-flow.config';
+import { TradeOperationStateService } from './trade-operation-state.service';
 import { TradeShadowComparatorService } from './trade-shadow-comparator.service';
 import {
   isLiveVerificationMode,
@@ -39,8 +42,10 @@ export class TradesService {
     private readonly lotStateService: LotStateService,
     private readonly orderStateService: OrderStateService,
     @Inject(TRADE_PROVIDER) private readonly tradeProvider: TradeProvider,
+    private readonly tradeOperationStateService: TradeOperationStateService,
     private readonly shadowComparator: TradeShadowComparatorService,
     private readonly settlementService: SettlementService,
+    private readonly extensionFlowMetrics: ExtensionFlowMetricsService,
   ) {}
 
   async mockSuccess(
@@ -109,19 +114,24 @@ export class TradesService {
         'SUCCESS',
       );
 
-      await tx.tradeOperation.update({
-        where: { id: current.tradeOperation.id },
-        data: {
-          status: TradeOperationStatus.CONFIRMED,
-          providerRef: completion.providerRef,
-          failReasonCode: null,
-        },
+      const tradeVerifiedStatus = isExtensionFirstTradeFlowEnabled()
+        ? TradeOperationStatus.DELIVERY_VERIFIED
+        : TradeOperationStatus.CONFIRMED;
+      await this.tradeOperationStateService.transitionByEvent(tx, {
+        tradeOperationId: current.tradeOperation.id,
+        from: current.tradeOperation.status,
+        event: 'DELIVERY_VERIFIED',
+        actorUserId,
+        reason: 'delivery_verified',
+        providerRef: completion.providerRef,
+        failReasonCode: null,
+        guards: { deliveryVerified: true },
       });
 
-      await this.orderStateService.transition(tx, {
+      await this.orderStateService.transitionByEvent(tx, {
         orderId: current.id,
         from: OrderStatus.WAITING_TRADE,
-        to: OrderStatus.TRADE_CONFIRMED,
+        event: 'DELIVERY_VERIFIED',
         actorUserId,
       });
 
@@ -133,9 +143,11 @@ export class TradesService {
             `trade-success:${idempotencyKey}`,
             tx,
           );
-        finalStatus = settleResult.settled
-          ? OrderStatus.COMPLETED
-          : OrderStatus.TRADE_CONFIRMED;
+        finalStatus = settleResult.inHold
+          ? OrderStatus.SETTLEMENT_HOLD
+          : settleResult.settled
+            ? OrderStatus.COMPLETED
+            : OrderStatus.TRADE_CONFIRMED;
       } else {
         await this.settlementService.settleCompletedOrder(
           tx,
@@ -151,13 +163,17 @@ export class TradesService {
             hold: current.hold,
             lot: current.lot,
             tradeOperation: {
-              status: TradeOperationStatus.CONFIRMED,
+              status: tradeVerifiedStatus,
             },
           },
           `trade-success:${idempotencyKey}`,
           actorUserId,
         );
-        finalStatus = OrderStatus.COMPLETED;
+        const updated = await tx.order.findUnique({
+          where: { id: current.id },
+          select: { status: true },
+        });
+        finalStatus = updated?.status ?? OrderStatus.COMPLETED;
       }
 
       const completed = await tx.order.findUnique({
@@ -187,7 +203,7 @@ export class TradesService {
           },
           afterState: {
             status: finalStatus,
-            tradeStatus: TradeOperationStatus.CONFIRMED,
+            tradeStatus: tradeVerifiedStatus,
             guardedSettlement: useGuardedSettlement,
           },
           idempotencyKey,
@@ -385,13 +401,14 @@ export class TradesService {
         { reasonCode },
       );
 
-      await tx.tradeOperation.update({
-        where: { id: current.tradeOperation.id },
-        data: {
-          status: failTradeStatus,
-          providerRef: completion.providerRef,
-          failReasonCode: completion.failReasonCode,
-        },
+      await this.tradeOperationStateService.transitionByEvent(tx, {
+        tradeOperationId: current.tradeOperation.id,
+        from: current.tradeOperation.status,
+        event: mode === MockFailMode.SAFE ? 'FAIL_SAFE' : 'MISMATCH_DETECTED',
+        actorUserId,
+        reason: reasonCode ?? null,
+        providerRef: completion.providerRef,
+        failReasonCode: completion.failReasonCode,
       });
 
       if (mode === MockFailMode.SAFE) {
@@ -411,10 +428,10 @@ export class TradesService {
           },
         });
 
-        await this.orderStateService.transition(tx, {
+        await this.orderStateService.transitionByEvent(tx, {
           orderId: current.id,
           from: OrderStatus.WAITING_TRADE,
-          to: OrderStatus.FAILED,
+          event: 'FAIL_SAFE',
           actorUserId,
           reason: reasonCode ?? 'trade_fail_safe',
         });
@@ -432,10 +449,10 @@ export class TradesService {
           data: { status: InventoryAssetStatus.LISTED },
         });
       } else {
-        await this.orderStateService.transition(tx, {
+        await this.orderStateService.transitionByEvent(tx, {
           orderId: current.id,
           from: OrderStatus.WAITING_TRADE,
-          to: OrderStatus.DISPUTE,
+          event: 'MISMATCH_DETECTED',
           actorUserId,
           reason: reasonCode ?? 'trade_fail_dispute',
         });
@@ -584,19 +601,20 @@ export class TradesService {
         failReasonCode = completion.failReasonCode ?? failReasonCode;
       }
 
-      await tx.tradeOperation.update({
-        where: { id: current.tradeOperation.id },
-        data: {
-          status: TradeOperationStatus.TIMEOUT,
-          providerRef,
-          failReasonCode,
-        },
+      await this.tradeOperationStateService.transitionByEvent(tx, {
+        tradeOperationId: current.tradeOperation.id,
+        from: current.tradeOperation.status,
+        event: 'TIMEOUT',
+        actorUserId,
+        reason: 'TRADE_TIMEOUT',
+        providerRef,
+        failReasonCode,
       });
 
-      await this.orderStateService.transition(tx, {
+      await this.orderStateService.transitionByEvent(tx, {
         orderId: current.id,
         from: OrderStatus.WAITING_TRADE,
-        to: OrderStatus.DISPUTE,
+        event: 'TIMEOUT_DETECTED',
         actorUserId: actorUserId ?? undefined,
         reason: 'TRADE_TIMEOUT',
       });
@@ -672,7 +690,16 @@ export class TradesService {
     return this.tradeProvider.verifyTradeOffer(tradeOfferId);
   }
 
-  async applyTradeConfirmedFromPoll(orderId: string) {
+  async applyTradeConfirmedFromPoll(
+    orderId: string,
+    evidence?: {
+      offerStatus?: string | null;
+      inventoryDelta?: string | null;
+      reason?: string;
+      reasonCode?: string;
+      engineEnabled?: boolean;
+    },
+  ) {
     const idempotencyKey = `poll-confirm:${orderId}`;
     const existingAudit = await this.prisma.auditLog.findFirst({
       where: {
@@ -710,19 +737,23 @@ export class TradesService {
         return current;
       }
 
-      await tx.tradeOperation.update({
-        where: { id: current.tradeOperation.id },
-        data: {
-          status: TradeOperationStatus.CONFIRMED,
-          providerRef: `poll-confirmed-${orderId}`,
-          failReasonCode: null,
-        },
+      const tradeVerifiedStatus = isExtensionFirstTradeFlowEnabled()
+        ? TradeOperationStatus.DELIVERY_VERIFIED
+        : TradeOperationStatus.CONFIRMED;
+      await this.tradeOperationStateService.transitionByEvent(tx, {
+        tradeOperationId: current.tradeOperation.id,
+        from: current.tradeOperation.status,
+        event: 'DELIVERY_VERIFIED',
+        reason: 'TRADE_POLL_CONFIRMED',
+        providerRef: `poll-confirmed-${orderId}`,
+        failReasonCode: null,
+        guards: { deliveryVerified: true },
       });
 
-      await this.orderStateService.transition(tx, {
+      await this.orderStateService.transitionByEvent(tx, {
         orderId: current.id,
         from: OrderStatus.WAITING_TRADE,
-        to: OrderStatus.TRADE_CONFIRMED,
+        event: 'DELIVERY_VERIFIED',
         reason: 'TRADE_POLL_CONFIRMED',
       });
 
@@ -734,9 +765,11 @@ export class TradesService {
             `poll-settle:${orderId}`,
             tx,
           );
-        finalStatus = settleResult.settled
-          ? OrderStatus.COMPLETED
-          : OrderStatus.TRADE_CONFIRMED;
+        finalStatus = settleResult.inHold
+          ? OrderStatus.SETTLEMENT_HOLD
+          : settleResult.settled
+            ? OrderStatus.COMPLETED
+            : OrderStatus.TRADE_CONFIRMED;
       }
 
       await tx.auditLog.create({
@@ -746,8 +779,9 @@ export class TradesService {
           action: 'TRADE_POLL_CONFIRMED',
           afterState: {
             status: finalStatus,
-            tradeStatus: TradeOperationStatus.CONFIRMED,
+            tradeStatus: tradeVerifiedStatus,
             settled: finalStatus === OrderStatus.COMPLETED,
+            verificationEvidence: evidence ?? null,
           },
           idempotencyKey,
           ...getAuditContext(),
@@ -766,7 +800,29 @@ export class TradesService {
       });
     });
 
+    if (order) {
+      const source = await this.resolveOrderFlowSource(orderId);
+      this.extensionFlowMetrics.recordOrderCompleted({
+        orderId,
+        source,
+        startedAt: order.createdAt,
+      });
+    }
+
     return toJsonSafe(order);
+  }
+
+  private async resolveOrderFlowSource(
+    orderId: string,
+  ): Promise<'extension' | 'manual'> {
+    const task = await this.prisma.tradeTask.findFirst({
+      where: { orderId },
+      select: { id: true },
+    });
+    if (task) {
+      return 'extension';
+    }
+    return isExtensionFirstTradeFlowEnabled() ? 'extension' : 'manual';
   }
 
   async applyTradeFailedFromPoll(orderId: string, reason: string) {
@@ -813,13 +869,13 @@ export class TradesService {
           ? TradeOperationStatus.FAILED_SAFE
           : TradeOperationStatus.FAILED_DISPUTE;
 
-      await tx.tradeOperation.update({
-        where: { id: current.tradeOperation.id },
-        data: {
-          status: failTradeStatus,
-          providerRef: `poll-fail-${orderId}`,
-          failReasonCode: reason,
-        },
+      await this.tradeOperationStateService.transitionByEvent(tx, {
+        tradeOperationId: current.tradeOperation.id,
+        from: current.tradeOperation.status,
+        event: mode === MockFailMode.SAFE ? 'FAIL_SAFE' : 'MISMATCH_DETECTED',
+        reason,
+        providerRef: `poll-fail-${orderId}`,
+        failReasonCode: reason,
       });
 
       if (mode === MockFailMode.SAFE) {
@@ -837,10 +893,10 @@ export class TradesService {
           data: { releasedMinor: current.hold.amountMinor },
         });
 
-        await this.orderStateService.transition(tx, {
+        await this.orderStateService.transitionByEvent(tx, {
           orderId: current.id,
           from: OrderStatus.WAITING_TRADE,
-          to: OrderStatus.FAILED,
+          event: 'FAIL_SAFE',
           reason,
         });
 
@@ -856,10 +912,10 @@ export class TradesService {
           data: { status: InventoryAssetStatus.LISTED },
         });
       } else {
-        await this.orderStateService.transition(tx, {
+        await this.orderStateService.transitionByEvent(tx, {
           orderId: current.id,
           from: OrderStatus.WAITING_TRADE,
-          to: OrderStatus.DISPUTE,
+          event: 'MISMATCH_DETECTED',
           reason,
         });
 
@@ -901,6 +957,96 @@ export class TradesService {
           aggregateType: 'order',
           aggregateId: current.id,
           payload: { orderId: current.id, reasonCode: reason },
+        },
+      });
+
+      return tx.order.findUnique({
+        where: { id: current.id },
+        include: {
+          lot: {
+            include: { inventoryAsset: { include: { itemDefinition: true } } },
+          },
+          hold: true,
+          tradeOperation: true,
+        },
+      });
+    });
+
+    return toJsonSafe(order);
+  }
+
+  async applyUnknownTradeStateFromPoll(orderId: string, observedState: string) {
+    const idempotencyKey = `poll-unknown:${orderId}:${observedState}`;
+    const existingAudit = await this.prisma.auditLog.findFirst({
+      where: {
+        entityType: 'order',
+        entityId: orderId,
+        action: 'TRADE_POLL_UNKNOWN',
+        idempotencyKey,
+      },
+    });
+    if (existingAudit) {
+      return this.getOrderDetails(orderId);
+    }
+
+    const order = await this.prisma.$transaction(async (tx) => {
+      const current = await tx.order.findUnique({
+        where: { id: orderId },
+        include: { hold: true, lot: true, tradeOperation: true },
+      });
+      if (!current || !current.tradeOperation) {
+        throw new NotFoundException('Trade operation not found');
+      }
+      if (current.status !== OrderStatus.WAITING_TRADE) {
+        return current;
+      }
+
+      await this.tradeOperationStateService.transitionByEvent(tx, {
+        tradeOperationId: current.tradeOperation.id,
+        from: current.tradeOperation.status,
+        event: 'UNKNOWN_STATE_DETECTED',
+        reason: observedState,
+        failReasonCode: observedState,
+        providerRef: `poll-unknown-${orderId}`,
+      });
+
+      await this.orderStateService.transitionByEvent(tx, {
+        orderId: current.id,
+        from: OrderStatus.WAITING_TRADE,
+        event: 'UNKNOWN_STATE_DETECTED',
+        reason: observedState,
+      });
+
+      await this.lotStateService.transition(tx, {
+        lotId: current.lotId,
+        from: current.lot.status,
+        to: LotStatus.BLOCKED,
+      });
+      await tx.inventoryAsset.update({
+        where: { id: current.lot.inventoryAssetId },
+        data: { status: InventoryAssetStatus.BLOCKED },
+      });
+
+      await tx.auditLog.create({
+        data: {
+          entityType: 'order',
+          entityId: current.id,
+          action: 'TRADE_POLL_UNKNOWN',
+          idempotencyKey,
+          afterState: {
+            status: OrderStatus.DISPUTE,
+            tradeStatus: TradeOperationStatus.FAILED_DISPUTE,
+            observedState,
+          },
+          ...getAuditContext(),
+        },
+      });
+      await tx.outboxEvent.create({
+        data: {
+          eventType: 'ORDER_DISPUTE_OPENED',
+          aggregateType: 'order',
+          aggregateId: current.id,
+          payload: { orderId: current.id, reasonCode: observedState },
         },
       });
 

@@ -46,8 +46,10 @@ export function UserMenu() {
       {open ? (
         <div className="user-menu-panel" data-testid="user-menu-panel">
           {steamLinked ? (
-            <div className="user-menu-meta" title="Привязанный Steam ID">
-              Steam {user.steamId}
+            <div className="user-menu-meta" title="Привязанный Steam">
+              {user.steamPersonaName
+                ? `${user.steamPersonaName} · ${user.steamId}`
+                : `Steam ${user.steamId}`}
             </div>
           ) : (
             <Link

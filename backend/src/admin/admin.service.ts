@@ -12,14 +12,29 @@ import {
   UserStatus,
 } from '@prisma/client';
 import { toJsonSafe } from '../common/json-safe.util';
+import { getAuditContext } from '../common/observability/audit-context';
+import {
+  extensionFlowAlertThresholds,
+  isExtensionFlowObservabilityEnabled,
+} from '../common/observability/extension-flow-observability.config';
+import { ExtensionFlowMetricsService } from '../common/observability/extension-flow-metrics.service';
+import { ObservabilityAlertService } from '../common/observability/observability-alert.service';
 import { LotStateService } from '../lots/lot-state.service';
 import { OrderStateService } from '../orders/order-state.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { LedgerService } from '../wallet/ledger.service';
 import { SettlementService } from '../settlement/settlement.service';
 import { getEnvAllowlistSteamIds } from '../settlement/settlement.config';
+import { settlementHoldReverseIdempotencyKey } from '../settlement/settlement-hold.config';
 import { TradesService } from '../trades/trades.service';
 import { TradeShadowComparatorService } from '../trades/trade-shadow-comparator.service';
+import { DisputeFinancialGuardService } from '../disputes/dispute-financial-guard.service';
+import { DisputeOpsService } from '../disputes/dispute-ops.service';
+import { ExtensionRolloutService } from '../extension/extension-rollout.service';
+import {
+  assertDisputeReasonAllowed,
+  isKnownDisputeReasonCode,
+} from '../disputes/dispute-reason-codes';
 import { ListAdminLotsQueryDto } from './dto/list-admin-lots-query.dto';
 import { ListAdminOrdersQueryDto } from './dto/list-admin-orders-query.dto';
 import { DisputeResolution } from './dto/resolve-dispute.dto';
@@ -45,7 +60,148 @@ export class AdminService {
     private readonly tradesService: TradesService,
     private readonly shadowComparator: TradeShadowComparatorService,
     private readonly settlementService: SettlementService,
+    private readonly disputeOpsService: DisputeOpsService,
+    private readonly disputeFinancialGuard: DisputeFinancialGuardService,
+    private readonly extensionFlowMetrics: ExtensionFlowMetricsService,
+    private readonly observabilityAlerts: ObservabilityAlertService,
+    private readonly extensionRolloutService: ExtensionRolloutService,
   ) {}
+
+  async getExtensionRolloutStatus() {
+    return toJsonSafe(await this.extensionRolloutService.getOpsSnapshot());
+  }
+
+  async listExtensionRolloutAllowlist() {
+    const entries = await this.prisma.extensionRolloutAllowlistEntry.findMany({
+      orderBy: { createdAt: 'desc' },
+    });
+    const snapshot = await this.extensionRolloutService.getOpsSnapshot();
+    return toJsonSafe({
+      envSteamIds: snapshot.allowlist.envSteamIds,
+      entries,
+    });
+  }
+
+  async upsertExtensionRolloutAllowlist(
+    steamId: string,
+    body: UpsertAllowlistEntryDto,
+    actorUserId: string,
+  ) {
+    const entry = await this.prisma.extensionRolloutAllowlistEntry.upsert({
+      where: { steamId },
+      create: {
+        steamId,
+        enabled: body.enabled ?? true,
+        note: body.note ?? null,
+      },
+      update: {
+        ...(body.enabled !== undefined ? { enabled: body.enabled } : {}),
+        ...(body.note !== undefined ? { note: body.note } : {}),
+      },
+    });
+
+    await this.prisma.auditLog.create({
+      data: {
+        actorUserId,
+        entityType: 'extension_rollout_allowlist',
+        entityId: steamId,
+        action: 'EXTENSION_ROLLOUT_ALLOWLIST_UPSERT',
+        afterState: { enabled: entry.enabled, note: entry.note },
+        ...getAuditContext(),
+      },
+    });
+
+    return toJsonSafe(entry);
+  }
+
+  async deleteExtensionRolloutAllowlist(steamId: string, actorUserId: string) {
+    const entry = await this.prisma.extensionRolloutAllowlistEntry.findUnique({
+      where: { steamId },
+    });
+    if (!entry) {
+      throw new NotFoundException('Extension rollout allowlist entry not found');
+    }
+
+    await this.prisma.extensionRolloutAllowlistEntry.delete({ where: { steamId } });
+
+    await this.prisma.auditLog.create({
+      data: {
+        actorUserId,
+        entityType: 'extension_rollout_allowlist',
+        entityId: steamId,
+        action: 'EXTENSION_ROLLOUT_ALLOWLIST_DELETE',
+        ...getAuditContext(),
+      },
+    });
+
+    return { success: true };
+  }
+
+  async getExtensionFlowMetrics() {
+    if (!isExtensionFlowObservabilityEnabled()) {
+      return {
+        enabled: false,
+        message: 'Set ENABLE_EXTENSION_FLOW_OBSERVABILITY=true',
+      };
+    }
+
+    const since = new Date(Date.now() - 24 * 60 * 60 * 1000);
+    const [ordersStarted24h, ordersCompleted24h, ordersDisputed24h, tasksFailed24h] =
+      await Promise.all([
+        this.prisma.order.count({
+          where: { createdAt: { gte: since }, status: { not: OrderStatus.CANCELED } },
+        }),
+        this.prisma.order.count({
+          where: {
+            updatedAt: { gte: since },
+            status: {
+              in: [
+                OrderStatus.TRADE_CONFIRMED,
+                OrderStatus.SETTLEMENT_HOLD,
+                OrderStatus.COMPLETED,
+              ],
+            },
+          },
+        }),
+        this.prisma.order.count({
+          where: {
+            updatedAt: { gte: since },
+            status: OrderStatus.DISPUTE,
+          },
+        }),
+        this.prisma.tradeTask.count({
+          where: {
+            updatedAt: { gte: since },
+            status: 'FAILED',
+          },
+        }),
+      ]);
+
+    const kpis = this.extensionFlowMetrics.snapshotKpis();
+    const thresholds = extensionFlowAlertThresholds();
+
+    return toJsonSafe({
+      enabled: true,
+      timestamp: new Date().toISOString(),
+      inMemory: kpis,
+      activeAlerts: this.observabilityAlerts.snapshotActiveAlerts(),
+      thresholds,
+      db24h: {
+        orders_started: ordersStarted24h,
+        orders_completed: ordersCompleted24h,
+        orders_disputed: ordersDisputed24h,
+        tasks_failed: tasksFailed24h,
+        completion_rate_pct:
+          ordersStarted24h > 0
+            ? Math.round((ordersCompleted24h / ordersStarted24h) * 1000) / 10
+            : 0,
+        dispute_rate_pct:
+          ordersStarted24h > 0
+            ? Math.round((ordersDisputed24h / ordersStarted24h) * 1000) / 10
+            : 0,
+      },
+    });
+  }
 
   async listUsers() {
     const users = await this.prisma.user.findMany({
@@ -224,7 +380,68 @@ export class AdminService {
       tradePollEvents,
       verificationSnapshots,
       settlement,
+      timeline: await this.disputeOpsService.buildOrderTimeline(orderId),
     });
+  }
+
+  listDisputeReasonCodes() {
+    return this.disputeOpsService.listReasonCodes();
+  }
+
+  async getOrderTimeline(orderId: string) {
+    const entries = await this.disputeOpsService.buildOrderTimeline(orderId);
+    return { orderId, entries };
+  }
+
+  async reverseSettlementHold(
+    orderId: string,
+    actorUserId: string,
+    reasonCode: string,
+    reasonNote: string,
+    idempotencyKey: string,
+  ) {
+    if (!isKnownDisputeReasonCode(reasonCode)) {
+      throw new BadRequestException(`Unknown dispute reason: ${reasonCode}`);
+    }
+    assertDisputeReasonAllowed(reasonCode, 'ADMIN');
+
+    const order = await this.prisma.order.findUnique({
+      where: { id: orderId },
+      include: { hold: true },
+    });
+    if (!order?.hold) {
+      throw new NotFoundException('Order hold not found');
+    }
+
+    this.disputeFinancialGuard.assertReverseSettlementHoldAllowed(
+      order.status,
+      order.hold,
+    );
+
+    await this.settlementService.reverseSettlementHold(
+      orderId,
+      reasonNote,
+      settlementHoldReverseIdempotencyKey(orderId),
+      actorUserId,
+    );
+
+    await this.prisma.auditLog.create({
+      data: {
+        actorUserId,
+        entityType: 'order',
+        entityId: orderId,
+        action: 'ADMIN_REVERSE_SETTLEMENT_HOLD',
+        reason: reasonNote,
+        beforeState: { status: OrderStatus.SETTLEMENT_HOLD },
+        afterState: {
+          status: OrderStatus.DISPUTE,
+          reasonCode,
+        },
+        idempotencyKey,
+      },
+    });
+
+    return this.getOrderCard(orderId);
   }
 
   async retrySettlement(
@@ -383,12 +600,18 @@ export class AdminService {
   async openDispute(
     orderId: string,
     actorUserId: string,
-    reason: string,
+    params: {
+      reason?: string;
+      reasonCode?: string;
+      reasonNote?: string;
+    },
     idempotencyKey: string,
   ) {
     if (!idempotencyKey) {
       throw new BadRequestException('Idempotency-Key header is required');
     }
+
+    const { reasonCode, reasonNote } = this.resolveAdminReason(params, 'ADMIN_DISPUTE');
 
     const existing = await this.prisma.auditLog.findFirst({
       where: {
@@ -425,7 +648,7 @@ export class AdminService {
         from: current.status,
         to: OrderStatus.DISPUTE,
         actorUserId,
-        reason,
+        reason: reasonCode,
       });
 
       if (current.tradeOperation) {
@@ -433,7 +656,7 @@ export class AdminService {
           where: { id: current.tradeOperation.id },
           data: {
             status: TradeOperationStatus.FAILED_DISPUTE,
-            failReasonCode: 'ADMIN_DISPUTE',
+            failReasonCode: reasonCode,
           },
         });
       }
@@ -443,7 +666,7 @@ export class AdminService {
         from: current.lot.status,
         to: LotStatus.BLOCKED,
         actorUserId,
-        reason,
+        reason: reasonCode,
       });
 
       await tx.inventoryAsset.update({
@@ -457,10 +680,18 @@ export class AdminService {
           entityType: 'order',
           entityId: orderId,
           action: 'ADMIN_DISPUTE_OPENED',
-          reason,
-          beforeState: { status: current.status },
-          afterState: { status: OrderStatus.DISPUTE },
+          reason: reasonNote,
+          beforeState: {
+            status: current.status,
+            tradeStatus: current.tradeOperation?.status ?? null,
+          },
+          afterState: {
+            status: OrderStatus.DISPUTE,
+            reasonCode,
+            openedBy: 'admin',
+          },
           idempotencyKey,
+          ...getAuditContext(),
         },
       });
 
@@ -469,7 +700,11 @@ export class AdminService {
           eventType: 'ORDER_DISPUTE_OPENED',
           aggregateType: 'order',
           aggregateId: orderId,
-          payload: { reason, openedBy: 'admin' },
+          payload: {
+            reasonCode,
+            reasonNote,
+            openedBy: 'admin',
+          },
         },
       });
 
@@ -483,12 +718,23 @@ export class AdminService {
     orderId: string,
     actorUserId: string,
     resolution: DisputeResolution,
-    reason: string,
+    params: {
+      reason?: string;
+      reasonCode?: string;
+      reasonNote?: string;
+    },
     idempotencyKey: string,
   ) {
     if (!idempotencyKey) {
       throw new BadRequestException('Idempotency-Key header is required');
     }
+
+    const { reasonCode, reasonNote } = this.resolveAdminReason(
+      params,
+      resolution === DisputeResolution.BUYER
+        ? 'ADMIN_RESOLVE_BUYER'
+        : 'ADMIN_RESOLVE_SELLER',
+    );
 
     const existing = await this.prisma.auditLog.findFirst({
       where: {
@@ -519,6 +765,8 @@ export class AdminService {
       }
 
       if (resolution === DisputeResolution.BUYER) {
+        this.disputeFinancialGuard.assertResolveBuyerAllowed(current.hold);
+
         await this.ledgerService.refundHold({
           buyerUserId: current.buyerId,
           orderId: current.id,
@@ -538,7 +786,7 @@ export class AdminService {
           from: OrderStatus.DISPUTE,
           to: OrderStatus.FAILED,
           actorUserId,
-          reason,
+          reason: reasonCode,
         });
 
         await this.lotStateService.transition(tx, {
@@ -546,7 +794,7 @@ export class AdminService {
           from: current.lot.status,
           to: LotStatus.ACTIVE,
           actorUserId,
-          reason,
+          reason: reasonCode,
           extra: { reservedByUserId: null },
         });
 
@@ -555,6 +803,11 @@ export class AdminService {
           data: { status: InventoryAssetStatus.LISTED },
         });
       } else {
+        this.disputeFinancialGuard.assertResolveSellerAllowed(
+          current.hold,
+          current.lot,
+        );
+
         if (current.tradeOperation) {
           await tx.tradeOperation.update({
             where: { id: current.tradeOperation.id },
@@ -588,7 +841,7 @@ export class AdminService {
           from: OrderStatus.DISPUTE,
           to: OrderStatus.COMPLETED,
           actorUserId,
-          reason,
+          reason: reasonCode,
         });
 
         await this.lotStateService.transition(tx, {
@@ -596,7 +849,7 @@ export class AdminService {
           from: current.lot.status,
           to: LotStatus.SOLD,
           actorUserId,
-          reason,
+          reason: reasonCode,
         });
 
         await tx.inventoryAsset.update({
@@ -611,16 +864,21 @@ export class AdminService {
           entityType: 'order',
           entityId: orderId,
           action: 'ADMIN_DISPUTE_RESOLVED',
-          reason,
-          beforeState: { status: OrderStatus.DISPUTE },
+          reason: reasonNote,
+          beforeState: {
+            status: OrderStatus.DISPUTE,
+            holdCapturedMinor: current.hold.capturedMinor.toString(),
+          },
           afterState: {
             status:
               resolution === DisputeResolution.BUYER
                 ? OrderStatus.FAILED
                 : OrderStatus.COMPLETED,
             resolution,
+            reasonCode,
           },
           idempotencyKey,
+          ...getAuditContext(),
         },
       });
 
@@ -632,7 +890,12 @@ export class AdminService {
               : 'ORDER_COMPLETED',
           aggregateType: 'order',
           aggregateId: orderId,
-          payload: { resolution, reason, resolvedBy: 'admin' },
+          payload: {
+            resolution,
+            reasonCode,
+            reasonNote,
+            resolvedBy: 'admin',
+          },
         },
       });
 
@@ -1136,5 +1399,27 @@ export class AdminService {
     });
 
     return this.getLot(lotId);
+  }
+
+  private resolveAdminReason(
+    params: {
+      reason?: string;
+      reasonCode?: string;
+      reasonNote?: string;
+    },
+    fallbackCode: string,
+  ): { reasonCode: string; reasonNote: string } {
+    const reasonCode = params.reasonCode ?? fallbackCode;
+    if (!isKnownDisputeReasonCode(reasonCode)) {
+      throw new BadRequestException(`Unknown dispute reason code: ${reasonCode}`);
+    }
+    assertDisputeReasonAllowed(reasonCode, 'ADMIN');
+    const reasonNote = params.reasonNote ?? params.reason ?? reasonCode;
+    if (reasonNote.length < 3) {
+      throw new BadRequestException(
+        'reasonNote or reason must be at least 3 characters',
+      );
+    }
+    return { reasonCode, reasonNote };
   }
 }

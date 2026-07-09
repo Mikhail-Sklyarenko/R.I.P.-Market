@@ -62,8 +62,15 @@ export class SteamInventoryProvider implements InventoryProvider {
     const latest = await this.syncCache.getLatestRun(ownerId);
     const now = new Date();
 
-    if (!force && latest && this.syncCache.isCacheValid(latest, now)) {
-      const result = this.toSyncResult(latest, true, false);
+    if (latest && latest.steamId !== steamId) {
+      await this.syncCache.clearRuns(ownerId);
+    }
+
+    const latestAfterSteamChange =
+      latest?.steamId === steamId ? latest : await this.syncCache.getLatestRun(ownerId);
+
+    if (!force && latestAfterSteamChange && this.syncCache.isCacheValid(latestAfterSteamChange, now)) {
+      const result = this.toSyncResult(latestAfterSteamChange, true, false);
       this.recordMetrics(
         'CACHE_HIT',
         startedAt,
@@ -74,12 +81,16 @@ export class SteamInventoryProvider implements InventoryProvider {
       return result;
     }
 
-    if (!force && latest && this.syncCache.isWithinRateLimit(latest, now)) {
+    if (
+      !force &&
+      latestAfterSteamChange &&
+      this.syncCache.isWithinRateLimit(latestAfterSteamChange, now)
+    ) {
       const stale =
-        latest.status !== InventorySyncStatus.SUCCESS ||
-        latest.expiresAt <= now;
+        latestAfterSteamChange.status !== InventorySyncStatus.SUCCESS ||
+        latestAfterSteamChange.expiresAt <= now;
       const result = this.toSyncResult(
-        latest,
+        latestAfterSteamChange,
         true,
         stale,
         stale ? 'Steam sync rate-limited; serving cached inventory' : null,
@@ -129,12 +140,12 @@ export class SteamInventoryProvider implements InventoryProvider {
       const errorCode = this.resolveErrorCode(error);
       const hasCachedAssets = await this.hasCachedAssets(ownerId);
 
-      if (latest || hasCachedAssets) {
+      if (latestAfterSteamChange || hasCachedAssets) {
         const run = await this.syncCache.recordRun({
           userId: ownerId,
           steamId,
           status: InventorySyncStatus.FAILED,
-          itemCount: latest?.itemCount ?? 0,
+          itemCount: latestAfterSteamChange?.itemCount ?? 0,
           errorCode,
         });
 
@@ -290,9 +301,9 @@ export class SteamInventoryProvider implements InventoryProvider {
       error &&
       typeof error === 'object' &&
       'code' in error &&
-      (error as { code: string }).code === ErrorCode.STEAM_PROFILE_PRIVATE
+      typeof (error as { code: string }).code === 'string'
     ) {
-      return ErrorCode.STEAM_PROFILE_PRIVATE;
+      return (error as { code: string }).code;
     }
     return ErrorCode.INVENTORY_STALE;
   }

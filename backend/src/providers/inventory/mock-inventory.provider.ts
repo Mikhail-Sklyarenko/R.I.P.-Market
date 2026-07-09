@@ -101,6 +101,23 @@ export class MockInventoryProvider implements InventoryProvider {
       },
     });
 
+    if (process.env.ENABLE_MOCK_TRADE === 'true') {
+      await this.prisma.inventoryAsset.updateMany({
+        where: {
+          ownerId,
+          status: {
+            in: [
+              InventoryAssetStatus.SOLD,
+              InventoryAssetStatus.LISTED,
+              InventoryAssetStatus.RESERVED,
+              InventoryAssetStatus.BLOCKED,
+            ],
+          },
+        },
+        data: { status: InventoryAssetStatus.AVAILABLE },
+      });
+    }
+
     const run = await this.syncCache.recordRun({
       userId: ownerId,
       steamId: _steamId ?? `mock-${ownerId}`,

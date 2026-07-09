@@ -1,10 +1,11 @@
 import { HttpStatus, Injectable, NotFoundException } from '@nestjs/common';
-import { UserRole, UserStatus, WalletAccountType } from '@prisma/client';
+import { UserRole, UserStatus, WalletAccountType, InventoryAssetStatus } from '@prisma/client';
 import { AppException } from '../common/errors/app.exception';
 import { ErrorCode } from '../common/errors/error-codes';
 import { isMockSteamId } from '../common/steam-id.util';
 import { toJsonSafe } from '../common/json-safe.util';
 import { PrismaService } from '../prisma/prisma.service';
+import { SteamProfileService } from '../providers/auth/steam-profile.service';
 import { LedgerService } from '../wallet/ledger.service';
 
 type MockIdentity = {
@@ -23,6 +24,7 @@ export class UsersService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly ledgerService: LedgerService,
+    private readonly steamProfileService: SteamProfileService,
   ) {}
 
   async ensureMockUsers(): Promise<void> {
@@ -140,13 +142,13 @@ export class UsersService {
     return user;
   }
 
-  async linkSteamId(userId: string, steamId: string, username?: string) {
+  async linkSteamId(userId: string, steamId: string, personaName?: string) {
     const existing = await this.prisma.user.findUnique({ where: { steamId } });
     if (existing && existing.id !== userId) {
       if (this.isDevSteamLinkReassignEnabled()) {
         await this.prisma.user.update({
           where: { id: existing.id },
-          data: { steamId: null },
+          data: { steamId: null, steamPersonaName: null },
         });
       } else {
         throw new AppException(
@@ -157,16 +159,76 @@ export class UsersService {
       }
     }
 
+    const current = await this.prisma.user.findUnique({ where: { id: userId } });
+    if (!current) {
+      throw new NotFoundException('User not found');
+    }
+
+    const preserveMockUsername = MOCK_IDENTITIES.some(
+      (identity) => identity.username === current.username,
+    );
+
     const user = await this.prisma.user.update({
       where: { id: userId },
       data: {
         steamId,
-        ...(username ? { username } : {}),
+        steamPersonaName: personaName ?? null,
+        ...(personaName && !preserveMockUsername
+          ? { username: personaName }
+          : {}),
       },
     });
 
+    await this.clearInventoryForSteamChange(userId);
     await this.ledgerService.ensureUserWallet(user.id);
     return user;
+  }
+
+  async unlinkSteamId(userId: string) {
+    const user = await this.prisma.user.findUnique({ where: { id: userId } });
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+    if (!user.steamId) {
+      throw new AppException(
+        ErrorCode.BAD_REQUEST,
+        'Steam account is not linked',
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+
+    const updated = await this.prisma.user.update({
+      where: { id: userId },
+      data: {
+        steamId: null,
+        steamPersonaName: null,
+      },
+    });
+
+    await this.clearInventoryForSteamChange(userId);
+    await this.revokeExtensionSessions(userId);
+    return updated;
+  }
+
+  private async revokeExtensionSessions(userId: string): Promise<void> {
+    await this.prisma.extensionSession.updateMany({
+      where: { userId, status: 'ACTIVE' },
+      data: {
+        status: 'REVOKED',
+        revokedAt: new Date(),
+      },
+    });
+  }
+
+  private async clearInventoryForSteamChange(userId: string): Promise<void> {
+    await this.prisma.inventorySyncRun.deleteMany({ where: { userId } });
+    await this.prisma.inventoryAsset.updateMany({
+      where: {
+        ownerId: userId,
+        status: InventoryAssetStatus.AVAILABLE,
+      },
+      data: { status: InventoryAssetStatus.REMOVED },
+    });
   }
 
   async getById(userId: string) {
@@ -185,7 +247,41 @@ export class UsersService {
       throw new NotFoundException('User not found');
     }
 
-    return toJsonSafe(user);
+    const enriched = await this.enrichSteamPersonaName(user);
+    return toJsonSafe(enriched);
+  }
+
+  private async enrichSteamPersonaName<
+    T extends {
+      id: string;
+      steamId: string | null;
+      steamPersonaName: string | null;
+    },
+  >(user: T): Promise<T> {
+    if (!user.steamId || user.steamPersonaName) {
+      return user;
+    }
+
+    const personaName = await this.steamProfileService.fetchPersonaName(
+      user.steamId,
+    );
+    if (!personaName) {
+      return user;
+    }
+
+    const updated = await this.prisma.user.update({
+      where: { id: user.id },
+      data: { steamPersonaName: personaName },
+      include: {
+        wallet: {
+          include: {
+            accounts: true,
+          },
+        },
+      },
+    });
+
+    return updated as unknown as T;
   }
 
   private isDevSteamLinkReassignEnabled(): boolean {

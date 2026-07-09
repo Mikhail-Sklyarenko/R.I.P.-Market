@@ -1,6 +1,7 @@
 import { Link, NavLink, Outlet } from 'react-router-dom';
 import { useAuth } from '../auth/AuthContext';
 import { useWalletSummary } from '../hooks/useWalletSummary';
+import { hasLinkedSteamId } from '../utils/steam-id';
 import { MoneyDisplay } from './MoneyDisplay';
 import { NotificationsBell } from './NotificationsBell';
 import { UserMenu } from './UserMenu';
@@ -14,6 +15,7 @@ export function Layout() {
   const { summary: walletSummary } = useWalletSummary();
   const isAuthenticated = Boolean(token);
   const isSeller = user?.role === 'SELLER';
+  const canSell = isSeller || hasLinkedSteamId(user?.steamId);
 
   return (
     <div className="app-shell">
@@ -28,7 +30,7 @@ export function Layout() {
             <NavLink to="/catalog" className={navLinkClass} data-testid="nav-catalog">
               Каталог
             </NavLink>
-            {isAuthenticated && isSeller ? (
+            {isAuthenticated && canSell ? (
               <>
                 <NavLink
                   to="/sell/inventory"

@@ -18,6 +18,7 @@ import { getProvidersConfig } from '../providers/config';
 import { getPaymentConfig } from '../providers/payment/payment.config';
 import { isRealSettlementEnabled } from '../settlement/settlement.config';
 import { isLiveVerificationMode } from '../trades/trade-verification.config';
+import { getExtensionPublicConfig } from '../extension/extension-public.config';
 import { extractOpenIdParams } from '../providers/auth/steam-openid.util';
 import { MockLoginDto } from './dto/mock-login.dto';
 import { SteamLinkDto } from './dto/steam-link.dto';
@@ -59,6 +60,7 @@ export class AuthController {
         1,
         Number(process.env.TRADE_TIMEOUT_MINUTES ?? 60) || 60,
       ),
+      extension: getExtensionPublicConfig(),
     };
   }
 

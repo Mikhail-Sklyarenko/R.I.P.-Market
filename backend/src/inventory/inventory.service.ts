@@ -92,7 +92,10 @@ export class InventoryService {
     });
 
     const force =
-      !latest || latest.expiresAt <= new Date() || latest.status !== 'SUCCESS';
+      process.env.ENABLE_MOCK_TRADE === 'true' ||
+      !latest ||
+      latest.expiresAt <= new Date() ||
+      latest.status !== 'SUCCESS';
 
     const syncResult = await this.inventoryProvider.syncInventory(
       ownerId,

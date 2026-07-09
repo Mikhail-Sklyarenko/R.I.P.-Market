@@ -56,6 +56,14 @@ export async function fetchSteamInventoryPage(
 
   const { status, body } = await fetchFn(url.toString());
 
+  if (status === 429) {
+    const error = new Error(
+      'Steam inventory API rate-limited (429). Wait 1-2 minutes and force-refresh again.',
+    );
+    (error as Error & { code: string }).code = 'STEAM_RATE_LIMITED';
+    throw error;
+  }
+
   if (status >= 400) {
     if (isPrivateInventoryResponse(body, status)) {
       const error = new Error('Steam inventory is private');

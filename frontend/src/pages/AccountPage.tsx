@@ -3,25 +3,30 @@ import {
   getAuthConfig,
   getSteamLinkUrl,
   getUserMe,
+  unlinkSteam,
   updateTradeUrl,
 } from '../api/marketplace';
 import type { AuthConfig } from '../api/types';
 import { useAuth } from '../auth/AuthContext';
 import { ErrorAlert } from '../components/ErrorAlert';
+import { ExtensionConnectPanel } from '../components/ExtensionConnectPanel';
 import { ReadinessChecklist } from '../components/ReadinessChecklist';
 import { hasLinkedSteamId } from '../utils/steam-id';
+import { disconnectExtension } from '../utils/extension';
 import { isValidSteamTradeUrl } from '../utils/trade-url';
 import { profileToAuthUser } from '../utils/user-profile';
 import { formatUserRole, formatUserStatus } from '../utils/format';
 
 const API_BASE_URL =
   import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:3000/api/v1';
+const STEAM_LOGOUT_URL = 'https://steamcommunity.com/login/logout/';
 
 export function AccountPage() {
   const { token, user, updateUser } = useAuth();
   const [config, setConfig] = useState<AuthConfig | null>(null);
   const [tradeUrlInput, setTradeUrlInput] = useState('');
   const [linkLoading, setLinkLoading] = useState(false);
+  const [changeSteamLoading, setChangeSteamLoading] = useState(false);
   const [saveLoading, setSaveLoading] = useState(false);
   const [tradeUrlError, setTradeUrlError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
@@ -69,6 +74,39 @@ export function AccountPage() {
     }
   }
 
+  async function handleChangeSteam() {
+    if (!token) {
+      return;
+    }
+
+    const confirmed = window.confirm(
+      'Отвязать текущий Steam и привязать другой аккаунт?\n\n' +
+        'Сначала откроется выход из Steam в браузере — войдите под нужным аккаунтом, ' +
+        'затем завершите привязку на этой странице.',
+    );
+    if (!confirmed) {
+      return;
+    }
+
+    setChangeSteamLoading(true);
+    setError(null);
+    setSuccessMessage(null);
+
+    try {
+      const profile = await unlinkSteam(token);
+      updateUser(profileToAuthUser(profile));
+      await disconnectExtension();
+      window.open(STEAM_LOGOUT_URL, '_blank', 'noopener,noreferrer');
+      setSuccessMessage(
+        'Steam отвязан. Выйдите из Steam в открывшейся вкладке, затем нажмите «Привязать Steam».',
+      );
+    } catch (err) {
+      setError(err);
+    } finally {
+      setChangeSteamLoading(false);
+    }
+  }
+
   async function handleSaveTradeUrl() {
     if (!token) {
       return;
@@ -106,6 +144,8 @@ export function AccountPage() {
 
   const steamLinked = hasLinkedSteamId(user?.steamId);
   const canLinkSteam = Boolean(config?.steamLoginAvailable) && Boolean(user) && !steamLinked;
+  const canChangeSteam =
+    Boolean(config?.steamLoginAvailable) && Boolean(user) && steamLinked;
   const showDevAuthHint = import.meta.env.DEV;
 
   return (
@@ -142,6 +182,14 @@ export function AccountPage() {
                 {steamLinked ? user?.steamId : 'Не привязан'}
               </dd>
             </div>
+            {steamLinked ? (
+              <div>
+                <dt>Ник Steam</dt>
+                <dd data-testid="account-steam-persona">
+                  {user?.steamPersonaName ?? 'Загрузка…'}
+                </dd>
+              </div>
+            ) : null}
           </dl>
 
           {showDevAuthHint && config ? (
@@ -174,9 +222,23 @@ export function AccountPage() {
           ) : null}
 
           {steamLinked ? (
-            <p className="success-text" data-testid="steam-linked-message">
-              Steam-аккаунт привязан.
-            </p>
+            <div className="stack" data-testid="steam-linked-panel">
+              <p className="success-text" data-testid="steam-linked-message">
+                Steam-аккаунт привязан
+                {user?.steamPersonaName ? `: ${user.steamPersonaName}` : ''}.
+              </p>
+              {canChangeSteam ? (
+                <button
+                  type="button"
+                  className="button secondary"
+                  disabled={changeSteamLoading || linkLoading}
+                  data-testid="change-steam-button"
+                  onClick={() => void handleChangeSteam()}
+                >
+                  {changeSteamLoading ? 'Отвязка…' : 'Сменить Steam'}
+                </button>
+              ) : null}
+            </div>
           ) : null}
 
           {!canLinkSteam && !steamLinked && config?.authProvider === 'mock' ? (
@@ -184,6 +246,10 @@ export function AccountPage() {
               Привязка Steam доступна, когда backend запущен с{' '}
               <code>AUTH_PROVIDER=steam</code>.
             </p>
+          ) : null}
+
+          {token && config?.extension?.extensionChannelEnabled ? (
+            <ExtensionConnectPanel token={token} />
           ) : null}
 
           <div className="account-trade-url-section">

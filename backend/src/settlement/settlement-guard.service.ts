@@ -55,17 +55,23 @@ export class SettlementGuardService {
       return blocked('TRADE_NOT_CONFIRMED', 'Trade operation is missing');
     }
 
-    if (order.tradeOperation.status !== TradeOperationStatus.CONFIRMED) {
+    const deliveryVerified =
+      order.tradeOperation.status === TradeOperationStatus.DELIVERY_VERIFIED ||
+      order.tradeOperation.status === TradeOperationStatus.CONFIRMED;
+    if (!deliveryVerified) {
       return blocked(
         'TRADE_NOT_CONFIRMED',
-        `Trade operation status is ${order.tradeOperation.status}, expected CONFIRMED`,
+        `Trade operation status is ${order.tradeOperation.status}, expected DELIVERY_VERIFIED`,
       );
     }
 
-    if (order.status !== OrderStatus.TRADE_CONFIRMED) {
+    if (
+      order.status !== OrderStatus.TRADE_CONFIRMED &&
+      order.status !== OrderStatus.SETTLEMENT_HOLD
+    ) {
       return blocked(
         'ORDER_NOT_TRADE_CONFIRMED',
-        `Order status is ${order.status}, expected TRADE_CONFIRMED`,
+        `Order status is ${order.status}, expected TRADE_CONFIRMED or SETTLEMENT_HOLD`,
       );
     }
 

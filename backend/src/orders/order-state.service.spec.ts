@@ -22,7 +22,34 @@ describe('OrderStateService', () => {
 
   it('treats WAITING_TRADE as open status', () => {
     expect(service.isOpenStatus(OrderStatus.WAITING_TRADE)).toBe(true);
+    expect(service.isOpenStatus(OrderStatus.SETTLEMENT_HOLD)).toBe(true);
     expect(service.isOpenStatus(OrderStatus.COMPLETED)).toBe(false);
+  });
+
+  it('contains extension-first transition for settlement hold', () => {
+    const rule = service
+      .getTransitionTable()
+      .find(
+        (entry) =>
+          entry.from === OrderStatus.TRADE_CONFIRMED &&
+          entry.event === 'SETTLEMENT_STARTED' &&
+          entry.to === OrderStatus.SETTLEMENT_HOLD,
+      );
+    expect(rule).toBeDefined();
+  });
+
+  it('requires DELIVERY_VERIFIED guard before settlement', async () => {
+    const orderStatusEvent = { create: jest.fn() };
+    const order = { update: jest.fn() };
+    const tx = { orderStatusEvent, order } as never;
+
+    await expect(
+      service.transitionByEvent(tx, {
+        orderId: 'order-guard',
+        from: OrderStatus.TRADE_CONFIRMED,
+        event: 'SETTLEMENT_STARTED',
+      }),
+    ).rejects.toThrow(BadRequestException);
   });
 
   it('records order transitions in transaction', async () => {

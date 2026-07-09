@@ -104,23 +104,57 @@ export class LotsService {
 
     const commissionMinor = calculateCommissionMinor(dto.priceMinor);
     const sellerReceiveMinor = dto.priceMinor - commissionMinor;
+    const reusableLot = await this.prisma.lot.findFirst({
+      where: { inventoryAssetId: asset.id },
+      orderBy: { createdAt: 'desc' },
+      include: {
+        inventoryAsset: { include: { itemDefinition: true } },
+      },
+    });
 
     const lot = await this.prisma.$transaction(async (tx) => {
-      const created = await tx.lot.create({
-        data: {
-          sellerId,
-          inventoryAssetId: asset.id,
-          status: LotStatus.ACTIVE,
-          priceMinor: BigInt(dto.priceMinor),
-          commissionMinor: BigInt(commissionMinor),
-          sellerReceiveMinor: BigInt(sellerReceiveMinor),
-        },
-        include: {
-          inventoryAsset: { include: { itemDefinition: true } },
-        },
-      });
+      const created =
+        reusableLot && reusableLot.status !== LotStatus.ACTIVE && reusableLot.status !== LotStatus.RESERVED
+          ? await tx.lot.update({
+              where: { id: reusableLot.id },
+              data: {
+                status: LotStatus.ACTIVE,
+                priceMinor: BigInt(dto.priceMinor),
+                commissionMinor: BigInt(commissionMinor),
+                sellerReceiveMinor: BigInt(sellerReceiveMinor),
+                reservedByUserId: null,
+              },
+              include: {
+                inventoryAsset: { include: { itemDefinition: true } },
+              },
+            })
+          : await tx.lot.create({
+              data: {
+                sellerId,
+                inventoryAssetId: asset.id,
+                status: LotStatus.ACTIVE,
+                priceMinor: BigInt(dto.priceMinor),
+                commissionMinor: BigInt(commissionMinor),
+                sellerReceiveMinor: BigInt(sellerReceiveMinor),
+              },
+              include: {
+                inventoryAsset: { include: { itemDefinition: true } },
+              },
+            });
 
-      await this.lotStateService.recordListed(tx, created.id, sellerId);
+      if (reusableLot && reusableLot.id === created.id) {
+        await tx.lotStatusEvent.create({
+          data: {
+            lotId: created.id,
+            fromStatus: reusableLot.status,
+            toStatus: LotStatus.ACTIVE,
+            actorUserId: sellerId,
+            reason: 'relisted',
+          },
+        });
+      } else {
+        await this.lotStateService.recordListed(tx, created.id, sellerId);
+      }
 
       await tx.inventoryAsset.update({
         where: { id: asset.id },

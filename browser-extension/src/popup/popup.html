@@ -1,0 +1,123 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>R.I.P Market Extension</title>
+    <style>
+      body {
+        font-family: system-ui, sans-serif;
+        margin: 0;
+        padding: 16px;
+        width: 300px;
+        color: #e8e8e8;
+        background: #12141a;
+      }
+      h1 {
+        font-size: 16px;
+        margin: 0 0 8px;
+      }
+      p {
+        font-size: 13px;
+        color: #a8adb8;
+        margin: 0 0 12px;
+      }
+      .status {
+        padding: 8px 10px;
+        border-radius: 8px;
+        font-size: 13px;
+        margin-bottom: 12px;
+      }
+      .status.ok {
+        background: #16351f;
+        color: #8fe6a4;
+      }
+      .status.off {
+        background: #2a1d1d;
+        color: #f0a8a8;
+      }
+      button {
+        width: 100%;
+        border: none;
+        border-radius: 8px;
+        padding: 10px 12px;
+        font-size: 13px;
+        cursor: pointer;
+        margin-bottom: 8px;
+      }
+      .primary {
+        background: #5b8def;
+        color: #fff;
+      }
+      .secondary {
+        background: #2a2f3a;
+        color: #e8e8e8;
+      }
+      .hint {
+        font-size: 12px;
+        color: #7d8494;
+      }
+      .field {
+        margin-bottom: 12px;
+      }
+      label {
+        display: block;
+        font-size: 12px;
+        color: #a8adb8;
+        margin-bottom: 6px;
+      }
+      input[type='password'],
+      input[type='text'] {
+        width: 100%;
+        box-sizing: border-box;
+        border: 1px solid #2f3542;
+        border-radius: 8px;
+        background: #1a1d24;
+        color: #e8e8e8;
+        padding: 8px 10px;
+        font-size: 13px;
+      }
+      .field-actions {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 8px;
+      }
+      .field-actions button {
+        margin-bottom: 0;
+      }
+      a {
+        color: #8eb7ff;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>R.I.P Market</h1>
+    <p>Автоотправка trade offer для продавцов.</p>
+    <div id="status" class="status off">Не подключено</div>
+    <button id="open-site" class="primary" type="button">Открыть сайт</button>
+    <button id="disconnect" class="secondary" type="button" hidden>Отключить</button>
+    <p class="hint">Подключите расширение на странице аккаунта на сайте.</p>
+
+    <div class="field">
+      <label for="steam-api-key">Steam Web API Key (опционально)</label>
+      <input
+        id="steam-api-key"
+        type="password"
+        autocomplete="off"
+        placeholder="Fallback при 429 / пустом инвентаре"
+      />
+      <p class="hint">
+        <a href="https://steamcommunity.com/dev/apikey" target="_blank" rel="noreferrer">
+          Получить ключ на steamcommunity.com
+        </a>
+      </p>
+      <div class="field-actions">
+        <button id="save-api-key" class="primary" type="button">Сохранить</button>
+        <button id="clear-api-key" class="secondary" type="button">Очистить</button>
+      </div>
+      <p id="api-key-status" class="hint"></p>
+    </div>
+
+    <script type="module" src="popup.js"></script>
+  </body>
+</html>

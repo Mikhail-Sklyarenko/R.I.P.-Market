@@ -12,6 +12,7 @@ import { MoneyDisplay } from '../components/MoneyDisplay';
 import { OrderStepper } from '../components/OrderStepper';
 import { OrderTradeBuyerPanel } from '../components/OrderTradeBuyerPanel';
 import { OrderTradeSellerPanel } from '../components/OrderTradeSellerPanel';
+import { ExtensionConnectPanel } from '../components/ExtensionConnectPanel';
 import { PageHeader } from '../components/PageHeader';
 import { StatusBadge } from '../components/StatusBadge';
 import {
@@ -26,6 +27,10 @@ import {
 } from '../utils/order-trade';
 import { formatOrderStatus, getOrderNextAction } from '../utils/order-flow';
 import { formatLotStatus } from '../utils/seller-flow';
+import {
+  formatExtensionUiTradeFlowLabel,
+  requestExtensionPoll,
+} from '../utils/extension';
 
 const POLL_STATUSES = new Set(['WAITING_TRADE', 'TRADE_CONFIRMED', 'PAYMENT_RESERVED', 'CREATED']);
 
@@ -38,6 +43,8 @@ export function OrderPage() {
   const [tradeTimeoutMinutes, setTradeTimeoutMinutes] = useState(60);
   const [enableRealSettlement, setEnableRealSettlement] = useState(false);
   const [liveVerificationMode, setLiveVerificationMode] = useState(false);
+  const [extensionTaskPipeline, setExtensionTaskPipeline] = useState(false);
+  const [extensionUiTradeFlow, setExtensionUiTradeFlow] = useState(false);
   const [settlementBanner, setSettlementBanner] = useState(false);
   const [offerInput, setOfferInput] = useState('');
   const [savingOffer, setSavingOffer] = useState(false);
@@ -80,6 +87,12 @@ export function OrderPage() {
         setTradeProvider(config.tradeProvider);
         setEnableRealSettlement(config.enableRealSettlement);
         setLiveVerificationMode(config.liveVerificationMode);
+        setExtensionTaskPipeline(
+          Boolean(config.extension?.extensionTaskPipelineEnabled),
+        );
+        setExtensionUiTradeFlow(
+          Boolean(config.extension?.extensionUiTradeFlowEnabled),
+        );
         setTradeTimeoutMinutes(config.tradeTimeoutMinutes);
       })
       .catch(() => undefined);
@@ -128,6 +141,21 @@ export function OrderPage() {
     const timer = window.setInterval(updateTimeout, 60_000);
     return () => window.clearInterval(timer);
   }, [order, showTradePanels, tradeTimeoutMinutes]);
+
+  useEffect(() => {
+    if (!isSeller || !showTradePanels || !order?.tradeTask) {
+      return;
+    }
+    const phase = order.tradeTask.executionPhase;
+    if (phase === 'OFFER_SENT' || phase === 'CONFIRM_PENDING') {
+      return;
+    }
+    void requestExtensionPoll();
+    const timer = window.setInterval(() => {
+      void requestExtensionPoll();
+    }, 20_000);
+    return () => window.clearInterval(timer);
+  }, [isSeller, showTradePanels, order?.tradeTask?.id, order?.tradeTask?.executionPhase]);
 
   async function handleSaveTradeReference() {
     if (!token || !order || !offerInput.trim()) {
@@ -282,11 +310,28 @@ export function OrderPage() {
               </div>
             ) : null}
 
+            {isSeller && showTradePanels && extensionTaskPipeline && token ? (
+              <ExtensionConnectPanel token={token} compact />
+            ) : null}
+
+            {showTradePanels &&
+            extensionTaskPipeline &&
+            canShowDevPanels(user?.role) ? (
+              <p
+                className="muted small"
+                data-testid="extension-ui-trade-hint"
+              >
+                Extension trade mode:{' '}
+                {formatExtensionUiTradeFlowLabel(extensionUiTradeFlow)}
+              </p>
+            ) : null}
+
             {isSeller && showTradePanels ? (
               <OrderTradeSellerPanel
                 order={order}
                 offerInput={offerInput}
                 savingOffer={savingOffer}
+                extensionMode={extensionTaskPipeline && Boolean(order.tradeTask)}
                 onOfferInputChange={setOfferInput}
                 onSaveTradeReference={() => void handleSaveTradeReference()}
               />
@@ -295,6 +340,7 @@ export function OrderPage() {
             {isBuyer && showTradePanels ? (
               <OrderTradeBuyerPanel
                 order={order}
+                extensionMode={extensionTaskPipeline && Boolean(order.tradeTask)}
                 nextActionTitle={nextAction?.title}
                 nextActionDescription={nextAction?.description}
               />

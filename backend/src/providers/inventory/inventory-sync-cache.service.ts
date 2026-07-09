@@ -54,6 +54,12 @@ export class InventorySyncCacheService {
     return run.status === InventorySyncStatus.SUCCESS && run.expiresAt > now;
   }
 
+  async clearRuns(userId: string): Promise<void> {
+    await this.prisma.inventorySyncRun.deleteMany({
+      where: { userId },
+    });
+  }
+
   isWithinRateLimit(run: { fetchedAt: Date }, now = new Date()): boolean {
     return (
       now.getTime() - run.fetchedAt.getTime() < getInventorySyncMinIntervalMs()

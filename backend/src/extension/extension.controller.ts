@@ -1,0 +1,272 @@
+import {
+  Body,
+  Controller,
+  HttpCode,
+  HttpStatus,
+  Param,
+  Post,
+  UseGuards,
+} from '@nestjs/common';
+import { ApiBearerAuth, ApiHeader, ApiTags } from '@nestjs/swagger';
+import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+import type { AuthUser } from '../common/auth-user.interface';
+import { CurrentUser } from '../common/current-user.decorator';
+import { AppException } from '../common/errors/app.exception';
+import { ErrorCode } from '../common/errors/error-codes';
+import { Prisma } from '@prisma/client';
+import { PrismaService } from '../prisma/prisma.service';
+import { ExtensionHandshakeDto } from './dto/handshake.dto';
+import { SignedEnvelopeDto } from './dto/signed-envelope.dto';
+import { isExtensionChannelEnabled } from './extension-channel.config';
+import { CurrentExtensionAuth } from './current-extension-auth.decorator';
+import { ExtensionSessionGuard } from './guards/extension-session.guard';
+import { ExtensionSignatureGuard } from './guards/extension-signature.guard';
+import { ExtensionSecurityService } from './extension-security.service';
+import { ExtensionTradeTaskService } from './extension-trade-task.service';
+import { isExtensionTaskPipelineEnabled } from './extension-task.config';
+import { isExtensionOfferOrchestratorEnabled } from './extension-offer-orchestrator.config';
+import { isExtensionTradeReferenceEnabled } from '../trades/trade-reference.config';
+import { TradeReferenceReconcileService } from '../trades/trade-reference-reconcile.service';
+import { AntiFraudRuleService } from '../common/observability/anti-fraud.service';
+import { ExtensionRateLimitService } from '../common/observability/extension-rate-limit.service';
+
+@ApiTags('extension')
+@Controller('extension')
+export class ExtensionController {
+  constructor(
+    private readonly extensionSecurity: ExtensionSecurityService,
+    private readonly extensionTaskService: ExtensionTradeTaskService,
+    private readonly tradeReferenceReconcileService: TradeReferenceReconcileService,
+    private readonly prisma: PrismaService,
+    private readonly rateLimit: ExtensionRateLimitService,
+    private readonly antiFraud: AntiFraudRuleService,
+  ) {}
+
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard)
+  @Post('handshake')
+  async handshake(
+    @CurrentUser() user: AuthUser,
+    @Body() dto: ExtensionHandshakeDto,
+  ) {
+    this.ensureEnabled();
+    this.rateLimit.assertHandshakeAllowed(user.sub);
+    this.antiFraud.recordHandshake(user.sub);
+    return this.extensionSecurity.handshake(user.sub, dto.deviceId, dto.publicKey);
+  }
+
+  @ApiBearerAuth()
+  @ApiHeader({ name: 'Authorization', required: true })
+  @UseGuards(ExtensionSessionGuard, ExtensionSignatureGuard)
+  @Post('heartbeat')
+  @HttpCode(HttpStatus.OK)
+  async heartbeat(@CurrentExtensionAuth() auth: { sessionId: string }) {
+    this.assertSignedRateLimit(auth.sessionId);
+    await this.extensionSecurity.touchHeartbeat(auth.sessionId);
+    return { ok: true };
+  }
+
+  @ApiBearerAuth()
+  @ApiHeader({ name: 'Authorization', required: true })
+  @UseGuards(ExtensionSessionGuard, ExtensionSignatureGuard)
+  @Post('commands/ack')
+  @HttpCode(HttpStatus.OK)
+  async commandAck(
+    @CurrentExtensionAuth() auth: { sessionId: string },
+    @Body() dto: SignedEnvelopeDto,
+  ) {
+    this.assertSignedRateLimit(auth.sessionId);
+    const payload = dto.payload;
+    const commandId = String(payload.commandId ?? '');
+    if (!commandId) {
+      throw new AppException(
+        ErrorCode.VALIDATION_ERROR,
+        'payload.commandId is required',
+      );
+    }
+
+    // Idempotent ack persistence: duplicate commandId is accepted as no-op.
+    await this.prisma.extensionCommandAck.upsert({
+      where: {
+        sessionId_commandId: { sessionId: auth.sessionId, commandId },
+      },
+      create: {
+        sessionId: auth.sessionId,
+        commandId,
+        payload: payload as object,
+      },
+      update: {},
+    });
+    return { ok: true, commandId };
+  }
+
+  @ApiBearerAuth()
+  @ApiHeader({ name: 'Authorization', required: true })
+  @UseGuards(ExtensionSessionGuard, ExtensionSignatureGuard)
+  @Post('tasks/poll')
+  @HttpCode(HttpStatus.OK)
+  async pollTasks(
+    @CurrentExtensionAuth() auth: { sessionId: string },
+    @Body() dto: SignedEnvelopeDto,
+  ) {
+    this.assertSignedRateLimit(auth.sessionId);
+    this.ensureTaskPipelineEnabled();
+    const limit = Number(dto.payload.limit ?? 20);
+    const tasks = await this.extensionTaskService.pollTasks(auth.sessionId, limit);
+    return { tasks };
+  }
+
+  @ApiBearerAuth()
+  @ApiHeader({ name: 'Authorization', required: true })
+  @UseGuards(ExtensionSessionGuard, ExtensionSignatureGuard)
+  @Post('tasks/ack')
+  @HttpCode(HttpStatus.OK)
+  async ackTask(
+    @CurrentExtensionAuth() auth: { sessionId: string },
+    @Body() dto: SignedEnvelopeDto,
+  ) {
+    this.assertSignedRateLimit(auth.sessionId);
+    this.ensureTaskPipelineEnabled();
+    const taskId = String(dto.payload.taskId ?? '');
+    const result = String(dto.payload.result ?? 'ACK').toUpperCase();
+    if (!taskId) {
+      throw new AppException(ErrorCode.VALIDATION_ERROR, 'payload.taskId is required');
+    }
+    if (result === 'ACK') {
+      await this.extensionTaskService.ackTask(taskId, dto.payload as object);
+    } else {
+      const reasonCode = String(dto.payload.reasonCode ?? 'NACK');
+      await this.extensionTaskService.nackTask(taskId, reasonCode);
+    }
+    return { ok: true, taskId, result };
+  }
+
+  @ApiBearerAuth()
+  @ApiHeader({ name: 'Authorization', required: true })
+  @UseGuards(ExtensionSessionGuard, ExtensionSignatureGuard)
+  @Post('tasks/progress')
+  @HttpCode(HttpStatus.OK)
+  async reportTaskProgress(@CurrentExtensionAuth() auth: { sessionId: string }, @Body() dto: SignedEnvelopeDto) {
+    this.assertSignedRateLimit(auth.sessionId);
+    this.ensureTaskPipelineEnabled();
+    this.ensureOfferOrchestratorEnabled();
+    const payload = dto.payload;
+    const taskId = String(payload.taskId ?? '');
+    const phase = String(payload.phase ?? '') as never;
+    const idempotencyKey = String(payload.idempotencyKey ?? '');
+    if (!taskId || !phase || !idempotencyKey) {
+      throw new AppException(
+        ErrorCode.VALIDATION_ERROR,
+        'payload.taskId, payload.phase and payload.idempotencyKey are required',
+      );
+    }
+    return this.extensionTaskService.reportTaskProgress({
+      taskId,
+      phase,
+      idempotencyKey,
+      reasonCode: payload.reasonCode ? String(payload.reasonCode) : null,
+      offerId: payload.offerId ? String(payload.offerId) : null,
+      details: payload.details as Prisma.JsonObject | undefined,
+    });
+  }
+
+  @ApiBearerAuth()
+  @ApiHeader({ name: 'Authorization', required: true })
+  @UseGuards(ExtensionSessionGuard, ExtensionSignatureGuard)
+  @Post('orders/:orderId/trade-reference')
+  @HttpCode(HttpStatus.OK)
+  async submitTradeReference(
+    @CurrentExtensionAuth() auth: { userId: string; sessionId: string },
+    @Param('orderId') orderId: string,
+    @Body() dto: SignedEnvelopeDto,
+  ) {
+    this.assertSignedRateLimit(auth.sessionId);
+    this.rateLimit.assertTradeReferenceAllowed(auth.userId);
+    this.ensureExtensionTradeReferenceEnabled();
+    const payload = dto.payload;
+    const payloadOrderId = String(payload.orderId ?? orderId);
+    if (payloadOrderId !== orderId) {
+      throw new AppException(
+        ErrorCode.VALIDATION_ERROR,
+        'payload.orderId must match path orderId',
+      );
+    }
+    const idempotencyKey = String(payload.idempotencyKey ?? '');
+    if (!idempotencyKey) {
+      throw new AppException(
+        ErrorCode.VALIDATION_ERROR,
+        'payload.idempotencyKey is required',
+      );
+    }
+    return this.tradeReferenceReconcileService.reconcile({
+      orderId,
+      sellerId: auth.userId,
+      offerId: payload.offerId ? String(payload.offerId) : null,
+      tradeUrl: payload.tradeUrl ? String(payload.tradeUrl) : null,
+      idempotencyKey,
+      source: 'EXTENSION',
+      actorUserId: auth.userId,
+    });
+  }
+
+  @ApiBearerAuth()
+  @ApiHeader({ name: 'Authorization', required: true })
+  @UseGuards(ExtensionSessionGuard, ExtensionSignatureGuard)
+  @Post('session/rotate')
+  async rotate(@CurrentExtensionAuth() auth: { sessionId: string }) {
+    this.assertSignedRateLimit(auth.sessionId);
+    return this.extensionSecurity.rotateSession(auth.sessionId);
+  }
+
+  @ApiBearerAuth()
+  @ApiHeader({ name: 'Authorization', required: true })
+  @UseGuards(ExtensionSessionGuard, ExtensionSignatureGuard)
+  @Post('session/revoke')
+  @HttpCode(HttpStatus.OK)
+  async revoke(@CurrentExtensionAuth() auth: { sessionId: string }) {
+    this.assertSignedRateLimit(auth.sessionId);
+    await this.extensionSecurity.revokeSession(auth.sessionId);
+    return { ok: true };
+  }
+
+  private assertSignedRateLimit(sessionId: string): void {
+    this.rateLimit.assertSignedRequestAllowed(sessionId);
+  }
+
+  private ensureEnabled(): void {
+    if (!isExtensionChannelEnabled()) {
+      throw new AppException(
+        ErrorCode.EXTENSION_CHANNEL_DISABLED,
+        'Extension channel is disabled',
+      );
+    }
+  }
+
+  private ensureOfferOrchestratorEnabled(): void {
+    if (!isExtensionOfferOrchestratorEnabled()) {
+      throw new AppException(
+        ErrorCode.EXTENSION_CHANNEL_DISABLED,
+        'Extension offer orchestrator is disabled',
+      );
+    }
+  }
+
+  private ensureTaskPipelineEnabled(): void {
+    if (!isExtensionTaskPipelineEnabled()) {
+      throw new AppException(
+        ErrorCode.EXTENSION_CHANNEL_DISABLED,
+        'Extension task pipeline is disabled',
+      );
+    }
+  }
+
+  private ensureExtensionTradeReferenceEnabled(): void {
+    this.ensureEnabled();
+    if (!isExtensionTradeReferenceEnabled()) {
+      throw new AppException(
+        ErrorCode.EXTENSION_CHANNEL_DISABLED,
+        'Extension trade reference endpoint is disabled',
+      );
+    }
+  }
+}

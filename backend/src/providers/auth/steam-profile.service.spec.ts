@@ -8,12 +8,29 @@ describe('SteamProfileService', () => {
     jest.restoreAllMocks();
   });
 
-  it('returns null when STEAM_WEB_API_KEY is not set', async () => {
+  it('returns null when persona cannot be resolved', async () => {
     delete process.env.STEAM_WEB_API_KEY;
     const service = new SteamProfileService();
+    jest.spyOn(global, 'fetch').mockResolvedValue({
+      ok: false,
+    } as Response);
     await expect(
       service.fetchPersonaName('76561198000000000'),
     ).resolves.toBeNull();
+  });
+
+  it('falls back to community XML when web API key is missing', async () => {
+    delete process.env.STEAM_WEB_API_KEY;
+    const service = new SteamProfileService();
+    jest.spyOn(global, 'fetch').mockResolvedValue({
+      ok: true,
+      text: async () =>
+        '<profile><steamID64>76561198000000000</steamID64><steamID><![CDATA[TestPlayer]]></steamID></profile>',
+    } as Response);
+
+    await expect(service.fetchPersonaName('76561198000000000')).resolves.toBe(
+      'TestPlayer',
+    );
   });
 
   it('returns persona name from GetPlayerSummaries', async () => {
@@ -23,13 +40,13 @@ describe('SteamProfileService', () => {
       ok: true,
       json: async () => ({
         response: {
-          players: [{ personaname: 'TestPlayer' }],
+          players: [{ personaname: 'ApiPlayer' }],
         },
       }),
     } as Response);
 
     await expect(service.fetchPersonaName('76561198000000000')).resolves.toBe(
-      'TestPlayer',
+      'ApiPlayer',
     );
   });
 

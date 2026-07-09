@@ -1,0 +1,46 @@
+{
+  "manifest_version": 3,
+  "name": "R.I.P Market Trade Assistant",
+  "description": "Автоматическая отправка trade offer для продавцов R.I.P Market",
+  "version": "0.4.0",
+  "permissions": ["storage", "alarms", "tabs", "scripting", "cookies"],
+  "host_permissions": [
+    "https://steamcommunity.com/*",
+    "http://localhost:3000/*",
+    "http://localhost:5173/*",
+    "https://*.rip-market.local/*"
+  ],
+  "background": {
+    "service_worker": "background/service-worker.js",
+    "type": "module"
+  },
+  "content_scripts": [
+    {
+      "matches": ["*://steamcommunity.com/tradeoffer/*"],
+      "js": ["content/steam-bridge.js"],
+      "run_at": "document_idle"
+    }
+  ],
+  "web_accessible_resources": [
+    {
+      "resources": ["page-scripts/trade-offer-ui.js"],
+      "matches": ["https://steamcommunity.com/*"]
+    }
+  ],
+  "action": {
+    "default_popup": "popup/popup.html",
+    "default_title": "R.I.P Market"
+  },
+  "externally_connectable": {
+    "matches": [
+      "http://localhost:5173/*",
+      "http://127.0.0.1:5173/*",
+      "https://*.rip-market.local/*"
+    ]
+  },
+  "icons": {
+    "16": "icons/icon16.svg",
+    "48": "icons/icon48.svg",
+    "128": "icons/icon128.svg"
+  }
+}

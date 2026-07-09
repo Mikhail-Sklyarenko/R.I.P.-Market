@@ -1,9 +1,20 @@
-import { Controller, Post, Body } from '@nestjs/common';
+import { Body, Controller, Post, UseGuards } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
-import { ApiTags } from '@nestjs/swagger';
+import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { UserRole, UserStatus } from '@prisma/client';
+import { CurrentUser } from '../common/current-user.decorator';
+import type { AuthUser } from '../common/auth-user.interface';
+import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { PrismaService } from '../prisma/prisma.service';
 import { LedgerService } from '../wallet/ledger.service';
+import { DevTradeResetService } from './dev-trade-reset.service';
+
+function isDevResetEnabled(): boolean {
+  return (
+    process.env.ENABLE_TEST_ROUTES === 'true' ||
+    process.env.ENABLE_MOCK_TRADE === 'true'
+  );
+}
 
 @ApiTags('test')
 @Controller('test')
@@ -12,7 +23,21 @@ export class TestResetController {
     private readonly prisma: PrismaService,
     private readonly ledgerService: LedgerService,
     private readonly jwtService: JwtService,
+    private readonly devTradeResetService: DevTradeResetService,
   ) {}
+
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard)
+  @Post('reset-dev-trades')
+  async resetDevTrades(@CurrentUser() user: AuthUser) {
+    if (!isDevResetEnabled()) {
+      return { ok: false, reason: 'disabled' };
+    }
+    if (user.role !== UserRole.SELLER && user.role !== UserRole.ADMIN) {
+      return { ok: false, reason: 'seller_or_admin_required' };
+    }
+    return this.devTradeResetService.resetForSeller(user.sub);
+  }
 
   @Post('reset')
   async reset() {
@@ -25,6 +50,12 @@ export class TestResetController {
         "Notification",
         "OutboxEvent",
         "AuditLog",
+        "ExtensionCommandAck",
+        "ExtensionNonce",
+        "ExtensionSession",
+        "ExtensionDevice",
+        "TradeTaskStatusEvent",
+        "TradeTask",
         "LedgerEntry",
         "Hold",
         "TradePollEvent",

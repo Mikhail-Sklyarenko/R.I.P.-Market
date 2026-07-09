@@ -10,12 +10,20 @@ import { AppException } from '../common/errors/app.exception';
 import { ErrorCode } from '../common/errors/error-codes';
 import { toJsonSafe } from '../common/json-safe.util';
 import { getAuditContext } from '../common/observability/audit-context';
+import { ExtensionFlowMetricsService } from '../common/observability/extension-flow-metrics.service';
 import { LotStateService } from '../lots/lot-state.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { getProvidersConfig } from '../providers/config';
 import { resolveOrderVerificationMode } from '../trades/trade-verification.config';
-import { parseSteamTradeOfferId } from '../providers/trade/trade-offer.util';
+import { TradeOperationStateService } from '../trades/trade-operation-state.service';
+import {
+  extensionTaskMaxAttempts,
+  extensionTaskTtlMs,
+  isExtensionTaskPipelineEnabled,
+} from '../extension/extension-task.config';
 import { LedgerService } from '../wallet/ledger.service';
+import { ExtensionRolloutService } from '../extension/extension-rollout.service';
+import { TradeReferenceReconcileService } from '../trades/trade-reference-reconcile.service';
 import { CreateOrderDto } from './dto/create-order.dto';
 import { ListMyOrdersQueryDto } from './dto/list-my-orders-query.dto';
 import { UpdateTradeReferenceDto } from './dto/update-trade-reference.dto';
@@ -38,6 +46,10 @@ export class OrdersService {
     private readonly ledgerService: LedgerService,
     private readonly lotStateService: LotStateService,
     private readonly orderStateService: OrderStateService,
+    private readonly tradeOperationStateService: TradeOperationStateService,
+    private readonly tradeReferenceReconcileService: TradeReferenceReconcileService,
+    private readonly extensionFlowMetrics: ExtensionFlowMetricsService,
+    private readonly extensionRolloutService: ExtensionRolloutService,
   ) {}
 
   async create(buyerId: string, dto: CreateOrderDto, idempotencyKey: string) {
@@ -168,10 +180,10 @@ export class OrdersService {
           buyerId,
         );
 
-        await this.orderStateService.transition(tx, {
+        await this.orderStateService.transitionByEvent(tx, {
           orderId: createdOrder.id,
           from: OrderStatus.CREATED,
-          to: OrderStatus.PAYMENT_RESERVED,
+          event: 'PAYMENT_RESERVED',
           actorUserId: buyerId,
         });
 
@@ -193,7 +205,7 @@ export class OrdersService {
           select: { assetExternalId: true },
         });
 
-        await tx.tradeOperation.create({
+        const tradeOperation = await tx.tradeOperation.create({
           data: {
             orderId: createdOrder.id,
             status: TradeOperationStatus.WAITING,
@@ -202,10 +214,67 @@ export class OrdersService {
           },
         });
 
-        await this.orderStateService.transition(tx, {
+        await this.tradeOperationStateService.recordCreated(
+          tx,
+          tradeOperation.id,
+          buyerId,
+        );
+
+        if (isExtensionTaskPipelineEnabled()) {
+          const rolloutDecision =
+            await this.extensionRolloutService.shouldCreateExtensionTaskForSeller(
+              lot.sellerId,
+            );
+          if (rolloutDecision.eligible) {
+            const sellerProfile = await tx.user.findUnique({
+              where: { id: lot.sellerId },
+              select: { steamId: true },
+            });
+            const buyerProfile = await tx.user.findUnique({
+              where: { id: buyerId },
+              select: { tradeUrl: true },
+            });
+            const inventoryAsset = await tx.inventoryAsset.findUnique({
+              where: { id: lot.inventoryAssetId },
+              include: { itemDefinition: true },
+            });
+            const dedupKey = `create_offer:${tradeOperation.id}`;
+            const idempotencyTaskKey = `trade-task:${dedupKey}`;
+            await tx.tradeTask.upsert({
+              where: {
+                orderId_dedupKey: { orderId: createdOrder.id, dedupKey },
+              },
+              create: {
+                orderId: createdOrder.id,
+                tradeOperationId: tradeOperation.id,
+                type: 'create_offer',
+                dedupKey,
+                idempotencyKey: idempotencyTaskKey,
+                maxAttempts: extensionTaskMaxAttempts(),
+                expiresAt: new Date(Date.now() + extensionTaskTtlMs()),
+                payload: {
+                  orderId: createdOrder.id,
+                  tradeOperationId: tradeOperation.id,
+                  sellerId: lot.sellerId,
+                  buyerId,
+                  expectedAssetId: reservedAsset?.assetExternalId ?? null,
+                  marketHashName:
+                    inventoryAsset?.itemDefinition.marketHashName ?? null,
+                  buyerTradeUrl: buyerProfile?.tradeUrl ?? null,
+                  inventoryAssetId: lot.inventoryAssetId,
+                  idempotencyKey: idempotencyTaskKey,
+                  sellerSteamId: sellerProfile?.steamId ?? null,
+                },
+              },
+              update: {},
+            });
+          }
+        }
+
+        await this.orderStateService.transitionByEvent(tx, {
           orderId: createdOrder.id,
           from: OrderStatus.PAYMENT_RESERVED,
-          to: OrderStatus.WAITING_TRADE,
+          event: 'TRADE_OPERATION_CREATED',
           actorUserId: buyerId,
         });
 
@@ -268,6 +337,18 @@ export class OrdersService {
         return waitingOrder;
       });
 
+      this.extensionFlowMetrics.recordOrderStarted({
+        orderId: order.id,
+        source:
+          (await this.extensionRolloutService.shouldCreateExtensionTaskForSeller(
+            order.sellerId,
+          )).eligible
+            ? 'extension'
+            : 'manual',
+        sellerId: order.sellerId,
+        buyerId: order.buyerId,
+      });
+
       return toJsonSafe(order);
     } catch (error) {
       if (error instanceof AppException) {
@@ -301,6 +382,27 @@ export class OrdersService {
         statusEvents: {
           orderBy: { createdAt: 'asc' },
         },
+        tasks: {
+          orderBy: { createdAt: 'desc' },
+          take: 1,
+          select: {
+            id: true,
+            type: true,
+            status: true,
+            executionPhase: true,
+            lastErrorCode: true,
+            expiresAt: true,
+            attemptCount: true,
+            maxAttempts: true,
+            createdAt: true,
+            updatedAt: true,
+            statusEvents: {
+              orderBy: { createdAt: 'desc' },
+              take: 20,
+              select: { reasonCode: true, payload: true, phase: true },
+            },
+          },
+        },
       },
     });
 
@@ -324,7 +426,37 @@ export class OrdersService {
       );
     }
 
-    return toJsonSafe(order);
+    const { tasks, ...orderRest } = order;
+    const rawTask = tasks[0];
+    const tradeTask = rawTask
+      ? {
+          id: rawTask.id,
+          type: rawTask.type,
+          status: rawTask.status,
+          executionPhase: rawTask.executionPhase,
+          lastErrorCode: rawTask.lastErrorCode,
+          lastErrorMessage: extractTradeTaskErrorMessage(
+            rawTask.statusEvents.find(
+              (event) =>
+                event.phase === 'OFFER_FAILED' ||
+                (event.payload &&
+                  typeof event.payload === 'object' &&
+                  typeof (event.payload as { message?: unknown }).message ===
+                    'string'),
+            ) ?? rawTask.statusEvents[0],
+          ),
+          selectedMarketHashName: extractTradeTaskMarketHashName(rawTask.statusEvents),
+          expiresAt: rawTask.expiresAt,
+          attemptCount: rawTask.attemptCount,
+          maxAttempts: rawTask.maxAttempts,
+          createdAt: rawTask.createdAt,
+          updatedAt: rawTask.updatedAt,
+        }
+      : null;
+    return toJsonSafe({
+      ...orderRest,
+      tradeTask,
+    });
   }
 
   async listMyOrders(userId: string, query: ListMyOrdersQueryDto = {}) {
@@ -366,50 +498,17 @@ export class OrdersService {
     sellerId: string,
     orderId: string,
     dto: UpdateTradeReferenceDto,
+    idempotencyKey?: string,
   ) {
-    const order = await this.prisma.order.findUnique({
-      where: { id: orderId },
-      include: { tradeOperation: true },
+    await this.tradeReferenceReconcileService.reconcile({
+      orderId,
+      sellerId,
+      offerId: dto.offerId,
+      tradeUrl: dto.tradeUrl,
+      idempotencyKey,
+      source: 'MANUAL',
+      actorUserId: sellerId,
     });
-
-    if (!order || order.sellerId !== sellerId) {
-      throw new AppException(
-        ErrorCode.ORDER_NOT_FOUND,
-        'Order not found',
-        HttpStatus.NOT_FOUND,
-      );
-    }
-    if (order.status !== OrderStatus.WAITING_TRADE) {
-      throw new AppException(
-        ErrorCode.BAD_REQUEST,
-        'Trade reference can only be updated while waiting for trade',
-        HttpStatus.BAD_REQUEST,
-      );
-    }
-    if (!order.tradeOperation) {
-      throw new AppException(
-        ErrorCode.NOT_FOUND,
-        'Trade operation not found',
-        HttpStatus.NOT_FOUND,
-      );
-    }
-
-    const offerId =
-      dto.offerId ??
-      (dto.tradeUrl ? parseSteamTradeOfferId(dto.tradeUrl) : null);
-    if (!offerId) {
-      throw new AppException(
-        ErrorCode.VALIDATION_ERROR,
-        'offerId or valid tradeUrl is required',
-        HttpStatus.BAD_REQUEST,
-      );
-    }
-
-    await this.prisma.tradeOperation.update({
-      where: { id: order.tradeOperation.id },
-      data: { externalOfferId: offerId },
-    });
-
     return this.getById(orderId, sellerId);
   }
 
@@ -495,10 +594,10 @@ export class OrdersService {
         tx,
       });
 
-      await this.orderStateService.transition(tx, {
+      await this.orderStateService.transitionByEvent(tx, {
         orderId: current.id,
         from: current.status,
-        to: OrderStatus.CANCELED,
+        event: 'CANCEL',
         actorUserId: buyerId,
         reason: 'buyer_canceled',
       });
@@ -570,4 +669,35 @@ export class OrdersService {
 
     return toJsonSafe(order);
   }
+}
+
+function extractTradeTaskErrorMessage(
+  event?: {
+    payload: unknown;
+  } | null,
+): string | null {
+  if (!event?.payload || typeof event.payload !== 'object') {
+    return null;
+  }
+  const message = (event.payload as { message?: unknown }).message;
+  return typeof message === 'string' && message.trim() ? message.trim() : null;
+}
+
+function extractTradeTaskMarketHashName(
+  events: Array<{ phase: string; payload: unknown }>,
+): string | null {
+  for (const event of events) {
+    if (event.phase !== 'ITEM_SELECTED' && event.phase !== 'OFFER_DRAFTED') {
+      continue;
+    }
+    if (!event.payload || typeof event.payload !== 'object') {
+      continue;
+    }
+    const marketHashName = (event.payload as { marketHashName?: unknown })
+      .marketHashName;
+    if (typeof marketHashName === 'string' && marketHashName.trim()) {
+      return marketHashName.trim();
+    }
+  }
+  return null;
 }

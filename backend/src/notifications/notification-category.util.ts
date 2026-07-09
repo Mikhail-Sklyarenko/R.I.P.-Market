@@ -3,7 +3,7 @@ export type NotificationCategory = 'deals' | 'money' | 'system';
 const CATEGORY_PREFIXES: Record<NotificationCategory, string[]> = {
   deals: ['ORDER_', 'TRADE_'],
   money: ['SALE_', 'SETTLEMENT_'],
-  system: ['RECONCILIATION_', 'TRADE_SHADOW_'],
+  system: ['RECONCILIATION_', 'TRADE_SHADOW_', 'OPS_', 'EXTENSION_'],
 };
 
 export function notificationCategoryPrefixes(

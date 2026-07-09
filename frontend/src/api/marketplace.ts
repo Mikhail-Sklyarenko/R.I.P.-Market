@@ -41,6 +41,13 @@ export function updateTradeUrl(token: string, tradeUrl: string) {
   });
 }
 
+export function unlinkSteam(token: string) {
+  return apiRequest<UserProfile>('/users/me/steam', {
+    method: 'DELETE',
+    token,
+  });
+}
+
 export function mockLogin(role: 'SELLER' | 'BUYER' | 'ADMIN') {
   return apiRequest<AuthResponse>('/auth/mock-login', {
     method: 'POST',
@@ -222,6 +229,21 @@ export function cancelOrder(token: string, orderId: string, idempotencyKey?: str
 
 export function cancelLot(token: string, lotId: string) {
   return apiRequest<Lot>(`/lots/${lotId}/cancel`, {
+    method: 'POST',
+    token,
+    body: {},
+  });
+}
+
+export function resetDevTrades(token: string) {
+  return apiRequest<{
+    ok: boolean;
+    reason?: string;
+    canceledOrders?: number;
+    canceledLots?: number;
+    resetAssets?: number;
+    expiredTasks?: number;
+  }>('/test/reset-dev-trades', {
     method: 'POST',
     token,
     body: {},

@@ -47,6 +47,7 @@ enum OrderStatus {
   PAYMENT_RESERVED
   WAITING_TRADE
   TRADE_CONFIRMED
+  SETTLEMENT_HOLD
   COMPLETED
   FAILED
   DISPUTE
@@ -56,6 +57,7 @@ enum OrderStatus {
 enum TradeOperationStatus {
   WAITING
   CONFIRMED
+  DELIVERY_VERIFIED
   FAILED_SAFE
   FAILED_DISPUTE
   TIMEOUT
@@ -97,9 +99,40 @@ enum WithdrawalRequestStatus {
   FAILED
 }
 
+enum ExtensionDeviceStatus {
+  ACTIVE
+  REVOKED
+}
+
+enum ExtensionSessionStatus {
+  ACTIVE
+  REVOKED
+  EXPIRED
+}
+
+enum TradeTaskStatus {
+  CREATED
+  DISPATCHED
+  ACKED
+  FAILED
+  EXPIRED
+}
+
+enum TradeTaskExecutionPhase {
+  ACKED
+  TRADE_PAGE_OPENED
+  OFFER_DRAFTED
+  ITEM_SELECTED
+  OFFER_SUBMITTED
+  CONFIRM_PENDING
+  OFFER_SENT
+  OFFER_FAILED
+}
+
 model User {
   id          String            @id @default(uuid())
   steamId     String?           @unique
+  steamPersonaName String?
   email       String?           @unique
   username    String
   role        UserRole
@@ -115,8 +148,70 @@ model User {
   auditEvents AuditLog[]
   notifications Notification[]
   inventorySyncRuns InventorySyncRun[]
+  extensionDevices ExtensionDevice[]
+  extensionSessions ExtensionSession[]
 
   @@index([role, status])
+}
+
+model ExtensionDevice {
+  id          String                @id @default(uuid())
+  userId      String
+  deviceId    String
+  publicKey   String
+  status      ExtensionDeviceStatus @default(ACTIVE)
+  createdAt   DateTime              @default(now())
+  updatedAt   DateTime              @updatedAt
+  lastSeenAt  DateTime?
+  user        User                  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  sessions    ExtensionSession[]
+
+  @@unique([userId, deviceId])
+  @@index([userId, status])
+}
+
+model ExtensionSession {
+  id                   String                 @id @default(uuid())
+  userId               String
+  deviceId             String
+  tokenJti             String                 @unique
+  status               ExtensionSessionStatus @default(ACTIVE)
+  expiresAt            DateTime
+  revokedAt            DateTime?
+  rotatedFromSessionId String?
+  createdAt            DateTime               @default(now())
+  updatedAt            DateTime               @updatedAt
+  user                 User                   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  device               ExtensionDevice        @relation(fields: [userId, deviceId], references: [userId, deviceId], onDelete: Restrict)
+  nonces               ExtensionNonce[]
+  commandAcks          ExtensionCommandAck[]
+
+  @@index([userId, status, expiresAt])
+  @@index([deviceId, status])
+}
+
+model ExtensionNonce {
+  id         String   @id @default(uuid())
+  sessionId  String
+  nonce      String
+  expiresAt  DateTime
+  createdAt  DateTime @default(now())
+  session    ExtensionSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@unique([sessionId, nonce])
+  @@index([expiresAt])
+}
+
+model ExtensionCommandAck {
+  id         String   @id @default(uuid())
+  sessionId  String
+  commandId  String
+  payload    Json
+  createdAt  DateTime @default(now())
+  session    ExtensionSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@unique([sessionId, commandId])
+  @@index([sessionId, createdAt])
 }
 
 model ItemDefinition {
@@ -208,6 +303,7 @@ model Order {
   tradeOperation  TradeOperation?
   hold            Hold?
   statusEvents    OrderStatusEvent[]
+  tasks           TradeTask[]
 
   @@index([buyerId, status])
   @@index([sellerId, status])
@@ -257,8 +353,69 @@ model TradeOperation {
   updatedAt        DateTime             @updatedAt
   order            Order                @relation(fields: [orderId], references: [id], onDelete: Restrict)
   pollEvents       TradePollEvent[]
+  statusEvents     TradeOperationStatusEvent[]
+  tasks            TradeTask[]
 
   @@index([status, verificationMode])
+}
+
+model TradeTask {
+  id               String                   @id @default(uuid())
+  orderId          String
+  tradeOperationId String
+  type             String
+  status           TradeTaskStatus          @default(CREATED)
+  executionPhase   TradeTaskExecutionPhase?
+  dedupKey         String
+  idempotencyKey   String
+  payload          Json
+  attemptCount     Int                      @default(0)
+  maxAttempts      Int                      @default(5)
+  nextAttemptAt    DateTime?
+  expiresAt        DateTime
+  dispatchedAt     DateTime?
+  ackedAt          DateTime?
+  failedAt         DateTime?
+  lastErrorCode    String?
+  createdAt        DateTime                 @default(now())
+  updatedAt        DateTime                 @updatedAt
+  order            Order                    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  tradeOperation   TradeOperation           @relation(fields: [tradeOperationId], references: [id], onDelete: Cascade)
+  statusEvents     TradeTaskStatusEvent[]
+
+  @@unique([orderId, dedupKey])
+  @@index([status, nextAttemptAt, expiresAt])
+  @@index([tradeOperationId, createdAt])
+  @@index([executionPhase, status])
+}
+
+model TradeTaskStatusEvent {
+  id             String                  @id @default(uuid())
+  tradeTaskId    String
+  phase          TradeTaskExecutionPhase
+  reasonCode     String?
+  payload        Json?
+  idempotencyKey String
+  createdAt      DateTime                @default(now())
+  tradeTask      TradeTask               @relation(fields: [tradeTaskId], references: [id], onDelete: Cascade)
+
+  @@unique([tradeTaskId, idempotencyKey])
+  @@index([tradeTaskId, createdAt])
+}
+
+model TradeOperationStatusEvent {
+  id               String               @id @default(uuid())
+  tradeOperationId String
+  fromStatus       TradeOperationStatus?
+  toStatus         TradeOperationStatus
+  event            String?
+  actorUserId      String?
+  reason           String?
+  requestId        String?
+  createdAt        DateTime             @default(now())
+  tradeOperation   TradeOperation       @relation(fields: [tradeOperationId], references: [id], onDelete: Cascade)
+
+  @@index([tradeOperationId, createdAt])
 }
 
 model TradePollEvent {
@@ -295,6 +452,13 @@ model SettlementAllowlistEntry {
   createdAt       DateTime @default(now())
 }
 
+model ExtensionRolloutAllowlistEntry {
+  steamId   String   @id
+  enabled   Boolean  @default(true)
+  note      String?
+  createdAt DateTime @default(now())
+}
+
 model SettlementDailyStats {
   day           String   @id
   orderCount    Int      @default(0)
@@ -327,16 +491,20 @@ model WalletAccount {
 }
 
 model Hold {
-  id           String   @id @default(uuid())
-  orderId       String   @unique
-  walletId      String
-  amountMinor   BigInt
-  capturedMinor BigInt   @default(0)
-  releasedMinor BigInt   @default(0)
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
-  order         Order    @relation(fields: [orderId], references: [id], onDelete: Restrict)
-  wallet        Wallet   @relation(fields: [walletId], references: [id], onDelete: Restrict)
+  id                    String    @id @default(uuid())
+  orderId               String    @unique
+  walletId              String
+  amountMinor           BigInt
+  capturedMinor         BigInt    @default(0)
+  releasedMinor         BigInt    @default(0)
+  settlementHoldUntil   DateTime?
+  settlementReleasedAt  DateTime?
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+  order                 Order     @relation(fields: [orderId], references: [id], onDelete: Restrict)
+  wallet                Wallet    @relation(fields: [walletId], references: [id], onDelete: Restrict)
+
+  @@index([settlementHoldUntil, settlementReleasedAt])
 }
 
 model LedgerEntry {

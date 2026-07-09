@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { getAuthConfig, getInventory, getMyLots, getUserMe } from '../api/sell';
+import { getAuthConfig, getInventory, getMyLots, getUserMe, resetDevTrades } from '../api/sell';
 import type { AuthConfig, InventoryAsset, InventorySyncMeta, Lot } from '../api/types';
 import { useAuth } from '../auth/AuthContext';
 import { EmptyState } from '../components/EmptyState';
@@ -20,6 +20,7 @@ import {
   type InventoryStatusFilter,
 } from '../utils/seller-flow';
 import { profileToAuthUser } from '../utils/user-profile';
+import { canShowDevPanels } from '../utils/format';
 
 export function InventoryPage() {
   const { token, user, updateUser } = useAuth();
@@ -29,6 +30,7 @@ export function InventoryPage() {
   const [sync, setSync] = useState<InventorySyncMeta | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [resettingDevTrades, setResettingDevTrades] = useState(false);
   const [error, setError] = useState<unknown>(null);
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<InventoryStatusFilter>('all');
@@ -37,6 +39,8 @@ export function InventoryPage() {
   const requiresSteamLink = inventoryProvider === 'steam';
   const steamLinked = !requiresSteamLink || hasLinkedSteamId(user?.steamId);
   const tradeUrlReady = Boolean(user?.tradeUrl?.trim());
+  const showDevReset =
+    Boolean(config?.mockTradeEnabled) && canShowDevPanels(user?.role);
 
   const lotByAssetId = useMemo(() => {
     const map = new Map<string, Lot>();
@@ -178,6 +182,25 @@ export function InventoryPage() {
     );
   }
 
+  async function handleResetDevTrades() {
+    if (!token) {
+      return;
+    }
+    setResettingDevTrades(true);
+    setError(null);
+    try {
+      const result = await resetDevTrades(token);
+      if (!result.ok) {
+        throw new Error(result.reason ?? 'reset_failed');
+      }
+      await loadInventory(true);
+    } catch (err: unknown) {
+      setError(err);
+    } finally {
+      setResettingDevTrades(false);
+    }
+  }
+
   return (
     <div className="page">
       <PageHeader
@@ -200,6 +223,24 @@ export function InventoryPage() {
         <p className="muted small" data-testid="inventory-refresh-hint">
           Обновление недоступно: сначала привяжите Steam в настройках аккаунта.
         </p>
+      ) : null}
+
+      {showDevReset && token ? (
+        <div className="dev-panel" data-testid="inventory-dev-reset-panel">
+          <p className="muted small">
+            После тестовых mock-сделок предметы могут остаться в статусе «Продан».
+            Сброс вернёт их в «Доступен» и отменит зависшие сделки.
+          </p>
+          <button
+            type="button"
+            className="button secondary"
+            disabled={resettingDevTrades || loading || refreshing}
+            data-testid="inventory-reset-dev-trades"
+            onClick={() => void handleResetDevTrades()}
+          >
+            {resettingDevTrades ? 'Сброс…' : 'Сбросить тестовые сделки'}
+          </button>
+        </div>
       ) : null}
 
       {sync ? (

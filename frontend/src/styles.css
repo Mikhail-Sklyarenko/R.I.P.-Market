@@ -1700,6 +1700,43 @@ p {
   font-size: var(--font-size-sm);
 }
 
+.extension-task-progress {
+  display: grid;
+  gap: var(--space-2);
+  margin-bottom: var(--space-4);
+  padding: var(--space-3);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface-elevated, rgba(255, 255, 255, 0.02));
+}
+
+.extension-task-progress--confirm-pending {
+  border-color: #2f6f3f;
+  background: rgba(46, 125, 50, 0.12);
+}
+
+.extension-task-progress--confirm-pending .alert-success {
+  font-weight: 600;
+}
+
+.extension-task-retry {
+  justify-self: start;
+}
+
+.extension-seller-cta {
+  margin-bottom: var(--space-3);
+  padding: var(--space-3);
+  border-radius: var(--radius-md);
+  border: 1px solid #2f6f3f;
+  background: rgba(46, 125, 50, 0.12);
+}
+
+.extension-seller-cta strong {
+  display: block;
+  margin-bottom: var(--space-1);
+  color: #8fe6a4;
+}
+
 .seller-summary-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));

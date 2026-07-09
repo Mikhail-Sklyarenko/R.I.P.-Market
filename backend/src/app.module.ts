@@ -19,6 +19,7 @@ import { PaymentsModule } from './payments/payments.module';
 import { ObservabilityModule } from './common/observability/observability.module';
 import { RequestIdMiddleware } from './common/observability/request-id.middleware';
 import { TestModule } from './test/test.module';
+import { ExtensionModule } from './extension/extension.module';
 
 @Module({
   imports: [
@@ -38,7 +39,11 @@ import { TestModule } from './test/test.module';
     OutboxModule,
     NotificationsModule,
     PaymentsModule,
-    ...(process.env.ENABLE_TEST_ROUTES === 'true' ? [TestModule] : []),
+    ...(process.env.ENABLE_EXTENSION_CHANNEL === 'true' ? [ExtensionModule] : []),
+    ...(process.env.ENABLE_TEST_ROUTES === 'true' ||
+    process.env.ENABLE_MOCK_TRADE === 'true'
+      ? [TestModule]
+      : []),
   ],
   controllers: [AppController],
   providers: [AppService],

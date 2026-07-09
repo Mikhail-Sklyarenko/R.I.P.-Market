@@ -43,13 +43,20 @@ export class OrdersController {
     return this.ordersService.getById(orderId, user.sub);
   }
 
+  @ApiHeader({ name: 'Idempotency-Key', required: false })
   @Patch(':id/trade-reference')
   async updateTradeReference(
     @CurrentUser() user: AuthUser,
     @Param('id') orderId: string,
     @Body() body: UpdateTradeReferenceDto,
+    @Headers('idempotency-key') idempotencyKey?: string,
   ) {
-    return this.ordersService.updateTradeReference(user.sub, orderId, body);
+    return this.ordersService.updateTradeReference(
+      user.sub,
+      orderId,
+      body,
+      idempotencyKey,
+    );
   }
 
   @ApiHeader({ name: 'Idempotency-Key', required: true })

@@ -49,6 +49,18 @@ export type AuthConfig = {
   enableRealSettlement: boolean;
   liveVerificationMode: boolean;
   tradeTimeoutMinutes: number;
+  extension?: ExtensionPublicConfig;
+};
+
+export type ExtensionPublicConfig = {
+  extensionChannelEnabled: boolean;
+  extensionTaskPipelineEnabled: boolean;
+  extensionFirstTradeFlowEnabled: boolean;
+  extensionUiTradeFlowEnabled: boolean;
+  settlementHoldWindowEnabled: boolean;
+  extensionRolloutEnabled: boolean;
+  extensionRolloutStage: string;
+  extensionRolloutKillSwitch: boolean;
 };
 
 export type WalletDepositInfo = {
@@ -102,6 +114,7 @@ export type AuthUser = {
   role: string;
   status: string;
   steamId?: string | null;
+  steamPersonaName?: string | null;
   tradeUrl?: string | null;
 };
 
@@ -217,6 +230,21 @@ export type OrderStatusEvent = {
   createdAt: string;
 };
 
+export type TradeTaskSummary = {
+  id: string;
+  type: string;
+  status: string;
+  executionPhase?: string | null;
+  lastErrorCode?: string | null;
+  lastErrorMessage?: string | null;
+  selectedMarketHashName?: string | null;
+  expiresAt: string;
+  attemptCount: number;
+  maxAttempts: number;
+  createdAt: string;
+  updatedAt: string;
+};
+
 export type Order = {
   id: string;
   lotId: string;
@@ -226,8 +254,10 @@ export type Order = {
   amountMinor: string;
   holdAmountMinor: string;
   createdAt: string;
+  settlementHoldUntil?: string | null;
   lot: Lot;
   tradeOperation?: TradeOperation | null;
+  tradeTask?: TradeTaskSummary | null;
   hold?: { id: string; amountMinor: string } | null;
   buyer?: OrderParty;
   seller?: OrderParty;

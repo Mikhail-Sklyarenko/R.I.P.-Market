@@ -6,16 +6,23 @@ import {
 
 type OrderTradeBuyerPanelProps = {
   order: Order;
+  extensionMode?: boolean;
   nextActionTitle?: string;
   nextActionDescription?: string;
 };
 
 export function OrderTradeBuyerPanel({
   order,
+  extensionMode = false,
   nextActionTitle,
   nextActionDescription,
 }: OrderTradeBuyerPanelProps) {
-  const awaitingSellerOffer = !order.tradeOperation?.externalOfferId;
+  const hasOfferSaved = Boolean(order.tradeOperation?.externalOfferId);
+  const extensionTaskActive =
+    extensionMode &&
+    order.tradeTask &&
+    order.tradeTask.status !== 'EXPIRED' &&
+    order.tradeTask.status !== 'FAILED';
 
   return (
     <div className="card order-trade-panel" data-testid="buyer-trade-panel">
@@ -49,13 +56,19 @@ export function OrderTradeBuyerPanel({
         </ul>
       </div>
 
-      {awaitingSellerOffer ? (
+      {!hasOfferSaved && extensionTaskActive ? (
+        <p className="muted small" data-testid="buyer-awaiting-offer-message">
+          Продавец отправляет предмет через расширение. Обычно это занимает 1–2 минуты —
+          мы обновим страницу автоматически.
+        </p>
+      ) : !hasOfferSaved ? (
         <p className="muted small" data-testid="buyer-awaiting-offer-message">
           Ожидаем, пока продавец отправит обмен и укажет ссылку на trade offer.
         </p>
       ) : (
-        <p className="muted small">
-          Продавец указал trade offer. Примите обмен в Steam — статус обновится автоматически.
+        <p className="muted small" data-testid="buyer-accept-offer-message">
+          Продавец отправил обмен. Примите trade offer в Steam и проверьте, что предмет
+          совпадает с заказом.
         </p>
       )}
     </div>

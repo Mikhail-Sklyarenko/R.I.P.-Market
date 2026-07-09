@@ -26,6 +26,7 @@ import { OpenDisputeDto } from './dto/open-dispute.dto';
 import { RestrictUserBodyDto } from './dto/restrict-user-body.dto';
 import { ResolveDisputeDto } from './dto/resolve-dispute.dto';
 import { UpdateUserStatusDto } from './dto/update-user-status.dto';
+import { ReverseSettlementHoldDto } from './dto/reverse-settlement-hold.dto';
 import { UpsertAllowlistEntryDto } from './dto/upsert-allowlist.dto';
 
 @ApiTags('admin')
@@ -38,6 +39,52 @@ export class AdminController {
     private readonly adminService: AdminService,
     private readonly outboxProcessorService: OutboxProcessorService,
   ) {}
+
+  @Get('disputes/reason-codes')
+  async listDisputeReasonCodes() {
+    return this.adminService.listDisputeReasonCodes();
+  }
+
+  @Get('metrics/extension-flow')
+  async getExtensionFlowMetrics() {
+    return this.adminService.getExtensionFlowMetrics();
+  }
+
+  @Get('rollout/extension')
+  async getExtensionRolloutStatus() {
+    return this.adminService.getExtensionRolloutStatus();
+  }
+
+  @Get('rollout/extension/allowlist')
+  async listExtensionRolloutAllowlist() {
+    return this.adminService.listExtensionRolloutAllowlist();
+  }
+
+  @Post('rollout/extension/allowlist/:steamId')
+  async upsertExtensionRolloutAllowlist(
+    @CurrentUser() actor: AuthUser,
+    @Param('steamId') steamId: string,
+    @Body() body: UpsertAllowlistEntryDto,
+  ) {
+    return this.adminService.upsertExtensionRolloutAllowlist(
+      steamId,
+      body,
+      actor.sub,
+    );
+  }
+
+  @Post('rollout/extension/allowlist/:steamId/delete')
+  async deleteExtensionRolloutAllowlist(
+    @CurrentUser() actor: AuthUser,
+    @Param('steamId') steamId: string,
+  ) {
+    return this.adminService.deleteExtensionRolloutAllowlist(steamId, actor.sub);
+  }
+
+  @Get('orders/:id/timeline')
+  async getOrderTimeline(@Param('id') orderId: string) {
+    return this.adminService.getOrderTimeline(orderId);
+  }
 
   @Get('users')
   async listUsers() {
@@ -271,7 +318,28 @@ export class AdminController {
     return this.adminService.openDispute(
       orderId,
       actor.sub,
-      body.reason,
+      body,
+      idempotencyKey,
+    );
+  }
+
+  @ApiHeader({ name: 'Idempotency-Key', required: true })
+  @Post('orders/:id/reverse-settlement-hold')
+  async reverseSettlementHold(
+    @CurrentUser() actor: AuthUser,
+    @Param('id') orderId: string,
+    @Body() body: ReverseSettlementHoldDto,
+    @Headers('idempotency-key') idempotencyKey?: string,
+  ) {
+    if (!idempotencyKey) {
+      throw new BadRequestException('Idempotency-Key header is required');
+    }
+
+    return this.adminService.reverseSettlementHold(
+      orderId,
+      actor.sub,
+      body.reasonCode ?? 'SETTLEMENT_HOLD_REVERSED',
+      body.reasonNote,
       idempotencyKey,
     );
   }
@@ -292,7 +360,7 @@ export class AdminController {
       orderId,
       actor.sub,
       body.resolution,
-      body.reason,
+      body,
       idempotencyKey,
     );
   }

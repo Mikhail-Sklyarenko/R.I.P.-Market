@@ -37,7 +37,10 @@ export class InventoryController {
       res?.setHeader('X-Inventory-Stale', 'true');
     }
     if (result.sync.warning) {
-      res?.setHeader('X-Inventory-Warning', result.sync.warning);
+      res?.setHeader(
+        'X-Inventory-Warning',
+        result.sync.warning.replace(/[^\x20-\x7E]/g, ''),
+      );
     }
 
     return result;
