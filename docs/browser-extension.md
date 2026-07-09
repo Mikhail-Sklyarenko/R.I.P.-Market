@@ -14,11 +14,15 @@ Load unpacked extension in Chrome:
 1. Open `chrome://extensions`
 2. Enable **Developer mode**
 3. **Load unpacked** → select `browser-extension/dist`
-4. Copy extension ID into `frontend/.env`:
+4. Extension ID (stable, from manifest `key`): **`gmmlnkjdbcoojbhndjcfehojknjamaoj`**
+
+For local dev, copy extension ID into `frontend/.env`:
 
 ```env
-VITE_EXTENSION_ID=<extension-id-from-chrome>
+VITE_EXTENSION_ID=gmmlnkjdbcoojbhndjcfehojknjamaoj
 ```
+
+Staging **p2pcs.ru** already ships with this ID in the frontend build.
 
 ## Pairing flow
 
