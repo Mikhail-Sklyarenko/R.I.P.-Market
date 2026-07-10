@@ -73,8 +73,16 @@ VITE_API_BASE_URL=https://${DOMAIN}/api/v1
 VITE_EXTENSION_ID=${EXTENSION_ID}
 VITE_ENABLE_MOCK_TRADE=true
 VITE_STAGING=true
+VITE_QA_MOCK_DEPOSIT=true
 VITE_SUPPORT_EMAIL=support@${DOMAIN}
 EOF
+
+echo "==> Browser extension build"
+cd "$APP_DIR/extension"
+npm ci
+cd "$APP_DIR/browser-extension"
+npm ci
+npm run build
 
 echo "==> Frontend: install, build"
 cd "$APP_DIR/frontend"

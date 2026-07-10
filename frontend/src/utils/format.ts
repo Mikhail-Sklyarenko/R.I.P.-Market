@@ -177,10 +177,20 @@ export const MOCK_TRADE_ENABLED = viteEnv?.VITE_ENABLE_MOCK_TRADE !== 'false';
 
 export const IS_STAGING = viteEnv?.VITE_STAGING === 'true';
 
+/** Show mock deposit on closed QA staging (p2pcs.ru) for all logged-in testers. */
+export const QA_MOCK_DEPOSIT_ENABLED = viteEnv?.VITE_QA_MOCK_DEPOSIT === 'true';
+
 /** Mock trade / mock deposit UI — hidden on staging for non-admin users. */
 export function canShowDevPanels(role?: string | null): boolean {
   if (!IS_STAGING) {
     return true;
   }
   return role === 'ADMIN';
+}
+
+export function canShowMockDepositPanel(role?: string | null): boolean {
+  if (QA_MOCK_DEPOSIT_ENABLED) {
+    return true;
+  }
+  return canShowDevPanels(role);
 }

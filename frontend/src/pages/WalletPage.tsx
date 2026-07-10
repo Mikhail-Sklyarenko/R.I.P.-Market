@@ -28,7 +28,7 @@ import { PageHeader } from '../components/PageHeader';
 import {
   formatUsdtFromMinor,
   parseUsdToMinor,
-  canShowDevPanels,
+  canShowMockDepositPanel,
 } from '../utils/format';
 import {
   formatLedgerAmount,
@@ -89,7 +89,7 @@ export function WalletPage() {
   const minWithdrawMinor = paymentConfig?.minWithdrawMinor ?? 100;
   const withdrawFeeMinor = paymentConfig?.withdrawFeeMinor ?? 0;
 
-  const showDepositForm = mockDepositEnabled && canShowDevPanels(user?.role);
+  const showDepositForm = mockDepositEnabled && canShowMockDepositPanel(user?.role);
 
   const withdrawAmountMinor = parseUsdToMinor(withdrawAmountInput) ?? 0;
   const withdrawNetMinor = Math.max(withdrawAmountMinor - withdrawFeeMinor, 0);
@@ -502,13 +502,12 @@ export function WalletPage() {
               onSubmit={(event) => void handleDeposit(event)}
               data-testid="wallet-mock-deposit-form"
             >
-              <h3>Mock deposit</h3>
+              <h3>Тестовое пополнение</h3>
               <p className="muted small">
-                Тестовое пополнение для staging. Каждый запрос отправляется с новым
-                Idempotency-Key.
+                Зачисляет USDT на баланс для проверки покупок на staging. Не настоящие деньги.
               </p>
 
-              <FormField label="Amount (USD)" htmlFor="deposit-amount-input">
+              <FormField label="Сумма (USDT)" htmlFor="deposit-amount-input">
                 <input
                   id="deposit-amount-input"
                   type="text"
@@ -531,7 +530,7 @@ export function WalletPage() {
                 disabled={submitting}
                 data-testid="deposit-submit"
               >
-                {submitting ? 'Depositing…' : 'Deposit funds'}
+                {submitting ? 'Пополняем…' : 'Пополнить баланс'}
               </button>
             </form>
           ) : null}

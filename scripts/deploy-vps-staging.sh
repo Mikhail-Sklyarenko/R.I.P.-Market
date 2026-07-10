@@ -65,6 +65,7 @@ cat >"$APP_DIR/frontend/.env" <<EOF
 VITE_API_BASE_URL=https://${DOMAIN}/api/v1
 VITE_ENABLE_MOCK_TRADE=true
 VITE_STAGING=true
+VITE_QA_MOCK_DEPOSIT=true
 VITE_SUPPORT_EMAIL=support@${DOMAIN}
 EOF
 
