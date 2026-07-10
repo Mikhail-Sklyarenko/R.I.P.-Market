@@ -2,6 +2,7 @@ import { Link } from 'react-router-dom';
 import type { AuthUser } from '../api/types';
 import { ErrorAlert } from './ErrorAlert';
 import { hasLinkedSteamId } from '../utils/steam-id';
+import { hasTradeUrl } from '../utils/trade-url';
 import { formatUsdtFromMinor } from '../utils/format';
 
 type PurchaseReadinessAlertsProps = {
@@ -11,6 +12,9 @@ type PurchaseReadinessAlertsProps = {
   insufficientBalance?: boolean;
   walletDepositHref?: string;
   neededMinor?: number;
+  showDepositAction?: boolean;
+  showTradeHint?: boolean;
+  compactTradeUrlWarning?: boolean;
 };
 
 export function PurchaseReadinessAlerts({
@@ -20,10 +24,14 @@ export function PurchaseReadinessAlerts({
   insufficientBalance = false,
   walletDepositHref,
   neededMinor,
+  showDepositAction = true,
+  showTradeHint = true,
+  compactTradeUrlWarning = false,
 }: PurchaseReadinessAlertsProps) {
   const steamLinked = hasLinkedSteamId(user?.steamId);
-  const tradeUrlReady = Boolean(user?.tradeUrl?.trim());
+  const tradeUrlReady = hasTradeUrl(user?.tradeUrl);
   const steamBlocked = authenticated && requiresSteamLink && !steamLinked;
+  const tradeUrlBlocked = authenticated && !steamBlocked && !tradeUrlReady;
 
   return (
     <div className="purchase-readiness-alerts">
@@ -39,27 +47,38 @@ export function PurchaseReadinessAlerts({
         </div>
       ) : null}
 
-      {authenticated && !steamBlocked && !tradeUrlReady ? (
-        <div className="alert alert-warning" data-testid="purchase-trade-url-warning">
-          <strong>Trade URL не указан</strong>
-          <p className="alert-body">
-            Покупку можно оформить, но для обмена в Steam продавцу понадобится ваша Trade URL.
-            Рекомендуем указать её в аккаунте до принятия trade offer.
-          </p>
-          <Link className="button secondary sm" to="/account">
-            Указать Trade URL
-          </Link>
+      {tradeUrlBlocked ? (
+        <div
+          className={compactTradeUrlWarning ? 'checkout-inline-warning' : 'alert alert-warning'}
+          data-testid="purchase-trade-url-warning"
+        >
+          {compactTradeUrlWarning ? (
+            <p className="muted small checkout-inline-warning-text">
+              Trade URL не указан —{' '}
+              <Link to="/account">укажите в аккаунте</Link> для покупки.
+            </p>
+          ) : (
+            <>
+              <strong>Trade URL не указан</strong>
+              <p className="alert-body">
+                Без Trade URL покупка недоступна — продавец не сможет отправить обмен в Steam.
+              </p>
+              <Link className="button secondary sm" to="/account">
+                Указать Trade URL
+              </Link>
+            </>
+          )}
         </div>
       ) : null}
 
-      {authenticated && !steamBlocked && insufficientBalance ? (
+      {authenticated && !steamBlocked && !tradeUrlBlocked && insufficientBalance ? (
         <div data-testid="purchase-insufficient-balance">
           <ErrorAlert variant="info" title="Недостаточно средств">
             {neededMinor
               ? `Для покупки нужно минимум ${formatUsdtFromMinor(neededMinor)} на балансе.`
               : 'Пополните кошелёк USDT (TRC-20), чтобы подтвердить покупку.'}
           </ErrorAlert>
-          {walletDepositHref ? (
+          {showDepositAction && walletDepositHref ? (
             <Link
               className="button primary sm"
               to={walletDepositHref}
@@ -71,7 +90,7 @@ export function PurchaseReadinessAlerts({
         </div>
       ) : null}
 
-      {authenticated && !steamBlocked ? (
+      {authenticated && !steamBlocked && !tradeUrlBlocked && showTradeHint ? (
         <p className="purchase-trade-hint" data-testid="purchase-trade-hint">
           После покупки вам нужно будет принять trade offer в Steam.
         </p>
@@ -86,4 +105,22 @@ export function isPurchaseBlockedBySteam(
   authenticated = Boolean(user),
 ): boolean {
   return authenticated && requiresSteamLink && !hasLinkedSteamId(user?.steamId);
+}
+
+export function isPurchaseBlockedByTradeUrl(
+  user: AuthUser | null,
+  authenticated = Boolean(user),
+): boolean {
+  return authenticated && !hasTradeUrl(user?.tradeUrl);
+}
+
+export function isPurchaseBlocked(
+  user: AuthUser | null,
+  requiresSteamLink: boolean,
+  authenticated = Boolean(user),
+): boolean {
+  return (
+    isPurchaseBlockedBySteam(user, requiresSteamLink, authenticated) ||
+    isPurchaseBlockedByTradeUrl(user, authenticated)
+  );
 }

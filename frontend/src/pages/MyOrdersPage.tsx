@@ -23,14 +23,19 @@ import {
   type OrderStatusFilter,
 } from '../utils/my-orders';
 
-export function MyOrdersPage() {
+type MyOrdersPageProps = {
+  embedded?: boolean;
+  sellerOnly?: boolean;
+};
+
+export function MyOrdersPage({ embedded = false, sellerOnly = false }: MyOrdersPageProps) {
   const { token, user } = useAuth();
   const { summary: walletSummary } = useWalletSummary();
   const [summaryOrders, setSummaryOrders] = useState<Order[]>([]);
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<unknown>(null);
-  const [roleFilter, setRoleFilter] = useState<OrderRoleFilter>('all');
+  const [roleFilter, setRoleFilter] = useState<OrderRoleFilter>(sellerOnly ? 'seller' : 'all');
   const [statusFilter, setStatusFilter] = useState<OrderStatusFilter>('all');
 
   const apiParams = useMemo(() => {
@@ -88,15 +93,17 @@ export function MyOrdersPage() {
   );
 
   return (
-    <div className="page">
-      <PageHeader
-        title="Мои сделки"
-        subtitle="Покупки и продажи в одном списке."
-      />
+    <div className={embedded ? 'seller-activity-panel' : 'page'}>
+      {!embedded ? (
+        <PageHeader
+          title="Мои сделки"
+          subtitle="Покупки и продажи в одном списке."
+        />
+      ) : null}
 
       <ErrorAlert error={error} />
 
-      {walletSummary ? (
+      {!embedded && walletSummary ? (
         <div
           className="wallet-balance-grid my-orders-wallet-summary"
           data-testid="my-orders-wallet-summary"
@@ -147,20 +154,22 @@ export function MyOrdersPage() {
       {!loading && orders.length > 0 ? (
         <div className="card deals-filters" data-testid="my-orders-filters">
           <div className="catalog-filters-row">
-            <label className="field catalog-filter-field">
-              <span className="field-label">Роль</span>
-              <select
-                value={roleFilter}
-                onChange={(event) =>
-                  setRoleFilter(event.target.value as OrderRoleFilter)
-                }
-                data-testid="my-orders-role-filter"
-              >
-                <option value="all">Все</option>
-                <option value="buyer">Покупатель</option>
-                <option value="seller">Продавец</option>
-              </select>
-            </label>
+            {!sellerOnly ? (
+              <label className="field catalog-filter-field">
+                <span className="field-label">Роль</span>
+                <select
+                  value={roleFilter}
+                  onChange={(event) =>
+                    setRoleFilter(event.target.value as OrderRoleFilter)
+                  }
+                  data-testid="my-orders-role-filter"
+                >
+                  <option value="all">Все</option>
+                  <option value="buyer">Покупатель</option>
+                  <option value="seller">Продавец</option>
+                </select>
+              </label>
+            ) : null}
             <label className="field catalog-filter-field">
               <span className="field-label">Статус</span>
               <select

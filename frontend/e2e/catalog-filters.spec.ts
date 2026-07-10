@@ -27,4 +27,24 @@ test.describe('Catalog filters', () => {
     await page.getByTestId('catalog-category-tab-all').click();
     await expect(page.getByTestId('catalog-total')).toHaveText('Найдено лотов: 2');
   });
+
+  test('wear filter reduces catalog total', async ({ page, request }) => {
+    await seedCatalogLots(request);
+
+    await page.goto('/catalog');
+    await expect(page.getByTestId('catalog-total')).toHaveText('Найдено лотов: 2');
+
+    await page.getByTestId('catalog-wear-ft').click();
+    await expect(page.getByTestId('catalog-total')).toHaveText('Найдено лотов: 1', {
+      timeout: 15_000,
+    });
+    await expect(page.getByTestId('catalog-grid').locator('article')).toHaveCount(1);
+
+    await page.getByTestId('catalog-wear-bs').click();
+    await expect(page.getByTestId('catalog-total')).toHaveText('Найдено лотов: 1');
+    await expect(page.getByTestId('catalog-grid').locator('article')).toHaveCount(1);
+
+    await page.getByTestId('catalog-wear-all').click();
+    await expect(page.getByTestId('catalog-total')).toHaveText('Найдено лотов: 2');
+  });
 });

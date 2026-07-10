@@ -50,6 +50,29 @@ describe('SteamProfileService', () => {
     );
   });
 
+  it('parses avatarfull from GetPlayerSummaries', async () => {
+    process.env.STEAM_WEB_API_KEY = 'test-key';
+    const service = new SteamProfileService();
+    jest.spyOn(global, 'fetch').mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        response: {
+          players: [
+            {
+              personaname: 'ApiPlayer',
+              avatarfull: 'https://avatars.steamstatic.com/test_full.jpg',
+            },
+          ],
+        },
+      }),
+    } as Response);
+
+    await expect(service.fetchPlayerSummary('76561198000000000')).resolves.toEqual({
+      personaname: 'ApiPlayer',
+      avatarUrl: 'https://avatars.steamstatic.com/test_full.jpg',
+    });
+  });
+
   it('returns null when Steam API responds with non-OK status', async () => {
     process.env.STEAM_WEB_API_KEY = 'test-key';
     const service = new SteamProfileService();

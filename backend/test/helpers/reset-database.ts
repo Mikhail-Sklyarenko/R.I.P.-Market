@@ -21,6 +21,7 @@ export async function resetDatabase(prisma: PrismaService): Promise<void> {
       "ExtensionNonce",
       "ExtensionSession",
       "ExtensionDevice",
+      "SupportTicket",
       "TradeTaskStatusEvent",
       "TradeTask",
       "TradeOperation",

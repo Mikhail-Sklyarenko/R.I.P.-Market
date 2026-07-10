@@ -28,6 +28,8 @@ import { CreateOrderDto } from './dto/create-order.dto';
 import { ListMyOrdersQueryDto } from './dto/list-my-orders-query.dto';
 import { UpdateTradeReferenceDto } from './dto/update-trade-reference.dto';
 import { OrderStateService } from './order-state.service';
+import { hasValidTradeUrl } from '../users/trade-url.util';
+import { SteamVacService } from '../users/steam-vac.service';
 
 type LockedLotRow = {
   id: string;
@@ -50,6 +52,7 @@ export class OrdersService {
     private readonly tradeReferenceReconcileService: TradeReferenceReconcileService,
     private readonly extensionFlowMetrics: ExtensionFlowMetricsService,
     private readonly extensionRolloutService: ExtensionRolloutService,
+    private readonly steamVacService: SteamVacService,
   ) {}
 
   async create(buyerId: string, dto: CreateOrderDto, idempotencyKey: string) {
@@ -76,9 +79,9 @@ export class OrdersService {
     const buyer = await this.prisma.user.findUnique({ where: { id: buyerId } });
     if (!buyer) {
       throw new AppException(
-        ErrorCode.NOT_FOUND,
-        'Buyer not found',
-        HttpStatus.NOT_FOUND,
+        ErrorCode.UNAUTHORIZED,
+        'Your session is no longer valid. Please sign in again.',
+        HttpStatus.UNAUTHORIZED,
       );
     }
     if (buyer.status !== UserStatus.ACTIVE) {
@@ -87,6 +90,29 @@ export class OrdersService {
         'Your buyer account is not active',
         HttpStatus.BAD_REQUEST,
       );
+    }
+    if (!hasValidTradeUrl(buyer.tradeUrl)) {
+      throw new AppException(
+        ErrorCode.TRADE_URL_REQUIRED,
+        'Add your Steam Trade URL in account settings before purchasing',
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+    await this.steamVacService.assertCanTrade(buyer);
+
+    const lotPreview = await this.prisma.lot.findUnique({
+      where: { id: dto.lotId },
+      include: { seller: true },
+    });
+    if (lotPreview?.seller) {
+      if (!hasValidTradeUrl(lotPreview.seller.tradeUrl)) {
+        throw new AppException(
+          ErrorCode.TRADE_URL_REQUIRED,
+          'Seller has no Trade URL — this listing cannot be purchased right now',
+          HttpStatus.BAD_REQUEST,
+        );
+      }
+      await this.steamVacService.assertCanTrade(lotPreview.seller);
     }
 
     try {

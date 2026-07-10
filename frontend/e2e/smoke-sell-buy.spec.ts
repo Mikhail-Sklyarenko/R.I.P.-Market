@@ -16,7 +16,8 @@ test.describe('Smoke: sell list and buyer complete', () => {
   }) => {
     await loginAsSeller(page);
 
-    await page.getByRole('link', { name: 'Выставить' }).first().click();
+    await page.locator('[data-testid^="list-asset-"]').first().click();
+    await expect(page.getByTestId('inventory-sell-panel')).toBeVisible();
     await page.getByTestId('price-input').fill('1000');
     await page.getByTestId('submit-listing').click();
     await expect(page).toHaveURL(/\/sell\/my-lots$/);

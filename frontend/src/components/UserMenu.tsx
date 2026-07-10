@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../auth/AuthContext';
 import { hasLinkedSteamId } from '../utils/steam-id';
+import { getUserAvatarUrl, getUserInitials } from '../utils/user-avatar';
 
 export function UserMenu() {
   const { user, token, logout } = useAuth();
@@ -30,7 +31,11 @@ export function UserMenu() {
   }
 
   const isAdmin = user.role === 'ADMIN';
+  const isSeller = user.role === 'SELLER';
+  const canSell = isSeller || hasLinkedSteamId(user.steamId);
   const steamLinked = hasLinkedSteamId(user.steamId);
+  const avatarUrl = getUserAvatarUrl(user);
+  const initials = getUserInitials(user);
 
   return (
     <div className="user-menu" ref={menuRef}>
@@ -41,7 +46,20 @@ export function UserMenu() {
         aria-expanded={open}
         data-testid="user-menu-trigger"
       >
-        {user.username}
+        {avatarUrl ? (
+          <img
+            src={avatarUrl}
+            alt=""
+            className="user-menu-avatar-img"
+            loading="lazy"
+            referrerPolicy="no-referrer"
+          />
+        ) : (
+          <span className="user-menu-avatar" aria-hidden="true">
+            {initials}
+          </span>
+        )}
+        <span className="user-menu-chevron" aria-hidden="true" />
       </button>
       {open ? (
         <div className="user-menu-panel" data-testid="user-menu-panel">
@@ -62,16 +80,72 @@ export function UserMenu() {
             </Link>
           )}
           <Link
-            to="/account"
+            to="/wallet"
             className="user-menu-item"
+            data-testid="user-menu-deposit"
             onClick={() => setOpen(false)}
           >
-            Аккаунт
+            Пополнить баланс
           </Link>
+          <Link
+            to="/wallet"
+            className="user-menu-item"
+            data-testid="user-menu-withdraw"
+            onClick={() => setOpen(false)}
+          >
+            Вывести средства
+          </Link>
+          <Link
+            to="/account"
+            className="user-menu-item"
+            data-testid="user-menu-account"
+            onClick={() => setOpen(false)}
+          >
+            Личный кабинет
+          </Link>
+          <Link
+            to="/wallet"
+            className="user-menu-item"
+            data-testid="user-menu-transactions"
+            onClick={() => setOpen(false)}
+          >
+            Транзакции
+          </Link>
+          {canSell ? (
+            <>
+              <Link
+                to="/sell/inventory"
+                className="user-menu-item"
+                data-testid="user-menu-inventory"
+                onClick={() => setOpen(false)}
+              >
+                Инвентарь
+              </Link>
+              <Link
+                to="/sell/activity"
+                className="user-menu-item"
+                data-testid="user-menu-seller-activity"
+                onClick={() => setOpen(false)}
+              >
+                Мои продажи
+              </Link>
+            </>
+          ) : null}
+          {!isSeller ? (
+            <Link
+              to="/my/orders"
+              className="user-menu-item"
+              data-testid="user-menu-orders"
+              onClick={() => setOpen(false)}
+            >
+              Мои сделки
+            </Link>
+          ) : null}
           {isAdmin ? (
             <Link
               to="/admin/orders"
               className="user-menu-item"
+              data-testid="user-menu-admin"
               onClick={() => setOpen(false)}
             >
               Админ
@@ -80,6 +154,7 @@ export function UserMenu() {
           <button
             type="button"
             className="user-menu-item"
+            data-testid="user-menu-logout"
             onClick={() => {
               logout();
               setOpen(false);

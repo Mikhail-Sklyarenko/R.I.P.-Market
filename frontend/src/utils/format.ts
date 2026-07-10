@@ -37,7 +37,7 @@ export function getErrorMessage(error: unknown, fallback: string): string {
 
 export const ERROR_MESSAGES: Record<string, string> = {
   VALIDATION_ERROR: 'Проверьте форму и повторите попытку.',
-  UNAUTHORIZED: 'Войдите в аккаунт для продолжения.',
+  UNAUTHORIZED: 'Сессия устарела. Выйдите и войдите снова.',
   FORBIDDEN: 'У вас нет прав на это действие.',
   NOT_FOUND: 'Запрашиваемый объект не найден.',
   BAD_REQUEST: 'Сейчас это действие недоступно.',
@@ -64,6 +64,10 @@ export const ERROR_MESSAGES: Record<string, string> = {
   STEAM_PROFILE_PRIVATE:
     'Инвентарь Steam скрыт. Откройте его в настройках приватности Steam.',
   INVENTORY_STALE: 'Не удалось обновить инвентарь из Steam. Попробуйте чуть позже.',
+  TRADE_URL_REQUIRED:
+    'Укажите Trade URL в настройках аккаунта — без него нельзя продавать и покупать.',
+  STEAM_VAC_BANNED:
+    'Аккаунт с VAC-баном не может торговать на площадке.',
 };
 
 export const USER_ROLE_LABELS: Record<string, string> = {

@@ -15,6 +15,7 @@ import { OrderTradeSellerPanel } from '../components/OrderTradeSellerPanel';
 import { ExtensionConnectPanel } from '../components/ExtensionConnectPanel';
 import { PageHeader } from '../components/PageHeader';
 import { StatusBadge } from '../components/StatusBadge';
+import { WearBar } from '../components/WearBar';
 import {
   BUYER_CANCELABLE_STATUSES,
   canShowDevPanels,
@@ -26,11 +27,15 @@ import {
   getTradeTimeoutRemainingMinutes,
 } from '../utils/order-trade';
 import { formatOrderStatus, getOrderNextAction } from '../utils/order-flow';
-import { formatLotStatus } from '../utils/seller-flow';
 import {
   formatExtensionUiTradeFlowLabel,
   requestExtensionPoll,
 } from '../utils/extension';
+import {
+  formatFloatValue,
+  formatPaintSeed,
+  getItemCategory,
+} from '../utils/item-image';
 
 const POLL_STATUSES = new Set(['WAITING_TRADE', 'TRADE_CONFIRMED', 'PAYMENT_RESERVED', 'CREATED']);
 
@@ -249,8 +254,14 @@ export function OrderPage() {
     return null;
   }
 
+  const asset = order?.lot.inventoryAsset;
+  const floatText = asset ? formatFloatValue(asset.floatValue) : null;
+  const patternText = asset ? formatPaintSeed(asset.paintSeed) : null;
+  const category = asset ? getItemCategory(asset) : null;
+  const wear = asset?.wear ?? null;
+
   return (
-    <div className="page">
+    <div className="page order-page">
       <PageHeader
         title="Сделка"
         subtitle={
@@ -274,223 +285,255 @@ export function OrderPage() {
       ) : null}
 
       {order ? (
-        <div className="stack order-page-stack" data-testid="order-page">
-          <div className="card form-card">
-            <div className="order-page-header">
-              <ItemPreview
-                item={order.lot.inventoryAsset}
-                title={order.lot.inventoryAsset.itemDefinition.marketHashName}
-                size="sm"
-                showAttrs
-              />
-              <div className="order-page-header-meta">
-                <div className="order-status-wrap">
-                  <StatusBadge status={order.status} label={formatOrderStatus(order.status)} />
-                  <span data-testid="order-status" className="sr-only">
-                    {order.status}
-                  </span>
-                </div>
-              </div>
+        <div className="order-page-grid" data-testid="order-page">
+          <div className="order-page-main">
+            <div className="card order-item-card">
+              {asset ? (
+                <>
+                  <ItemPreview
+                    item={asset}
+                    title={asset.itemDefinition.marketHashName}
+                    size="lg"
+                    showAttrs={false}
+                  />
+                  {asset.floatValue !== null &&
+                  asset.floatValue !== undefined &&
+                  asset.floatValue !== '' ? (
+                    <WearBar floatValue={asset.floatValue} />
+                  ) : null}
+                  <dl className="lot-attrs-grid meta-list">
+                    {category ? (
+                      <div>
+                        <dt>Категория</dt>
+                        <dd>{category}</dd>
+                      </div>
+                    ) : null}
+                    {wear ? (
+                      <div>
+                        <dt>Износ</dt>
+                        <dd>{wear}</dd>
+                      </div>
+                    ) : null}
+                    {floatText ? (
+                      <div>
+                        <dt>Float</dt>
+                        <dd>{floatText}</dd>
+                      </div>
+                    ) : null}
+                    {patternText ? (
+                      <div>
+                        <dt>Pattern</dt>
+                        <dd>{patternText}</dd>
+                      </div>
+                    ) : null}
+                  </dl>
+                </>
+              ) : null}
             </div>
 
-            <OrderStepper status={order.status} />
-
-            {showTradePanels && timeoutRemainingMinutes !== null ? (
-              <p className="order-trade-timeout" data-testid="order-trade-timeout">
-                {timeoutRemainingMinutes > 0
-                  ? `Осталось ~${timeoutRemainingMinutes} мин. до автоматического спора при отсутствии обмена.`
-                  : 'Время на обмен истекло — скоро может быть открыт спор.'}
-              </p>
-            ) : null}
-
-            {nextAction && !showTradePanels ? (
-              <div className="next-action-card" data-testid="order-next-action">
-                <strong>{nextAction.title}</strong>
-                <p className="muted small">{nextAction.description}</p>
-              </div>
-            ) : null}
-
-            {isSeller && showTradePanels && extensionTaskPipeline && token ? (
-              <ExtensionConnectPanel token={token} compact />
-            ) : null}
-
-            {showTradePanels &&
-            extensionTaskPipeline &&
-            canShowDevPanels(user?.role) ? (
-              <p
-                className="muted small"
-                data-testid="extension-ui-trade-hint"
-              >
-                Extension trade mode:{' '}
-                {formatExtensionUiTradeFlowLabel(extensionUiTradeFlow)}
-              </p>
-            ) : null}
-
-            {isSeller && showTradePanels ? (
-              <OrderTradeSellerPanel
-                order={order}
-                offerInput={offerInput}
-                savingOffer={savingOffer}
-                extensionMode={extensionTaskPipeline && Boolean(order.tradeTask)}
-                onOfferInputChange={setOfferInput}
-                onSaveTradeReference={() => void handleSaveTradeReference()}
-              />
-            ) : null}
-
-            {isBuyer && showTradePanels ? (
-              <OrderTradeBuyerPanel
-                order={order}
-                extensionMode={extensionTaskPipeline && Boolean(order.tradeTask)}
-                nextActionTitle={nextAction?.title}
-                nextActionDescription={nextAction?.description}
-              />
-            ) : null}
-
-            <div className="pricing-preview" data-testid="order-money-block">
-              <div>
-                <span>Сумма сделки</span>
-                <MoneyDisplay minor={order.amountMinor} strong />
-              </div>
-              <div>
-                <span>На hold</span>
-                <MoneyDisplay
-                  minor={order.hold?.amountMinor ?? order.holdAmountMinor}
-                  strong
-                />
-              </div>
-              <div>
-                <span>Ваша роль</span>
-                <strong data-testid="order-role">
-                  {formatOrderRoleLabel(isBuyer ? 'buyer' : isSeller ? 'seller' : 'other')}
-                </strong>
-              </div>
-              <div>
-                <span>Статус обмена</span>
-                <strong data-testid="trade-operation-status">
-                  {formatTradePollStatus(order.tradeOperation)}
-                </strong>
-              </div>
-              {order.tradeOperation?.externalOfferId ? (
-                <div>
-                  <span>ID trade offer</span>
-                  <strong data-testid="trade-offer-id-summary">
-                    {order.tradeOperation.externalOfferId}
-                  </strong>
-                </div>
-              ) : null}
-              <div>
-                <span>Статус лота</span>
-                <strong>{formatLotStatus(order.lot.status)}</strong>
-              </div>
+            <div className="card order-progress-card">
+              <OrderStepper status={order.status} />
             </div>
 
             {order.statusEvents && order.statusEvents.length > 0 ? (
-              <div className="order-timeline" data-testid="order-timeline">
-                <h4 className="eyebrow">История статусов</h4>
-                <ul className="simple-list">
-                  {order.statusEvents.map((event) => (
-                    <li key={event.id}>
-                      <strong>{formatOrderStatus(event.toStatus)}</strong>
-                      <span className="muted small">
-                        {' '}
-                        · {new Date(event.createdAt).toLocaleString('ru-RU')}
-                      </span>
-                      {event.reason ? (
-                        <span className="muted small"> · {event.reason}</span>
-                      ) : null}
-                    </li>
-                  ))}
-                </ul>
-              </div>
+              <details className="order-timeline-details">
+                <summary className="order-timeline-summary">История статусов</summary>
+                <div className="order-timeline" data-testid="order-timeline">
+                  <ul className="simple-list">
+                    {order.statusEvents.map((event) => (
+                      <li key={event.id}>
+                        <strong>{formatOrderStatus(event.toStatus)}</strong>
+                        <span className="muted small">
+                          {' '}
+                          · {new Date(event.createdAt).toLocaleString('ru-RU')}
+                        </span>
+                        {event.reason ? (
+                          <span className="muted small"> · {event.reason}</span>
+                        ) : null}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              </details>
             ) : null}
+          </div>
 
-            {showMockTradePanel ? (
-              <div className="dev-panel" data-testid="mock-trade-panel">
-                <p className="muted small">Dev/stage: simulate trade outcomes.</p>
-                <div className="stack">
-                  <button
-                    type="button"
-                    className="button primary"
-                    disabled={completing || failing !== null}
-                    data-testid="mock-trade-success"
-                    onClick={() => void handleMockSuccess()}
-                  >
-                    {completing ? 'Completing…' : 'Complete trade (mock)'}
-                  </button>
+          <aside className="order-page-sidebar">
+            <div className="card order-action-card">
+              <div className="order-action-header">
+                <StatusBadge status={order.status} label={formatOrderStatus(order.status)} />
+                <span data-testid="order-status" className="sr-only">
+                  {order.status}
+                </span>
+              </div>
+
+              {showTradePanels && timeoutRemainingMinutes !== null ? (
+                <p className="order-trade-timeout" data-testid="order-trade-timeout">
+                  {timeoutRemainingMinutes > 0
+                    ? `Осталось ~${timeoutRemainingMinutes} мин. до автоматического спора.`
+                    : 'Время на обмен истекло — скоро может быть открыт спор.'}
+                </p>
+              ) : null}
+
+              {nextAction && !showTradePanels ? (
+                <div className="next-action-card" data-testid="order-next-action">
+                  <strong>{nextAction.title}</strong>
+                  <p className="muted small">{nextAction.description}</p>
+                </div>
+              ) : null}
+
+              {isSeller && showTradePanels && extensionTaskPipeline && token ? (
+                <ExtensionConnectPanel token={token} compact />
+              ) : null}
+
+              {showTradePanels &&
+              extensionTaskPipeline &&
+              canShowDevPanels(user?.role) ? (
+                <p className="muted small" data-testid="extension-ui-trade-hint">
+                  Extension trade mode:{' '}
+                  {formatExtensionUiTradeFlowLabel(extensionUiTradeFlow)}
+                </p>
+              ) : null}
+
+              {isSeller && showTradePanels ? (
+                <OrderTradeSellerPanel
+                  order={order}
+                  offerInput={offerInput}
+                  savingOffer={savingOffer}
+                  extensionMode={extensionTaskPipeline && Boolean(order.tradeTask)}
+                  onOfferInputChange={setOfferInput}
+                  onSaveTradeReference={() => void handleSaveTradeReference()}
+                />
+              ) : null}
+
+              {isBuyer && showTradePanels ? (
+                <OrderTradeBuyerPanel
+                  order={order}
+                  extensionMode={extensionTaskPipeline && Boolean(order.tradeTask)}
+                  nextActionTitle={nextAction?.title}
+                  nextActionDescription={nextAction?.description}
+                />
+              ) : null}
+
+              <div className="order-money-summary" data-testid="order-money-block">
+                <div className="order-money-row">
+                  <span>Сумма</span>
+                  <MoneyDisplay minor={order.amountMinor} strong />
+                </div>
+                <div className="order-money-row">
+                  <span>На hold</span>
+                  <MoneyDisplay
+                    minor={order.hold?.amountMinor ?? order.holdAmountMinor}
+                    strong
+                  />
+                </div>
+                <div className="order-money-row order-money-meta">
+                  <span>Роль</span>
+                  <strong data-testid="order-role">
+                    {formatOrderRoleLabel(isBuyer ? 'buyer' : isSeller ? 'seller' : 'other')}
+                  </strong>
+                </div>
+                <div className="order-money-row order-money-meta">
+                  <span>Обмен</span>
+                  <strong data-testid="trade-operation-status">
+                    {formatTradePollStatus(order.tradeOperation)}
+                  </strong>
+                </div>
+                {order.tradeOperation?.externalOfferId ? (
+                  <div className="order-money-row order-money-meta">
+                    <span>Offer ID</span>
+                    <strong data-testid="trade-offer-id-summary">
+                      {order.tradeOperation.externalOfferId}
+                    </strong>
+                  </div>
+                ) : null}
+              </div>
+
+              {showMockTradePanel ? (
+                <div className="dev-panel" data-testid="mock-trade-panel">
+                  <p className="muted small">Dev/stage: simulate trade outcomes.</p>
+                  <div className="stack">
+                    <button
+                      type="button"
+                      className="button primary"
+                      disabled={completing || failing !== null}
+                      data-testid="mock-trade-success"
+                      onClick={() => void handleMockSuccess()}
+                    >
+                      {completing ? 'Completing…' : 'Complete trade (mock)'}
+                    </button>
+                    <button
+                      type="button"
+                      className="button secondary"
+                      disabled={completing || failing !== null}
+                      data-testid="mock-trade-fail-safe"
+                      onClick={() => void handleMockFail('SAFE')}
+                    >
+                      {failing === 'SAFE' ? 'Failing…' : 'Fail trade (safe)'}
+                    </button>
+                    <button
+                      type="button"
+                      className="button secondary"
+                      disabled={completing || failing !== null}
+                      data-testid="mock-trade-fail-dispute"
+                      onClick={() => void handleMockFail('DISPUTE')}
+                    >
+                      {failing === 'DISPUTE' ? 'Failing…' : 'Fail trade (dispute)'}
+                    </button>
+                    <button
+                      type="button"
+                      className="button secondary"
+                      disabled={completing || failing !== null}
+                      data-testid="mock-trade-timeout"
+                      onClick={() => void handleMockTimeout()}
+                    >
+                      {failing === 'TIMEOUT' ? 'Timing out…' : 'Trade timeout (dispute)'}
+                    </button>
+                  </div>
+                </div>
+              ) : null}
+
+              {canBuyerCancel ? (
+                <div className="stack" data-testid="cancel-order-panel">
                   <button
                     type="button"
                     className="button secondary"
-                    disabled={completing || failing !== null}
-                    data-testid="mock-trade-fail-safe"
-                    onClick={() => void handleMockFail('SAFE')}
+                    disabled={canceling}
+                    data-testid="cancel-order-button"
+                    onClick={() => void handleCancel()}
                   >
-                    {failing === 'SAFE' ? 'Failing…' : 'Fail trade (safe)'}
-                  </button>
-                  <button
-                    type="button"
-                    className="button secondary"
-                    disabled={completing || failing !== null}
-                    data-testid="mock-trade-fail-dispute"
-                    onClick={() => void handleMockFail('DISPUTE')}
-                  >
-                    {failing === 'DISPUTE' ? 'Failing…' : 'Fail trade (dispute)'}
-                  </button>
-                  <button
-                    type="button"
-                    className="button secondary"
-                    disabled={completing || failing !== null}
-                    data-testid="mock-trade-timeout"
-                    onClick={() => void handleMockTimeout()}
-                  >
-                    {failing === 'TIMEOUT' ? 'Timing out…' : 'Trade timeout (dispute)'}
+                    {canceling ? 'Отменяем…' : 'Отменить сделку'}
                   </button>
                 </div>
-              </div>
-            ) : null}
+              ) : null}
 
-            {canBuyerCancel ? (
-              <div className="stack" data-testid="cancel-order-panel">
-                <p className="muted small">
-                  Отмените до завершения обмена — средства вернутся, лот снова в каталоге.
+              {order.status === 'FAILED' ? (
+                <p className="muted small" data-testid="order-failed-message">
+                  Сделка не состоялась. Средства возвращены при необходимости.
                 </p>
-                <button
-                  type="button"
-                  className="button secondary"
-                  disabled={canceling}
-                  data-testid="cancel-order-button"
-                  onClick={() => void handleCancel()}
-                >
-                  {canceling ? 'Отменяем…' : 'Отменить сделку'}
-                </button>
-              </div>
-            ) : null}
+              ) : null}
 
-            {order.status === 'FAILED' ? (
-              <p className="muted" data-testid="order-failed-message">
-                Сделка не состоялась. Средства возвращены при необходимости.
-              </p>
-            ) : null}
+              {order.status === 'DISPUTE' ? (
+                <p className="muted small" data-testid="order-dispute-message">
+                  Открыт спор. Команда поддержки рассмотрит ситуацию.
+                </p>
+              ) : null}
 
-            {order.status === 'DISPUTE' ? (
-              <p className="muted" data-testid="order-dispute-message">
-                Открыт спор. Команда поддержки рассмотрит ситуацию.
-              </p>
-            ) : null}
+              {order.status === 'COMPLETED' ? (
+                <p className="success-text" data-testid="order-completed-message">
+                  Сделка успешно завершена.
+                </p>
+              ) : null}
 
-            {order.status === 'COMPLETED' ? (
-              <p className="success-text" data-testid="order-completed-message">
-                Сделка успешно завершена.
-              </p>
-            ) : null}
+              {order.status === 'CANCELED' ? (
+                <p className="muted small" data-testid="order-canceled-message">
+                  Сделка отменена. Средства возвращены при необходимости.
+                </p>
+              ) : null}
 
-            {order.status === 'CANCELED' ? (
-              <p className="muted" data-testid="order-canceled-message">
-                Сделка отменена. Средства возвращены при необходимости.
-              </p>
-            ) : null}
-
-            <ErrorAlert error={error} />
-          </div>
+              <ErrorAlert error={error} />
+            </div>
+          </aside>
         </div>
       ) : null}
     </div>

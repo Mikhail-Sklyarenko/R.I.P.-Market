@@ -53,6 +53,7 @@ export class TestResetController {
         "ExtensionCommandAck",
         "ExtensionNonce",
         "ExtensionSession",
+        "SupportTicket",
         "ExtensionDevice",
         "TradeTaskStatusEvent",
         "TradeTask",

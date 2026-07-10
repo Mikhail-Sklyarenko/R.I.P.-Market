@@ -8,6 +8,7 @@ export function profileToAuthUser(profile: UserProfile): AuthUser {
     status: profile.status,
     steamId: profile.steamId ?? null,
     steamPersonaName: profile.steamPersonaName ?? null,
+    steamAvatarUrl: profile.steamAvatarUrl ?? null,
     tradeUrl: profile.tradeUrl ?? null,
   };
 }

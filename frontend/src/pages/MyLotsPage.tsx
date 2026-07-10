@@ -21,7 +21,11 @@ import {
 
 const SUMMARY_STATUSES = ['ACTIVE', 'RESERVED', 'SOLD', 'CANCELED'] as const;
 
-export function MyLotsPage() {
+type MyLotsPageProps = {
+  embedded?: boolean;
+};
+
+export function MyLotsPage({ embedded = false }: MyLotsPageProps) {
   const { token } = useAuth();
   const [lots, setLots] = useState<Lot[]>([]);
   const [orders, setOrders] = useState<Order[]>([]);
@@ -111,16 +115,18 @@ export function MyLotsPage() {
   }
 
   return (
-    <div className="page">
-      <PageHeader
-        title="Мои лоты"
-        subtitle="Статусы выставленных предметов и выплаты."
-        actions={
-          <Link to="/sell/inventory" className="button secondary">
-            Новый лот
-          </Link>
-        }
-      />
+    <div className={embedded ? 'seller-activity-panel' : 'page'}>
+      {!embedded ? (
+        <PageHeader
+          title="Мои лоты"
+          subtitle="Статусы выставленных предметов и выплаты."
+          actions={
+            <Link to="/sell/inventory" className="button secondary">
+              Новый лот
+            </Link>
+          }
+        />
+      ) : null}
 
       <ErrorAlert error={error} />
 
@@ -269,7 +275,7 @@ export function MyLotsPage() {
         </>
       ) : null}
 
-      <SellerSaleInfo />
+      {!embedded ? <SellerSaleInfo /> : null}
     </div>
   );
 }

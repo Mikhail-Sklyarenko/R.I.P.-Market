@@ -6,6 +6,9 @@ import { UserRole, UserStatus } from '@prisma/client';
 import { PrismaService } from '../../src/prisma/prisma.service';
 import { LedgerService } from '../../src/wallet/ledger.service';
 
+const MOCK_TRADE_URL =
+  'https://steamcommunity.com/tradeoffer/new/?partner=123456789&token=AbCdEfGh';
+
 type AuthSession = {
   token: string;
   userId: string;
@@ -37,6 +40,11 @@ export class ApiClient {
       });
     }
 
+    await request(this.app.getHttpServer())
+      .patch('/api/v1/users/me/trade-url')
+      .set('Authorization', `Bearer ${session.token}`)
+      .send({ tradeUrl: MOCK_TRADE_URL });
+
     return session;
   }
 
@@ -56,7 +64,14 @@ export class ApiClient {
     await ledger.ensureUserWallet(user.id);
 
     const token = await jwt.signAsync({ sub: user.id, role: UserRole.BUYER });
-    return { token, userId: user.id };
+    const session = { token, userId: user.id };
+
+    await request(this.app.getHttpServer())
+      .patch('/api/v1/users/me/trade-url')
+      .set('Authorization', `Bearer ${session.token}`)
+      .send({ tradeUrl: MOCK_TRADE_URL });
+
+    return session;
   }
 
   async deposit(

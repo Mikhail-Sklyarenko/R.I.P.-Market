@@ -115,6 +115,7 @@ export type AuthUser = {
   status: string;
   steamId?: string | null;
   steamPersonaName?: string | null;
+  steamAvatarUrl?: string | null;
   tradeUrl?: string | null;
 };
 
@@ -125,6 +126,17 @@ export type AuthResponse = {
   tokenType: string;
   user: AuthUser;
   provider: string;
+};
+
+export type SupportTicket = {
+  id: string;
+  userId: string;
+  subject: string;
+  body: string;
+  status: 'OPEN' | 'RESOLVED';
+  adminReply?: string | null;
+  createdAt: string;
+  updatedAt: string;
 };
 
 export type ItemDefinition = {
@@ -277,6 +289,7 @@ export type ListLotsParams = {
   maxPriceMinor?: number;
   weapon?: string;
   rarity?: string;
+  wear?: string;
   sort?: 'price_asc' | 'price_desc' | 'newest';
   page?: number;
   limit?: number;

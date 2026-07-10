@@ -2,6 +2,7 @@ import { HttpStatus } from '@nestjs/common';
 import { UserRole, UserStatus } from '@prisma/client';
 import { AppException } from '../common/errors/app.exception';
 import { ErrorCode } from '../common/errors/error-codes';
+import { SteamProfileService } from '../providers/auth/steam-profile.service';
 import { LedgerService } from '../wallet/ledger.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { UsersService } from './users.service';
@@ -14,8 +15,15 @@ describe('UsersService (Steam identity)', () => {
       findUnique: jest.Mock;
       update: jest.Mock;
     };
+    inventorySyncRun: {
+      deleteMany: jest.Mock;
+    };
+    inventoryAsset: {
+      updateMany: jest.Mock;
+    };
   };
   let ledgerService: { ensureUserWallet: jest.Mock };
+  let steamProfileService: { fetchPlayerSummary: jest.Mock };
 
   beforeEach(() => {
     delete process.env.ALLOW_MOCK_LOGIN_IN_STEAM_MODE;
@@ -25,13 +33,23 @@ describe('UsersService (Steam identity)', () => {
         findUnique: jest.fn(),
         update: jest.fn(),
       },
+      inventorySyncRun: {
+        deleteMany: jest.fn().mockResolvedValue({ count: 0 }),
+      },
+      inventoryAsset: {
+        updateMany: jest.fn().mockResolvedValue({ count: 0 }),
+      },
     };
     ledgerService = {
       ensureUserWallet: jest.fn().mockResolvedValue(undefined),
     };
+    steamProfileService = {
+      fetchPlayerSummary: jest.fn(),
+    };
     service = new UsersService(
       prisma as unknown as PrismaService,
       ledgerService as unknown as LedgerService,
+      steamProfileService as unknown as SteamProfileService,
     );
   });
 
@@ -57,6 +75,8 @@ describe('UsersService (Steam identity)', () => {
         username: 'PlayerOne',
         role: UserRole.BUYER,
         status: UserStatus.ACTIVE,
+        steamPersonaName: null,
+        steamAvatarUrl: null,
       },
       update: { username: 'PlayerOne' },
     });
@@ -65,22 +85,28 @@ describe('UsersService (Steam identity)', () => {
   });
 
   it('linkSteamId updates current user when steamId is free', async () => {
-    prisma.user.findUnique.mockResolvedValue(null);
+    prisma.user.findUnique
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce({ id: 'user-2', username: 'mock_seller' });
     prisma.user.update.mockResolvedValue({
       id: 'user-2',
       steamId: '76561198111111111',
-      username: 'linked_user',
+      username: 'mock_seller',
       role: UserRole.SELLER,
       status: UserStatus.ACTIVE,
     });
 
-    await service.linkSteamId('user-2', '76561198111111111', 'linked_user');
+    await service.linkSteamId('user-2', '76561198111111111', {
+      personaName: 'linked_user',
+      avatarUrl: 'https://example.com/avatar.jpg',
+    });
 
     expect(prisma.user.update).toHaveBeenCalledWith({
       where: { id: 'user-2' },
       data: {
         steamId: '76561198111111111',
-        username: 'linked_user',
+        steamPersonaName: 'linked_user',
+        steamAvatarUrl: 'https://example.com/avatar.jpg',
       },
     });
     expect(ledgerService.ensureUserWallet).toHaveBeenCalledWith('user-2');
@@ -104,10 +130,12 @@ describe('UsersService (Steam identity)', () => {
 
   it('linkSteamId reassigns steamId in dev mock-login mode', async () => {
     process.env.ALLOW_MOCK_LOGIN_IN_STEAM_MODE = 'true';
-    prisma.user.findUnique.mockResolvedValue({
-      id: 'other-user',
-      steamId: '76561198111111111',
-    });
+    prisma.user.findUnique
+      .mockResolvedValueOnce({
+        id: 'other-user',
+        steamId: '76561198111111111',
+      })
+      .mockResolvedValueOnce({ id: 'user-2', username: 'mock_seller' });
     prisma.user.update
       .mockResolvedValueOnce({ id: 'other-user', steamId: null })
       .mockResolvedValueOnce({
@@ -118,17 +146,20 @@ describe('UsersService (Steam identity)', () => {
         status: UserStatus.ACTIVE,
       });
 
-    await service.linkSteamId('user-2', '76561198111111111', 'PlayerOne');
+    await service.linkSteamId('user-2', '76561198111111111', {
+      personaName: 'PlayerOne',
+    });
 
     expect(prisma.user.update).toHaveBeenNthCalledWith(1, {
       where: { id: 'other-user' },
-      data: { steamId: null },
+      data: { steamId: null, steamPersonaName: null, steamAvatarUrl: null },
     });
     expect(prisma.user.update).toHaveBeenNthCalledWith(2, {
       where: { id: 'user-2' },
       data: {
         steamId: '76561198111111111',
-        username: 'PlayerOne',
+        steamPersonaName: 'PlayerOne',
+        steamAvatarUrl: null,
       },
     });
 

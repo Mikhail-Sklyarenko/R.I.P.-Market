@@ -1,27 +1,32 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Link, useSearchParams } from 'react-router-dom';
+import { useSearchParams } from 'react-router-dom';
 import { listLots } from '../api/marketplace';
 import type { Lot } from '../api/types';
+import { useAuth } from '../auth/AuthContext';
+import { CatalogCategoryBar } from '../components/CatalogCategoryBar';
+import { CatalogLotCard } from '../components/CatalogLotCard';
 import { ErrorAlert } from '../components/ErrorAlert';
 import { EmptyState } from '../components/EmptyState';
-import { ItemPreview } from '../components/ItemPreview';
 import { LoadingState } from '../components/LoadingState';
-import { MoneyDisplay } from '../components/MoneyDisplay';
 import { PageHeader } from '../components/PageHeader';
-import { StatusBadge } from '../components/StatusBadge';
 import { TrustBanner } from '../components/TrustBanner';
 import {
-  CATALOG_CATEGORY_OPTIONS,
   CATALOG_PAGE_LIMITS,
   findCategoryOption,
   findTabForWeapon,
   hasActiveCatalogFilters,
   resolveCatalogFilter,
-  WEAPON_CATEGORY_TABS,
   type CatalogPageLimit,
 } from '../utils/catalog-filters';
 import { parseUsdToMinor } from '../utils/format';
-import { formatLotStatus } from '../utils/seller-flow';
+import {
+  CATALOG_RARITY_FILTERS,
+  getRarityStyle,
+} from '../utils/rarity-colors';
+import {
+  CATALOG_WEAR_FILTERS,
+  getWearFilterTestId,
+} from '../utils/wear-filters';
 
 type SortOption = 'newest' | 'price-asc' | 'price-desc';
 
@@ -44,6 +49,7 @@ function getInitialCategoryValue(weaponParam: string | null): string {
 }
 
 export function CatalogPage() {
+  const { token } = useAuth();
   const [searchParams, setSearchParams] = useSearchParams();
   const weaponParam = searchParams.get('weapon');
 
@@ -55,8 +61,11 @@ export function CatalogPage() {
   const [sort, setSort] = useState<SortOption>('newest');
   const [minPrice, setMinPrice] = useState('');
   const [maxPrice, setMaxPrice] = useState('');
+  const [rarityFilter, setRarityFilter] = useState('');
+  const [wearFilter, setWearFilter] = useState('');
   const [page, setPage] = useState(1);
   const [pageLimit, setPageLimit] = useState<CatalogPageLimit>(24);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
   const [activeTabId, setActiveTabId] = useState(
     weaponParam ? findTabForWeapon(weaponParam) : 'all',
   );
@@ -76,12 +85,13 @@ export function CatalogPage() {
       minPriceMinor: minMinor ?? undefined,
       maxPriceMinor: maxMinor ?? undefined,
       weapon: categoryFilter.weapon,
-      rarity: categoryFilter.rarity,
+      rarity: rarityFilter || categoryFilter.rarity,
+      wear: wearFilter || undefined,
       sort: toApiSort(sort),
       page,
       limit: pageLimit,
     };
-  }, [search, sort, minPrice, maxPrice, page, pageLimit, categoryFilter]);
+  }, [search, sort, minPrice, maxPrice, rarityFilter, wearFilter, page, pageLimit, categoryFilter]);
 
   useEffect(() => {
     setLoading(true);
@@ -97,7 +107,7 @@ export function CatalogPage() {
 
   useEffect(() => {
     setPage(1);
-  }, [search, sort, minPrice, maxPrice, activeTabId, categoryValue, pageLimit]);
+  }, [search, sort, minPrice, maxPrice, rarityFilter, wearFilter, activeTabId, categoryValue, pageLimit]);
 
   useEffect(() => {
     if (!weaponParam) {
@@ -117,7 +127,8 @@ export function CatalogPage() {
     maxPrice,
     activeTabId,
     categoryValue,
-  });
+    wearFilter,
+  }) || Boolean(rarityFilter);
 
   function handleCategoryChange(value: string) {
     setCategoryValue(value);
@@ -151,6 +162,8 @@ export function CatalogPage() {
     setSort('newest');
     setMinPrice('');
     setMaxPrice('');
+    setRarityFilter('');
+    setWearFilter('');
     setActiveTabId('all');
     setCategoryValue('');
     setPage(1);
@@ -167,7 +180,7 @@ export function CatalogPage() {
 
       <TrustBanner />
 
-      <div className="card catalog-filters" data-testid="catalog-filters">
+      <div className="card catalog-toolbar" data-testid="catalog-filters">
         <div className="catalog-filters-row">
           <label className="field catalog-filter-field">
             <span className="field-label">Поиск</span>
@@ -180,20 +193,6 @@ export function CatalogPage() {
             />
           </label>
           <label className="field catalog-filter-field">
-            <span className="field-label">Категория</span>
-            <select
-              value={categoryValue}
-              onChange={(event) => handleCategoryChange(event.target.value)}
-              data-testid="catalog-category"
-            >
-              {CATALOG_CATEGORY_OPTIONS.map((option) => (
-                <option key={option.value || 'all'} value={option.value}>
-                  {option.label}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label className="field catalog-filter-field">
             <span className="field-label">Сортировка</span>
             <select
               value={sort}
@@ -204,24 +203,6 @@ export function CatalogPage() {
               <option value="price-asc">Цена ↑</option>
               <option value="price-desc">Цена ↓</option>
             </select>
-          </label>
-          <label className="field catalog-filter-field">
-            <span className="field-label">Цена от ($)</span>
-            <input
-              type="text"
-              value={minPrice}
-              onChange={(event) => setMinPrice(event.target.value)}
-              data-testid="catalog-min-price"
-            />
-          </label>
-          <label className="field catalog-filter-field">
-            <span className="field-label">Цена до ($)</span>
-            <input
-              type="text"
-              value={maxPrice}
-              onChange={(event) => setMaxPrice(event.target.value)}
-              data-testid="catalog-max-price"
-            />
           </label>
           <label className="field catalog-filter-field">
             <span className="field-label">На странице</span>
@@ -239,21 +220,12 @@ export function CatalogPage() {
           </label>
         </div>
 
-        <div className="catalog-category-tabs" role="tablist" aria-label="Категории оружия">
-          {WEAPON_CATEGORY_TABS.map((tab) => (
-            <button
-              key={tab.id}
-              type="button"
-              role="tab"
-              aria-selected={activeTabId === tab.id}
-              className={`catalog-category-tab${activeTabId === tab.id ? ' active' : ''}`}
-              data-testid={`catalog-category-tab-${tab.id}`}
-              onClick={() => handleTabChange(tab.id)}
-            >
-              {tab.label}
-            </button>
-          ))}
-        </div>
+        <CatalogCategoryBar
+          activeTabId={activeTabId}
+          categoryValue={categoryValue}
+          onTabChange={handleTabChange}
+          onCategoryChange={handleCategoryChange}
+        />
 
         {showResetFilters ? (
           <div className="catalog-filters-actions">
@@ -269,74 +241,161 @@ export function CatalogPage() {
         ) : null}
       </div>
 
-      <ErrorAlert error={error} />
+      <div className="catalog-layout">
+        <aside
+          className={`catalog-sidebar card${sidebarOpen ? ' is-open' : ''}`}
+          data-testid="catalog-sidebar"
+        >
+          <button
+            type="button"
+            className="catalog-sidebar-toggle"
+            aria-expanded={sidebarOpen}
+            onClick={() => setSidebarOpen((value) => !value)}
+          >
+            Фильтры
+          </button>
 
-      {loading ? <LoadingState message="Загрузка каталога…" /> : null}
-
-      {!loading ? (
-        <p className="catalog-total" data-testid="catalog-total">
-          Найдено лотов: {total}
-        </p>
-      ) : null}
-
-      {!loading && lots.length === 0 ? (
-        <EmptyState
-          title="Пока нет лотов"
-          message="Продавцы ещё не выставили предметы или ничего не найдено по фильтрам."
-        />
-      ) : null}
-
-      {!loading && lots.length > 0 ? (
-        <div className="grid" data-testid="catalog-grid">
-          {lots.map((lot) => (
-            <article key={lot.id} className="card item-card" data-testid={`catalog-lot-${lot.id}`}>
-              <ItemPreview
-                item={lot.inventoryAsset}
-                title={lot.inventoryAsset.itemDefinition.marketHashName}
-                size="sm"
-                showAttrs
-              />
-              <div className="item-card-header">
-                <StatusBadge status={lot.status} label={formatLotStatus(lot.status)} />
+          <div className="catalog-sidebar-body">
+            <fieldset className="catalog-sidebar-section">
+              <legend className="field-label">Цена ($)</legend>
+              <div className="catalog-sidebar-price-fields">
+                <label className="field catalog-filter-field">
+                  <span className="field-label">От</span>
+                  <input
+                    type="text"
+                    value={minPrice}
+                    onChange={(event) => setMinPrice(event.target.value)}
+                    data-testid="catalog-min-price"
+                  />
+                </label>
+                <label className="field catalog-filter-field">
+                  <span className="field-label">До</span>
+                  <input
+                    type="text"
+                    value={maxPrice}
+                    onChange={(event) => setMaxPrice(event.target.value)}
+                    data-testid="catalog-max-price"
+                  />
+                </label>
               </div>
-              <p className="catalog-lot-price">
-                <MoneyDisplay minor={lot.priceMinor} strong />
-              </p>
-              <Link
-                className="button primary"
-                to={`/lots/${lot.id}`}
-                data-testid="catalog-open-lot"
-              >
-                Открыть
-              </Link>
-            </article>
-          ))}
-        </div>
-      ) : null}
+            </fieldset>
 
-      {!loading && total > pageLimit ? (
-        <div className="catalog-pagination" data-testid="catalog-pagination">
-          <button
-            type="button"
-            className="button secondary sm"
-            disabled={currentPage <= 1}
-            onClick={() => setPage((value) => value - 1)}
-          >
-            Назад
-          </button>
-          <span className="muted small">
-            Страница {currentPage} из {totalPages}
-          </span>
-          <button
-            type="button"
-            className="button secondary sm"
-            disabled={currentPage >= totalPages}
-            onClick={() => setPage((value) => value + 1)}
-          >
-            Вперёд
-          </button>
+            <fieldset className="catalog-sidebar-section">
+              <legend className="field-label">Редкость</legend>
+              <div className="catalog-rarity-filters" role="group" aria-label="Фильтр редкости">
+                <button
+                  type="button"
+                  className={`catalog-rarity-filter${rarityFilter === '' ? ' active' : ''}`}
+                  data-testid="catalog-rarity-all"
+                  onClick={() => setRarityFilter('')}
+                >
+                  Все
+                </button>
+                {CATALOG_RARITY_FILTERS.map((option) => {
+                  const style = getRarityStyle(option.value);
+                  return (
+                    <button
+                      key={option.value}
+                      type="button"
+                      className={`catalog-rarity-filter${rarityFilter === option.value ? ' active' : ''}`}
+                      data-testid={`catalog-rarity-${option.value.replace(/\s+/g, '-').toLowerCase()}`}
+                      onClick={() => setRarityFilter(option.value)}
+                    >
+                      <span
+                        className="catalog-rarity-dot"
+                        style={{ backgroundColor: style.color, boxShadow: `0 0 8px ${style.glow}` }}
+                        aria-hidden="true"
+                      />
+                      {option.label}
+                    </button>
+                  );
+                })}
+              </div>
+            </fieldset>
+
+            <fieldset className="catalog-sidebar-section">
+              <legend className="field-label">Износ</legend>
+              <div className="catalog-rarity-filters" role="group" aria-label="Фильтр износа">
+                <button
+                  type="button"
+                  className={`catalog-rarity-filter${wearFilter === '' ? ' active' : ''}`}
+                  data-testid="catalog-wear-all"
+                  onClick={() => setWearFilter('')}
+                >
+                  Все
+                </button>
+                {CATALOG_WEAR_FILTERS.map((option) => (
+                  <button
+                    key={option.value}
+                    type="button"
+                    className={`catalog-rarity-filter${wearFilter === option.value ? ' active' : ''}`}
+                    data-testid={getWearFilterTestId(option.value)}
+                    onClick={() => setWearFilter(option.value)}
+                  >
+                    <span
+                      className="catalog-rarity-dot"
+                      style={{ backgroundColor: option.color, boxShadow: `0 0 8px ${option.color}88` }}
+                      aria-hidden="true"
+                    />
+                    {option.label}
+                  </button>
+                ))}
+              </div>
+            </fieldset>
+          </div>
+        </aside>
+
+        <div className="catalog-main">
+          <ErrorAlert error={error} />
+
+          {loading ? <LoadingState message="Загрузка каталога…" /> : null}
+
+          {!loading ? (
+            <p className="catalog-total" data-testid="catalog-total">
+              Найдено лотов: {total}
+            </p>
+          ) : null}
+
+          {!loading && lots.length === 0 ? (
+            <EmptyState
+              title="Пока нет лотов"
+              message="Продавцы ещё не выставили предметы или ничего не найдено по фильтрам."
+            />
+          ) : null}
+
+          {!loading && lots.length > 0 ? (
+            <div className="catalog-grid" data-testid="catalog-grid">
+              {lots.map((lot) => (
+                <CatalogLotCard key={lot.id} lot={lot} isLoggedIn={Boolean(token)} />
+              ))}
+            </div>
+          ) : null}
+
+          {!loading && total > pageLimit ? (
+            <div className="catalog-pagination" data-testid="catalog-pagination">
+              <button
+                type="button"
+                className="button secondary sm"
+                disabled={currentPage <= 1}
+                onClick={() => setPage((value) => value - 1)}
+              >
+                Назад
+              </button>
+              <span className="muted small">
+                Страница {currentPage} из {totalPages}
+              </span>
+              <button
+                type="button"
+                className="button secondary sm"
+                disabled={currentPage >= totalPages}
+                onClick={() => setPage((value) => value + 1)}
+              >
+                Вперёд
+              </button>
+            </div>
+          ) : null}
         </div>
-      ) : null}
+      </div>
     </div>
   );
 }

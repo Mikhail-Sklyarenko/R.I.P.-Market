@@ -57,6 +57,7 @@ export class AuthService {
       status: user.status as string,
       steamId: user.steamId ?? null,
       steamPersonaName: user.steamPersonaName ?? null,
+      steamAvatarUrl: user.steamAvatarUrl ?? null,
       tradeUrl: user.tradeUrl ?? null,
     };
   }
@@ -89,12 +90,11 @@ export class AuthService {
   async steamLink(userId: string, openidParams: Record<string, string>) {
     const steamProvider = this.requireSteamProvider();
     const steamId = await steamProvider.verifyAndParseSteamId(openidParams);
-    const username = await this.steamProfileService.fetchPersonaName(steamId);
-    const user = await this.usersService.linkSteamId(
-      userId,
-      steamId,
-      username ?? undefined,
-    );
+    const summary = await this.steamProfileService.fetchPlayerSummary(steamId);
+    const user = await this.usersService.linkSteamId(userId, steamId, {
+      personaName: summary.personaname ?? undefined,
+      avatarUrl: summary.avatarUrl ?? undefined,
+    });
 
     return this.buildAuthResponse({
       userId: user.id,
@@ -103,6 +103,7 @@ export class AuthService {
       status: user.status,
       steamId: user.steamId,
       steamPersonaName: user.steamPersonaName,
+      steamAvatarUrl: user.steamAvatarUrl,
       tradeUrl: user.tradeUrl,
     });
   }
@@ -136,6 +137,9 @@ export class AuthService {
     }
     if (authResponse.user.steamPersonaName) {
       params.set('steamPersonaName', authResponse.user.steamPersonaName);
+    }
+    if (authResponse.user.steamAvatarUrl) {
+      params.set('steamAvatarUrl', authResponse.user.steamAvatarUrl);
     }
     if (extraParams) {
       for (const [key, value] of Object.entries(extraParams)) {
@@ -175,6 +179,7 @@ export class AuthService {
       status: string;
       steamId?: string | null;
       steamPersonaName?: string | null;
+      steamAvatarUrl?: string | null;
       tradeUrl?: string | null;
     },
     providerOverride?: string,
@@ -192,6 +197,7 @@ export class AuthService {
         status: user.status,
         steamId: user.steamId ?? null,
         steamPersonaName: user.steamPersonaName ?? null,
+        steamAvatarUrl: user.steamAvatarUrl ?? null,
         tradeUrl: user.tradeUrl ?? null,
       },
       provider: providerOverride ?? this.authProvider.type,

@@ -3,9 +3,9 @@ import type { Order } from '../api/types';
 export const ORDER_STATUS_LABELS: Record<string, string> = {
   CREATED: 'Сделка создана',
   PAYMENT_RESERVED: 'Средства зарезервированы',
-  WAITING_TRADE: 'Ожидание обмена в Steam',
+  WAITING_TRADE: 'Ждём обмен в Steam',
   TRADE_CONFIRMED: 'Обмен подтверждён',
-  SETTLEMENT_HOLD: 'Удержание средств (8 дней)',
+  SETTLEMENT_HOLD: 'Проверка сделки (до 8 дней)',
   COMPLETED: 'Сделка завершена',
   CANCELED: 'Сделка отменена',
   FAILED: 'Сделка не состоялась',
@@ -39,8 +39,8 @@ const STEP_LABELS: Record<string, string> = {
   CREATED: 'Создание сделки',
   PAYMENT_RESERVED: 'Резерв средств',
   WAITING_TRADE: 'Обмен в Steam',
-  TRADE_CONFIRMED: 'Подтверждение',
-  SETTLEMENT_HOLD: 'Удержание 8 дней',
+  TRADE_CONFIRMED: 'Подтверждение обмена',
+  SETTLEMENT_HOLD: 'Проверка (8 дней)',
   COMPLETED: 'Завершение',
 };
 
@@ -134,9 +134,9 @@ export function getOrderNextAction(
     }
     if (order.status === 'SETTLEMENT_HOLD') {
       return {
-        title: 'Средства на удержании',
+        title: 'Проверка сделки',
         description:
-          'Обмен подтверждён. Выплата продавцу будет доступна после 8-дневного периода удержания.',
+          'Обмен подтверждён. Выплата продавцу будет доступна после 8-дневного периода проверки.',
       };
     }
     return {
@@ -161,9 +161,9 @@ export function getOrderNextAction(
     }
     if (order.status === 'SETTLEMENT_HOLD') {
       return {
-        title: 'Удержание средств',
+        title: 'Проверка сделки',
         description:
-          'Сделка подтверждена. Средства будут зачислены после окончания 8-дневного hold.',
+          'Сделка подтверждена. Средства будут зачислены после окончания 8-дневной проверки.',
       };
     }
     return {

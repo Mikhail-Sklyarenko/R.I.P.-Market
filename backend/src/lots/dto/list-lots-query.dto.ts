@@ -36,6 +36,10 @@ export class ListLotsQueryDto {
   rarity?: string;
 
   @IsOptional()
+  @IsIn(['FN', 'MW', 'FT', 'WW', 'BS'])
+  wear?: string;
+
+  @IsOptional()
   @IsIn(['price_asc', 'price_desc', 'newest'])
   sort?: 'price_asc' | 'price_desc' | 'newest';
 

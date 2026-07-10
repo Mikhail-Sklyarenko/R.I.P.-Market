@@ -2,25 +2,40 @@ import { Injectable } from '@nestjs/common';
 
 type PlayerSummary = {
   personaname?: string;
+  avatarfull?: string;
   communityvisibilitystate?: number;
+};
+
+export type SteamPlayerSummary = {
+  personaname: string | null;
+  avatarUrl: string | null;
 };
 
 @Injectable()
 export class SteamProfileService {
-  async fetchPersonaName(steamId64: string): Promise<string | null> {
-    const fromApi = await this.fetchPersonaNameFromWebApi(steamId64);
-    if (fromApi) {
+  async fetchPlayerSummary(steamId64: string): Promise<SteamPlayerSummary> {
+    const fromApi = await this.fetchPlayerSummaryFromWebApi(steamId64);
+    if (fromApi.personaname || fromApi.avatarUrl) {
       return fromApi;
     }
-    return this.fetchPersonaNameFromCommunityXml(steamId64);
+    const personaFromXml = await this.fetchPersonaNameFromCommunityXml(steamId64);
+    return {
+      personaname: personaFromXml,
+      avatarUrl: null,
+    };
   }
 
-  private async fetchPersonaNameFromWebApi(
+  async fetchPersonaName(steamId64: string): Promise<string | null> {
+    const summary = await this.fetchPlayerSummary(steamId64);
+    return summary.personaname;
+  }
+
+  private async fetchPlayerSummaryFromWebApi(
     steamId64: string,
-  ): Promise<string | null> {
+  ): Promise<SteamPlayerSummary> {
     const apiKey = process.env.STEAM_WEB_API_KEY;
     if (!apiKey) {
-      return null;
+      return { personaname: null, avatarUrl: null };
     }
 
     const url = new URL(
@@ -31,18 +46,18 @@ export class SteamProfileService {
 
     const response = await fetch(url);
     if (!response.ok) {
-      return null;
+      return { personaname: null, avatarUrl: null };
     }
 
     const data = (await response.json()) as {
       response?: { players?: PlayerSummary[] };
     };
     const player = data.response?.players?.[0];
-    if (!player?.personaname) {
-      return null;
-    }
 
-    return player.personaname;
+    return {
+      personaname: player?.personaname?.trim() || null,
+      avatarUrl: player?.avatarfull?.trim() || null,
+    };
   }
 
   private async fetchPersonaNameFromCommunityXml(

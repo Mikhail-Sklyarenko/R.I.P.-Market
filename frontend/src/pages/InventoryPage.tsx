@@ -1,54 +1,67 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Link } from 'react-router-dom';
-import { getAuthConfig, getInventory, getMyLots, getUserMe, resetDevTrades } from '../api/sell';
-import type { AuthConfig, InventoryAsset, InventorySyncMeta, Lot } from '../api/types';
+import { type FormEvent, useCallback, useEffect, useMemo, useState } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
+import {
+  createLot,
+  getAuthConfig,
+  getInventory,
+  getPricingPreview,
+  getUserMe,
+  resetDevTrades,
+} from '../api/sell';
+import type { AuthConfig, InventoryAsset, InventorySyncMeta, PricingPreview } from '../api/types';
 import { useAuth } from '../auth/AuthContext';
 import { EmptyState } from '../components/EmptyState';
 import { ErrorAlert } from '../components/ErrorAlert';
-import { ItemPreview } from '../components/ItemPreview';
+import { InventoryAssetCard } from '../components/InventoryAssetCard';
+import { InventorySellPanel } from '../components/InventorySellPanel';
+import { InventorySellPlaceholder } from '../components/InventorySellPlaceholder';
 import { LoadingState } from '../components/LoadingState';
 import { PageHeader } from '../components/PageHeader';
 import { SellerSaleInfo } from '../components/SellerSaleInfo';
-import { StatusBadge } from '../components/StatusBadge';
+import { canShowDevPanels, parseUsdToMinor } from '../utils/format';
 import { hasLinkedSteamId } from '../utils/steam-id';
 import {
-  assetUnavailableReason,
   canListAsset,
   filterInventoryAssets,
-  formatAssetStatus,
   INVENTORY_STATUS_FILTERS,
   type InventoryStatusFilter,
 } from '../utils/seller-flow';
 import { profileToAuthUser } from '../utils/user-profile';
-import { canShowDevPanels } from '../utils/format';
+import { hasTradeUrl } from '../utils/trade-url';
 
 export function InventoryPage() {
   const { token, user, updateUser } = useAuth();
+  const navigate = useNavigate();
   const [config, setConfig] = useState<AuthConfig | null>(null);
   const [assets, setAssets] = useState<InventoryAsset[]>([]);
-  const [myLots, setMyLots] = useState<Lot[]>([]);
   const [sync, setSync] = useState<InventorySyncMeta | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [resettingDevTrades, setResettingDevTrades] = useState(false);
   const [error, setError] = useState<unknown>(null);
+  const [sellError, setSellError] = useState<unknown>(null);
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<InventoryStatusFilter>('all');
+  const [selectedAssetId, setSelectedAssetId] = useState<string | null>(null);
+  const [priceInput, setPriceInput] = useState('10.00');
+  const [preview, setPreview] = useState<PricingPreview | null>(null);
+  const [submitting, setSubmitting] = useState(false);
+  const [priceError, setPriceError] = useState<string | null>(null);
 
   const inventoryProvider = config?.inventoryProvider ?? 'mock';
   const requiresSteamLink = inventoryProvider === 'steam';
   const steamLinked = !requiresSteamLink || hasLinkedSteamId(user?.steamId);
-  const tradeUrlReady = Boolean(user?.tradeUrl?.trim());
+  const tradeUrlReady = hasTradeUrl(user?.tradeUrl);
   const showDevReset =
     Boolean(config?.mockTradeEnabled) && canShowDevPanels(user?.role);
 
-  const lotByAssetId = useMemo(() => {
-    const map = new Map<string, Lot>();
-    for (const lot of myLots) {
-      map.set(lot.inventoryAsset.id, lot);
-    }
-    return map;
-  }, [myLots]);
+  const selectedAsset = useMemo(
+    () => assets.find((asset) => asset.id === selectedAssetId) ?? null,
+    [assets, selectedAssetId],
+  );
+
+  const priceMinor = useMemo(() => parseUsdToMinor(priceInput), [priceInput]);
+  const selectedListable = selectedAsset ? canListAsset(selectedAsset) : false;
 
   const loadInventory = useCallback(
     async (forceRefresh = false) => {
@@ -64,13 +77,9 @@ export function InventoryPage() {
       }
       setError(null);
       try {
-        const [response, lots] = await Promise.all([
-          getInventory(token, { forceRefresh }),
-          getMyLots(token),
-        ]);
+        const response = await getInventory(token, { forceRefresh });
         setAssets(response.assets);
         setSync(response.sync);
-        setMyLots(lots);
       } catch (err: unknown) {
         setError(err);
       } finally {
@@ -103,20 +112,15 @@ export function InventoryPage() {
         if (!linked) {
           setAssets([]);
           setSync(null);
-          setMyLots([]);
           setError(null);
           return;
         }
-        const [response, lots] = await Promise.all([
-          getInventory(token),
-          getMyLots(token),
-        ]);
+        const response = await getInventory(token);
         if (cancelled) {
           return;
         }
         setAssets(response.assets);
         setSync(response.sync);
-        setMyLots(lots);
       })
       .catch((err: unknown) => {
         if (!cancelled) {
@@ -134,6 +138,28 @@ export function InventoryPage() {
     };
   }, [token, updateUser]);
 
+  useEffect(() => {
+    if (!priceMinor) {
+      setPreview(null);
+      setPriceError('Enter a valid price greater than zero.');
+      return;
+    }
+    setPriceError(null);
+    getPricingPreview(priceMinor)
+      .then(setPreview)
+      .catch((err: unknown) => setSellError(err));
+  }, [priceMinor]);
+
+  useEffect(() => {
+    if (!selectedAssetId) {
+      return;
+    }
+    const stillExists = assets.some((asset) => asset.id === selectedAssetId);
+    if (!stillExists) {
+      setSelectedAssetId(null);
+    }
+  }, [assets, selectedAssetId]);
+
   const showStaleBadge =
     sync?.stale || (sync ? new Date(sync.expiresAt) <= new Date() : false);
 
@@ -142,44 +168,43 @@ export function InventoryPage() {
     [assets, search, statusFilter],
   );
 
-  function renderAssetAction(asset: InventoryAsset) {
-    const listable = canListAsset(asset);
-    const activeLot = lotByAssetId.get(asset.id);
+  function selectAsset(asset: InventoryAsset) {
+    if (!canListAsset(asset)) {
+      return;
+    }
+    setSelectedAssetId(asset.id);
+    setSellError(null);
+  }
 
-    if (listable) {
-      return (
-        <Link
-          className="button primary"
-          to={`/sell/lots/new?assetId=${asset.id}`}
-          data-testid={`list-asset-${asset.id}`}
-        >
-          Выставить
-        </Link>
-      );
+  async function handleSubmitListing(event: FormEvent) {
+    event.preventDefault();
+    if (!token || !selectedAssetId || !priceMinor) {
+      setPriceError('Enter a valid price greater than zero.');
+      return;
     }
 
-    if (asset.status === 'LISTED' && activeLot) {
-      return (
-        <Link
-          className="button secondary"
-          to="/sell/my-lots"
-          data-testid={`view-lot-${asset.id}`}
-        >
-          Активный лот
-        </Link>
-      );
+    setSubmitting(true);
+    setSellError(null);
+    try {
+      const freshAssets = await getInventory(token);
+      const freshAsset = freshAssets.assets.find((asset) => asset.id === selectedAssetId);
+      if (!freshAsset || !canListAsset(freshAsset)) {
+        setSellError(new Error('This item cannot be listed right now'));
+        return;
+      }
+      await createLot(token, selectedAssetId, priceMinor);
+      setSelectedAssetId(null);
+      navigate('/sell/my-lots');
+    } catch (err: unknown) {
+      setSellError(err);
+    } finally {
+      setSubmitting(false);
     }
+  }
 
-    return (
-      <button
-        type="button"
-        className="button"
-        disabled
-        title={assetUnavailableReason(asset)}
-      >
-        Недоступен
-      </button>
-    );
+  function clearSelection() {
+    setSelectedAssetId(null);
+    setSellError(null);
   }
 
   async function handleResetDevTrades() {
@@ -202,10 +227,10 @@ export function InventoryPage() {
   }
 
   return (
-    <div className="page">
+    <div className="page inventory-page">
       <PageHeader
         title="Инвентарь"
-        subtitle="Выберите предмет для выставления на маркетплейс."
+        subtitle="Выберите предмет в сетке и укажите цену в панели продажи."
         actions={
           <button
             type="button"
@@ -269,111 +294,107 @@ export function InventoryPage() {
       ) : null}
 
       {steamLinked && !tradeUrlReady ? (
-        <div className="alert alert-warning" data-testid="inventory-trade-url-warning">
-          <strong>Trade URL не указан</strong>
-          <p className="alert-body">
-            Перед выставлением предметов укажите Trade URL в настройках аккаунта — продавцам и
-            покупателям он нужен для обменов в Steam.
+        <div className="card inventory-readiness-banner" data-testid="inventory-trade-url-warning">
+          <p>
+            Укажите Trade URL в{' '}
+            <Link to="/account">настройках аккаунта</Link> — без него нельзя выставлять предметы.
           </p>
-          <Link className="button secondary sm" to="/account">
-            Указать Trade URL
+          <Link className="button primary" to="/account">
+            Перейти в аккаунт
           </Link>
         </div>
       ) : null}
 
       {loading ? <LoadingState message="Загрузка инвентаря…" /> : null}
 
-      {steamLinked && !loading && assets.length === 0 ? (
+      {steamLinked && tradeUrlReady && !loading && assets.length === 0 ? (
         <EmptyState
           title="Инвентарь пуст"
           message="Предметы не найдены. Попробуйте обновить синхронизацию."
         />
       ) : null}
 
-      {steamLinked && !loading && assets.length > 0 ? (
-        <div className="card inventory-filters" data-testid="inventory-filters">
-          <div className="inventory-filters-row">
-            <label className="field catalog-filter-field">
-              <span className="field-label">Поиск</span>
-              <input
-                type="search"
-                value={search}
-                onChange={(event) => setSearch(event.target.value)}
-                placeholder="Название скина…"
-                data-testid="inventory-search"
+      {steamLinked && tradeUrlReady && !loading && assets.length > 0 ? (
+        <div className="inventory-workspace">
+          <div className="inventory-main">
+            <div className="inventory-toolbar" data-testid="inventory-filters">
+              <div className="inventory-toolbar-fields">
+                <label className="field catalog-filter-field">
+                  <span className="field-label">Поиск</span>
+                  <input
+                    type="search"
+                    value={search}
+                    onChange={(event) => setSearch(event.target.value)}
+                    placeholder="Название скина…"
+                    data-testid="inventory-search"
+                  />
+                </label>
+                <label className="field catalog-filter-field">
+                  <span className="field-label">Статус</span>
+                  <select
+                    value={statusFilter}
+                    onChange={(event) =>
+                      setStatusFilter(event.target.value as InventoryStatusFilter)
+                    }
+                    data-testid="inventory-status-filter"
+                  >
+                    {INVENTORY_STATUS_FILTERS.map((option) => (
+                      <option key={option.id} value={option.id}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              </div>
+              <p className="muted small inventory-filter-total" data-testid="inventory-filter-total">
+                Показано: {filteredAssets.length} из {assets.length}
+              </p>
+            </div>
+
+            {filteredAssets.length === 0 ? (
+              <EmptyState
+                title="Ничего не найдено"
+                message="Измените поиск или фильтр статуса."
               />
-            </label>
-            <label className="field catalog-filter-field">
-              <span className="field-label">Статус</span>
-              <select
-                value={statusFilter}
-                onChange={(event) =>
-                  setStatusFilter(event.target.value as InventoryStatusFilter)
-                }
-                data-testid="inventory-status-filter"
-              >
-                {INVENTORY_STATUS_FILTERS.map((option) => (
-                  <option key={option.id} value={option.id}>
-                    {option.label}
-                  </option>
+            ) : (
+              <div className="inventory-grid">
+                {filteredAssets.map((asset) => (
+                  <InventoryAssetCard
+                    key={asset.id}
+                    asset={asset}
+                    isSelected={selectedAssetId === asset.id}
+                    onSelect={selectAsset}
+                  />
                 ))}
-              </select>
-            </label>
+              </div>
+            )}
           </div>
-          <p className="muted small inventory-filter-total" data-testid="inventory-filter-total">
-            Показано: {filteredAssets.length} из {assets.length}
-          </p>
+
+          <aside
+            className={`inventory-sidebar${
+              selectedAsset && selectedListable ? ' inventory-sidebar-active' : ''
+            }`}
+          >
+            {selectedAsset && selectedListable ? (
+              <InventorySellPanel
+                asset={selectedAsset}
+                priceInput={priceInput}
+                priceError={priceError}
+                preview={preview}
+                sellError={sellError}
+                submitting={submitting}
+                priceMinor={priceMinor}
+                onPriceChange={setPriceInput}
+                onSubmit={(event) => void handleSubmitListing(event)}
+                onClose={clearSelection}
+                showClose
+              />
+            ) : (
+              <InventorySellPlaceholder />
+            )}
+          </aside>
         </div>
       ) : null}
-
-      {steamLinked && !loading && assets.length > 0 && filteredAssets.length === 0 ? (
-        <EmptyState
-          title="Ничего не найдено"
-          message="Измените поиск или фильтр статуса."
-        />
-      ) : null}
-
-      <div className="grid">
-        {steamLinked
-          ? filteredAssets.map((asset) => {
-              const listable = canListAsset(asset);
-              return (
-                <article
-                  key={asset.id}
-                  className="card item-card"
-                  data-testid={`asset-${asset.id}`}
-                >
-                  <ItemPreview
-                    item={asset}
-                    title={asset.itemDefinition.marketHashName}
-                    size="sm"
-                  />
-                  <div className="item-card-header">
-                    <StatusBadge
-                      status={asset.status}
-                      label={formatAssetStatus(asset.status)}
-                    />
-                  </div>
-                  <dl className="meta-list">
-                    <div>
-                      <dt>Обмен</dt>
-                      <dd>{asset.tradable ? 'Да' : 'Нет'}</dd>
-                    </div>
-                  </dl>
-                  {!listable ? (
-                    <p className="muted small">{assetUnavailableReason(asset)}</p>
-                  ) : null}
-                  {listable && steamLinked && !tradeUrlReady ? (
-                    <p className="muted small inventory-list-trade-url-hint">
-                      Рекомендуем указать Trade URL в аккаунте перед выставлением лота.
-                    </p>
-                  ) : null}
-                  {renderAssetAction(asset)}
-                </article>
-              );
-            })
-          : null}
-      </div>
 
       <SellerSaleInfo />
     </div>

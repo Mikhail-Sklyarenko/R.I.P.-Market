@@ -1,5 +1,6 @@
 import type { AuthConfig, AuthUser } from '../api/types';
 import { hasLinkedSteamId } from '../utils/steam-id';
+import { hasTradeUrl } from '../utils/trade-url';
 
 type ReadinessUser = Pick<AuthUser, 'steamId'> & {
   tradeUrl?: string | null;
@@ -8,6 +9,7 @@ type ReadinessUser = Pick<AuthUser, 'steamId'> & {
 type ReadinessChecklistProps = {
   user?: ReadinessUser | null;
   config?: AuthConfig | null;
+  compactWhenReady?: boolean;
 };
 
 type ChecklistItem = {
@@ -28,9 +30,13 @@ function ChecklistMark({ ready }: { ready: boolean }) {
   );
 }
 
-export function ReadinessChecklist({ user, config }: ReadinessChecklistProps) {
+export function ReadinessChecklist({
+  user,
+  config,
+  compactWhenReady = false,
+}: ReadinessChecklistProps) {
   const steamLinked = hasLinkedSteamId(user?.steamId);
-  const tradeUrlReady = Boolean(user?.tradeUrl?.trim());
+  const tradeUrlReady = hasTradeUrl(user?.tradeUrl);
 
   const items: ChecklistItem[] = [
     {
@@ -51,6 +57,18 @@ export function ReadinessChecklist({ user, config }: ReadinessChecklistProps) {
         : undefined,
     },
   ];
+
+  if (compactWhenReady && items.every((item) => item.ready)) {
+    return (
+      <div className="readiness-checklist-compact" data-testid="readiness-checklist">
+        <p className="readiness-checklist-compact-text">
+          <span data-testid="readiness-steam">✓ Steam привязан</span>
+          <span aria-hidden="true"> · </span>
+          <span data-testid="readiness-trade-url">✓ Trade URL указан</span>
+        </p>
+      </div>
+    );
+  }
 
   return (
     <div className="card readiness-checklist" data-testid="readiness-checklist">

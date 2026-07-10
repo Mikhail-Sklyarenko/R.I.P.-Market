@@ -10,7 +10,7 @@ describe('SteamAuthProvider', () => {
   let provider: SteamAuthProvider;
   let usersService: jest.Mocked<Pick<UsersService, 'upsertBySteamId'>>;
   let steamProfileService: jest.Mocked<
-    Pick<SteamProfileService, 'fetchPersonaName'>
+    Pick<SteamProfileService, 'fetchPlayerSummary'>
   >;
 
   const openidParams = {
@@ -25,7 +25,7 @@ describe('SteamAuthProvider', () => {
       upsertBySteamId: jest.fn(),
     };
     steamProfileService = {
-      fetchPersonaName: jest.fn(),
+      fetchPlayerSummary: jest.fn(),
     };
     provider = new SteamAuthProvider(
       usersService as unknown as UsersService,
@@ -46,13 +46,20 @@ describe('SteamAuthProvider', () => {
       role: UserRole.BUYER,
       status: UserStatus.ACTIVE,
     } as never);
-    steamProfileService.fetchPersonaName.mockResolvedValue('PlayerOne');
+    steamProfileService.fetchPlayerSummary.mockResolvedValue({
+      personaname: 'PlayerOne',
+      avatarUrl: 'https://example.com/avatar.jpg',
+    });
 
     const result = await provider.login({ kind: 'steam', openidParams });
 
     expect(usersService.upsertBySteamId).toHaveBeenCalledWith(
       '76561198000000000',
       'PlayerOne',
+      {
+        personaName: 'PlayerOne',
+        avatarUrl: 'https://example.com/avatar.jpg',
+      },
     );
     expect(result).toEqual({
       userId: 'user-1',
@@ -71,7 +78,10 @@ describe('SteamAuthProvider', () => {
       role: UserRole.BUYER,
       status: UserStatus.ACTIVE,
     } as never);
-    steamProfileService.fetchPersonaName.mockResolvedValue(null);
+    steamProfileService.fetchPlayerSummary.mockResolvedValue({
+      personaname: null,
+      avatarUrl: null,
+    });
 
     await provider.login({ kind: 'steam', openidParams });
     await provider.login({ kind: 'steam', openidParams });
@@ -81,6 +91,7 @@ describe('SteamAuthProvider', () => {
       1,
       '76561198000000000',
       undefined,
+      { personaName: null, avatarUrl: null },
     );
   });
 

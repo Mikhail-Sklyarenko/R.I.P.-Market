@@ -18,6 +18,8 @@ import {
   calculateCommissionMinor,
 } from './lot-pricing.util';
 import { LotStateService } from './lot-state.service';
+import { hasValidTradeUrl } from '../users/trade-url.util';
+import { SteamVacService } from '../users/steam-vac.service';
 
 @Injectable()
 export class LotsService {
@@ -25,6 +27,7 @@ export class LotsService {
     private readonly prisma: PrismaService,
     private readonly lotStateService: LotStateService,
     private readonly inventoryService: InventoryService,
+    private readonly steamVacService: SteamVacService,
   ) {}
 
   getPricingPreview(priceMinor: number) {
@@ -49,6 +52,14 @@ export class LotsService {
         HttpStatus.BAD_REQUEST,
       );
     }
+    if (!hasValidTradeUrl(seller.tradeUrl)) {
+      throw new AppException(
+        ErrorCode.TRADE_URL_REQUIRED,
+        'Add your Steam Trade URL in account settings before listing items',
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+    await this.steamVacService.assertCanTrade(seller);
 
     await this.inventoryService.syncForListing(sellerId, seller.steamId);
 
@@ -273,10 +284,19 @@ export class LotsService {
       };
     }
 
+    const inventoryAssetFilter: Prisma.InventoryAssetWhereInput = {};
     if (Object.keys(itemDefinitionFilter).length > 0) {
-      where.inventoryAsset = {
-        itemDefinition: itemDefinitionFilter,
+      inventoryAssetFilter.itemDefinition = itemDefinitionFilter;
+    }
+    if (query.wear) {
+      inventoryAssetFilter.wear = {
+        equals: query.wear,
+        mode: 'insensitive',
       };
+    }
+
+    if (Object.keys(inventoryAssetFilter).length > 0) {
+      where.inventoryAsset = inventoryAssetFilter;
     }
 
     if (

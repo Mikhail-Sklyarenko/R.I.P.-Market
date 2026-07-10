@@ -6,22 +6,18 @@ import { useAuth } from '../auth/AuthContext';
 import { DealFlowSteps } from '../components/DealFlowSteps';
 import { ErrorAlert } from '../components/ErrorAlert';
 import { EscrowNotice } from '../components/EscrowNotice';
-import { ItemPreview } from '../components/ItemPreview';
+import { LotItemHero } from '../components/LotItemHero';
+import { LotSpecTable } from '../components/LotSpecTable';
 import { LoadingState } from '../components/LoadingState';
 import { LotBreadcrumbs } from '../components/LotBreadcrumbs';
 import { MoneyDisplay } from '../components/MoneyDisplay';
 import {
-  isPurchaseBlockedBySteam,
+  isPurchaseBlocked,
   PurchaseReadinessAlerts,
 } from '../components/PurchaseReadinessAlerts';
 import { SimilarLots } from '../components/SimilarLots';
 import { StatusBadge } from '../components/StatusBadge';
 import { WearBar } from '../components/WearBar';
-import {
-  formatFloatValue,
-  formatPaintSeed,
-  getItemCategory,
-} from '../utils/item-image';
 
 export function LotPage() {
   const { id } = useParams();
@@ -37,7 +33,7 @@ export function LotPage() {
   const isOwnLot = Boolean(lot && user && lot.sellerId === user.id);
   const isSellerRole = user?.role === 'SELLER';
   const isUnavailable = lot?.status !== 'ACTIVE';
-  const steamPurchaseBlocked = isPurchaseBlockedBySteam(user, requiresSteamLink, Boolean(token));
+  const steamPurchaseBlocked = isPurchaseBlocked(user, requiresSteamLink, Boolean(token));
   const canProceed =
     lot?.status === 'ACTIVE' && !isOwnLot && !isSellerRole && !steamPurchaseBlocked;
 
@@ -86,10 +82,6 @@ export function LotPage() {
   }
 
   const asset = lot?.inventoryAsset;
-  const floatText = asset ? formatFloatValue(asset.floatValue) : null;
-  const patternText = asset ? formatPaintSeed(asset.paintSeed) : null;
-  const category = asset ? getItemCategory(asset) : null;
-  const wear = asset?.wear ?? null;
 
   return (
     <div className="page lot-page" data-testid="lot-page">
@@ -110,43 +102,25 @@ export function LotPage() {
           <div className="lot-page-grid">
             <div className="lot-page-main">
               <div className="card lot-preview-card">
-                <ItemPreview
-                  item={asset}
-                  title={asset.itemDefinition.marketHashName}
-                  size="lg"
-                  showAttrs={false}
-                />
+                <LotItemHero item={asset} />
 
                 {asset.floatValue !== null && asset.floatValue !== undefined && asset.floatValue !== '' ? (
                   <WearBar floatValue={asset.floatValue} />
                 ) : null}
 
-                <dl className="lot-attrs-grid meta-list">
-                  {category ? (
-                    <div>
-                      <dt>Категория</dt>
-                      <dd data-testid="lot-attr-category">{category}</dd>
-                    </div>
-                  ) : null}
-                  {wear ? (
-                    <div>
-                      <dt>Износ</dt>
-                      <dd data-testid="lot-attr-wear">{wear}</dd>
-                    </div>
-                  ) : null}
-                  {floatText ? (
-                    <div>
-                      <dt>Float</dt>
-                      <dd data-testid="lot-attr-float">{floatText}</dd>
-                    </div>
-                  ) : null}
-                  {patternText ? (
-                    <div>
-                      <dt>Pattern</dt>
-                      <dd data-testid="lot-attr-pattern">{patternText}</dd>
-                    </div>
-                  ) : null}
-                </dl>
+                <LotSpecTable item={asset} />
+
+                <p className="lot-inspect-link-wrap">
+                  <a
+                    href={`https://steamcommunity.com/market/listings/730/${encodeURIComponent(asset.itemDefinition.marketHashName)}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="lot-inspect-link"
+                    data-testid="lot-inspect-link"
+                  >
+                    Посмотреть на Steam Market
+                  </a>
+                </p>
               </div>
             </div>
 

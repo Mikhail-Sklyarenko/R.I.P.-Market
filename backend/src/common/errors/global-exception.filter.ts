@@ -6,6 +6,7 @@ import {
   HttpStatus,
   Logger,
 } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import { Request, Response } from 'express';
 import { getRequestId } from '../observability/audit-context';
 import { ApiErrorBody } from './app.exception';
@@ -53,8 +54,42 @@ export class GlobalExceptionFilter implements ExceptionFilter {
       };
     }
 
+    if (exception instanceof Prisma.PrismaClientKnownRequestError) {
+      return this.fromPrismaError(exception, requestId);
+    }
+
     if (exception instanceof HttpException) {
       return this.fromHttpException(exception, requestId);
+    }
+
+    return {
+      code: ErrorCode.INTERNAL_ERROR,
+      message: 'Internal server error',
+      statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
+      requestId,
+    };
+  }
+
+  private fromPrismaError(
+    exception: Prisma.PrismaClientKnownRequestError,
+    requestId: string | null,
+  ): ApiErrorBody {
+    if (exception.code === 'P2025') {
+      return {
+        code: ErrorCode.NOT_FOUND,
+        message: 'Record not found',
+        statusCode: HttpStatus.NOT_FOUND,
+        requestId,
+      };
+    }
+
+    if (exception.code === 'P2003') {
+      return {
+        code: ErrorCode.NOT_FOUND,
+        message: 'Related record not found',
+        statusCode: HttpStatus.NOT_FOUND,
+        requestId,
+      };
     }
 
     return {

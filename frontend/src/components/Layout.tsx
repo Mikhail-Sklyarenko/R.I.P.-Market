@@ -1,10 +1,12 @@
+import { useState } from 'react';
 import { Link, NavLink, Outlet } from 'react-router-dom';
 import { useAuth } from '../auth/AuthContext';
 import { useWalletSummary } from '../hooks/useWalletSummary';
-import { hasLinkedSteamId } from '../utils/steam-id';
 import { MoneyDisplay } from './MoneyDisplay';
-import { NotificationsBell } from './NotificationsBell';
+import { TradeUrlBanner } from './TradeUrlBanner';
 import { UserMenu } from './UserMenu';
+import { NotificationsWidget } from './NotificationsWidget';
+import { SupportWidget } from './SupportWidget';
 
 function navLinkClass({ isActive }: { isActive: boolean }) {
   return isActive ? 'app-nav-link active' : 'app-nav-link';
@@ -13,83 +15,70 @@ function navLinkClass({ isActive }: { isActive: boolean }) {
 export function Layout() {
   const { token, user } = useAuth();
   const { summary: walletSummary } = useWalletSummary();
+  const [supportOpen, setSupportOpen] = useState(false);
   const isAuthenticated = Boolean(token);
-  const isSeller = user?.role === 'SELLER';
-  const canSell = isSeller || hasLinkedSteamId(user?.steamId);
 
   return (
     <div className="app-shell">
       <header className="app-header">
-        <Link to="/catalog" className="app-brand">
-          <p className="eyebrow">R.I.P. Market</p>
-          <h1>CS2 P2P</h1>
-        </Link>
+        <div className="app-header-start">
+          <Link to="/catalog" className="app-brand">
+            <p className="eyebrow">R.I.P. Market</p>
+            <h1>CS2 P2P</h1>
+          </Link>
 
-        <div className="app-header-actions">
           <nav className="app-nav" aria-label="Main navigation">
             <NavLink to="/catalog" className={navLinkClass} data-testid="nav-catalog">
-              Каталог
+              Купить
             </NavLink>
-            {isAuthenticated && canSell ? (
-              <>
-                <NavLink
-                  to="/sell/inventory"
-                  className={navLinkClass}
-                  data-testid="nav-sell"
-                >
-                  Продать
-                </NavLink>
-                <NavLink
-                  to="/sell/my-lots"
-                  className={navLinkClass}
-                  data-testid="nav-my-lots"
-                >
-                  Мои лоты
-                </NavLink>
-              </>
-            ) : null}
-            <NavLink to="/support" className={navLinkClass} data-testid="nav-support">
-              Поддержка
+            <NavLink to="/sell/inventory" className={navLinkClass} data-testid="nav-sell">
+              Продать
             </NavLink>
-            {isAuthenticated ? (
-              <>
-                <NavLink
-                  to="/my/orders"
-                  className={navLinkClass}
-                  data-testid="nav-orders"
-                >
-                  Мои сделки
-                </NavLink>
-                <NavLink
-                  to="/wallet"
-                  className={navLinkClass}
-                  data-testid="nav-wallet"
-                >
-                  Кошелёк
-                </NavLink>
-              </>
-            ) : null}
-          </nav>
-
-          {isAuthenticated && walletSummary ? (
-            <Link
-              to="/wallet"
-              className="header-wallet-balance"
-              data-testid="header-wallet-balance"
-              title="Доступный баланс"
+            <button
+              type="button"
+              className="app-nav-link app-nav-button"
+              data-testid="nav-faq"
+              onClick={() => setSupportOpen(true)}
             >
-              <MoneyDisplay minor={walletSummary.availableMinor} strong />
-            </Link>
+              FAQ
+            </button>
+          </nav>
+        </div>
+
+        <div className="app-header-actions">
+          {isAuthenticated && walletSummary ? (
+            <>
+              <Link
+                to="/wallet"
+                className="header-wallet-balance"
+                data-testid="header-wallet-balance"
+                title="Доступный баланс"
+              >
+                <MoneyDisplay minor={walletSummary.availableMinor} strong />
+              </Link>
+              <Link
+                to="/wallet"
+                className="header-wallet-deposit"
+                data-testid="header-wallet-deposit"
+                title="Пополнить баланс"
+                aria-label="Пополнить баланс"
+              >
+                +
+              </Link>
+            </>
           ) : null}
 
-          {isAuthenticated ? <NotificationsBell /> : null}
           <UserMenu />
         </div>
       </header>
 
       <main className="app-main">
+        {isAuthenticated ? <TradeUrlBanner user={user} /> : null}
         <Outlet />
       </main>
+
+      <SupportWidget open={supportOpen} onOpenChange={setSupportOpen} />
+      {isAuthenticated ? <NotificationsWidget /> : null}
     </div>
   );
 }

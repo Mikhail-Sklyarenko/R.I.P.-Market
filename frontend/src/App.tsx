@@ -18,8 +18,8 @@ import { InventoryPage } from './pages/InventoryPage';
 import { LoginPage } from './pages/LoginPage';
 import { SteamCallbackPage } from './pages/SteamCallbackPage';
 import { LotPage } from './pages/LotPage';
-import { MyLotsPage } from './pages/MyLotsPage';
 import { MyOrdersPage } from './pages/MyOrdersPage';
+import { SellerActivityPage } from './pages/SellerActivityPage';
 import { NotificationsPage } from './pages/NotificationsPage';
 import { OrderPage } from './pages/OrderPage';
 import { SupportPage } from './pages/SupportPage';
@@ -63,7 +63,8 @@ export function App() {
             <Route path="/notifications" element={<NotificationsPage />} />
             <Route path="/sell/inventory" element={<InventoryPage />} />
             <Route path="/sell/lots/new" element={<CreateLotPage />} />
-            <Route path="/sell/my-lots" element={<MyLotsPage />} />
+            <Route path="/sell/my-lots" element={<Navigate to="/sell/activity?tab=lots" replace />} />
+            <Route path="/sell/activity" element={<SellerActivityPage />} />
           </Route>
         </Route>
 

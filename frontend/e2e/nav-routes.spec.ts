@@ -8,18 +8,25 @@ test.describe('Main navigation', () => {
     await resetDatabase(request);
   });
 
-  test('buyer sees catalog, my orders, and wallet in nav', async ({ page }) => {
+  test('buyer sees catalog in header and orders or wallet in user menu', async ({ page }) => {
     await loginAsBuyer(page);
 
     await expect(page.getByTestId('nav-catalog')).toBeVisible();
-    await expect(page.getByTestId('nav-orders')).toBeVisible();
-    await expect(page.getByTestId('nav-wallet')).toBeVisible();
-    await expect(page.getByTestId('nav-sell')).toHaveCount(0);
+    await expect(page.getByTestId('nav-sell')).toBeVisible();
+    await expect(page.getByTestId('nav-faq')).toBeVisible();
+    await expect(page.getByTestId('nav-orders')).toHaveCount(0);
+    await expect(page.getByTestId('nav-wallet')).toHaveCount(0);
+    await expect(page.getByTestId('header-wallet-balance')).toBeVisible();
+    await expect(page.getByTestId('header-wallet-deposit')).toBeVisible();
 
-    await page.getByTestId('nav-orders').click();
+    await page.getByTestId('user-menu-trigger').click();
+    await expect(page.getByTestId('user-menu-panel')).toBeVisible();
+
+    await page.getByTestId('user-menu-orders').click();
     await expect(page).toHaveURL(/\/my\/orders$/);
 
-    await page.getByTestId('nav-wallet').click();
+    await page.getByTestId('user-menu-trigger').click();
+    await page.getByTestId('user-menu-transactions').click();
     await expect(page).toHaveURL(/\/wallet$/);
 
     await page.getByTestId('nav-catalog').click();
@@ -42,5 +49,13 @@ test.describe('Main navigation', () => {
     await page.getByTestId('catalog-open-lot').first().click();
     await expect(page).toHaveURL(/\/lots\//);
     await expect(page.getByTestId('buy-lot-button')).toBeVisible();
+  });
+
+  test('faq button opens support widget', async ({ page }) => {
+    await loginAsBuyer(page);
+
+    await page.getByTestId('nav-faq').click();
+    await expect(page.getByTestId('support-widget-panel')).toBeVisible();
+    await expect(page.getByTestId('support-widget-articles')).toBeVisible();
   });
 });

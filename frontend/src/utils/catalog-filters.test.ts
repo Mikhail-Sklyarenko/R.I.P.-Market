@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import {
+  getCategoryOptionsForTab,
   hasActiveCatalogFilters,
   resolveCatalogFilter,
 } from './catalog-filters.ts';
@@ -13,6 +14,12 @@ describe('catalog-filters utils', () => {
   it('falls back to tab filter when dropdown is empty', () => {
     assert.deepEqual(resolveCatalogFilter('snipers', ''), { weapon: 'AWP' });
     assert.deepEqual(resolveCatalogFilter('rifles', ''), { weapon: 'AK-47' });
+  });
+
+  it('returns model options for a weapon tab', () => {
+    const rifleOptions = getCategoryOptionsForTab('rifles');
+    assert.ok(rifleOptions.some((option) => option.value === 'AK-47'));
+    assert.ok(rifleOptions.every((option) => option.tabId === 'rifles'));
   });
 
   it('detects active filters', () => {

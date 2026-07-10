@@ -1,3 +1,6 @@
+export const STEAM_TRADE_URL_SETTINGS =
+  'https://steamcommunity.com/id/me/tradeoffers/privacy#trade_offer_access_url';
+
 export function isValidSteamTradeUrl(url: string): boolean {
   const trimmed = url.trim();
   if (trimmed.length < 10) {
@@ -18,4 +21,11 @@ export function isValidSteamTradeUrl(url: string): boolean {
   } catch {
     return false;
   }
+}
+
+export function hasTradeUrl(tradeUrl?: string | null): boolean {
+  if (!tradeUrl?.trim()) {
+    return false;
+  }
+  return isValidSteamTradeUrl(tradeUrl);
 }

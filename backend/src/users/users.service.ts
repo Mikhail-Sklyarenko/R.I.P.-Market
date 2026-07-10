@@ -7,6 +7,7 @@ import { toJsonSafe } from '../common/json-safe.util';
 import { PrismaService } from '../prisma/prisma.service';
 import { SteamProfileService } from '../providers/auth/steam-profile.service';
 import { LedgerService } from '../wallet/ledger.service';
+import { isValidSteamTradeUrl } from './trade-url.util';
 
 type MockIdentity = {
   role: UserRole;
@@ -126,29 +127,43 @@ export class UsersService {
     return toJsonSafe(user);
   }
 
-  async upsertBySteamId(steamId: string, username?: string) {
+  async upsertBySteamId(
+    steamId: string,
+    username?: string,
+    profile?: { personaName?: string | null; avatarUrl?: string | null },
+  ) {
     const user = await this.prisma.user.upsert({
       where: { steamId },
       create: {
         steamId,
-        username: username ?? `steam_${steamId}`,
+        username: username ?? profile?.personaName ?? `steam_${steamId}`,
         role: UserRole.BUYER,
         status: UserStatus.ACTIVE,
+        steamPersonaName: profile?.personaName ?? null,
+        steamAvatarUrl: profile?.avatarUrl ?? null,
       },
-      update: username ? { username } : {},
+      update: {
+        ...(username ? { username } : {}),
+        ...(profile?.personaName ? { steamPersonaName: profile.personaName } : {}),
+        ...(profile?.avatarUrl ? { steamAvatarUrl: profile.avatarUrl } : {}),
+      },
     });
 
     await this.ledgerService.ensureUserWallet(user.id);
     return user;
   }
 
-  async linkSteamId(userId: string, steamId: string, personaName?: string) {
+  async linkSteamId(
+    userId: string,
+    steamId: string,
+    profile?: { personaName?: string | null; avatarUrl?: string | null },
+  ) {
     const existing = await this.prisma.user.findUnique({ where: { steamId } });
     if (existing && existing.id !== userId) {
       if (this.isDevSteamLinkReassignEnabled()) {
         await this.prisma.user.update({
           where: { id: existing.id },
-          data: { steamId: null, steamPersonaName: null },
+          data: { steamId: null, steamPersonaName: null, steamAvatarUrl: null },
         });
       } else {
         throw new AppException(
@@ -167,12 +182,14 @@ export class UsersService {
     const preserveMockUsername = MOCK_IDENTITIES.some(
       (identity) => identity.username === current.username,
     );
+    const personaName = profile?.personaName ?? null;
 
     const user = await this.prisma.user.update({
       where: { id: userId },
       data: {
         steamId,
-        steamPersonaName: personaName ?? null,
+        steamPersonaName: personaName,
+        steamAvatarUrl: profile?.avatarUrl ?? null,
         ...(personaName && !preserveMockUsername
           ? { username: personaName }
           : {}),
@@ -202,6 +219,7 @@ export class UsersService {
       data: {
         steamId: null,
         steamPersonaName: null,
+        steamAvatarUrl: null,
       },
     });
 
@@ -231,6 +249,22 @@ export class UsersService {
     });
   }
 
+  async resolveSessionUser(userId: string) {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { id: true, role: true },
+    });
+
+    if (!user) {
+      return null;
+    }
+
+    return {
+      sub: user.id,
+      role: user.role,
+    };
+  }
+
   async getById(userId: string) {
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
@@ -247,31 +281,42 @@ export class UsersService {
       throw new NotFoundException('User not found');
     }
 
-    const enriched = await this.enrichSteamPersonaName(user);
+    const enriched = await this.enrichSteamProfile(user);
     return toJsonSafe(enriched);
   }
 
-  private async enrichSteamPersonaName<
+  private async enrichSteamProfile<
     T extends {
       id: string;
       steamId: string | null;
       steamPersonaName: string | null;
+      steamAvatarUrl: string | null;
     },
   >(user: T): Promise<T> {
-    if (!user.steamId || user.steamPersonaName) {
+    if (!user.steamId || (user.steamPersonaName && user.steamAvatarUrl)) {
       return user;
     }
 
-    const personaName = await this.steamProfileService.fetchPersonaName(
-      user.steamId,
-    );
-    if (!personaName) {
+    let summary: Awaited<ReturnType<SteamProfileService['fetchPlayerSummary']>>;
+    try {
+      summary = await this.steamProfileService.fetchPlayerSummary(user.steamId);
+    } catch {
+      return user;
+    }
+    if (!summary.personaname && !summary.avatarUrl) {
       return user;
     }
 
     const updated = await this.prisma.user.update({
       where: { id: user.id },
-      data: { steamPersonaName: personaName },
+      data: {
+        ...(summary.personaname && !user.steamPersonaName
+          ? { steamPersonaName: summary.personaname }
+          : {}),
+        ...(summary.avatarUrl && !user.steamAvatarUrl
+          ? { steamAvatarUrl: summary.avatarUrl }
+          : {}),
+      },
       include: {
         wallet: {
           include: {
@@ -289,9 +334,26 @@ export class UsersService {
   }
 
   async updateTradeUrl(userId: string, tradeUrl: string) {
+    const trimmed = tradeUrl.trim();
+    if (!isValidSteamTradeUrl(trimmed)) {
+      throw new AppException(
+        ErrorCode.VALIDATION_ERROR,
+        'Invalid Steam Trade URL',
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+
+    const existing = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { id: true },
+    });
+    if (!existing) {
+      throw new NotFoundException('User not found');
+    }
+
     const user = await this.prisma.user.update({
       where: { id: userId },
-      data: { tradeUrl },
+      data: { tradeUrl: trimmed },
     });
 
     return toJsonSafe(user);

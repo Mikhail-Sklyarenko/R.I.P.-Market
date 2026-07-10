@@ -1,6 +1,6 @@
 import { Link, Outlet, useNavigate } from 'react-router-dom';
 import { useAuth } from '../auth/AuthContext';
-import { NotificationsBell } from './NotificationsBell';
+import { NotificationsWidget } from './NotificationsWidget';
 
 export function AdminLayout() {
   const { logout, user } = useAuth();
@@ -19,7 +19,6 @@ export function AdminLayout() {
           <Link to="/admin/users">Users</Link>
           <Link to="/admin/settlement/allowlist">Settlement</Link>
           <Link to="/admin/outbox">Outbox</Link>
-          <NotificationsBell />
           <span className="muted small">{user?.username}</span>
           {user?.steamId ? (
             <span className="muted small" title="Linked Steam ID">
@@ -41,6 +40,7 @@ export function AdminLayout() {
       <main className="app-main">
         <Outlet />
       </main>
+      <NotificationsWidget />
     </div>
   );
 }

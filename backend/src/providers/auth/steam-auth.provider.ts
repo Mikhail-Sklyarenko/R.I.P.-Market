@@ -46,11 +46,11 @@ export class SteamAuthProvider implements AuthProvider {
     }
 
     const steamId = await this.verifyAndParseSteamId(params.openidParams);
-    const username = await this.steamProfileService.fetchPersonaName(steamId);
-    const user = await this.usersService.upsertBySteamId(
-      steamId,
-      username ?? undefined,
-    );
+    const summary = await this.steamProfileService.fetchPlayerSummary(steamId);
+    const user = await this.usersService.upsertBySteamId(steamId, summary.personaname ?? undefined, {
+      personaName: summary.personaname,
+      avatarUrl: summary.avatarUrl,
+    });
 
     return {
       userId: user.id,

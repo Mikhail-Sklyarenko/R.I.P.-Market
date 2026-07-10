@@ -10,10 +10,13 @@ import { LoadingState } from '../components/LoadingState';
 import { MoneyDisplay } from '../components/MoneyDisplay';
 import { PageHeader } from '../components/PageHeader';
 import {
-  isPurchaseBlockedBySteam,
+  isPurchaseBlocked,
   PurchaseReadinessAlerts,
 } from '../components/PurchaseReadinessAlerts';
+import { LotSpecTable } from '../components/LotSpecTable';
+import { WearBar } from '../components/WearBar';
 import { useWalletSummary } from '../hooks/useWalletSummary';
+import { formatUsdtFromMinor } from '../utils/format';
 
 export function CheckoutPage() {
   const { id } = useParams();
@@ -30,17 +33,19 @@ export function CheckoutPage() {
   const priceMinor = lot ? Number(lot.priceMinor) : 0;
   const insufficient =
     availableMinor !== null && priceMinor > 0 && availableMinor < priceMinor;
-  const remainder =
-    availableMinor !== null && priceMinor > 0 ? availableMinor - priceMinor : null;
+  const shortfallMinor =
+    insufficient && availableMinor !== null ? priceMinor - availableMinor : 0;
   const isOwnLot = Boolean(lot && user && lot.sellerId === user.id);
-  const steamPurchaseBlocked = isPurchaseBlockedBySteam(user, requiresSteamLink);
+  const purchaseBlocked = isPurchaseBlocked(user, requiresSteamLink);
   const canConfirm =
     lot?.status === 'ACTIVE' &&
     !insufficient &&
     user?.role !== 'SELLER' &&
     !isOwnLot &&
-    !steamPurchaseBlocked &&
+    !purchaseBlocked &&
     !confirming;
+
+  const asset = lot?.inventoryAsset;
 
   useEffect(() => {
     getAuthConfig()
@@ -86,7 +91,7 @@ export function CheckoutPage() {
 
   if (lot && lot.status !== 'ACTIVE') {
     return (
-      <div className="page">
+      <div className="page checkout-page">
         <PageHeader
           title="Подтверждение покупки"
           subtitle={
@@ -108,7 +113,7 @@ export function CheckoutPage() {
   }
 
   return (
-    <div className="page">
+    <div className="page checkout-page">
       <PageHeader
         title="Подтверждение покупки"
         subtitle={
@@ -120,99 +125,116 @@ export function CheckoutPage() {
 
       {loading || walletLoading ? <LoadingState message="Загрузка…" /> : null}
 
-      {lot ? (
-        <div className="card form-card checkout-card" data-testid="checkout-page">
-          <ItemPreview
-            item={lot.inventoryAsset}
-            title={lot.inventoryAsset.itemDefinition.marketHashName}
-            size="md"
-          />
+      {lot && asset ? (
+        <div className="checkout-page-grid" data-testid="checkout-page">
+          <div className="checkout-page-main">
+            <div className="card checkout-item-card">
+              <ItemPreview
+                item={asset}
+                title={asset.itemDefinition.marketHashName}
+                size="lg"
+                showAttrs={false}
+              />
 
-          <div className="pricing-preview" data-testid="checkout-pricing">
-            <div>
-              <span>Цена лота</span>
-              <MoneyDisplay minor={lot.priceMinor} strong />
-            </div>
-            <div>
-              <span>Комиссия маркетплейса</span>
-              <MoneyDisplay minor={lot.commissionMinor} strong />
-            </div>
-            <div>
-              <span>Итого к оплате</span>
-              <MoneyDisplay minor={lot.priceMinor} strong />
+              {asset.floatValue !== null &&
+              asset.floatValue !== undefined &&
+              asset.floatValue !== '' ? (
+                <WearBar floatValue={asset.floatValue} />
+              ) : null}
+
+              <LotSpecTable item={asset} />
             </div>
           </div>
 
-          {summary ? (
-            <div className="pricing-preview" data-testid="checkout-wallet">
-              <div>
-                <span>Доступно</span>
-                <MoneyDisplay minor={summary.availableMinor} strong />
+          <aside className="checkout-page-sidebar">
+            <div className="card checkout-purchase-card">
+              <div className="checkout-pricing" data-testid="checkout-pricing">
+                <p className="checkout-pay-label">К оплате</p>
+                <p className="checkout-pay-price">
+                  <MoneyDisplay minor={lot.priceMinor} strong />
+                </p>
               </div>
-              <div>
-                <span>На hold</span>
-                <MoneyDisplay minor={summary.holdMinor} strong />
-              </div>
-              {remainder !== null ? (
-                <div>
-                  <span>Останется после покупки</span>
-                  <MoneyDisplay
-                    minor={Math.max(remainder, 0)}
-                    strong
-                    className={insufficient ? 'money-insufficient' : undefined}
-                  />
+
+              {summary ? (
+                <div className="checkout-wallet-summary" data-testid="checkout-wallet">
+                  <div className="checkout-wallet-row">
+                    <span>Доступно</span>
+                    <MoneyDisplay minor={summary.availableMinor} strong />
+                  </div>
+                  {insufficient && shortfallMinor > 0 ? (
+                    <div className="checkout-wallet-row checkout-wallet-shortfall">
+                      <span>Не хватает</span>
+                      <MoneyDisplay minor={shortfallMinor} strong />
+                    </div>
+                  ) : null}
+                  {Number(summary.holdMinor) > 0 ? (
+                    <div className="checkout-wallet-row checkout-wallet-muted">
+                      <span>На hold</span>
+                      <MoneyDisplay minor={summary.holdMinor} />
+                    </div>
+                  ) : null}
                 </div>
               ) : null}
+
+              {isOwnLot ? (
+                <p className="muted small" data-testid="own-lot-message">
+                  Вы не можете купить свой лот.
+                </p>
+              ) : null}
+
+              {user?.role === 'SELLER' ? (
+                <p className="muted small" data-testid="seller-cannot-buy-message">
+                  Войдите как покупатель, чтобы оформить покупку.
+                </p>
+              ) : null}
+
+              <PurchaseReadinessAlerts
+                user={user}
+                requiresSteamLink={requiresSteamLink}
+                authenticated={Boolean(token && user)}
+                insufficientBalance={insufficient}
+                neededMinor={priceMinor}
+                walletDepositHref={`/wallet?returnUrl=${encodeURIComponent(checkoutPath)}&needed=${priceMinor}`}
+                showDepositAction={false}
+                showTradeHint={false}
+                compactTradeUrlWarning
+              />
+
+              <p className="checkout-footnote" data-testid="purchase-trade-hint">
+                После покупки примите trade offer в Steam.
+              </p>
+              <EscrowNotice compact />
+
+              <DealFlowSteps compact />
+
+              <ErrorAlert error={error} />
+
+              <div className="checkout-actions">
+                {insufficient ? (
+                  <Link
+                    to={`/wallet?returnUrl=${encodeURIComponent(checkoutPath)}&needed=${priceMinor}`}
+                    className="button primary"
+                    data-testid="checkout-deposit-link"
+                  >
+                    Пополнить кошелёк
+                    {shortfallMinor > 0
+                      ? ` · ${formatUsdtFromMinor(shortfallMinor)}`
+                      : ''}
+                  </Link>
+                ) : (
+                  <button
+                    type="button"
+                    className="button primary"
+                    disabled={!canConfirm}
+                    data-testid="confirm-purchase-button"
+                    onClick={() => void handleConfirm()}
+                  >
+                    {confirming ? 'Создаём сделку…' : 'Подтвердить покупку'}
+                  </button>
+                )}
+              </div>
             </div>
-          ) : null}
-
-          {isOwnLot ? (
-            <p className="muted" data-testid="own-lot-message">
-              Вы не можете купить свой лот.
-            </p>
-          ) : null}
-
-          {user?.role === 'SELLER' ? (
-            <p className="muted" data-testid="seller-cannot-buy-message">
-              Войдите как покупатель, чтобы оформить покупку.
-            </p>
-          ) : null}
-
-          <PurchaseReadinessAlerts
-            user={user}
-            requiresSteamLink={requiresSteamLink}
-            authenticated={Boolean(token && user)}
-            insufficientBalance={insufficient}
-            neededMinor={priceMinor}
-            walletDepositHref={`/wallet?returnUrl=${encodeURIComponent(checkoutPath)}&needed=${priceMinor}`}
-          />
-
-          <DealFlowSteps compact />
-          <EscrowNotice />
-
-          <ErrorAlert error={error} />
-
-          <div className="checkout-actions">
-            {insufficient ? (
-              <Link
-                to={`/wallet?returnUrl=${encodeURIComponent(checkoutPath)}&needed=${priceMinor}`}
-                className="button primary"
-                data-testid="checkout-deposit-link"
-              >
-                Пополнить кошелёк
-              </Link>
-            ) : (
-              <button
-                type="button"
-                className="button primary"
-                disabled={!canConfirm}
-                data-testid="confirm-purchase-button"
-                onClick={() => void handleConfirm()}
-              >
-                {confirming ? 'Создаём сделку…' : 'Подтвердить покупку'}
-              </button>
-            )}
-          </div>
+          </aside>
         </div>
       ) : null}
     </div>

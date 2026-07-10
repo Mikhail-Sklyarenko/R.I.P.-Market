@@ -95,6 +95,41 @@ describe('Read API extensions (e2e)', () => {
     expect(priceResponse.body.limit).toBe(24);
   });
 
+  it('GET /lots?wear filters lots by inventory wear', async () => {
+    const seller = await api.login(UserRole.SELLER);
+    const inventory = await api.getInventory(seller);
+    const assets = inventory.body.assets as Array<{
+      id: string;
+      wear?: string | null;
+      itemDefinition: { marketHashName: string };
+    }>;
+
+    const ftAsset = assets.find((asset) => asset.wear === 'FT');
+    const bsAsset = assets.find((asset) => asset.wear === 'BS');
+    const mwAsset = assets.find((asset) => asset.wear === 'MW');
+    expect(ftAsset).toBeDefined();
+    expect(bsAsset).toBeDefined();
+    expect(mwAsset).toBeDefined();
+
+    const ftLot = await api.createLot(seller, ftAsset!.id, 80_000);
+    await api.createLot(seller, bsAsset!.id, 90_000);
+    await api.createLot(seller, mwAsset!.id, 110_000);
+
+    const allResponse = await request(app.getHttpServer())
+      .get('/api/v1/lots')
+      .query({ page: 1, limit: 24 });
+    expect(allResponse.status).toBe(200);
+    expect(allResponse.body.total).toBe(3);
+
+    const ftResponse = await request(app.getHttpServer())
+      .get('/api/v1/lots')
+      .query({ wear: 'FT', page: 1, limit: 24 });
+    expect(ftResponse.status).toBe(200);
+    expect(ftResponse.body.total).toBe(1);
+    expect(ftResponse.body.items[0].id).toBe(ftLot.body.id);
+    expect(ftResponse.body.items[0].inventoryAsset.wear).toBe('FT');
+  });
+
   async function createExtraSellerSession(suffix: string) {
     const ledger = app.get(LedgerService);
     const jwt = app.get(JwtService);

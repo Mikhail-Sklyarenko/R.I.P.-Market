@@ -44,13 +44,9 @@ test.describe('Buy complete flow', () => {
     await expect(page.getByTestId('order-status')).toHaveText('COMPLETED', { timeout: 15000 });
     await expect(page.getByTestId('order-completed-message')).toBeVisible();
 
-    const buyerLogin = await request.post(`${process.env.PLAYWRIGHT_API_BASE_URL ?? 'http://localhost:3001/api/v1'}/auth/mock-login`, {
-      data: { role: 'BUYER' },
-    });
-    const buyerToken = ((await buyerLogin.json()) as { accessToken: string }).accessToken;
-    const apiBase = process.env.PLAYWRIGHT_API_BASE_URL ?? 'http://localhost:3001/api/v1';
+    const buyerToken = buyerBody.accessToken;
 
-    const buyerWallet = await request.get(`${apiBase}/wallet`, {
+    const buyerWallet = await request.get(`${API_BASE}/wallet`, {
       headers: { Authorization: `Bearer ${buyerToken}` },
     });
     const buyerWalletBody = (await buyerWallet.json()) as {
@@ -58,7 +54,7 @@ test.describe('Buy complete flow', () => {
     };
     expect(Number(buyerWalletBody.summary.availableMinor)).toBe(priceMinor);
 
-    const sellerLogin = await request.post(`${apiBase}/auth/mock-login`, {
+    const sellerLogin = await request.post(`${API_BASE}/auth/mock-login`, {
       data: { role: 'SELLER' },
     });
     const sellerToken = ((await sellerLogin.json()) as { accessToken: string }).accessToken;
@@ -74,7 +70,7 @@ test.describe('Buy complete flow', () => {
 
     await expect
       .poll(async () => {
-        const notifications = await request.get(`${apiBase}/me/notifications`, {
+        const notifications = await request.get(`${API_BASE}/me/notifications`, {
           headers: { Authorization: `Bearer ${buyerToken}` },
         });
         const body = (await notifications.json()) as Array<{ eventType: string }>;

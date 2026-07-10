@@ -101,9 +101,15 @@ export async function pairExtension(userJwt: string): Promise<
       error: response?.error ?? 'Не удалось подключить расширение',
     };
   } catch (error) {
+    const raw = error instanceof Error ? error.message : 'Ошибка подключения';
+    const friendly =
+      raw.includes('Receiving end does not exist') ||
+      raw.includes('Could not establish connection')
+        ? 'Расширение не найдено. Соберите browser-extension/dist, загрузите в Chrome (Load unpacked) и проверьте VITE_EXTENSION_ID=gmmlnkjdbcoojbhndjcfehojknjamaoj во frontend/.env.'
+        : raw;
     return {
       ok: false,
-      error: error instanceof Error ? error.message : 'Ошибка подключения',
+      error: friendly,
     };
   }
 }

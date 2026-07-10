@@ -91,6 +91,7 @@ export function listLots(params: ListLotsParams) {
     maxPriceMinor: params.maxPriceMinor,
     weapon: params.weapon,
     rarity: params.rarity,
+    wear: params.wear,
     sort: params.sort,
     page: params.page,
     limit: params.limit,
@@ -273,4 +274,19 @@ export function markAllNotificationsRead(token: string) {
     method: 'PATCH',
     token,
   });
+}
+
+export function createSupportTicket(
+  token: string,
+  body: { subject: string; body: string },
+) {
+  return apiRequest<import('./types').SupportTicket>('/support/tickets', {
+    method: 'POST',
+    token,
+    body,
+  });
+}
+
+export function listMySupportTickets(token: string) {
+  return apiRequest<import('./types').SupportTicket[]>('/support/tickets', { token });
 }

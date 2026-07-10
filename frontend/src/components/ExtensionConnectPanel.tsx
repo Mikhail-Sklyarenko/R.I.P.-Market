@@ -77,13 +77,15 @@ export function ExtensionConnectPanel({ token, compact = false }: ExtensionConne
           ? `Подключено${status.expiresAt ? ` до ${new Date(status.expiresAt).toLocaleTimeString()}` : ''}`
           : 'Не подключено — автоотправка trade offer недоступна'}
       </p>
-      <p className="muted small" data-testid="extension-browser-hint">
-        Используйте Chrome с тем же профилем, где открыт{' '}
-        <a href="https://steamcommunity.com" target="_blank" rel="noreferrer">
-          steamcommunity.com
-        </a>{' '}
-        и вы залогинены под продавцом.
-      </p>
+      {!compact ? (
+        <p className="muted small" data-testid="extension-browser-hint">
+          Используйте Chrome с тем же профилем, где открыт{' '}
+          <a href="https://steamcommunity.com" target="_blank" rel="noreferrer">
+            steamcommunity.com
+          </a>{' '}
+          и вы залогинены под продавцом.
+        </p>
+      ) : null}
       {message ? <p className="alert alert-success">{message}</p> : null}
       {error ? <p className="alert alert-error">{error}</p> : null}
       <div className="extension-panel-actions">
