@@ -1,6 +1,7 @@
 import { Navigate, Route, Routes } from 'react-router-dom';
 import { AdminRoute } from './auth/AdminRoute';
 import { AuthProvider } from './auth/AuthContext';
+import { WalletProvider } from './wallet/WalletContext';
 import { ProtectedRoute } from './auth/ProtectedRoute';
 import { AdminLayout } from './components/AdminLayout';
 import { Layout } from './components/Layout';
@@ -44,6 +45,7 @@ function HomeRedirect() {
 export function App() {
   return (
     <AuthProvider>
+      <WalletProvider>
       <Routes>
         <Route path="/login" element={<LoginPage />} />
         <Route path="/login/steam/callback" element={<SteamCallbackPage />} />
@@ -83,6 +85,7 @@ export function App() {
 
         <Route path="*" element={<Navigate to="/catalog" replace />} />
       </Routes>
+      </WalletProvider>
     </AuthProvider>
   );
 }

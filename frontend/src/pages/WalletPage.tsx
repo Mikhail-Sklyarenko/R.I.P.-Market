@@ -4,17 +4,13 @@ import {
   createIdempotencyKey,
   createWalletWithdrawal,
   getAuthConfig,
-  getWallet,
   getWalletDeposit,
   getWalletDepositStatus,
   getWalletWithdrawals,
-  getWalletTransactions,
   mockDeposit,
 } from '../api/marketplace';
 import type {
   AuthConfig,
-  LedgerEntry,
-  Wallet,
   WalletDepositInfo,
   WalletDepositStatus,
   WithdrawalRequest,
@@ -25,6 +21,7 @@ import { FormField } from '../components/FormField';
 import { LoadingState } from '../components/LoadingState';
 import { MoneyDisplay } from '../components/MoneyDisplay';
 import { PageHeader } from '../components/PageHeader';
+import { useWallet } from '../wallet/WalletContext';
 import {
   formatUsdtFromMinor,
   parseUsdToMinor,
@@ -50,19 +47,17 @@ function buildQrImageUrl(qrData: string): string {
 
 export function WalletPage() {
   const { token, user } = useAuth();
+  const { wallet, transactions, loading, error, refresh, applyWallet } = useWallet();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const returnUrl = searchParams.get('returnUrl');
   const neededMinor = searchParams.get('needed');
 
-  const [wallet, setWallet] = useState<Wallet | null>(null);
-  const [transactions, setTransactions] = useState<LedgerEntry[]>([]);
   const [amountInput, setAmountInput] = useState(
     neededMinor ? String(Number(neededMinor) / 100) : '1000',
   );
-  const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
-  const [error, setError] = useState<unknown>(null);
+  const [depositError, setDepositError] = useState<unknown>(null);
   const [fieldError, setFieldError] = useState<string | null>(null);
   const [paymentConfig, setPaymentConfig] = useState<Pick<
     AuthConfig,
@@ -95,17 +90,19 @@ export function WalletPage() {
   const withdrawNetMinor = Math.max(withdrawAmountMinor - withdrawFeeMinor, 0);
   const awaitingDeposit = (depositStatus?.intents.length ?? 0) > 0;
 
-  const loadWallet = useCallback(async () => {
-    if (!token) {
+  const loadCryptoData = useCallback(async () => {
+    if (!token || !cryptoPaymentsEnabled) {
       return;
     }
-    const [walletData, txData] = await Promise.all([
-      getWallet(token),
-      getWalletTransactions(token),
+    const deposit = await getWalletDeposit(token);
+    setDepositInfo(deposit);
+    const [status, withdrawalItems] = await Promise.all([
+      getWalletDepositStatus(token),
+      getWalletWithdrawals(token),
     ]);
-    setWallet(walletData);
-    setTransactions(txData);
-  }, [token]);
+    setDepositStatus(status);
+    setWithdrawals(withdrawalItems);
+  }, [token, cryptoPaymentsEnabled]);
 
   useEffect(() => {
     getAuthConfig()
@@ -123,30 +120,12 @@ export function WalletPage() {
       .catch(() => undefined);
   }, []);
 
-  const loadCryptoData = useCallback(async () => {
-    if (!token || !cryptoPaymentsEnabled) {
-      return;
-    }
-    const deposit = await getWalletDeposit(token);
-    setDepositInfo(deposit);
-    const [status, withdrawalItems] = await Promise.all([
-      getWalletDepositStatus(token),
-      getWalletWithdrawals(token),
-    ]);
-    setDepositStatus(status);
-    setWithdrawals(withdrawalItems);
-  }, [token, cryptoPaymentsEnabled]);
-
   useEffect(() => {
     if (!token) {
       return;
     }
-    setLoading(true);
-    loadWallet()
-      .then(() => loadCryptoData())
-      .catch((err: unknown) => setError(err))
-      .finally(() => setLoading(false));
-  }, [token, loadWallet, loadCryptoData]);
+    void loadCryptoData();
+  }, [token, loadCryptoData]);
 
   useEffect(() => {
     if (!token || !cryptoPaymentsEnabled) {
@@ -158,14 +137,14 @@ export function WalletPage() {
         .then((status) => {
           setDepositStatus(status);
           if (status.events.length > (depositStatus?.events.length ?? 0)) {
-            void loadWallet();
+            void refresh();
           }
         })
         .catch(() => undefined);
     }, DEPOSIT_STATUS_POLL_MS);
 
     return () => window.clearInterval(intervalId);
-  }, [token, cryptoPaymentsEnabled, depositStatus?.events.length, loadWallet]);
+  }, [token, cryptoPaymentsEnabled, depositStatus?.events.length, refresh]);
 
   function validateDepositAmount(): number | null {
     const amountMinor = parseUsdToMinor(amountInput);
@@ -193,15 +172,16 @@ export function WalletPage() {
     }
 
     setSubmitting(true);
-    setError(null);
+    setDepositError(null);
     try {
-      await mockDeposit(token, amountMinor, createIdempotencyKey('deposit'));
-      await loadWallet();
+      const result = await mockDeposit(token, amountMinor, createIdempotencyKey('deposit'));
+      applyWallet(result.wallet);
+      await refresh();
       if (returnUrl) {
         navigate(returnUrl);
       }
     } catch (err) {
-      setError(err);
+      setDepositError(err);
     } finally {
       setSubmitting(false);
     }
@@ -251,7 +231,7 @@ export function WalletPage() {
         createIdempotencyKey('withdrawal'),
       );
       setWithdrawAmountInput('');
-      await Promise.all([loadWallet(), loadCryptoData()]);
+      await Promise.all([refresh(), loadCryptoData()]);
     } catch (err) {
       setWithdrawError(err instanceof Error ? err.message : 'Не удалось создать заявку на вывод.');
     } finally {
@@ -275,10 +255,14 @@ export function WalletPage() {
         title="Кошелёк"
         subtitle="Средства на маркетплейсе: доступно, в резерве и заморожено."
         actions={
-          wallet ? (
+          wallet || loading ? (
             <div className="wallet-header-balance" data-testid="wallet-header-available">
               <span className="eyebrow">Доступно</span>
-              <MoneyDisplay minor={wallet.summary.availableMinor} strong />
+              {loading && !wallet ? (
+                <span className="muted small">…</span>
+              ) : (
+                <MoneyDisplay minor={wallet?.summary.availableMinor ?? '0'} strong />
+              )}
             </div>
           ) : null
         }
@@ -311,6 +295,8 @@ export function WalletPage() {
       </div>
 
       {loading ? <LoadingState message="Загрузка кошелька…" /> : null}
+
+      {!loading && error && !wallet ? <ErrorAlert error={error} /> : null}
 
       {wallet ? (
         <>
@@ -495,46 +481,46 @@ export function WalletPage() {
               </button>
             </form>
           ) : null}
-
-          {showDepositForm ? (
-            <form
-              className="card form-card wallet-deposit-form"
-              onSubmit={(event) => void handleDeposit(event)}
-              data-testid="wallet-mock-deposit-form"
-            >
-              <h3>Тестовое пополнение</h3>
-              <p className="muted small">
-                Зачисляет USDT на баланс для проверки покупок на staging. Не настоящие деньги.
-              </p>
-
-              <FormField label="Сумма (USDT)" htmlFor="deposit-amount-input">
-                <input
-                  id="deposit-amount-input"
-                  type="text"
-                  inputMode="decimal"
-                  value={amountInput}
-                  onChange={(event) => {
-                    setAmountInput(event.target.value);
-                    setFieldError(null);
-                  }}
-                  data-testid="deposit-amount-input"
-                />
-              </FormField>
-
-              {fieldError ? <p className="field-error">{fieldError}</p> : null}
-              <ErrorAlert error={error} />
-
-              <button
-                type="submit"
-                className="button primary"
-                disabled={submitting}
-                data-testid="deposit-submit"
-              >
-                {submitting ? 'Пополняем…' : 'Пополнить баланс'}
-              </button>
-            </form>
-          ) : null}
         </>
+      ) : null}
+
+      {showDepositForm ? (
+        <form
+          className="card form-card wallet-deposit-form"
+          onSubmit={(event) => void handleDeposit(event)}
+          data-testid="wallet-mock-deposit-form"
+        >
+          <h3>Тестовое пополнение</h3>
+          <p className="muted small">
+            Зачисляет USDT на баланс для проверки покупок на staging. Не настоящие деньги.
+          </p>
+
+          <FormField label="Сумма (USDT)" htmlFor="deposit-amount-input">
+            <input
+              id="deposit-amount-input"
+              type="text"
+              inputMode="decimal"
+              value={amountInput}
+              onChange={(event) => {
+                setAmountInput(event.target.value);
+                setFieldError(null);
+              }}
+              data-testid="deposit-amount-input"
+            />
+          </FormField>
+
+          {fieldError ? <p className="field-error">{fieldError}</p> : null}
+          <ErrorAlert error={depositError} />
+
+          <button
+            type="submit"
+            className="button primary"
+            disabled={submitting}
+            data-testid="deposit-submit"
+          >
+            {submitting ? 'Пополняем…' : 'Пополнить баланс'}
+          </button>
+        </form>
       ) : null}
 
       {transactions.length > 0 ? (

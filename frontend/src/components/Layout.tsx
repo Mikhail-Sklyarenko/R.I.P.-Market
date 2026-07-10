@@ -14,7 +14,7 @@ function navLinkClass({ isActive }: { isActive: boolean }) {
 
 export function Layout() {
   const { token, user } = useAuth();
-  const { summary: walletSummary } = useWalletSummary();
+  const { summary: walletSummary, loading: walletLoading } = useWalletSummary();
   const [supportOpen, setSupportOpen] = useState(false);
   const isAuthenticated = Boolean(token);
 
@@ -46,7 +46,7 @@ export function Layout() {
         </div>
 
         <div className="app-header-actions">
-          {isAuthenticated && walletSummary ? (
+          {isAuthenticated ? (
             <>
               <Link
                 to="/wallet"
@@ -54,7 +54,11 @@ export function Layout() {
                 data-testid="header-wallet-balance"
                 title="Доступный баланс"
               >
-                <MoneyDisplay minor={walletSummary.availableMinor} strong />
+                {walletLoading && !walletSummary ? (
+                  <span className="muted small">…</span>
+                ) : (
+                  <MoneyDisplay minor={walletSummary?.availableMinor ?? '0'} strong />
+                )}
               </Link>
               <Link
                 to="/wallet"
