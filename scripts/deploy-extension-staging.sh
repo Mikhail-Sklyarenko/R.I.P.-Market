@@ -11,6 +11,12 @@ EXTENSION_ID="${VITE_EXTENSION_ID:-gmmlnkjdbcoojbhndjcfehojknjamaoj}"
 echo "==> Pull latest code"
 git -C "$APP_DIR" pull --ff-only
 
+# Re-exec after pull so this run uses the updated script (bash loads the file at start).
+if [ "${DEPLOY_EXTENSION_STAGING_REEXEC:-}" != "1" ]; then
+  export DEPLOY_EXTENSION_STAGING_REEXEC=1
+  exec bash "$APP_DIR/scripts/deploy-extension-staging.sh" "$@"
+fi
+
 echo "==> Read secrets from existing backend .env"
 JWT_SECRET="$(grep '^JWT_SECRET=' "$APP_DIR/backend/.env" | cut -d= -f2- | tr -d '"')"
 STEAM_WEB_API_KEY="$(grep '^STEAM_WEB_API_KEY=' "$APP_DIR/backend/.env" | cut -d= -f2- | tr -d '"' || true)"
