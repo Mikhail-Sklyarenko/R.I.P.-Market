@@ -4,7 +4,7 @@ import { UserRole, UserStatus } from '@prisma/client';
 import request from 'supertest';
 import { LedgerService } from '../src/wallet/ledger.service';
 import { PrismaService } from '../src/prisma/prisma.service';
-import { ApiClient } from './helpers/api-client';
+import { ApiClient, MOCK_TRADE_URL } from './helpers/api-client';
 import { createE2eApp } from './helpers/bootstrap-e2e-app';
 import { resetDatabase } from './helpers/reset-database';
 
@@ -136,7 +136,8 @@ describe('Read API extensions (e2e)', () => {
     const user = await prisma.user.create({
       data: {
         username: `seller_${suffix}`,
-        steamId: `steam_seller_${suffix}`,
+        steamId: `7656119800000000${suffix === 'b' ? '2' : '1'}`,
+        tradeUrl: MOCK_TRADE_URL,
         role: UserRole.SELLER,
         status: UserStatus.ACTIVE,
       },

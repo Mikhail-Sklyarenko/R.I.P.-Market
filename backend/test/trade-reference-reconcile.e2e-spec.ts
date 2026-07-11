@@ -51,11 +51,15 @@ describe('Trade reference reconcile (e2e)', () => {
     await app.close();
   });
 
-  async function createWaitingTradeOrder(suffix: string) {
+  async function createWaitingTradeOrder(
+    suffix: string,
+    options?: { assetIndex?: number },
+  ) {
+    const assetIndex = options?.assetIndex ?? 0;
     const seller = await api.login(UserRole.SELLER);
     const buyer = await api.login(UserRole.BUYER);
     const inventory = await api.getInventory(seller);
-    const assetId = inventory.body.assets[0].id as string;
+    const assetId = inventory.body.assets[assetIndex].id as string;
     const lot = await api.createLot(seller, assetId, 100_000);
     await api.deposit(buyer, 250_000, `dep-${suffix}`);
     const order = await api.createOrder(buyer, lot.body.id, `buy-${suffix}`);
@@ -99,7 +103,7 @@ describe('Trade reference reconcile (e2e)', () => {
       deviceId: params.deviceId,
       nonce,
       timestampMs,
-      ttlMs: 30_000,
+      ttlMs: 5_000,
       payload: params.payload,
     };
     const message = signatureMessage({
@@ -107,7 +111,7 @@ describe('Trade reference reconcile (e2e)', () => {
       deviceId: params.deviceId,
       nonce,
       timestampMs,
-      ttlMs: 30_000,
+      ttlMs: 5_000,
       payload: params.payload,
     });
     const signature = sign(
@@ -166,8 +170,8 @@ describe('Trade reference reconcile (e2e)', () => {
   });
 
   it('opens dispute on spoofed offer id linked to another order', async () => {
-    const first = await createWaitingTradeOrder('spoof-a');
-    const second = await createWaitingTradeOrder('spoof-b');
+    const first = await createWaitingTradeOrder('spoof-a', { assetIndex: 0 });
+    const second = await createWaitingTradeOrder('spoof-b', { assetIndex: 1 });
 
     await request(app.getHttpServer())
       .patch(`/api/v1/orders/${first.orderId}/trade-reference`)

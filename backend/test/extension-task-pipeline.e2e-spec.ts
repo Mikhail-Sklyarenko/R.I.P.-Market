@@ -43,13 +43,13 @@ describe('Extension task pipeline (e2e)', () => {
 
   beforeEach(async () => {
     await resetDatabase(prisma);
-    const sellerUser = await prisma.user.findFirst({
-      where: { role: UserRole.SELLER },
-    });
-    if (sellerUser) {
-      process.env.EXTENSION_ROLLOUT_INTERNAL_USER_IDS = sellerUser.id;
-    }
   });
+
+  async function loginRolloutSeller() {
+    const seller = await api.login(UserRole.SELLER);
+    process.env.EXTENSION_ROLLOUT_INTERNAL_USER_IDS = seller.userId;
+    return seller;
+  }
 
   afterAll(async () => {
     if (envBackup.channel === undefined) {
@@ -128,7 +128,7 @@ describe('Extension task pipeline (e2e)', () => {
       deviceId: params.deviceId,
       nonce,
       timestampMs,
-      ttlMs: 30_000,
+      ttlMs: 5_000,
       payload: params.payload,
       signature: '',
     };
@@ -149,7 +149,7 @@ describe('Extension task pipeline (e2e)', () => {
   }
 
   it('creates trade task on buy, poll returns it, progress OFFER_SENT sets externalOfferId', async () => {
-    const seller = await api.login(UserRole.SELLER);
+    const seller = await loginRolloutSeller();
     const buyer = await api.login(UserRole.BUYER);
     await prisma.user.update({
       where: { id: buyer.userId },
@@ -225,7 +225,7 @@ describe('Extension task pipeline (e2e)', () => {
   });
 
   it('CONFIRM_PENDING with valid offer id can be followed by OFFER_SENT reconcile', async () => {
-    const seller = await api.login(UserRole.SELLER);
+    const seller = await loginRolloutSeller();
     const buyer = await api.login(UserRole.BUYER);
     await prisma.user.update({
       where: { id: buyer.userId },

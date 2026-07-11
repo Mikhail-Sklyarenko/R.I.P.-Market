@@ -6,7 +6,7 @@ import { UserRole, UserStatus } from '@prisma/client';
 import { PrismaService } from '../../src/prisma/prisma.service';
 import { LedgerService } from '../../src/wallet/ledger.service';
 
-const MOCK_TRADE_URL =
+export const MOCK_TRADE_URL =
   'https://steamcommunity.com/tradeoffer/new/?partner=123456789&token=AbCdEfGh';
 
 type AuthSession = {
