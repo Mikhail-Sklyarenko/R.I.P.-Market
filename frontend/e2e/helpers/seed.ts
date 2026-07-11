@@ -1,7 +1,10 @@
 import { APIRequestContext } from '@playwright/test';
-import { fundWallet } from './crypto-payments';
+import { decodeUserIdFromToken, fundWallet, linkSteamForUser } from './crypto-payments';
 
 const API_BASE = process.env.PLAYWRIGHT_API_BASE_URL ?? 'http://localhost:3001/api/v1';
+const MOCK_TRADE_URL =
+  'https://steamcommunity.com/tradeoffer/new/?partner=123456789&token=AbCdEfGh';
+const MOCK_SELLER_STEAM_ID = '76561198000000000';
 
 type InventoryAssetSeed = {
   id: string;
@@ -20,28 +23,72 @@ function findAssetByWeapon(assets: InventoryAssetSeed[], weapon: string): Invent
   return match;
 }
 
-export async function seedActiveLot(request: APIRequestContext, priceMinor = 100_000) {
-  const sellerLogin = await request.post(`${API_BASE}/auth/mock-login`, {
-    data: { role: 'SELLER' },
+async function mockLogin(request: APIRequestContext, role: 'SELLER' | 'BUYER') {
+  const response = await request.post(`${API_BASE}/auth/mock-login`, {
+    data: { role },
   });
-  const sellerBody = (await sellerLogin.json()) as { accessToken: string };
+  if (!response.ok()) {
+    throw new Error(`mock-login failed for ${role}: ${response.status()}`);
+  }
+  return (await response.json()) as { accessToken: string };
+}
+
+export async function prepareSellerForListing(
+  request: APIRequestContext,
+  accessToken: string,
+  steamId = MOCK_SELLER_STEAM_ID,
+) {
+  const userId = decodeUserIdFromToken(accessToken);
+  const tradeUrlResponse = await request.patch(`${API_BASE}/users/me/trade-url`, {
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      'Content-Type': 'application/json',
+    },
+    data: { tradeUrl: MOCK_TRADE_URL },
+  });
+  if (!tradeUrlResponse.ok()) {
+    throw new Error(`trade-url update failed: ${tradeUrlResponse.status()}`);
+  }
+  await linkSteamForUser(request, userId, steamId);
+}
+
+async function createLot(
+  request: APIRequestContext,
+  accessToken: string,
+  inventoryAssetId: string,
+  priceMinor: number,
+) {
+  const lotResponse = await request.post(`${API_BASE}/lots`, {
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      'Content-Type': 'application/json',
+    },
+    data: { inventoryAssetId, priceMinor },
+  });
+  if (!lotResponse.ok()) {
+    throw new Error(
+      `create lot failed: ${lotResponse.status()} ${await lotResponse.text()}`,
+    );
+  }
+  return (await lotResponse.json()) as { id: string };
+}
+
+export async function seedActiveLot(request: APIRequestContext, priceMinor = 100_000) {
+  const sellerBody = await mockLogin(request, 'SELLER');
+  await prepareSellerForListing(request, sellerBody.accessToken);
   const inventory = await request.get(`${API_BASE}/inventory`, {
     headers: { Authorization: `Bearer ${sellerBody.accessToken}` },
   });
   const assets = (await inventory.json()) as { assets: InventoryAssetSeed[] };
   const listableAsset = findAssetByWeapon(assets.assets, 'AK-47');
-  const lotResponse = await request.post(`${API_BASE}/lots`, {
-    headers: {
-      Authorization: `Bearer ${sellerBody.accessToken}`,
-      'Content-Type': 'application/json',
-    },
-    data: { inventoryAssetId: listableAsset.id, priceMinor },
-  });
-  const lot = (await lotResponse.json()) as { id: string };
+  const lot = await createLot(
+    request,
+    sellerBody.accessToken,
+    listableAsset.id,
+    priceMinor,
+  );
   return { lotId: lot.id, priceMinor, sellerToken: sellerBody.accessToken };
 }
-
-const MOCK_TRADE_URL = 'https://steamcommunity.com/tradeoffer/new/?partner=123456789&token=AbCdEfGh';
 
 export async function seedOpenOrder(
   request: APIRequestContext,
@@ -92,10 +139,8 @@ export async function seedOpenOrder(
 }
 
 export async function seedCatalogLots(request: APIRequestContext) {
-  const sellerLogin = await request.post(`${API_BASE}/auth/mock-login`, {
-    data: { role: 'SELLER' },
-  });
-  const sellerBody = (await sellerLogin.json()) as { accessToken: string };
+  const sellerBody = await mockLogin(request, 'SELLER');
+  await prepareSellerForListing(request, sellerBody.accessToken);
   const inventory = await request.get(`${API_BASE}/inventory`, {
     headers: { Authorization: `Bearer ${sellerBody.accessToken}` },
   });
@@ -103,19 +148,8 @@ export async function seedCatalogLots(request: APIRequestContext) {
   const akAsset = findAssetByWeapon(assets.assets, 'AK-47');
   const awpAsset = findAssetByWeapon(assets.assets, 'AWP');
 
-  async function createLot(assetId: string, priceMinor: number) {
-    const lotResponse = await request.post(`${API_BASE}/lots`, {
-      headers: {
-        Authorization: `Bearer ${sellerBody.accessToken}`,
-        'Content-Type': 'application/json',
-      },
-      data: { inventoryAssetId: assetId, priceMinor },
-    });
-    return (await lotResponse.json()) as { id: string };
-  }
-
-  const akLot = await createLot(akAsset.id, 100_000);
-  const awpLot = await createLot(awpAsset.id, 150_000);
+  const akLot = await createLot(request, sellerBody.accessToken, akAsset.id, 100_000);
+  const awpLot = await createLot(request, sellerBody.accessToken, awpAsset.id, 150_000);
 
   return { akLotId: akLot.id, awpLotId: awpLot.id };
 }
@@ -136,20 +170,24 @@ export async function seedSimilarLots(request: APIRequestContext) {
     throw new Error('Failed to create extra seller session for similar lots seed');
   }
 
+  await prepareSellerForListing(
+    request,
+    extraBody.accessToken,
+    '76561198000000002',
+  );
+
   const inventory = await request.get(`${API_BASE}/inventory`, {
     headers: { Authorization: `Bearer ${extraBody.accessToken}` },
   });
   const assets = (await inventory.json()) as { assets: InventoryAssetSeed[] };
   const akAsset = findAssetByWeapon(assets.assets, 'AK-47');
 
-  const similarResponse = await request.post(`${API_BASE}/lots`, {
-    headers: {
-      Authorization: `Bearer ${extraBody.accessToken}`,
-      'Content-Type': 'application/json',
-    },
-    data: { inventoryAssetId: akAsset.id, priceMinor: 120_000 },
-  });
-  const similarLot = (await similarResponse.json()) as { id: string };
+  const similarLot = await createLot(
+    request,
+    extraBody.accessToken,
+    akAsset.id,
+    120_000,
+  );
 
   return { sourceLotId, similarLotId: similarLot.id };
 }

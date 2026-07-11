@@ -91,7 +91,9 @@ export class TestResetController {
     const user = await this.prisma.user.create({
       data: {
         username: `seller_e2e_${suffix}`,
-        steamId: `steam_seller_e2e_${suffix}`,
+        steamId: `7656119800000000${(suffix.charCodeAt(0) % 8) + 1}`,
+        tradeUrl:
+          'https://steamcommunity.com/tradeoffer/new/?partner=123456789&token=AbCdEfGh',
         role: UserRole.SELLER,
         status: UserStatus.ACTIVE,
       },

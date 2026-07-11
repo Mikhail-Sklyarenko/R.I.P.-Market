@@ -24,6 +24,7 @@ export default defineConfig({
         ENABLE_TEST_ROUTES: 'true',
         ENABLE_MOCK_TRADE: 'true',
         ENABLE_MOCK_DEPOSIT: 'false',
+        ENABLE_EXTENSION_CHANNEL: 'true',
         PAYMENT_PROVIDER: 'crypto_tron',
         CRYPTO_GATEWAY_WEBHOOK_SECRET:
           process.env.CRYPTO_GATEWAY_WEBHOOK_SECRET ?? 'playwright-webhook-secret',

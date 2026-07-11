@@ -1,13 +1,31 @@
 import { Page, expect } from '@playwright/test';
 import { fundWallet } from './crypto-payments';
+import { prepareSellerForListing } from './seed';
 
 const API_BASE = process.env.PLAYWRIGHT_API_BASE_URL ?? 'http://localhost:3001/api/v1';
+
+async function readPageToken(page: Page): Promise<string> {
+  const token = await page.evaluate(() => {
+    const raw = localStorage.getItem('rip_market_auth');
+    if (!raw) {
+      return null;
+    }
+    const parsed = JSON.parse(raw) as { token?: string };
+    return parsed.token ?? null;
+  });
+  if (!token) {
+    throw new Error('No auth token in localStorage after login');
+  }
+  return token;
+}
 
 export async function loginAsSeller(page: Page) {
   await page.goto('/login');
   await page.getByRole('button', { name: 'Seller', exact: true }).click();
   await page.getByTestId('login-seller').click();
   await expect(page).toHaveURL(/\/sell\/inventory$/);
+  const token = await readPageToken(page);
+  await prepareSellerForListing(page.request, token);
 }
 
 export async function loginAsBuyer(page: Page) {
