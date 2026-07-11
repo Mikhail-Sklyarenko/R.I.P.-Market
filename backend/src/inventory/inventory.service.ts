@@ -16,6 +16,7 @@ import type {
   InventoryProvider,
   SyncResult,
 } from '../providers/inventory/inventory-provider.interface';
+import { getProvidersConfig } from '../providers/config';
 
 export type InventoryPriceHint = {
   steamPriceMinor: number | null;
@@ -103,7 +104,8 @@ export class InventoryService {
     });
 
     const force =
-      process.env.ENABLE_MOCK_TRADE === 'true' ||
+      (process.env.ENABLE_MOCK_TRADE === 'true' &&
+        getProvidersConfig().inventory === 'mock') ||
       !latest ||
       latest.expiresAt <= new Date() ||
       latest.status !== 'SUCCESS';

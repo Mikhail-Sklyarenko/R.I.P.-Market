@@ -29,10 +29,7 @@ export class ApiClient {
       userId: response.body.user.id,
     };
 
-    if (
-      process.env.INVENTORY_PROVIDER === 'steam' &&
-      role === UserRole.SELLER
-    ) {
+    if (role === UserRole.SELLER) {
       const prisma = this.app.get(PrismaService);
       await prisma.user.update({
         where: { id: session.userId },

@@ -36,6 +36,7 @@ jobs:
       FRONTEND_ORIGIN: http://localhost:5173
       ENABLE_MOCK_TRADE: true
       ENABLE_MOCK_DEPOSIT: true
+      ENABLE_EXTENSION_CHANNEL: true
 
     steps:
       - uses: actions/checkout@v4
