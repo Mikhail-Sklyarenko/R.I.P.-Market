@@ -37,7 +37,8 @@ test.describe('Buy cancel flow', () => {
     await expect(page.getByTestId('order-status')).toHaveText('CANCELED');
     await expect(page.getByTestId('order-canceled-message')).toBeVisible();
 
-    await page.goto('/catalog');
-    await expect(page.getByTestId(`catalog-lot-${lotId}`)).toBeVisible();
+    await page.goto(`/lots/${lotId}`);
+    await expect(page.getByTestId('lot-page')).toBeVisible();
+    await expect(page.getByTestId('buy-lot-button')).toBeEnabled();
   });
 });

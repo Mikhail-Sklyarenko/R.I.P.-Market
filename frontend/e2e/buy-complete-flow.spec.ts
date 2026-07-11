@@ -58,7 +58,7 @@ test.describe('Buy complete flow', () => {
       data: { role: 'SELLER' },
     });
     const sellerToken = ((await sellerLogin.json()) as { accessToken: string }).accessToken;
-    const sellerWallet = await request.get(`${apiBase}/wallet`, {
+    const sellerWallet = await request.get(`${API_BASE}/wallet`, {
       headers: { Authorization: `Bearer ${sellerToken}` },
     });
     const sellerWalletBody = (await sellerWallet.json()) as {

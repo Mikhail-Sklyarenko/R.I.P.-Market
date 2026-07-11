@@ -12,7 +12,7 @@ test.describe('Inventory sync UI', () => {
 
     await expect(page.getByText(/Последняя синхронизация:/)).toBeVisible();
     await expect(page.getByTestId('inventory-refresh')).toBeVisible();
-    await expect(page.getByRole('button', { name: 'Выставить' }).first()).toBeVisible();
+    await expect(page.locator('[data-testid^="list-asset-"]').first()).toBeVisible();
   });
 
   test('refresh from Steam reloads inventory', async ({ page }) => {
@@ -26,6 +26,6 @@ test.describe('Inventory sync UI', () => {
       timeout: 15_000,
     });
     await expect(lastSynced).toBeVisible();
-    await expect(page.getByRole('button', { name: 'Выставить' }).first()).toBeVisible();
+    await expect(page.locator('[data-testid^="list-asset-"]').first()).toBeVisible();
   });
 });

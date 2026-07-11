@@ -50,7 +50,7 @@ test.describe('Wallet crypto deposit', () => {
     await page.goto(`/lots/${lotId}/checkout`);
 
     await expect(page.getByTestId('purchase-insufficient-balance')).toBeVisible();
-    await page.getByTestId('purchase-deposit-link').click();
+    await page.getByTestId('checkout-deposit-link').click();
     await expect(page).toHaveURL(/\/wallet/);
     await expect(page.getByTestId('deposit-needed-banner')).toContainText(
       new Intl.NumberFormat('en-US', {

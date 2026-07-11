@@ -21,7 +21,7 @@ test.describe('Seller flow', () => {
     await expect(page.getByTestId('pricing-preview')).toContainText('$950.00');
 
     await page.getByTestId('submit-listing').click();
-    await expect(page).toHaveURL(/\/sell\/my-lots$/);
+    await expect(page).toHaveURL(/\/sell\/activity/);
 
     const activeRow = page.getByTestId('lot-row-ACTIVE');
     await expect(activeRow).toBeVisible();
@@ -39,7 +39,7 @@ test.describe('Seller flow', () => {
     await listButton.click();
     await page.getByTestId('price-input').fill('500');
     await page.getByTestId('submit-listing').click();
-    await expect(page).toHaveURL(/\/sell\/my-lots$/);
+    await expect(page).toHaveURL(/\/sell\/activity/);
 
     await page.goto(`/sell/lots/new?assetId=${assetId}`);
     await expect(page.getByText('This item cannot be listed right now')).toBeVisible();
