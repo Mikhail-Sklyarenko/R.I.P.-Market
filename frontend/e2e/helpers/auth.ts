@@ -1,6 +1,6 @@
 import { Page, expect } from '@playwright/test';
 import { fundWallet } from './crypto-payments';
-import { prepareSellerForListing } from './seed';
+import { prepareBuyerForPurchase, prepareSellerForListing } from './seed';
 
 const API_BASE = process.env.PLAYWRIGHT_API_BASE_URL ?? 'http://localhost:3001/api/v1';
 
@@ -26,12 +26,18 @@ export async function loginAsSeller(page: Page) {
   await expect(page).toHaveURL(/\/sell\/inventory$/);
   const token = await readPageToken(page);
   await prepareSellerForListing(page.request, token);
+  await page.reload();
+  await expect(page).toHaveURL(/\/sell\/inventory$/);
 }
 
 export async function loginAsBuyer(page: Page) {
   await page.goto('/login');
   await page.getByRole('button', { name: 'Buyer', exact: true }).click();
   await page.getByTestId('login-buyer').click();
+  await expect(page).toHaveURL(/\/catalog$/);
+  const token = await readPageToken(page);
+  await prepareBuyerForPurchase(page.request, token);
+  await page.reload();
   await expect(page).toHaveURL(/\/catalog$/);
 }
 

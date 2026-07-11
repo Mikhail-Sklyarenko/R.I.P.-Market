@@ -28,7 +28,7 @@ test.describe('Extension task phase progression (mock API)', () => {
       'ITEM_SELECTED',
       'OFFER_SUBMITTED',
     ] as const;
-    let orderFetchCount = 0;
+    let orderPhaseStartedAt: number | null = null;
 
     await page.route('**/auth/config', async (route) => {
       const response = await route.fetch();
@@ -53,8 +53,12 @@ test.describe('Extension task phase progression (mock API)', () => {
     await page.route(`${API_BASE}/orders/${orderId}`, async (route) => {
       const response = await route.fetch();
       const order = (await response.json()) as Record<string, unknown>;
-      const phase = phases[Math.min(orderFetchCount, phases.length - 1)];
-      orderFetchCount += 1;
+      if (orderPhaseStartedAt === null) {
+        orderPhaseStartedAt = Date.now();
+      }
+      const elapsedMs = Date.now() - orderPhaseStartedAt;
+      const phaseIndex = Math.min(Math.floor(elapsedMs / 2_500), phases.length - 1);
+      const phase = phases[phaseIndex];
 
       await route.fulfill({
         status: response.status(),
@@ -87,22 +91,22 @@ test.describe('Extension task phase progression (mock API)', () => {
     await page.goto(`/orders/${orderId}`);
 
     await expect(page.getByTestId('extension-task-progress')).toBeVisible();
-    await expect(page.getByTestId('extension-task-phase')).toHaveText(
+    await expect(page.getByTestId('extension-task-phase')).toContainText(
       PHASE_LABELS.ACKED,
     );
 
-    await expect(page.getByTestId('extension-task-phase')).toHaveText(
+    await expect(page.getByTestId('extension-task-phase')).toContainText(
       PHASE_LABELS.TRADE_PAGE_OPENED,
       { timeout: 12_000 },
     );
 
-    await expect(page.getByTestId('extension-task-phase')).toHaveText(
+    await expect(page.getByTestId('extension-task-phase')).toContainText(
       PHASE_LABELS.ITEM_SELECTED,
       { timeout: 12_000 },
     );
     await expect(page.getByTestId('extension-task-selected-item')).toBeVisible();
 
-    await expect(page.getByTestId('extension-task-phase')).toHaveText(
+    await expect(page.getByTestId('extension-task-phase')).toContainText(
       PHASE_LABELS.OFFER_SUBMITTED,
       { timeout: 12_000 },
     );

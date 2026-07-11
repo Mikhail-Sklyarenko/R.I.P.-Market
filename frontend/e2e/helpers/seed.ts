@@ -33,12 +33,7 @@ async function mockLogin(request: APIRequestContext, role: 'SELLER' | 'BUYER') {
   return (await response.json()) as { accessToken: string };
 }
 
-export async function prepareSellerForListing(
-  request: APIRequestContext,
-  accessToken: string,
-  steamId = MOCK_SELLER_STEAM_ID,
-) {
-  const userId = decodeUserIdFromToken(accessToken);
+async function setTradeUrlForUser(request: APIRequestContext, accessToken: string) {
   const tradeUrlResponse = await request.patch(`${API_BASE}/users/me/trade-url`, {
     headers: {
       Authorization: `Bearer ${accessToken}`,
@@ -49,7 +44,23 @@ export async function prepareSellerForListing(
   if (!tradeUrlResponse.ok()) {
     throw new Error(`trade-url update failed: ${tradeUrlResponse.status()}`);
   }
+}
+
+export async function prepareSellerForListing(
+  request: APIRequestContext,
+  accessToken: string,
+  steamId = MOCK_SELLER_STEAM_ID,
+) {
+  const userId = decodeUserIdFromToken(accessToken);
+  await setTradeUrlForUser(request, accessToken);
   await linkSteamForUser(request, userId, steamId);
+}
+
+export async function prepareBuyerForPurchase(
+  request: APIRequestContext,
+  accessToken: string,
+) {
+  await setTradeUrlForUser(request, accessToken);
 }
 
 async function createLot(
@@ -101,21 +112,8 @@ export async function seedOpenOrder(
   });
   const buyerBody = (await buyerLogin.json()) as { accessToken: string };
 
-  await request.patch(`${API_BASE}/users/me/trade-url`, {
-    headers: {
-      Authorization: `Bearer ${buyerBody.accessToken}`,
-      'Content-Type': 'application/json',
-    },
-    data: { tradeUrl: MOCK_TRADE_URL },
-  });
-
-  await request.patch(`${API_BASE}/users/me/trade-url`, {
-    headers: {
-      Authorization: `Bearer ${sellerToken}`,
-      'Content-Type': 'application/json',
-    },
-    data: { tradeUrl: MOCK_TRADE_URL },
-  });
+  await prepareBuyerForPurchase(request, buyerBody.accessToken);
+  await setTradeUrlForUser(request, sellerToken);
 
   await fundWallet(request, buyerBody.accessToken, priceMinor * 2);
 

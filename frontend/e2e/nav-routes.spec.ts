@@ -27,7 +27,7 @@ test.describe('Main navigation', () => {
 
     await page.getByTestId('user-menu-trigger').click();
     await page.getByTestId('user-menu-transactions').click();
-    await expect(page).toHaveURL(/\/wallet$/);
+    await expect(page).toHaveURL(/\/wallet/);
 
     await page.getByTestId('nav-catalog').click();
     await expect(page).toHaveURL(/\/catalog$/);

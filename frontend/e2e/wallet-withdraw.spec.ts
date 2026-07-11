@@ -31,7 +31,7 @@ test.describe('Wallet crypto withdrawal', () => {
     await fundWallet(request, sellerBody.accessToken, 10_000);
 
     await loginAsSeller(page);
-    await page.goto('/wallet');
+    await page.goto('/wallet?tab=withdraw');
 
     await page.getByTestId('withdraw-address-input').fill(VALID_TEST_ADDRESS);
     await page.getByTestId('withdraw-amount-input').fill('20');
