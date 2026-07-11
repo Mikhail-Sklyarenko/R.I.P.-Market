@@ -12,13 +12,18 @@ describe('DisputeOpsService', () => {
       findMany: jest.fn().mockResolvedValue([]),
       create: jest.fn(),
     },
-    outboxEvent: { findMany: jest.fn().mockResolvedValue([]), create: jest.fn() },
+    outboxEvent: {
+      findMany: jest.fn().mockResolvedValue([]),
+      create: jest.fn(),
+    },
     tradePollEvent: { findMany: jest.fn().mockResolvedValue([]) },
     tradeTask: { findMany: jest.fn().mockResolvedValue([]) },
     tradeVerificationSnapshot: { findMany: jest.fn().mockResolvedValue([]) },
     tradeOperation: { update: jest.fn() },
     inventoryAsset: { update: jest.fn() },
-    $transaction: jest.fn((fn: (tx: unknown) => Promise<unknown>) => fn(prisma)),
+    $transaction: jest.fn((fn: (tx: unknown) => Promise<unknown>) =>
+      fn(prisma),
+    ),
   };
   const orderStateService = { transition: jest.fn() };
   const lotStateService = { transition: jest.fn() };

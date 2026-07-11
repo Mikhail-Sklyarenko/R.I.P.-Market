@@ -47,7 +47,9 @@ export class ListCatalogItemsQueryDto {
   @Max(1)
   floatMax?: number;
 
-  @ApiPropertyOptional({ enum: ['popular', 'cheapest', 'newest', 'price_desc'] })
+  @ApiPropertyOptional({
+    enum: ['popular', 'cheapest', 'newest', 'price_desc'],
+  })
   @IsOptional()
   @IsIn(['popular', 'cheapest', 'newest', 'price_desc'])
   sort?: 'popular' | 'cheapest' | 'newest' | 'price_desc';

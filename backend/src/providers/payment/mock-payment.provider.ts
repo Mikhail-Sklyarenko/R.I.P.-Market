@@ -10,23 +10,25 @@ import type {
 export class MockPaymentProvider implements PaymentProvider {
   readonly name = 'mock';
 
-  async ensureDepositAddress(userId: string): Promise<DepositAddressResult> {
-    return {
+  ensureDepositAddress(userId: string): Promise<DepositAddressResult> {
+    return Promise.resolve({
       address: `TMock${userId.replace(/-/g, '').slice(0, 30)}`,
       walletIndex: 0,
-    };
+    });
   }
 
-  async createGatewayWithdrawal(): Promise<GatewayWithdrawal> {
-    throw new Error('Mock payment provider does not support gateway withdrawals');
+  createGatewayWithdrawal(): Promise<GatewayWithdrawal> {
+    return Promise.reject(
+      new Error('Mock payment provider does not support gateway withdrawals'),
+    );
   }
 
-  async getGatewayWithdrawal(): Promise<GatewayWithdrawal | null> {
-    return null;
+  getGatewayWithdrawal(): Promise<GatewayWithdrawal | null> {
+    return Promise.resolve(null);
   }
 
-  async listUserPayments(): Promise<GatewayPayment[]> {
-    return [];
+  listUserPayments(): Promise<GatewayPayment[]> {
+    return Promise.resolve([]);
   }
 
   verifyWebhookSignature(): boolean {

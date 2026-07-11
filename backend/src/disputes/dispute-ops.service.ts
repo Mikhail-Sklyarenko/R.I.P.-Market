@@ -205,8 +205,10 @@ export class DisputeOpsService {
         kind: 'OUTBOX',
         title: event.eventType,
         reasonCode:
-          (event.payload as Prisma.JsonObject | null)?.reasonCode?.toString() ??
-          null,
+          typeof (event.payload as Prisma.JsonObject | null)?.reasonCode ===
+          'string'
+            ? ((event.payload as Prisma.JsonObject).reasonCode as string)
+            : null,
         detail: event.payload as Record<string, unknown>,
       });
     }
@@ -266,7 +268,9 @@ export class DisputeOpsService {
 
   async openSystemDispute(params: OpenSystemDisputeParams): Promise<boolean> {
     if (!isKnownDisputeReasonCode(params.reasonCode)) {
-      throw new BadRequestException(`Unknown dispute reason: ${params.reasonCode}`);
+      throw new BadRequestException(
+        `Unknown dispute reason: ${params.reasonCode}`,
+      );
     }
     assertDisputeReasonAllowed(params.reasonCode, params.source);
 

@@ -41,7 +41,7 @@ export class AdminController {
   ) {}
 
   @Get('disputes/reason-codes')
-  async listDisputeReasonCodes() {
+  listDisputeReasonCodes() {
     return this.adminService.listDisputeReasonCodes();
   }
 
@@ -78,7 +78,10 @@ export class AdminController {
     @CurrentUser() actor: AuthUser,
     @Param('steamId') steamId: string,
   ) {
-    return this.adminService.deleteExtensionRolloutAllowlist(steamId, actor.sub);
+    return this.adminService.deleteExtensionRolloutAllowlist(
+      steamId,
+      actor.sub,
+    );
   }
 
   @Get('orders/:id/timeline')

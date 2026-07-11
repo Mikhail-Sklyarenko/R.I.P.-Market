@@ -15,6 +15,10 @@ import { AppException } from '../common/errors/app.exception';
 import { ErrorCode } from '../common/errors/error-codes';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
+import {
+  readJsonString,
+  readOptionalJsonString,
+} from '../common/json-string.util';
 import { ExtensionHandshakeDto } from './dto/handshake.dto';
 import { SignedEnvelopeDto } from './dto/signed-envelope.dto';
 import { isExtensionChannelEnabled } from './extension-channel.config';
@@ -55,7 +59,11 @@ export class ExtensionController {
     this.ensureEnabled();
     this.rateLimit.assertHandshakeAllowed(user.sub);
     this.antiFraud.recordHandshake(user.sub);
-    return this.extensionSecurity.handshake(user.sub, dto.deviceId, dto.publicKey);
+    return this.extensionSecurity.handshake(
+      user.sub,
+      dto.deviceId,
+      dto.publicKey,
+    );
   }
 
   @ApiBearerAuth()
@@ -80,7 +88,7 @@ export class ExtensionController {
   ) {
     this.assertSignedRateLimit(auth.sessionId);
     const payload = dto.payload;
-    const commandId = String(payload.commandId ?? '');
+    const commandId = readJsonString(payload.commandId);
     if (!commandId) {
       throw new AppException(
         ErrorCode.VALIDATION_ERROR,
@@ -96,7 +104,7 @@ export class ExtensionController {
       create: {
         sessionId: auth.sessionId,
         commandId,
-        payload: payload as object,
+        payload: payload as Prisma.InputJsonValue,
       },
       update: {},
     });
@@ -115,7 +123,10 @@ export class ExtensionController {
     this.assertSignedRateLimit(auth.sessionId);
     this.ensureTaskPipelineEnabled();
     const limit = Number(dto.payload.limit ?? 20);
-    const tasks = await this.extensionTaskService.pollTasks(auth.sessionId, limit);
+    const tasks = await this.extensionTaskService.pollTasks(
+      auth.sessionId,
+      limit,
+    );
     return { tasks };
   }
 
@@ -130,15 +141,18 @@ export class ExtensionController {
   ) {
     this.assertSignedRateLimit(auth.sessionId);
     this.ensureTaskPipelineEnabled();
-    const taskId = String(dto.payload.taskId ?? '');
-    const result = String(dto.payload.result ?? 'ACK').toUpperCase();
+    const taskId = readJsonString(dto.payload.taskId);
+    const result = readJsonString(dto.payload.result, 'ACK').toUpperCase();
     if (!taskId) {
-      throw new AppException(ErrorCode.VALIDATION_ERROR, 'payload.taskId is required');
+      throw new AppException(
+        ErrorCode.VALIDATION_ERROR,
+        'payload.taskId is required',
+      );
     }
     if (result === 'ACK') {
       await this.extensionTaskService.ackTask(taskId, dto.payload as object);
     } else {
-      const reasonCode = String(dto.payload.reasonCode ?? 'NACK');
+      const reasonCode = readJsonString(dto.payload.reasonCode, 'NACK');
       await this.extensionTaskService.nackTask(taskId, reasonCode);
     }
     return { ok: true, taskId, result };
@@ -149,14 +163,17 @@ export class ExtensionController {
   @UseGuards(ExtensionSessionGuard, ExtensionSignatureGuard)
   @Post('tasks/progress')
   @HttpCode(HttpStatus.OK)
-  async reportTaskProgress(@CurrentExtensionAuth() auth: { sessionId: string }, @Body() dto: SignedEnvelopeDto) {
+  async reportTaskProgress(
+    @CurrentExtensionAuth() auth: { sessionId: string },
+    @Body() dto: SignedEnvelopeDto,
+  ) {
     this.assertSignedRateLimit(auth.sessionId);
     this.ensureTaskPipelineEnabled();
     this.ensureOfferOrchestratorEnabled();
     const payload = dto.payload;
-    const taskId = String(payload.taskId ?? '');
-    const phase = String(payload.phase ?? '') as never;
-    const idempotencyKey = String(payload.idempotencyKey ?? '');
+    const taskId = readJsonString(payload.taskId);
+    const phase = readJsonString(payload.phase) as never;
+    const idempotencyKey = readJsonString(payload.idempotencyKey);
     if (!taskId || !phase || !idempotencyKey) {
       throw new AppException(
         ErrorCode.VALIDATION_ERROR,
@@ -167,8 +184,8 @@ export class ExtensionController {
       taskId,
       phase,
       idempotencyKey,
-      reasonCode: payload.reasonCode ? String(payload.reasonCode) : null,
-      offerId: payload.offerId ? String(payload.offerId) : null,
+      reasonCode: readOptionalJsonString(payload.reasonCode),
+      offerId: readOptionalJsonString(payload.offerId),
       details: payload.details as Prisma.JsonObject | undefined,
     });
   }
@@ -187,14 +204,14 @@ export class ExtensionController {
     this.rateLimit.assertTradeReferenceAllowed(auth.userId);
     this.ensureExtensionTradeReferenceEnabled();
     const payload = dto.payload;
-    const payloadOrderId = String(payload.orderId ?? orderId);
+    const payloadOrderId = readJsonString(payload.orderId, orderId);
     if (payloadOrderId !== orderId) {
       throw new AppException(
         ErrorCode.VALIDATION_ERROR,
         'payload.orderId must match path orderId',
       );
     }
-    const idempotencyKey = String(payload.idempotencyKey ?? '');
+    const idempotencyKey = readJsonString(payload.idempotencyKey);
     if (!idempotencyKey) {
       throw new AppException(
         ErrorCode.VALIDATION_ERROR,
@@ -204,8 +221,8 @@ export class ExtensionController {
     return this.tradeReferenceReconcileService.reconcile({
       orderId,
       sellerId: auth.userId,
-      offerId: payload.offerId ? String(payload.offerId) : null,
-      tradeUrl: payload.tradeUrl ? String(payload.tradeUrl) : null,
+      offerId: readOptionalJsonString(payload.offerId),
+      tradeUrl: readOptionalJsonString(payload.tradeUrl),
       idempotencyKey,
       source: 'EXTENSION',
       actorUserId: auth.userId,
@@ -242,20 +259,18 @@ export class ExtensionController {
   ) {
     this.assertSignedRateLimit(auth.sessionId);
     this.ensureTradeAcknowledgmentEnabled();
-    const orderId = String(dto.payload.orderId ?? '');
+    const orderId = readJsonString(dto.payload.orderId);
     if (!orderId) {
       throw new AppException(
         ErrorCode.VALIDATION_ERROR,
         'payload.orderId is required',
       );
     }
-    const offerId = dto.payload.offerId ? String(dto.payload.offerId) : null;
-    const observedAssetId = dto.payload.observedAssetId
-      ? String(dto.payload.observedAssetId)
-      : null;
-    const observedFloatValue = dto.payload.observedFloatValue
-      ? String(dto.payload.observedFloatValue)
-      : null;
+    const offerId = readOptionalJsonString(dto.payload.offerId);
+    const observedAssetId = readOptionalJsonString(dto.payload.observedAssetId);
+    const observedFloatValue = readOptionalJsonString(
+      dto.payload.observedFloatValue,
+    );
     return this.extensionTradeAckService.verifyTrade(
       auth.userId,
       orderId,
@@ -279,9 +294,9 @@ export class ExtensionController {
     this.assertSignedRateLimit(auth.sessionId);
     this.ensureTradeAcknowledgmentEnabled();
     const payload = dto.payload;
-    const orderId = String(payload.orderId ?? '');
-    const type = String(payload.type ?? '');
-    const idempotencyKey = String(payload.idempotencyKey ?? '');
+    const orderId = readJsonString(payload.orderId);
+    const type = readJsonString(payload.type);
+    const idempotencyKey = readJsonString(payload.idempotencyKey);
     if (!orderId || !type || !idempotencyKey) {
       throw new AppException(
         ErrorCode.VALIDATION_ERROR,
@@ -292,7 +307,7 @@ export class ExtensionController {
       userId: auth.userId,
       orderId,
       type,
-      offerId: payload.offerId ? String(payload.offerId) : null,
+      offerId: readOptionalJsonString(payload.offerId),
       idempotencyKey,
     });
   }

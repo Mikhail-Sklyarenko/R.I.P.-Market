@@ -1,4 +1,10 @@
-import { HttpStatus, Inject, Injectable, Logger, forwardRef } from '@nestjs/common';
+import {
+  HttpStatus,
+  Inject,
+  Injectable,
+  Logger,
+  forwardRef,
+} from '@nestjs/common';
 import {
   InventoryAssetStatus,
   LotStatus,
@@ -397,7 +403,10 @@ export class TradeReferenceReconcileService {
         entityId: params.orderId,
         action: 'TRADE_REFERENCE_RECONCILED',
         beforeState: params.beforeState as Prisma.InputJsonValue,
-        afterState: { ...params.afterState, source: params.source } as Prisma.InputJsonValue,
+        afterState: {
+          ...params.afterState,
+          source: params.source,
+        },
         idempotencyKey: params.idempotencyKey,
         ...getAuditContext(),
       },

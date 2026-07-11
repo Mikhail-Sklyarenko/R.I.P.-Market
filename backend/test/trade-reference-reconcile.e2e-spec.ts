@@ -72,7 +72,9 @@ describe('Trade reference reconcile (e2e)', () => {
       .set('Authorization', `Bearer ${userToken}`)
       .send({
         deviceId,
-        publicKey: publicKey.export({ type: 'pkcs1', format: 'pem' }).toString(),
+        publicKey: publicKey
+          .export({ type: 'pkcs1', format: 'pem' })
+          .toString(),
       })
       .expect(201);
 
@@ -108,8 +110,11 @@ describe('Trade reference reconcile (e2e)', () => {
       ttlMs: 30_000,
       payload: params.payload,
     });
-    const signature = sign('RSA-SHA256', Buffer.from(message, 'utf8'), params.privateKey)
-      .toString('base64');
+    const signature = sign(
+      'RSA-SHA256',
+      Buffer.from(message, 'utf8'),
+      params.privateKey,
+    ).toString('base64');
     return { ...envelope, signature };
   }
 
@@ -123,7 +128,9 @@ describe('Trade reference reconcile (e2e)', () => {
       .send({ offerId: '8301234567' })
       .expect(200);
 
-    const operation = await prisma.tradeOperation.findFirst({ where: { orderId } });
+    const operation = await prisma.tradeOperation.findFirst({
+      where: { orderId },
+    });
     expect(operation?.externalOfferId).toBe('8301234567');
 
     const audit = await prisma.auditLog.findFirst({
@@ -181,7 +188,9 @@ describe('Trade reference reconcile (e2e)', () => {
       include: { tradeOperation: true },
     });
     expect(disputed?.status).toBe(OrderStatus.DISPUTE);
-    expect(disputed?.tradeOperation?.failReasonCode).toBe('TRADE_REFERENCE_SPOOF');
+    expect(disputed?.tradeOperation?.failReasonCode).toBe(
+      'TRADE_REFERENCE_SPOOF',
+    );
   });
 
   it('opens dispute when replacing offer id on same order', async () => {
@@ -206,7 +215,9 @@ describe('Trade reference reconcile (e2e)', () => {
       include: { tradeOperation: true },
     });
     expect(order?.status).toBe(OrderStatus.DISPUTE);
-    expect(order?.tradeOperation?.failReasonCode).toBe('TRADE_REFERENCE_MISMATCH');
+    expect(order?.tradeOperation?.failReasonCode).toBe(
+      'TRADE_REFERENCE_MISMATCH',
+    );
   });
 
   it('accepts extension signed trade reference', async () => {

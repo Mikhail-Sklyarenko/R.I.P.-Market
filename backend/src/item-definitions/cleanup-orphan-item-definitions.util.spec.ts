@@ -4,7 +4,9 @@ describe('cleanupOrphanItemDefinitions', () => {
   it('deletes item definitions without inventory assets', async () => {
     const prisma = {
       itemDefinition: {
-        findMany: jest.fn().mockResolvedValue([{ id: 'orphan-1' }, { id: 'orphan-2' }]),
+        findMany: jest
+          .fn()
+          .mockResolvedValue([{ id: 'orphan-1' }, { id: 'orphan-2' }]),
         deleteMany: jest.fn().mockResolvedValue({ count: 2 }),
       },
     };

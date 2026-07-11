@@ -42,7 +42,10 @@ export interface PaymentProvider {
 
   listUserPayments(userId: string): Promise<GatewayPayment[]>;
 
-  verifyWebhookSignature(rawBody: string, signature: string | undefined): boolean;
+  verifyWebhookSignature(
+    rawBody: string,
+    signature: string | undefined,
+  ): boolean;
 }
 
 export type DepositCreditedWebhook = {

@@ -68,14 +68,20 @@ describe('ExtensionTradeAckService', () => {
     });
     prisma.tradeAcknowledgment.findMany.mockResolvedValue([]);
 
-    const result = await service.verifyTrade('buyer-1', 'order-1', '1234567890');
+    const result = await service.verifyTrade(
+      'buyer-1',
+      'order-1',
+      '1234567890',
+    );
 
     expect(result.role).toBe('buyer');
     expect(result.verificationStatus).toBe('verified');
     expect(result.offerId).toBe('1234567890');
-    expect(result.checks.some((check) => check.key === 'offer_id_match' && check.passed)).toBe(
-      true,
-    );
+    expect(
+      result.checks.some(
+        (check) => check.key === 'offer_id_match' && check.passed,
+      ),
+    ).toBe(true);
   });
 
   it('marks mismatch when observed asset id differs from snapshot', async () => {
@@ -128,10 +134,15 @@ describe('ExtensionTradeAckService', () => {
     });
     prisma.tradeAcknowledgment.findMany.mockResolvedValue([]);
 
-    const result = await service.verifyTrade('buyer-1', 'order-1', '1234567890', {
-      assetId: 'wrong-asset',
-      floatValue: '0.254319',
-    });
+    const result = await service.verifyTrade(
+      'buyer-1',
+      'order-1',
+      '1234567890',
+      {
+        assetId: 'wrong-asset',
+        floatValue: '0.254319',
+      },
+    );
 
     expect(result.verificationStatus).toBe('mismatch');
     expect(

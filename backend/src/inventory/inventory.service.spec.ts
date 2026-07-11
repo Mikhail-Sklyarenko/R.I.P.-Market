@@ -17,19 +17,28 @@ describe('InventoryService', () => {
     syncInventory: jest.fn(),
   };
 
+  const referencePrice = {
+    getPricesWithMeta: jest.fn(),
+  };
+
   const service = new InventoryService(
     prisma as never,
     inventoryProvider as never,
     steamMarketPrice as never,
+    referencePrice as never,
   );
 
   beforeEach(() => {
     jest.clearAllMocks();
+    referencePrice.getPricesWithMeta.mockResolvedValue({});
   });
 
   it('returns steam and marketplace price hints keyed by market hash name', async () => {
     steamMarketPrice.getPricesWithMeta.mockResolvedValue({
-      'AK-47 | Redline (Field-Tested)': { priceMinor: 1250, fetchedAt: '2026-07-11T12:00:00.000Z' },
+      'AK-47 | Redline (Field-Tested)': {
+        priceMinor: 1250,
+        fetchedAt: '2026-07-11T12:00:00.000Z',
+      },
       'Fever Case': { priceMinor: null, fetchedAt: null },
     });
     steamMarketPrice.getPricesMinor.mockResolvedValue({
@@ -69,10 +78,14 @@ describe('InventoryService', () => {
     );
     expect(result.hints['AK-47 | Redline (Field-Tested)']).toEqual({
       steamPriceMinor: 1250,
+      buffPriceMinor: null,
+      csfloatPriceMinor: null,
       minMarketplacePriceMinor: '900',
     });
     expect(result.hints['Fever Case']).toEqual({
       steamPriceMinor: null,
+      buffPriceMinor: null,
+      csfloatPriceMinor: null,
       minMarketplacePriceMinor: null,
     });
     expect(result.steamPriceFetchedAt).toBe('2026-07-11T12:00:00.000Z');

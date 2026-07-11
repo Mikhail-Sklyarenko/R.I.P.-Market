@@ -266,7 +266,9 @@ export class OrderStateService {
       );
     }
     if (rule.guard && !params.guards?.[rule.guard]) {
-      throw new BadRequestException(`Order guard failed: ${String(rule.guard)}`);
+      throw new BadRequestException(
+        `Order guard failed: ${String(rule.guard)}`,
+      );
     }
 
     await this.transition(tx, {

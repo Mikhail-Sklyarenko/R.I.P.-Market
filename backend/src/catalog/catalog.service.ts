@@ -73,16 +73,18 @@ export class CatalogService {
         allItems.map((item) => item.marketHashName),
       ),
     ]);
-    const latestSteamPriceFetch = Object.values(steamPrices)
-      .map((entry) => entry.fetchedAt)
-      .filter((value): value is string => Boolean(value))
-      .sort()
-      .at(-1) ?? null;
-    const latestReferencePriceFetch = Object.values(referencePrices)
-      .map((entry) => entry.fetchedAt)
-      .filter((value): value is string => Boolean(value))
-      .sort()
-      .at(-1) ?? null;
+    const latestSteamPriceFetch =
+      Object.values(steamPrices)
+        .map((entry) => entry.fetchedAt)
+        .filter((value): value is string => Boolean(value))
+        .sort()
+        .at(-1) ?? null;
+    const latestReferencePriceFetch =
+      Object.values(referencePrices)
+        .map((entry) => entry.fetchedAt)
+        .filter((value): value is string => Boolean(value))
+        .sort()
+        .at(-1) ?? null;
 
     const rows: CatalogItemRow[] = allItems
       .map((item) => {
@@ -274,9 +276,7 @@ export class CatalogService {
         lot.listingSnapshot?.floatValue ?? lot.inventoryAsset.floatValue;
       const numeric = parseFloatValue(floatValue);
       if (numeric === null) {
-        return (
-          query.floatMin === undefined && query.floatMax === undefined
-        );
+        return query.floatMin === undefined && query.floatMax === undefined;
       }
       if (query.floatMin !== undefined && numeric < query.floatMin) {
         return false;
@@ -327,7 +327,9 @@ export class CatalogService {
   ): CatalogItemRow[] {
     return rows.filter((row) => {
       if (!row.minMarketplacePriceMinor) {
-        return query.minPriceMinor === undefined && query.maxPriceMinor === undefined;
+        return (
+          query.minPriceMinor === undefined && query.maxPriceMinor === undefined
+        );
       }
       const price = Number(row.minMarketplacePriceMinor);
       if (query.minPriceMinor !== undefined && price < query.minPriceMinor) {

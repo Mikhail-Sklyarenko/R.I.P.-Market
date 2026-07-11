@@ -2,7 +2,10 @@ import type {
   DeliveryVerificationDecision,
   DeliveryVerificationSignals,
 } from './delivery-verification.types';
-import { getAcceptedInventoryPendingMaxChecks, getInventoryUnknownMaxChecks } from './delivery-verification.config';
+import {
+  getAcceptedInventoryPendingMaxChecks,
+  getInventoryUnknownMaxChecks,
+} from './delivery-verification.config';
 
 /**
  * Delivery verification decision table (M6).
@@ -70,9 +73,7 @@ function decideLegacy(
       signals.offerStatus === 'expired'
     ) {
       const reason =
-        signals.offerStatus === 'declined'
-          ? 'OFFER_DECLINED'
-          : 'OFFER_EXPIRED';
+        signals.offerStatus === 'declined' ? 'OFFER_DECLINED' : 'OFFER_EXPIRED';
       return decision(
         'FAIL',
         reason,
@@ -217,9 +218,7 @@ function decideDualSignal(
         'CONFIRMED',
       );
     }
-    if (
-      signals.checkCount >= getAcceptedInventoryPendingMaxChecks()
-    ) {
+    if (signals.checkCount >= getAcceptedInventoryPendingMaxChecks()) {
       return decision(
         'CONFIRM',
         'OFFER_ACCEPTED_INVENTORY_LAG',
@@ -259,13 +258,7 @@ function decideDualSignal(
     );
   }
 
-  return decision(
-    'WAIT',
-    'OFFER_PENDING',
-    'OFFER_PENDING',
-    offer,
-    inventory,
-  );
+  return decision('WAIT', 'OFFER_PENDING', 'OFFER_PENDING', offer, inventory);
 }
 
 function decideInventoryOnly(

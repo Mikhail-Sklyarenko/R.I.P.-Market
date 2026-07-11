@@ -28,7 +28,8 @@ export function getExtensionPublicConfig(): ExtensionPublicConfig {
     extensionTaskPipelineEnabled: isExtensionTaskPipelineEnabled(),
     extensionFirstTradeFlowEnabled: isExtensionFirstTradeFlowEnabled(),
     extensionUiTradeFlowEnabled: isExtensionUiTradeFlowEnabled(),
-    extensionTradeAcknowledgmentEnabled: isExtensionTradeAcknowledgmentEnabled(),
+    extensionTradeAcknowledgmentEnabled:
+      isExtensionTradeAcknowledgmentEnabled(),
     settlementHoldWindowEnabled: isSettlementHoldWindowEnabled(),
     extensionRolloutEnabled: isExtensionRolloutEnabled(),
     extensionRolloutStage: getExtensionRolloutStage(),

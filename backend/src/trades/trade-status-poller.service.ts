@@ -140,8 +140,7 @@ export class TradeStatusPollerService implements OnModuleInit {
           ? 'OFFER_POLL+INVENTORY_DELTA'
           : 'INVENTORY_DELTA',
         offerStatus: offerStatus ?? inventoryDelta,
-        error:
-          decision.action === 'BACKOFF' ? 'rate_limited' : undefined,
+        error: decision.action === 'BACKOFF' ? 'rate_limited' : undefined,
         reasonCode: decision.reasonCode,
       });
 

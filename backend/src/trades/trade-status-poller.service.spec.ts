@@ -4,7 +4,7 @@ import { TradesService } from './trades.service';
 describe('TradeStatusPollerService', () => {
   function buildPoller(deps: {
     operations?: unknown[];
-    singleOperation?: unknown | null;
+    singleOperation?: unknown;
     evaluation: {
       decision: {
         action: string;

@@ -30,23 +30,33 @@ describe('SettlementService hold window', () => {
 
   function buildService() {
     const tx = {
-      auditLog: { findFirst: jest.fn().mockResolvedValue(null), create: jest.fn() },
+      auditLog: {
+        findFirst: jest.fn().mockResolvedValue(null),
+        create: jest.fn(),
+      },
       hold: { update: jest.fn().mockResolvedValue({}) },
-      outboxEvent: { create: jest.fn(), findFirst: jest.fn().mockResolvedValue(null) },
+      outboxEvent: {
+        create: jest.fn(),
+        findFirst: jest.fn().mockResolvedValue(null),
+      },
       inventoryAsset: { update: jest.fn() },
       settlementDailyStats: { upsert: jest.fn() },
       order: { findUnique: jest.fn() },
     };
     const prisma = {
-      $transaction: jest.fn(async (fn: (client: typeof tx) => Promise<unknown>) =>
-        fn(tx),
+      $transaction: jest.fn(
+        async (fn: (client: typeof tx) => Promise<unknown>) => fn(tx),
       ),
       auditLog: { findFirst: jest.fn().mockResolvedValue(null) },
       order: { findUnique: jest.fn() },
     };
     const ledgerService = {
-      settleSale: jest.fn().mockResolvedValue({ referenceGroupId: 'rg-1', entries: [] }),
-      refundHold: jest.fn().mockResolvedValue({ referenceGroupId: 'rg-2', entries: [] }),
+      settleSale: jest
+        .fn()
+        .mockResolvedValue({ referenceGroupId: 'rg-1', entries: [] }),
+      refundHold: jest
+        .fn()
+        .mockResolvedValue({ referenceGroupId: 'rg-2', entries: [] }),
     };
     const lotStateService = { transition: jest.fn() };
     const orderStateService = { transitionByEvent: jest.fn() };
@@ -84,7 +94,8 @@ describe('SettlementService hold window', () => {
   });
 
   it('enters settlement hold without ledger release', async () => {
-    const { service, prisma, ledgerService, orderStateService, tx } = buildService();
+    const { service, prisma, ledgerService, orderStateService, tx } =
+      buildService();
     prisma.order.findUnique.mockResolvedValue(baseOrder);
     tx.order.findUnique.mockResolvedValue(baseOrder);
 
@@ -123,8 +134,9 @@ describe('SettlementService hold window', () => {
     expect(first.settled).toBe(true);
     expect(ledgerService.settleSale).toHaveBeenCalledTimes(1);
 
-    tx.auditLog.findFirst.mockImplementation(async ({ where }: { where: { action?: string } }) =>
-      where.action === 'SETTLEMENT_HOLD_RELEASED' ? { id: 'audit-1' } : null,
+    tx.auditLog.findFirst.mockImplementation(
+      async ({ where }: { where: { action?: string } }) =>
+        where.action === 'SETTLEMENT_HOLD_RELEASED' ? { id: 'audit-1' } : null,
     );
     prisma.order.findUnique.mockResolvedValue({
       ...dueHold,
@@ -141,7 +153,8 @@ describe('SettlementService hold window', () => {
   });
 
   it('reverses hold with refund before release', async () => {
-    const { service, prisma, ledgerService, orderStateService, tx } = buildService();
+    const { service, prisma, ledgerService, orderStateService, tx } =
+      buildService();
     const heldOrder = {
       ...baseOrder,
       status: OrderStatus.SETTLEMENT_HOLD,

@@ -100,7 +100,10 @@ export const EXTENSION_API_CONTRACT = {
     method: 'POST',
     path: '/api/v1/extension/trades/active',
     auth: 'extension_token + request_signature',
-    flags: ['ENABLE_EXTENSION_CHANNEL', 'ENABLE_EXTENSION_TRADE_ACKNOWLEDGMENT'],
+    flags: [
+      'ENABLE_EXTENSION_CHANNEL',
+      'ENABLE_EXTENSION_TRADE_ACKNOWLEDGMENT',
+    ],
     payload: { limit: 'number(optional)' },
     response: { trades: 'TradeVerificationResult[]' },
   },
@@ -108,7 +111,10 @@ export const EXTENSION_API_CONTRACT = {
     method: 'POST',
     path: '/api/v1/extension/trades/verify',
     auth: 'extension_token + request_signature',
-    flags: ['ENABLE_EXTENSION_CHANNEL', 'ENABLE_EXTENSION_TRADE_ACKNOWLEDGMENT'],
+    flags: [
+      'ENABLE_EXTENSION_CHANNEL',
+      'ENABLE_EXTENSION_TRADE_ACKNOWLEDGMENT',
+    ],
     payload: {
       orderId: 'string',
       offerId: 'string(optional)',
@@ -121,7 +127,10 @@ export const EXTENSION_API_CONTRACT = {
     method: 'POST',
     path: '/api/v1/extension/trades/acknowledge',
     auth: 'extension_token + request_signature',
-    flags: ['ENABLE_EXTENSION_CHANNEL', 'ENABLE_EXTENSION_TRADE_ACKNOWLEDGMENT'],
+    flags: [
+      'ENABLE_EXTENSION_CHANNEL',
+      'ENABLE_EXTENSION_TRADE_ACKNOWLEDGMENT',
+    ],
     payload: {
       orderId: 'string',
       type: 'SELLER_ACK_SENT|BUYER_ACK_PRE_ACCEPT|BUYER_ACK_RECEIVED',

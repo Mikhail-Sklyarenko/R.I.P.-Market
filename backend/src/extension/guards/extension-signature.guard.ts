@@ -74,11 +74,14 @@ export class ExtensionSignatureGuard implements CanActivate {
       now > expiresAtMs + extensionMaxClockSkewMs() ||
       now < body.timestampMs - extensionMaxClockSkewMs()
     ) {
-      await this.extensionSecurity.logSecurityError('EXT_SEC_TIMESTAMP_INVALID', {
-        sessionId: session.sessionId,
-        timestampMs: body.timestampMs,
-        ttlMs: body.ttlMs,
-      });
+      await this.extensionSecurity.logSecurityError(
+        'EXT_SEC_TIMESTAMP_INVALID',
+        {
+          sessionId: session.sessionId,
+          timestampMs: body.timestampMs,
+          ttlMs: body.ttlMs,
+        },
+      );
       throw new AppException(
         ErrorCode.EXTENSION_TIMESTAMP_INVALID,
         'Request timestamp is invalid',
@@ -113,10 +116,13 @@ export class ExtensionSignatureGuard implements CanActivate {
       signatureBase64: body.signature,
     });
     if (!valid) {
-      await this.extensionSecurity.logSecurityError('EXT_SEC_SIGNATURE_INVALID', {
-        sessionId: session.sessionId,
-        nonce: body.nonce,
-      });
+      await this.extensionSecurity.logSecurityError(
+        'EXT_SEC_SIGNATURE_INVALID',
+        {
+          sessionId: session.sessionId,
+          nonce: body.nonce,
+        },
+      );
       throw new AppException(
         ErrorCode.EXTENSION_SIGNATURE_INVALID,
         'Invalid extension signature',

@@ -30,7 +30,9 @@ export class CryptoTronGatewayProvider implements PaymentProvider {
 
     if (!response.ok) {
       const text = await response.text();
-      throw new Error(`Gateway ${method} ${path} failed: ${response.status} ${text}`);
+      throw new Error(
+        `Gateway ${method} ${path} failed: ${response.status} ${text}`,
+      );
     }
 
     return response.json() as Promise<T>;
@@ -82,7 +84,10 @@ export class CryptoTronGatewayProvider implements PaymentProvider {
     return data.items ?? [];
   }
 
-  verifyWebhookSignature(rawBody: string, signature: string | undefined): boolean {
+  verifyWebhookSignature(
+    rawBody: string,
+    signature: string | undefined,
+  ): boolean {
     return verifyGatewayWebhookSignature(
       this.config.webhookSecret,
       rawBody,

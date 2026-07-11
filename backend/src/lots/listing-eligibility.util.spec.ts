@@ -15,7 +15,9 @@ describe('listing-eligibility.util', () => {
   };
 
   it('allows standard marketable skins', () => {
-    expect(isListableMarketHashName('AK-47 | Redline (Field-Tested)')).toBe(true);
+    expect(isListableMarketHashName('AK-47 | Redline (Field-Tested)')).toBe(
+      true,
+    );
     expect(() => assertListingEligible(baseAsset)).not.toThrow();
   });
 
@@ -37,7 +39,9 @@ describe('listing-eligibility.util', () => {
       });
     } catch (error) {
       expect(error).toBeInstanceOf(AppException);
-      expect((error as AppException).code).toBe(ErrorCode.INVENTORY_ASSET_NOT_LISTABLE);
+      expect((error as AppException).code).toBe(
+        ErrorCode.INVENTORY_ASSET_NOT_LISTABLE,
+      );
     }
   });
 

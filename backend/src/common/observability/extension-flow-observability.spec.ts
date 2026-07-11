@@ -8,7 +8,10 @@ describe('ExtensionFlowMetricsService', () => {
   const originalEnv = process.env;
 
   beforeEach(() => {
-    process.env = { ...originalEnv, ENABLE_EXTENSION_FLOW_OBSERVABILITY: 'true' };
+    process.env = {
+      ...originalEnv,
+      ENABLE_EXTENSION_FLOW_OBSERVABILITY: 'true',
+    };
   });
 
   afterEach(() => {
@@ -45,7 +48,9 @@ describe('ExtensionFlowMetricsService', () => {
     process.env.ENABLE_EXTENSION_FLOW_OBSERVABILITY = 'false';
     const service = new ExtensionFlowMetricsService();
     service.recordOrderStarted({ orderId: 'o1', source: 'extension' });
-    expect(service.snapshotKpis().counters.extension_flow_orders_started_total).toBe(0);
+    expect(
+      service.snapshotKpis().counters.extension_flow_orders_started_total,
+    ).toBe(0);
   });
 });
 
@@ -53,7 +58,10 @@ describe('ObservabilityAlertService', () => {
   const originalEnv = process.env;
 
   beforeEach(() => {
-    process.env = { ...originalEnv, ENABLE_EXTENSION_FLOW_OBSERVABILITY: 'true' };
+    process.env = {
+      ...originalEnv,
+      ENABLE_EXTENSION_FLOW_OBSERVABILITY: 'true',
+    };
   });
 
   afterEach(() => {
@@ -68,10 +76,7 @@ describe('ObservabilityAlertService', () => {
         create: jest.fn().mockResolvedValue({ id: 'evt-1' }),
       },
     };
-    const alerts = new ObservabilityAlertService(
-      prisma as never,
-      metrics,
-    );
+    const alerts = new ObservabilityAlertService(prisma as never, metrics);
     alerts.onModuleInit();
 
     process.env.EXT_FLOW_ALERT_TASK_FAIL_SPIKE_5M = '2';

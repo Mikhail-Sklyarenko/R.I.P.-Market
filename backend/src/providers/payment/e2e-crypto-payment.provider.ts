@@ -20,17 +20,19 @@ export class E2eCryptoPaymentProvider implements PaymentProvider {
   private withdrawalSeq = 0;
 
   private get webhookSecret(): string {
-    return process.env.CRYPTO_GATEWAY_WEBHOOK_SECRET ?? 'playwright-webhook-secret';
+    return (
+      process.env.CRYPTO_GATEWAY_WEBHOOK_SECRET ?? 'playwright-webhook-secret'
+    );
   }
 
-  async ensureDepositAddress(userId: string): Promise<DepositAddressResult> {
-    return {
+  ensureDepositAddress(userId: string): Promise<DepositAddressResult> {
+    return Promise.resolve({
       address: `TTest${userId.replace(/-/g, '').slice(0, 28)}`,
       walletIndex: 1,
-    };
+    });
   }
 
-  async createGatewayWithdrawal(params: {
+  createGatewayWithdrawal(params: {
     userId: string;
     toAddress: string;
     amountSun: string;
@@ -47,18 +49,25 @@ export class E2eCryptoPaymentProvider implements PaymentProvider {
       failReason: null,
     };
     this.withdrawals.set(id, withdrawal);
-    return withdrawal;
+    return Promise.resolve(withdrawal);
   }
 
-  async getGatewayWithdrawal(id: string): Promise<GatewayWithdrawal | null> {
-    return this.withdrawals.get(id) ?? null;
+  getGatewayWithdrawal(id: string): Promise<GatewayWithdrawal | null> {
+    return Promise.resolve(this.withdrawals.get(id) ?? null);
   }
 
-  async listUserPayments(userId: string): Promise<GatewayPayment[]> {
-    return this.payments.get(userId) ?? [];
+  listUserPayments(userId: string): Promise<GatewayPayment[]> {
+    return Promise.resolve(this.payments.get(userId) ?? []);
   }
 
-  verifyWebhookSignature(rawBody: string, signature: string | undefined): boolean {
-    return verifyGatewayWebhookSignature(this.webhookSecret, rawBody, signature);
+  verifyWebhookSignature(
+    rawBody: string,
+    signature: string | undefined,
+  ): boolean {
+    return verifyGatewayWebhookSignature(
+      this.webhookSecret,
+      rawBody,
+      signature,
+    );
   }
 }

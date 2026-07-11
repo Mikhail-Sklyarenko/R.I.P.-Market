@@ -101,7 +101,9 @@ export class PaymentReconciliationService {
     };
   }
 
-  private async reconcileDepositEvents(): Promise<PaymentReconciliationIssue[]> {
+  private async reconcileDepositEvents(): Promise<
+    PaymentReconciliationIssue[]
+  > {
     const issues: PaymentReconciliationIssue[] = [];
     const depositEvents = await this.prisma.paymentEvent.findMany({
       where: { eventType: 'deposit.credited' },
@@ -159,10 +161,14 @@ export class PaymentReconciliationService {
     });
 
     for (const { userId } of users) {
-      const gatewayPayments = await this.paymentProvider.listUserPayments(userId);
+      const gatewayPayments =
+        await this.paymentProvider.listUserPayments(userId);
       const gatewayCreditedMinor = gatewayPayments
         .filter((payment) => payment.status === 'credited')
-        .reduce((sum, payment) => sum + sunToUsdMinor(BigInt(payment.amountSun)), 0n);
+        .reduce(
+          (sum, payment) => sum + sunToUsdMinor(BigInt(payment.amountSun)),
+          0n,
+        );
 
       const wallet = await this.prisma.wallet.findUnique({ where: { userId } });
       if (!wallet) {
@@ -186,7 +192,8 @@ export class PaymentReconciliationService {
       if (gatewayCreditedMinor !== ledgerCryptoMinor) {
         issues.push({
           code: 'GATEWAY_LEDGER_DEPOSIT_MISMATCH',
-          message: 'Gateway credited deposits do not match ledger crypto deposits',
+          message:
+            'Gateway credited deposits do not match ledger crypto deposits',
           entityType: 'user',
           entityId: userId,
           details: {
@@ -200,7 +207,9 @@ export class PaymentReconciliationService {
     return issues;
   }
 
-  private async reconcileUserWithdrawals(): Promise<PaymentReconciliationIssue[]> {
+  private async reconcileUserWithdrawals(): Promise<
+    PaymentReconciliationIssue[]
+  > {
     const issues: PaymentReconciliationIssue[] = [];
     const paidWithdrawals = await this.prisma.withdrawalRequest.findMany({
       where: { status: 'PAID' },
@@ -223,7 +232,8 @@ export class PaymentReconciliationService {
       if (ledgerWithdrawMinor !== requestPaidMinor) {
         issues.push({
           code: 'GATEWAY_LEDGER_WITHDRAW_MISMATCH',
-          message: 'Paid withdrawal requests do not match ledger withdraw entries',
+          message:
+            'Paid withdrawal requests do not match ledger withdraw entries',
           entityType: 'user',
           entityId: userId,
           details: {
@@ -246,7 +256,8 @@ export class PaymentReconciliationService {
     });
 
     return entries.reduce(
-      (sum, entry) => sum + (entry.amountMinor < 0n ? -entry.amountMinor : entry.amountMinor),
+      (sum, entry) =>
+        sum + (entry.amountMinor < 0n ? -entry.amountMinor : entry.amountMinor),
       0n,
     );
   }

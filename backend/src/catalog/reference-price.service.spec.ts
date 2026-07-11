@@ -12,7 +12,9 @@ describe('ReferencePriceService', () => {
     process.env.REFERENCE_PRICE_ENABLED = 'false';
     const service = new ReferencePriceService();
 
-    const prices = await service.getPricesWithMeta(['AK-47 | Redline (Field-Tested)']);
+    const prices = await service.getPricesWithMeta([
+      'AK-47 | Redline (Field-Tested)',
+    ]);
 
     expect(prices['AK-47 | Redline (Field-Tested)']).toEqual({
       buffPriceMinor: null,
@@ -27,7 +29,12 @@ describe('ReferencePriceService', () => {
     process.env.CSFLOAT_REFERENCE_PRICE_ENABLED = 'true';
 
     global.fetch = jest.fn(async (input: RequestInfo | URL) => {
-      const url = String(input);
+      const url =
+        typeof input === 'string'
+          ? input
+          : input instanceof URL
+            ? input.href
+            : input.url;
       if (url.includes('csfloat.com')) {
         return {
           ok: true,
@@ -50,7 +57,9 @@ describe('ReferencePriceService', () => {
     });
 
     const service = new ReferencePriceService();
-    const prices = await service.getPricesWithMeta(['AK-47 | Redline (Field-Tested)']);
+    const prices = await service.getPricesWithMeta([
+      'AK-47 | Redline (Field-Tested)',
+    ]);
 
     expect(prices['AK-47 | Redline (Field-Tested)']).toEqual(
       expect.objectContaining({

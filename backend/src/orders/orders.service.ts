@@ -297,7 +297,8 @@ export class OrdersService {
                   sellerId: lot.sellerId,
                   buyerId,
                   expectedAssetId: taskExpectations?.expectedAssetId ?? null,
-                  expectedFloatValue: taskExpectations?.expectedFloatValue ?? null,
+                  expectedFloatValue:
+                    taskExpectations?.expectedFloatValue ?? null,
                   marketHashName: taskExpectations?.marketHashName ?? null,
                   buyerTradeUrl: buyerProfile?.tradeUrl ?? null,
                   inventoryAssetId: lot.inventoryAssetId,
@@ -378,12 +379,13 @@ export class OrdersService {
 
       this.extensionFlowMetrics.recordOrderStarted({
         orderId: order.id,
-        source:
-          (await this.extensionRolloutService.shouldCreateExtensionTaskForSeller(
+        source: (
+          await this.extensionRolloutService.shouldCreateExtensionTaskForSeller(
             order.sellerId,
-          )).eligible
-            ? 'extension'
-            : 'manual',
+          )
+        ).eligible
+          ? 'extension'
+          : 'manual',
         sellerId: order.sellerId,
         buyerId: order.buyerId,
       });
@@ -484,7 +486,9 @@ export class OrdersService {
                     'string'),
             ) ?? rawTask.statusEvents[0],
           ),
-          selectedMarketHashName: extractTradeTaskMarketHashName(rawTask.statusEvents),
+          selectedMarketHashName: extractTradeTaskMarketHashName(
+            rawTask.statusEvents,
+          ),
           expiresAt: rawTask.expiresAt,
           attemptCount: rawTask.attemptCount,
           maxAttempts: rawTask.maxAttempts,

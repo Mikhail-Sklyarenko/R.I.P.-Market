@@ -42,7 +42,8 @@ export function getPaymentConfig(): PaymentConfig {
       0,
       Number(process.env.WITHDRAW_MANUAL_REVIEW_COUNT ?? 3) || 3,
     ),
-    withdrawRequireSteamLinked: process.env.WITHDRAW_REQUIRE_STEAM_LINKED !== 'false',
+    withdrawRequireSteamLinked:
+      process.env.WITHDRAW_REQUIRE_STEAM_LINKED !== 'false',
     withdrawMinCompletedSales: Math.max(
       0,
       Number(process.env.WITHDRAW_MIN_COMPLETED_SALES ?? 0) || 0,

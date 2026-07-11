@@ -58,7 +58,14 @@ export class TestCryptoPaymentProvider implements PaymentProvider {
     this.payments.set(userId, items);
   }
 
-  verifyWebhookSignature(rawBody: string, signature: string | undefined): boolean {
-    return verifyGatewayWebhookSignature(this.webhookSecret, rawBody, signature);
+  verifyWebhookSignature(
+    rawBody: string,
+    signature: string | undefined,
+  ): boolean {
+    return verifyGatewayWebhookSignature(
+      this.webhookSecret,
+      rawBody,
+      signature,
+    );
   }
 }

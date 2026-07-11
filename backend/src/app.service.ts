@@ -1,7 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from './prisma/prisma.service';
 import { ExtensionFlowMetricsService } from './common/observability/extension-flow-metrics.service';
-import { HttpMetricsService } from './common/observability/http-metrics.service';
 import { isExtensionFlowObservabilityEnabled } from './common/observability/extension-flow-observability.config';
 import { ObservabilityAlertService } from './common/observability/observability-alert.service';
 import { InventoryMetricsService } from './providers/inventory/inventory-metrics.service';

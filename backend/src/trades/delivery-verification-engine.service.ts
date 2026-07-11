@@ -88,17 +88,14 @@ export class DeliveryVerificationEngineService {
     this.rateLimitHits.delete(orderId);
   }
 
-  async evaluate(
-    operation: DeliveryVerificationOperation,
-  ): Promise<{
+  async evaluate(operation: DeliveryVerificationOperation): Promise<{
     decision: DeliveryVerificationDecision;
     offerStatus: TradeVerificationResult['status'] | null;
     inventoryDelta: InventoryDeltaResult | null;
     evidence: DeliveryVerificationEvidence;
   }> {
     const timedOut =
-      Date.now() >=
-      operation.order.createdAt.getTime() + getTradeTimeoutMs();
+      Date.now() >= operation.order.createdAt.getTime() + getTradeTimeoutMs();
 
     const signals: DeliveryVerificationSignals = {
       engineEnabled: isDeliveryVerificationEngineEnabled(),
@@ -142,14 +139,12 @@ export class DeliveryVerificationEngineService {
           operation.order.seller.steamId,
           operation.order.buyer.steamId,
           expected,
-          snapshot?.marketHashName ??
-            asset.itemDefinition.marketHashName,
+          snapshot?.marketHashName ?? asset.itemDefinition.marketHashName,
           {
             force: true,
             expectedFloatValue:
               snapshot?.floatValue ?? asset.floatValue ?? null,
-            expectedPaintSeed:
-              snapshot?.paintSeed ?? asset.paintSeed ?? null,
+            expectedPaintSeed: snapshot?.paintSeed ?? asset.paintSeed ?? null,
           },
         );
       }

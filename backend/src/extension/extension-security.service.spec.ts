@@ -12,7 +12,14 @@ describe('ExtensionSecurityService', () => {
     outboxEvent: { create: jest.fn() },
   };
   const jwt = { verifyAsync: jest.fn(), signAsync: jest.fn() };
-  const service = new ExtensionSecurityService(prisma as never, jwt as never);
+  const extensionFlowMetrics = { recordAuthError: jest.fn() };
+  const antiFraud = { recordAuthFailure: jest.fn() };
+  const service = new ExtensionSecurityService(
+    prisma as never,
+    jwt as never,
+    extensionFlowMetrics as never,
+    antiFraud as never,
+  );
 
   beforeEach(() => {
     jest.clearAllMocks();
@@ -21,7 +28,9 @@ describe('ExtensionSecurityService', () => {
   it('rejects expired token', async () => {
     jwt.verifyAsync.mockRejectedValueOnce(new Error('expired'));
 
-    await expect(service.validateExtensionToken('bad-token')).rejects.toMatchObject({
+    await expect(
+      service.validateExtensionToken('bad-token'),
+    ).rejects.toMatchObject({
       code: ErrorCode.EXTENSION_TOKEN_EXPIRED,
     } satisfies Partial<AppException>);
   });
@@ -45,8 +54,10 @@ describe('ExtensionSecurityService', () => {
       device: { status: 'ACTIVE' },
     });
 
-    await expect(service.validateExtensionToken('token')).rejects.toMatchObject({
-      code: ErrorCode.EXTENSION_SESSION_REVOKED,
-    } satisfies Partial<AppException>);
+    await expect(service.validateExtensionToken('token')).rejects.toMatchObject(
+      {
+        code: ErrorCode.EXTENSION_SESSION_REVOKED,
+      } satisfies Partial<AppException>,
+    );
   });
 });

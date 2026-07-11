@@ -8,6 +8,7 @@ import {
 } from '@prisma/client';
 import { AppException } from '../common/errors/app.exception';
 import { ErrorCode } from '../common/errors/error-codes';
+import { readJsonString } from '../common/json-string.util';
 import { PrismaService } from '../prisma/prisma.service';
 import {
   extensionTaskMaxAttempts,
@@ -17,9 +18,7 @@ import {
 import { isExtensionUiTradeFlowEnabled } from './extension-ui-trade-flow.config';
 import { TradeReferenceReconcileService } from '../trades/trade-reference-reconcile.service';
 import { DisputeOpsService } from '../disputes/dispute-ops.service';
-import {
-  isExtensionDisputeBridgeEnabled,
-} from '../disputes/dispute-ops.config';
+import { isExtensionDisputeBridgeEnabled } from '../disputes/dispute-ops.config';
 import {
   OFFER_ERROR_UX_HINTS,
   type ExtensionOfferErrorCodeType,
@@ -296,14 +295,13 @@ export class ExtensionTradeTaskService {
           where: { id: task.orderId },
           select: { sellerId: true },
         });
-        const reconcilePayload =
-          order
-            ? {
-                orderId: task.orderId,
-                sellerId: order.sellerId,
-                offerId,
-              }
-            : null;
+        const reconcilePayload = order
+          ? {
+              orderId: task.orderId,
+              sellerId: order.sellerId,
+              offerId,
+            }
+          : null;
         await tx.tradeTask.update({
           where: { id: task.id },
           data: {
@@ -450,7 +448,9 @@ export class ExtensionTradeTaskService {
   }
 
   async ackTask(taskId: string, payload: Prisma.JsonObject): Promise<void> {
-    const task = await this.prisma.tradeTask.findUnique({ where: { id: taskId } });
+    const task = await this.prisma.tradeTask.findUnique({
+      where: { id: taskId },
+    });
     if (!task) {
       throw new AppException(
         ErrorCode.EXTENSION_TASK_NOT_FOUND,
@@ -461,7 +461,10 @@ export class ExtensionTradeTaskService {
     if (task.status === TradeTaskStatus.ACKED) {
       return;
     }
-    if (task.status === TradeTaskStatus.EXPIRED || task.status === TradeTaskStatus.FAILED) {
+    if (
+      task.status === TradeTaskStatus.EXPIRED ||
+      task.status === TradeTaskStatus.FAILED
+    ) {
       throw new AppException(
         ErrorCode.EXTENSION_TASK_INVALID_ACK,
         `Cannot ack task in status ${task.status}`,
@@ -493,7 +496,9 @@ export class ExtensionTradeTaskService {
   }
 
   async nackTask(taskId: string, reasonCode: string): Promise<void> {
-    const task = await this.prisma.tradeTask.findUnique({ where: { id: taskId } });
+    const task = await this.prisma.tradeTask.findUnique({
+      where: { id: taskId },
+    });
     if (!task) {
       throw new AppException(
         ErrorCode.EXTENSION_TASK_NOT_FOUND,
@@ -662,7 +667,10 @@ export class ExtensionTradeTaskService {
           },
         },
       });
-      await this.maybeBridgeExtensionDispute(task.orderId, 'MAX_ATTEMPTS_REACHED');
+      await this.maybeBridgeExtensionDispute(
+        task.orderId,
+        'MAX_ATTEMPTS_REACHED',
+      );
     }
     return dead.length;
   }
@@ -697,16 +705,12 @@ export class ExtensionTradeTaskService {
     const assetIdRaw =
       details.observedAssetId ?? details.assetId ?? details.expectedAssetId;
     const floatValueRaw =
-      details.observedFloatValue ?? details.floatValue ?? details.expectedFloatValue;
+      details.observedFloatValue ??
+      details.floatValue ??
+      details.expectedFloatValue;
 
-    const assetId =
-      assetIdRaw === undefined || assetIdRaw === null
-        ? null
-        : String(assetIdRaw).trim() || null;
-    const floatValue =
-      floatValueRaw === undefined || floatValueRaw === null
-        ? null
-        : String(floatValueRaw).trim() || null;
+    const assetId = readJsonString(assetIdRaw).trim() || null;
+    const floatValue = readJsonString(floatValueRaw).trim() || null;
 
     if (!assetId && !floatValue) {
       return undefined;

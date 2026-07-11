@@ -131,7 +131,9 @@ export class LotsService {
 
     const lot = await this.prisma.$transaction(async (tx) => {
       const created =
-        reusableLot && reusableLot.status !== LotStatus.ACTIVE && reusableLot.status !== LotStatus.RESERVED
+        reusableLot &&
+        reusableLot.status !== LotStatus.ACTIVE &&
+        reusableLot.status !== LotStatus.RESERVED
           ? await tx.lot.update({
               where: { id: reusableLot.id },
               data: {
@@ -246,16 +248,18 @@ export class LotsService {
         }),
       ),
     ]);
-    const latestSteamPriceFetch = Object.values(steamPrices)
-      .map((entry) => entry.fetchedAt)
-      .filter((value): value is string => Boolean(value))
-      .sort()
-      .at(-1) ?? null;
-    const latestReferencePriceFetch = Object.values(referencePrices)
-      .map((entry) => entry.fetchedAt)
-      .filter((value): value is string => Boolean(value))
-      .sort()
-      .at(-1) ?? null;
+    const latestSteamPriceFetch =
+      Object.values(steamPrices)
+        .map((entry) => entry.fetchedAt)
+        .filter((value): value is string => Boolean(value))
+        .sort()
+        .at(-1) ?? null;
+    const latestReferencePriceFetch =
+      Object.values(referencePrices)
+        .map((entry) => entry.fetchedAt)
+        .filter((value): value is string => Boolean(value))
+        .sort()
+        .at(-1) ?? null;
 
     const enrichedLots = lots.map((lot) => {
       const marketHashName =
@@ -327,7 +331,8 @@ export class LotsService {
         itemDefinitionId,
         marketHashName,
         floatValue:
-          source.listingSnapshot?.floatValue ?? source.inventoryAsset.floatValue,
+          source.listingSnapshot?.floatValue ??
+          source.inventoryAsset.floatValue,
         wear: source.listingSnapshot?.wear ?? source.inventoryAsset.wear,
       },
       candidates.map((lot) => ({
@@ -405,7 +410,11 @@ export class LotsService {
 
     if (query.floatMin !== undefined || query.floatMax !== undefined) {
       where.AND = [
-        ...(Array.isArray(where.AND) ? where.AND : where.AND ? [where.AND] : []),
+        ...(Array.isArray(where.AND)
+          ? where.AND
+          : where.AND
+            ? [where.AND]
+            : []),
         {
           OR: [
             {
@@ -493,7 +502,7 @@ export class LotsService {
     const inspectLink =
       lot.listingSnapshot?.inspectLink ??
       (lot.seller.steamId
-        ? resolveInspectLink(
+        ? (resolveInspectLink(
             lot.inventoryAsset.inspectLinkTemplate,
             lot.seller.steamId,
             lot.inventoryAsset.assetExternalId,
@@ -503,7 +512,7 @@ export class LotsService {
             assetExternalId: lot.inventoryAsset.assetExternalId,
             classId: lot.inventoryAsset.classExternalId,
             instanceId: lot.inventoryAsset.instanceExternalId,
-          })
+          }))
         : null);
 
     return toJsonSafe({

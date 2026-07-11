@@ -15,6 +15,10 @@ import { SettlementService } from './settlement.service';
     SettlementService,
     SettlementReleaseWorkerService,
   ],
-  exports: [SettlementGuardService, SettlementService, SettlementReleaseWorkerService],
+  exports: [
+    SettlementGuardService,
+    SettlementService,
+    SettlementReleaseWorkerService,
+  ],
 })
 export class SettlementModule {}

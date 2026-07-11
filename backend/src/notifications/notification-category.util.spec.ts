@@ -19,6 +19,8 @@ describe('notificationCategoryPrefixes', () => {
     expect(notificationCategoryPrefixes('system')).toEqual([
       'RECONCILIATION_',
       'TRADE_SHADOW_',
+      'OPS_',
+      'EXTENSION_',
     ]);
   });
 });

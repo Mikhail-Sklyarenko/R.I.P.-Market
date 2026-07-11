@@ -3,6 +3,7 @@ import { HttpStatus } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { JwtService } from '@nestjs/jwt';
 import { randomUUID } from 'crypto';
+import { readJsonString } from '../common/json-string.util';
 import { AppException } from '../common/errors/app.exception';
 import { ErrorCode } from '../common/errors/error-codes';
 import { PrismaService } from '../prisma/prisma.service';
@@ -98,7 +99,9 @@ export class ExtensionSecurityService {
     }
 
     if (payload.typ !== 'extension') {
-      await this.logSecurityError('EXT_SEC_TOKEN_INVALID', { reason: 'bad_typ' });
+      await this.logSecurityError('EXT_SEC_TOKEN_INVALID', {
+        reason: 'bad_typ',
+      });
       throw new AppException(
         ErrorCode.EXTENSION_SESSION_INVALID,
         'Invalid extension token type',
@@ -110,7 +113,11 @@ export class ExtensionSecurityService {
       where: { id: payload.sid },
       include: { device: true },
     });
-    if (!session || session.tokenJti !== payload.jti || session.userId !== payload.sub) {
+    if (
+      !session ||
+      session.tokenJti !== payload.jti ||
+      session.userId !== payload.sub
+    ) {
       await this.logSecurityError('EXT_SEC_SESSION_INVALID', {
         sid: payload.sid,
         jti: payload.jti,
@@ -249,12 +256,17 @@ export class ExtensionSecurityService {
       return;
     }
     await this.prisma.extensionDevice.update({
-      where: { userId_deviceId: { userId: session.userId, deviceId: session.deviceId } },
+      where: {
+        userId_deviceId: { userId: session.userId, deviceId: session.deviceId },
+      },
       data: { lastSeenAt: new Date() },
     });
   }
 
-  async logSecurityError(code: string, details: Record<string, unknown>): Promise<void> {
+  async logSecurityError(
+    code: string,
+    details: Record<string, unknown>,
+  ): Promise<void> {
     const userId =
       typeof details.userId === 'string' ? details.userId : undefined;
     const sessionId =
@@ -285,7 +297,7 @@ export class ExtensionSecurityService {
     await this.prisma.auditLog.create({
       data: {
         entityType: 'extension_session',
-        entityId: String(details.sid ?? details.sessionId ?? 'unknown'),
+        entityId: readJsonString(details.sid ?? details.sessionId, 'unknown'),
         action: code,
         afterState: details as Prisma.InputJsonValue,
       },
@@ -294,7 +306,10 @@ export class ExtensionSecurityService {
       data: {
         eventType: 'EXTENSION_SECURITY_ALERT',
         aggregateType: 'extension_session',
-        aggregateId: String(details.sid ?? details.sessionId ?? 'unknown'),
+        aggregateId: readJsonString(
+          details.sid ?? details.sessionId,
+          'unknown',
+        ),
         payload: {
           code,
           ...details,

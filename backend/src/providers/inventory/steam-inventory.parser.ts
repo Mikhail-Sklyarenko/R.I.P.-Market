@@ -1,5 +1,8 @@
 import { extractInspectLinkTemplate } from '../../lots/inspect-link.util';
-import { parseStickersFromDescriptionLines, type ListingSticker } from './sticker-parser.util';
+import {
+  parseStickersFromDescriptionLines,
+  type ListingSticker,
+} from './sticker-parser.util';
 
 export type SteamInventoryAsset = {
   appid: number;

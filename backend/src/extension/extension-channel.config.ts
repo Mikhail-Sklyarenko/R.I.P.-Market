@@ -3,7 +3,11 @@ export function isExtensionChannelEnabled(): boolean {
 }
 
 export function extensionTokenSecret(): string {
-  return process.env.EXTENSION_TOKEN_SECRET ?? process.env.JWT_SECRET ?? 'dev-jwt-secret';
+  return (
+    process.env.EXTENSION_TOKEN_SECRET ??
+    process.env.JWT_SECRET ??
+    'dev-jwt-secret'
+  );
 }
 
 export function extensionTokenTtlSeconds(): number {

@@ -18,5 +18,7 @@ export function isBuffReferenceEnabled(): boolean {
 
 export function getReferencePriceCacheTtlMs(): number {
   const minutes = Number(process.env.REFERENCE_PRICE_CACHE_TTL_MINUTES ?? 30);
-  return Number.isFinite(minutes) && minutes > 0 ? minutes * 60_000 : 30 * 60_000;
+  return Number.isFinite(minutes) && minutes > 0
+    ? minutes * 60_000
+    : 30 * 60_000;
 }

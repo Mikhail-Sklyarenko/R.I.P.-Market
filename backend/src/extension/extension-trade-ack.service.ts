@@ -77,7 +77,12 @@ export class ExtensionTradeAckService {
     const ackMap = await this.loadAcknowledgmentMap(orderIds);
 
     return orders.map((order) =>
-      this.buildVerificationResult(order, userId, undefined, ackMap.get(order.id)),
+      this.buildVerificationResult(
+        order,
+        userId,
+        undefined,
+        ackMap.get(order.id),
+      ),
     );
   }
 
@@ -182,7 +187,11 @@ export class ExtensionTradeAckService {
     type: string;
     offerId?: string | null;
     idempotencyKey: string;
-  }): Promise<{ ok: true; type: TradeAcknowledgmentType; idempotent: boolean }> {
+  }): Promise<{
+    ok: true;
+    type: TradeAcknowledgmentType;
+    idempotent: boolean;
+  }> {
     this.ensureEnabled();
     const type = params.type as TradeAcknowledgmentType;
     if (!ACK_TYPES.has(type)) {
@@ -479,8 +488,7 @@ export class ExtensionTradeAckService {
     }
 
     if (observedOfferId) {
-      const matchesLinked =
-        !linkedOfferId || linkedOfferId === observedOfferId;
+      const matchesLinked = !linkedOfferId || linkedOfferId === observedOfferId;
       checks.push({
         key: 'offer_id_match',
         passed: matchesLinked && isValidSteamOfferId(observedOfferId),
@@ -602,7 +610,8 @@ export class ExtensionTradeAckService {
         return {
           kind: 'confirm_guard',
           title: 'Ожидаем принятия покупателем',
-          description: 'Обмен отправлен. Покупатель должен принять его в Steam.',
+          description:
+            'Обмен отправлен. Покупатель должен принять его в Steam.',
         };
       }
       if (

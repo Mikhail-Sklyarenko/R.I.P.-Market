@@ -42,7 +42,9 @@ describe('Extension channel smoke (e2e)', () => {
       .set('Authorization', `Bearer ${buyer.token}`)
       .send({
         deviceId,
-        publicKey: publicKey.export({ type: 'pkcs1', format: 'pem' }).toString(),
+        publicKey: publicKey
+          .export({ type: 'pkcs1', format: 'pem' })
+          .toString(),
       });
     expect(handshake.status).toBe(201);
 
@@ -58,8 +60,11 @@ describe('Extension channel smoke (e2e)', () => {
       ttlMs: 5000,
       payload,
     });
-    const signature = sign('RSA-SHA256', Buffer.from(message, 'utf8'), privateKey)
-      .toString('base64');
+    const signature = sign(
+      'RSA-SHA256',
+      Buffer.from(message, 'utf8'),
+      privateKey,
+    ).toString('base64');
 
     const heartbeat = await request(app.getHttpServer())
       .post('/api/v1/extension/heartbeat')

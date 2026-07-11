@@ -36,7 +36,10 @@ export function getWearTierKey(floatValue: number): WearTierKey | null {
   return null;
 }
 
-export function getWearTierBounds(key: WearTierKey): { min: number; max: number } {
+export function getWearTierBounds(key: WearTierKey): {
+  min: number;
+  max: number;
+} {
   const tier = WEAR_TIERS.find((entry) => entry.key === key);
   return tier ? { min: tier.min, max: tier.max } : { min: 0, max: 1 };
 }

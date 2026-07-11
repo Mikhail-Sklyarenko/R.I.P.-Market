@@ -67,7 +67,9 @@ describe('SteamProfileService', () => {
       }),
     } as Response);
 
-    await expect(service.fetchPlayerSummary('76561198000000000')).resolves.toEqual({
+    await expect(
+      service.fetchPlayerSummary('76561198000000000'),
+    ).resolves.toEqual({
       personaname: 'ApiPlayer',
       avatarUrl: 'https://avatars.steamstatic.com/test_full.jpg',
     });

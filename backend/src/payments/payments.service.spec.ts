@@ -38,7 +38,10 @@ describe('PaymentsService', () => {
         findUnique: jest.fn(async () => null),
         create: jest.fn(async (args) => ({ id: 'wdr-1', ...args.data })),
         findFirst: jest.fn(async () => null),
-        update: jest.fn(async (args) => ({ id: args.where.id, status: args.data.status })),
+        update: jest.fn(async (args) => ({
+          id: args.where.id,
+          status: args.data.status,
+        })),
       },
       outboxEvent: { create: jest.fn(async () => ({})) },
       $transaction: jest.fn(async (fn) => fn(prisma)),
@@ -52,7 +55,10 @@ describe('PaymentsService', () => {
       freezeForWithdrawal: jest.fn(async () => undefined),
       releaseWithdrawHold: jest.fn(async () => undefined),
       withdraw: jest.fn(async () => ({ referenceGroupId: 'grp', entries: [] })),
-      refundWithdrawal: jest.fn(async () => ({ referenceGroupId: 'grp', entries: [] })),
+      refundWithdrawal: jest.fn(async () => ({
+        referenceGroupId: 'grp',
+        entries: [],
+      })),
       ...overrides?.ledger,
     };
 
@@ -87,10 +93,10 @@ describe('PaymentsService', () => {
 
     return {
       service: new PaymentsService(
-        prisma as unknown as PrismaService,
+        prisma,
         ledger as unknown as LedgerService,
         guard as unknown as WithdrawalGuardService,
-        provider as PaymentProvider,
+        provider,
       ),
       prisma,
       ledger,
@@ -136,18 +142,15 @@ describe('PaymentsService', () => {
       },
     });
 
-    const result = await service.handleWebhook(
-      '{}',
-      {
-        eventId: 'dep-evt-1',
-        type: 'deposit.credited',
-        externalUserId: 'user-1',
-        txHash: 'tx-duplicate',
-        amountSun: '1000000',
-        address: 'T9yD14Nj9j7xAB4dbGeiX9h8unkKHxuWwb',
-        creditedAt: new Date().toISOString(),
-      },
-    );
+    const result = await service.handleWebhook('{}', {
+      eventId: 'dep-evt-1',
+      type: 'deposit.credited',
+      externalUserId: 'user-1',
+      txHash: 'tx-duplicate',
+      amountSun: '1000000',
+      address: 'T9yD14Nj9j7xAB4dbGeiX9h8unkKHxuWwb',
+      creditedAt: new Date().toISOString(),
+    });
 
     expect(result).toEqual({ ok: true, duplicate: true });
     expect(ledger.deposit).not.toHaveBeenCalled();

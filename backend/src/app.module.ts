@@ -43,7 +43,9 @@ import { SupportModule } from './support/support.module';
     PaymentsModule,
     SupportModule,
     CatalogModule,
-    ...(process.env.ENABLE_EXTENSION_CHANNEL === 'true' ? [ExtensionModule] : []),
+    ...(process.env.ENABLE_EXTENSION_CHANNEL === 'true'
+      ? [ExtensionModule]
+      : []),
     ...(process.env.ENABLE_TEST_ROUTES === 'true' ||
     process.env.ENABLE_MOCK_TRADE === 'true'
       ? [TestModule]

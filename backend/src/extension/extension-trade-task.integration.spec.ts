@@ -13,7 +13,9 @@ describe('ExtensionTradeTaskService integration-like', () => {
   const disputeOps = { openSystemDispute: jest.fn() };
   const extensionFlowMetrics = { recordTaskOutcome: jest.fn() };
   const antiFraud = { recordTaskFailure: jest.fn() };
-  const tradeAck = { assertOfferSentTrustGate: jest.fn().mockResolvedValue(undefined) };
+  const tradeAck = {
+    assertOfferSentTrustGate: jest.fn().mockResolvedValue(undefined),
+  };
   const service = new ExtensionTradeTaskService(
     prisma as never,
     reconcile as never,

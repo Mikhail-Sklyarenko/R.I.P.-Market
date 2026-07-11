@@ -33,10 +33,7 @@ export class WithdrawalGuardService {
       );
     }
 
-    if (
-      user.role === UserRole.SELLER &&
-      config.withdrawMinCompletedSales > 0
-    ) {
+    if (user.role === UserRole.SELLER && config.withdrawMinCompletedSales > 0) {
       const completedSales = await this.prisma.order.count({
         where: {
           sellerId: userId,

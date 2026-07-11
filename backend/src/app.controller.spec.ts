@@ -4,6 +4,8 @@ import { AppService } from './app.service';
 import { HttpMetricsService } from './common/observability/http-metrics.service';
 import { PrismaService } from './prisma/prisma.service';
 import { InventoryMetricsService } from './providers/inventory/inventory-metrics.service';
+import { ExtensionFlowMetricsService } from './common/observability/extension-flow-metrics.service';
+import { ObservabilityAlertService } from './common/observability/observability-alert.service';
 import { TradeShadowMetricsService } from './trades/trade-shadow-metrics.service';
 import { LedgerReconciliationService } from './wallet/ledger-reconciliation.service';
 
@@ -55,6 +57,18 @@ describe('AppController', () => {
             snapshot: jest.fn(() => ({
               trade_shadow_mismatch_total: 0,
             })),
+          },
+        },
+        {
+          provide: ExtensionFlowMetricsService,
+          useValue: {
+            snapshot: jest.fn(() => ({})),
+          },
+        },
+        {
+          provide: ObservabilityAlertService,
+          useValue: {
+            snapshotActiveAlerts: jest.fn(() => []),
           },
         },
       ],

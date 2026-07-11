@@ -1,10 +1,7 @@
 import { HttpStatus, Injectable, Logger } from '@nestjs/common';
 import { AppException } from '../errors/app.exception';
 import { ErrorCode } from '../errors/error-codes';
-import {
-  ExtensionFlowLogCode,
-  OpsAlertId,
-} from './extension-flow-log-codes';
+import { ExtensionFlowLogCode, OpsAlertId } from './extension-flow-log-codes';
 import {
   antiFraudRuleThresholds,
   isExtensionAntiFraudEnabled,

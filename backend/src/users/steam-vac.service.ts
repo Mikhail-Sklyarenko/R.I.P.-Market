@@ -17,7 +17,10 @@ const VAC_CACHE_MS = 60 * 60 * 1000;
 
 @Injectable()
 export class SteamVacService {
-  private readonly vacCache = new Map<string, { banned: boolean; expiresAt: number }>();
+  private readonly vacCache = new Map<
+    string,
+    { banned: boolean; expiresAt: number }
+  >();
 
   async assertCanTrade(user: { steamId?: string | null }): Promise<void> {
     if (!user.steamId?.trim()) {
@@ -49,7 +52,9 @@ export class SteamVacService {
       return false;
     }
 
-    const url = new URL('https://api.steampowered.com/ISteamUser/GetPlayerBans/v1/');
+    const url = new URL(
+      'https://api.steampowered.com/ISteamUser/GetPlayerBans/v1/',
+    );
     url.searchParams.set('key', apiKey);
     url.searchParams.set('steamids', steamId);
 
@@ -60,8 +65,13 @@ export class SteamVacService {
 
     const payload = (await response.json()) as GetPlayerBansResponse;
     const player = payload.players?.[0];
-    const banned = Boolean(player?.VACBanned || (player?.NumberOfGameBans ?? 0) > 0);
-    this.vacCache.set(steamId, { banned, expiresAt: Date.now() + VAC_CACHE_MS });
+    const banned = Boolean(
+      player?.VACBanned || (player?.NumberOfGameBans ?? 0) > 0,
+    );
+    this.vacCache.set(steamId, {
+      banned,
+      expiresAt: Date.now() + VAC_CACHE_MS,
+    });
     return banned;
   }
 }

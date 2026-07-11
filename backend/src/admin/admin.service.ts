@@ -119,10 +119,14 @@ export class AdminService {
       where: { steamId },
     });
     if (!entry) {
-      throw new NotFoundException('Extension rollout allowlist entry not found');
+      throw new NotFoundException(
+        'Extension rollout allowlist entry not found',
+      );
     }
 
-    await this.prisma.extensionRolloutAllowlistEntry.delete({ where: { steamId } });
+    await this.prisma.extensionRolloutAllowlistEntry.delete({
+      where: { steamId },
+    });
 
     await this.prisma.auditLog.create({
       data: {
@@ -146,36 +150,43 @@ export class AdminService {
     }
 
     const since = new Date(Date.now() - 24 * 60 * 60 * 1000);
-    const [ordersStarted24h, ordersCompleted24h, ordersDisputed24h, tasksFailed24h] =
-      await Promise.all([
-        this.prisma.order.count({
-          where: { createdAt: { gte: since }, status: { not: OrderStatus.CANCELED } },
-        }),
-        this.prisma.order.count({
-          where: {
-            updatedAt: { gte: since },
-            status: {
-              in: [
-                OrderStatus.TRADE_CONFIRMED,
-                OrderStatus.SETTLEMENT_HOLD,
-                OrderStatus.COMPLETED,
-              ],
-            },
+    const [
+      ordersStarted24h,
+      ordersCompleted24h,
+      ordersDisputed24h,
+      tasksFailed24h,
+    ] = await Promise.all([
+      this.prisma.order.count({
+        where: {
+          createdAt: { gte: since },
+          status: { not: OrderStatus.CANCELED },
+        },
+      }),
+      this.prisma.order.count({
+        where: {
+          updatedAt: { gte: since },
+          status: {
+            in: [
+              OrderStatus.TRADE_CONFIRMED,
+              OrderStatus.SETTLEMENT_HOLD,
+              OrderStatus.COMPLETED,
+            ],
           },
-        }),
-        this.prisma.order.count({
-          where: {
-            updatedAt: { gte: since },
-            status: OrderStatus.DISPUTE,
-          },
-        }),
-        this.prisma.tradeTask.count({
-          where: {
-            updatedAt: { gte: since },
-            status: 'FAILED',
-          },
-        }),
-      ]);
+        },
+      }),
+      this.prisma.order.count({
+        where: {
+          updatedAt: { gte: since },
+          status: OrderStatus.DISPUTE,
+        },
+      }),
+      this.prisma.tradeTask.count({
+        where: {
+          updatedAt: { gte: since },
+          status: 'FAILED',
+        },
+      }),
+    ]);
 
     const kpis = this.extensionFlowMetrics.snapshotKpis();
     const thresholds = extensionFlowAlertThresholds();
@@ -611,7 +622,10 @@ export class AdminService {
       throw new BadRequestException('Idempotency-Key header is required');
     }
 
-    const { reasonCode, reasonNote } = this.resolveAdminReason(params, 'ADMIN_DISPUTE');
+    const { reasonCode, reasonNote } = this.resolveAdminReason(
+      params,
+      'ADMIN_DISPUTE',
+    );
 
     const existing = await this.prisma.auditLog.findFirst({
       where: {
@@ -1411,7 +1425,9 @@ export class AdminService {
   ): { reasonCode: string; reasonNote: string } {
     const reasonCode = params.reasonCode ?? fallbackCode;
     if (!isKnownDisputeReasonCode(reasonCode)) {
-      throw new BadRequestException(`Unknown dispute reason code: ${reasonCode}`);
+      throw new BadRequestException(
+        `Unknown dispute reason code: ${reasonCode}`,
+      );
     }
     assertDisputeReasonAllowed(reasonCode, 'ADMIN');
     const reasonNote = params.reasonNote ?? params.reason ?? reasonCode;

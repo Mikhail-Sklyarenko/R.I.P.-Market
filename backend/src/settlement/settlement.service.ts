@@ -306,13 +306,10 @@ export class SettlementService {
       }
     }
 
-    return this.releaseSettlementHold(
-      tx,
-      order,
-      idempotencyKey,
-      actorUserId,
-      { skipHoldWindowCheck: true, legacyImmediate: true },
-    );
+    return this.releaseSettlementHold(tx, order, idempotencyKey, actorUserId, {
+      skipHoldWindowCheck: true,
+      legacyImmediate: true,
+    });
   }
 
   private async enterSettlementHold(

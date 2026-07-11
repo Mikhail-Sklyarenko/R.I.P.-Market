@@ -1,7 +1,4 @@
-import {
-  pickSimilarLots,
-  scoreSimilarLot,
-} from './similar-lots.util';
+import { pickSimilarLots, scoreSimilarLot } from './similar-lots.util';
 
 describe('similar-lots.util', () => {
   const source = {

@@ -19,17 +19,26 @@ describe('CatalogService', () => {
     getPricesWithMeta: jest.fn(),
   };
 
-  const service = new CatalogService(prisma as never, steamMarketPrice as never);
+  const referencePrice = {
+    getPricesWithMeta: jest.fn(),
+  };
+
+  const service = new CatalogService(
+    prisma as never,
+    steamMarketPrice as never,
+    referencePrice as never,
+  );
 
   beforeEach(() => {
     jest.clearAllMocks();
     prisma.order.findMany.mockResolvedValue([]);
     steamMarketPrice.getPricesMinor.mockResolvedValue({});
+    referencePrice.getPricesWithMeta.mockResolvedValue({});
   });
 
   it('returns only item definitions with active lots', async () => {
     prisma.lot.findMany.mockImplementation((args: { select?: unknown }) => {
-      if (args.select && 'priceMinor' in (args.select as object)) {
+      if (args.select && 'priceMinor' in args.select) {
         return Promise.resolve([
           {
             priceMinor: 1000n,
@@ -37,7 +46,7 @@ describe('CatalogService', () => {
           },
         ]);
       }
-      if (args.select && 'id' in (args.select as object)) {
+      if (args.select && 'id' in args.select) {
         return Promise.resolve([
           {
             id: 'lot-1',
@@ -90,7 +99,11 @@ describe('CatalogService', () => {
   it('returns empty catalog when no active lots match filters', async () => {
     prisma.lot.findMany.mockResolvedValue([]);
 
-    const result = await service.listItems({ page: 1, limit: 24, weapon: 'Knife' });
+    const result = await service.listItems({
+      page: 1,
+      limit: 24,
+      weapon: 'Knife',
+    });
 
     expect(prisma.itemDefinition.findMany).not.toHaveBeenCalled();
     expect(result).toEqual({
@@ -99,6 +112,7 @@ describe('CatalogService', () => {
       page: 1,
       limit: 24,
       steamPriceFetchedAt: null,
+      referencePriceFetchedAt: null,
     });
   });
 });

@@ -21,7 +21,8 @@ export function resolveLotTradeExpectations(
   asset: AssetLike,
 ): LotTradeExpectations {
   const snapshotFloat =
-    listingSnapshot?.floatValue === null || listingSnapshot?.floatValue === undefined
+    listingSnapshot?.floatValue === null ||
+    listingSnapshot?.floatValue === undefined
       ? null
       : String(listingSnapshot.floatValue);
   const assetFloat =

@@ -22,9 +22,10 @@ export class ExtensionSessionGuard implements CanActivate {
       );
     }
 
-    const request = context
-      .switchToHttp()
-      .getRequest<{ headers: Record<string, string | undefined>; extensionAuth?: ExtensionAuthContext }>();
+    const request = context.switchToHttp().getRequest<{
+      headers: Record<string, string | undefined>;
+      extensionAuth?: ExtensionAuthContext;
+    }>();
     const authHeader = request.headers.authorization;
     if (!authHeader?.startsWith('Bearer ')) {
       await this.extensionSecurity.logSecurityError('EXT_SEC_MISSING_BEARER', {

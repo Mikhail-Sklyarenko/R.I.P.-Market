@@ -23,6 +23,9 @@ describe('steam-inventory.parser', () => {
       paintSeed: 661,
       wear: 'FT',
       stickers: [],
+      inspectLinkTemplate: null,
+      classExternalId: '310776580',
+      instanceExternalId: '302028390',
     });
     expect(parsed[1]).toMatchObject({
       assetExternalId: '12345678902',

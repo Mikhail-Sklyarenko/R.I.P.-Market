@@ -35,15 +35,23 @@ export class SteamMarketPriceService {
 
   async getPricesWithMeta(
     marketHashNames: string[],
-  ): Promise<Record<string, { priceMinor: number | null; fetchedAt: string | null }>> {
+  ): Promise<
+    Record<string, { priceMinor: number | null; fetchedAt: string | null }>
+  > {
     if (!this.isEnabled()) {
       return Object.fromEntries(
-        marketHashNames.map((name) => [name, { priceMinor: null, fetchedAt: null }]),
+        marketHashNames.map((name) => [
+          name,
+          { priceMinor: null, fetchedAt: null },
+        ]),
       );
     }
 
     const unique = [...new Set(marketHashNames.filter(Boolean))];
-    const result: Record<string, { priceMinor: number | null; fetchedAt: string | null }> = {};
+    const result: Record<
+      string,
+      { priceMinor: number | null; fetchedAt: string | null }
+    > = {};
     const pending: string[] = [];
 
     for (const name of unique) {
@@ -86,10 +94,10 @@ export class SteamMarketPriceService {
     );
   }
 
-  private async fetchPriceMinor(marketHashName: string): Promise<number | null> {
-    const url = new URL(
-      'https://steamcommunity.com/market/priceoverview/',
-    );
+  private async fetchPriceMinor(
+    marketHashName: string,
+  ): Promise<number | null> {
+    const url = new URL('https://steamcommunity.com/market/priceoverview/');
     url.searchParams.set('country', 'US');
     url.searchParams.set('currency', '1');
     url.searchParams.set('appid', '730');

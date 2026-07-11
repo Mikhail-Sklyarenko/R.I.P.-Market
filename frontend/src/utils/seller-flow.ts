@@ -1,4 +1,4 @@
-import { isListableMarketHashName } from './lot-display';
+import { isListableMarketHashName } from './lot-display.ts';
 
 export const LOT_STATUS_LABELS: Record<string, string> = {
   ACTIVE: 'Активен',

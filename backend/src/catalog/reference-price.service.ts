@@ -144,7 +144,9 @@ export class ReferencePriceService {
     }
 
     try {
-      const response = await fetch('https://prices.csgotrader.app/latest/prices.json');
+      const response = await fetch(
+        'https://prices.csgotrader.app/latest/prices.json',
+      );
       if (!response.ok) {
         return null;
       }
@@ -152,9 +154,7 @@ export class ReferencePriceService {
       const body = (await response.json()) as CsgotraderPricesResponse;
       const item = body.items?.[marketHashName];
       const buffUsd =
-        item?.buff?.starting_at?.price ??
-        item?.buff?.price ??
-        null;
+        item?.buff?.starting_at?.price ?? item?.buff?.price ?? null;
       if (buffUsd === null || buffUsd === undefined) {
         return null;
       }

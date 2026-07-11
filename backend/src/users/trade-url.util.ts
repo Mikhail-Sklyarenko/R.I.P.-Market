@@ -17,7 +17,9 @@ export function isValidSteamTradeUrl(url: string): boolean {
     }
     const partner = parsed.searchParams.get('partner');
     const token = parsed.searchParams.get('token');
-    return Boolean(partner && /^\d+$/.test(partner) && token && token.length > 0);
+    return Boolean(
+      partner && /^\d+$/.test(partner) && token && token.length > 0,
+    );
   } catch {
     return false;
   }

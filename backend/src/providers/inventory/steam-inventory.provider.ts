@@ -69,9 +69,15 @@ export class SteamInventoryProvider implements InventoryProvider {
     }
 
     const latestAfterSteamChange =
-      latest?.steamId === steamId ? latest : await this.syncCache.getLatestRun(ownerId);
+      latest?.steamId === steamId
+        ? latest
+        : await this.syncCache.getLatestRun(ownerId);
 
-    if (!force && latestAfterSteamChange && this.syncCache.isCacheValid(latestAfterSteamChange, now)) {
+    if (
+      !force &&
+      latestAfterSteamChange &&
+      this.syncCache.isCacheValid(latestAfterSteamChange, now)
+    ) {
       const result = this.toSyncResult(latestAfterSteamChange, true, false);
       this.recordMetrics(
         'CACHE_HIT',

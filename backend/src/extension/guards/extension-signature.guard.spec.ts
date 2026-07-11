@@ -50,9 +50,11 @@ describe('ExtensionSignatureGuard', () => {
       signature: Buffer.from('bad-signature').toString('base64'),
     };
 
-    await expect(guard.canActivate(contextForBody(body))).rejects.toMatchObject({
-      code: ErrorCode.EXTENSION_SIGNATURE_INVALID,
-    });
+    await expect(guard.canActivate(contextForBody(body))).rejects.toMatchObject(
+      {
+        code: ErrorCode.EXTENSION_SIGNATURE_INVALID,
+      },
+    );
   });
 
   it('rejects replay attempt on duplicate nonce', async () => {
@@ -66,8 +68,11 @@ describe('ExtensionSignatureGuard', () => {
       ttlMs: 5000,
       payload,
     });
-    const signature = sign('RSA-SHA256', Buffer.from(message, 'utf8'), privateKey)
-      .toString('base64');
+    const signature = sign(
+      'RSA-SHA256',
+      Buffer.from(message, 'utf8'),
+      privateKey,
+    ).toString('base64');
 
     const body = {
       deviceId: 'dev-1',
@@ -79,8 +84,10 @@ describe('ExtensionSignatureGuard', () => {
     };
     prisma.extensionNonce.create.mockRejectedValueOnce(new Error('duplicate'));
 
-    await expect(guard.canActivate(contextForBody(body))).rejects.toMatchObject({
-      code: ErrorCode.EXTENSION_REPLAY_DETECTED,
-    });
+    await expect(guard.canActivate(contextForBody(body))).rejects.toMatchObject(
+      {
+        code: ErrorCode.EXTENSION_REPLAY_DETECTED,
+      },
+    );
   });
 });

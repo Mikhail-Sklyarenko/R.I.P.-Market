@@ -145,11 +145,13 @@ export class InventoryService {
 
   async getPriceHints(marketHashNames: string[]) {
     const uniqueNames = [...new Set(marketHashNames.filter(Boolean))];
-    const [steamPrices, referencePrices, marketplacePrices] = await Promise.all([
-      this.steamMarketPrice.getPricesWithMeta(uniqueNames),
-      this.referencePrice.getPricesWithMeta(uniqueNames),
-      this.loadMinMarketplacePrices(uniqueNames),
-    ]);
+    const [steamPrices, referencePrices, marketplacePrices] = await Promise.all(
+      [
+        this.steamMarketPrice.getPricesWithMeta(uniqueNames),
+        this.referencePrice.getPricesWithMeta(uniqueNames),
+        this.loadMinMarketplacePrices(uniqueNames),
+      ],
+    );
 
     const hints: Record<string, InventoryPriceHint> = {};
     for (const name of uniqueNames) {
@@ -213,7 +215,10 @@ export class InventoryService {
     }
 
     return new Map(
-      [...map.entries()].map(([name, priceMinor]) => [name, priceMinor.toString()]),
+      [...map.entries()].map(([name, priceMinor]) => [
+        name,
+        priceMinor.toString(),
+      ]),
     );
   }
 }

@@ -1,4 +1,8 @@
-export type ExtensionRolloutStage = 'off' | 'internal' | 'allowlist' | 'percent';
+export type ExtensionRolloutStage =
+  | 'off'
+  | 'internal'
+  | 'allowlist'
+  | 'percent';
 
 export function isExtensionRolloutEnabled(): boolean {
   return process.env.ENABLE_EXTENSION_ROLLOUT === 'true';
@@ -14,11 +18,7 @@ export function isExtensionRolloutInflightGraceEnabled(): boolean {
 
 export function getExtensionRolloutStage(): ExtensionRolloutStage {
   const raw = (process.env.EXTENSION_ROLLOUT_STAGE ?? 'off').toLowerCase();
-  if (
-    raw === 'internal' ||
-    raw === 'allowlist' ||
-    raw === 'percent'
-  ) {
+  if (raw === 'internal' || raw === 'allowlist' || raw === 'percent') {
     return raw;
   }
   return 'off';

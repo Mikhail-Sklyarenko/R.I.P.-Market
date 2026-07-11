@@ -46,12 +46,14 @@ export const OFFER_ERROR_UX_HINTS: Record<
   },
   INVENTORY_NOT_LOADED: {
     title: 'Инвентарь Steam не загружен',
-    sellerHint: 'Откройте страницу инвентаря Steam и дождитесь загрузки, затем повторите.',
+    sellerHint:
+      'Откройте страницу инвентаря Steam и дождитесь загрузки, затем повторите.',
     retryable: true,
   },
   STEAM_UNAVAILABLE: {
     title: 'Steam временно недоступен',
-    sellerHint: 'Подождите 1–2 минуты и повторите. Если ошибка сохраняется — проверьте статус Steam.',
+    sellerHint:
+      'Подождите 1–2 минуты и повторите. Если ошибка сохраняется — проверьте статус Steam.',
     retryable: true,
   },
   STEAM_GUARD_REQUIRED: {
@@ -73,7 +75,8 @@ export const OFFER_ERROR_UX_HINTS: Record<
   },
   OFFER_DRAFT_FAILED: {
     title: 'Не удалось подготовить offer',
-    sellerHint: 'Обновите страницу Steam и повторите. При повторе — отправьте offer вручную.',
+    sellerHint:
+      'Обновите страницу Steam и повторите. При повторе — отправьте offer вручную.',
     retryable: true,
   },
   STEAM_ACCOUNT_MISMATCH: {

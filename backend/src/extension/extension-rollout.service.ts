@@ -105,9 +105,10 @@ export class ExtensionRolloutService {
   }
 
   async getOpsSnapshot() {
-    const dbAllowlist = await this.prisma.extensionRolloutAllowlistEntry.findMany({
-      orderBy: { createdAt: 'desc' },
-    });
+    const dbAllowlist =
+      await this.prisma.extensionRolloutAllowlistEntry.findMany({
+        orderBy: { createdAt: 'desc' },
+      });
 
     return {
       enabled: isExtensionRolloutEnabled(),
@@ -178,10 +179,12 @@ export class ExtensionRolloutService {
     if (getExtensionRolloutEnvAllowlistSteamIds().has(steamId)) {
       return { eligible: true, reason: 'allowlist_match', stage };
     }
-    const dbEntry = await this.prisma.extensionRolloutAllowlistEntry.findUnique({
-      where: { steamId },
-      select: { enabled: true },
-    });
+    const dbEntry = await this.prisma.extensionRolloutAllowlistEntry.findUnique(
+      {
+        where: { steamId },
+        select: { enabled: true },
+      },
+    );
     if (dbEntry?.enabled) {
       return { eligible: true, reason: 'allowlist_match', stage };
     }

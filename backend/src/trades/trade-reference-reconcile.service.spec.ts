@@ -1,8 +1,4 @@
-import {
-  LotStatus,
-  OrderStatus,
-  TradeOperationStatus,
-} from '@prisma/client';
+import { LotStatus, OrderStatus } from '@prisma/client';
 import { TradeReferenceReconcileService } from './trade-reference-reconcile.service';
 
 describe('TradeReferenceReconcileService', () => {
@@ -15,7 +11,9 @@ describe('TradeReferenceReconcileService', () => {
   };
   const orderStateService = { transitionByEvent: jest.fn() };
   const lotStateService = { transition: jest.fn() };
-  const tradeStatusPoller = { pollOrderById: jest.fn().mockResolvedValue(false) };
+  const tradeStatusPoller = {
+    pollOrderById: jest.fn().mockResolvedValue(false),
+  };
   const service = new TradeReferenceReconcileService(
     prisma as never,
     orderStateService as never,
@@ -107,7 +105,9 @@ describe('TradeReferenceReconcileService', () => {
 
   it('opens dispute on spoof when strict reconcile is enabled', async () => {
     process.env.ENABLE_TRADE_REFERENCE_RECONCILE = 'true';
-    prisma.tradeOperation.findFirst.mockResolvedValue({ orderId: 'order-other' });
+    prisma.tradeOperation.findFirst.mockResolvedValue({
+      orderId: 'order-other',
+    });
 
     const result = await service.reconcile({
       orderId: 'order-1',

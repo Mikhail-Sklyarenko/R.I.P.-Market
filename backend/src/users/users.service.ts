@@ -1,5 +1,10 @@
 import { HttpStatus, Injectable, NotFoundException } from '@nestjs/common';
-import { UserRole, UserStatus, WalletAccountType, InventoryAssetStatus } from '@prisma/client';
+import {
+  UserRole,
+  UserStatus,
+  WalletAccountType,
+  InventoryAssetStatus,
+} from '@prisma/client';
 import { AppException } from '../common/errors/app.exception';
 import { ErrorCode } from '../common/errors/error-codes';
 import { isMockSteamId } from '../common/steam-id.util';
@@ -144,7 +149,9 @@ export class UsersService {
       },
       update: {
         ...(username ? { username } : {}),
-        ...(profile?.personaName ? { steamPersonaName: profile.personaName } : {}),
+        ...(profile?.personaName
+          ? { steamPersonaName: profile.personaName }
+          : {}),
         ...(profile?.avatarUrl ? { steamAvatarUrl: profile.avatarUrl } : {}),
       },
     });
@@ -174,7 +181,9 @@ export class UsersService {
       }
     }
 
-    const current = await this.prisma.user.findUnique({ where: { id: userId } });
+    const current = await this.prisma.user.findUnique({
+      where: { id: userId },
+    });
     if (!current) {
       throw new NotFoundException('User not found');
     }

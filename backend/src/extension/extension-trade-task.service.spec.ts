@@ -34,7 +34,9 @@ describe('ExtensionTradeTaskService', () => {
     recordTaskOutcome: jest.fn(),
   };
   const antiFraud = { recordTaskFailure: jest.fn() };
-  const tradeAck = { assertOfferSentTrustGate: jest.fn().mockResolvedValue(undefined) };
+  const tradeAck = {
+    assertOfferSentTrustGate: jest.fn().mockResolvedValue(undefined),
+  };
   const service = new ExtensionTradeTaskService(
     prisma as never,
     reconcile as never,
@@ -58,7 +60,8 @@ describe('ExtensionTradeTaskService', () => {
       buyerId: 'buyer-1',
       expectedAssetId: 'asset-123',
       marketHashName: 'AK-47 | Redline (Field-Tested)',
-      buyerTradeUrl: 'https://steamcommunity.com/tradeoffer/new/?partner=1&token=x',
+      buyerTradeUrl:
+        'https://steamcommunity.com/tradeoffer/new/?partner=1&token=x',
       inventoryAssetId: 'inv-1',
     });
     expect(prisma.tradeTask.upsert).toHaveBeenCalledWith(

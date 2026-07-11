@@ -205,9 +205,7 @@ export function assertDisputeReasonAllowed(
     throw new Error(`Unknown dispute reason code: ${code}`);
   }
   if (!definition.allowedSources.includes(source)) {
-    throw new Error(
-      `Reason code ${code} is not allowed for source ${source}`,
-    );
+    throw new Error(`Reason code ${code} is not allowed for source ${source}`);
   }
 }
 

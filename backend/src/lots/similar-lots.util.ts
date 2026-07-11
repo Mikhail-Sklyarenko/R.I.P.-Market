@@ -1,5 +1,8 @@
-import type { WearTierKey } from './float-tier.util';
-import { floatDistance, getWearTierKey, parseFloatValue } from './float-tier.util';
+import {
+  floatDistance,
+  getWearTierKey,
+  parseFloatValue,
+} from './float-tier.util';
 
 export type SimilarLotCandidate = {
   id: string;
@@ -72,7 +75,9 @@ export function pickSimilarLots<T extends SimilarLotCandidate>(
     .map((entry) => entry.candidate);
 }
 
-export function getWearTierLabel(tier: WearTierKey | string | null | undefined): string | null {
+export function getWearTierLabel(
+  tier: string | null | undefined,
+): string | null {
   if (!tier) {
     return null;
   }

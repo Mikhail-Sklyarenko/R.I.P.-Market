@@ -9,7 +9,11 @@ import fixture from './fixtures/steam-inventory-page1.json';
 describe('SteamInventoryProvider', () => {
   let provider: SteamInventoryProvider;
   let prisma: {
-    itemDefinition: { upsert: jest.Mock };
+    itemDefinition: {
+      upsert: jest.Mock;
+      findMany: jest.Mock;
+      deleteMany: jest.Mock;
+    };
     inventoryAsset: {
       upsert: jest.Mock;
       updateMany: jest.Mock;
@@ -26,7 +30,11 @@ describe('SteamInventoryProvider', () => {
 
   beforeEach(() => {
     prisma = {
-      itemDefinition: { upsert: jest.fn().mockResolvedValue({ id: 'def-1' }) },
+      itemDefinition: {
+        upsert: jest.fn().mockResolvedValue({ id: 'def-1' }),
+        findMany: jest.fn().mockResolvedValue([]),
+        deleteMany: jest.fn().mockResolvedValue({ count: 0 }),
+      },
       inventoryAsset: {
         upsert: jest.fn().mockResolvedValue({}),
         updateMany: jest.fn().mockResolvedValue({ count: 0 }),

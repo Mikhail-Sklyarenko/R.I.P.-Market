@@ -19,7 +19,9 @@ describe('SteamVacService', () => {
   });
 
   it('skips VAC check when steamId is missing', async () => {
-    await expect(service.assertCanTrade({ steamId: null })).resolves.toBeUndefined();
+    await expect(
+      service.assertCanTrade({ steamId: null }),
+    ).resolves.toBeUndefined();
   });
 
   it('skips VAC check when STEAM_WEB_API_KEY is not configured', async () => {
@@ -34,7 +36,13 @@ describe('SteamVacService', () => {
     global.fetch = jest.fn().mockResolvedValue({
       ok: true,
       json: async () => ({
-        players: [{ SteamId: '76561198000000000', VACBanned: true, NumberOfGameBans: 0 }],
+        players: [
+          {
+            SteamId: '76561198000000000',
+            VACBanned: true,
+            NumberOfGameBans: 0,
+          },
+        ],
       }),
     }) as typeof fetch;
 

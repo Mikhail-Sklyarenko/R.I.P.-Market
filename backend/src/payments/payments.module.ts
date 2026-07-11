@@ -14,7 +14,11 @@ import { WithdrawalGuardService } from './withdrawal-guard.service';
     PaymentsWebhookController,
     AdminPaymentsController,
   ],
-  providers: [PaymentsService, PaymentReconciliationService, WithdrawalGuardService],
+  providers: [
+    PaymentsService,
+    PaymentReconciliationService,
+    WithdrawalGuardService,
+  ],
   exports: [PaymentsService, PaymentReconciliationService],
 })
 export class PaymentsModule {}

@@ -1,5 +1,9 @@
 import { INestApplication } from '@nestjs/common';
-import { TradeTaskExecutionPhase, TradeTaskStatus, UserRole } from '@prisma/client';
+import {
+  TradeTaskExecutionPhase,
+  TradeTaskStatus,
+  UserRole,
+} from '@prisma/client';
 import request from 'supertest';
 import { generateKeyPairSync, sign } from 'crypto';
 import { App } from 'supertest/types';
@@ -39,7 +43,9 @@ describe('Extension task pipeline (e2e)', () => {
 
   beforeEach(async () => {
     await resetDatabase(prisma);
-    const sellerUser = await prisma.user.findFirst({ where: { role: UserRole.SELLER } });
+    const sellerUser = await prisma.user.findFirst({
+      where: { role: UserRole.SELLER },
+    });
     if (sellerUser) {
       process.env.EXTENSION_ROLLOUT_INTERNAL_USER_IDS = sellerUser.id;
     }
@@ -95,7 +101,9 @@ describe('Extension task pipeline (e2e)', () => {
       .set('Authorization', `Bearer ${userToken}`)
       .send({
         deviceId,
-        publicKey: publicKey.export({ type: 'pkcs1', format: 'pem' }).toString(),
+        publicKey: publicKey
+          .export({ type: 'pkcs1', format: 'pem' })
+          .toString(),
       })
       .expect(201);
 
@@ -132,8 +140,11 @@ describe('Extension task pipeline (e2e)', () => {
       ttlMs: envelope.ttlMs,
       payload: params.payload,
     });
-    envelope.signature = sign('RSA-SHA256', Buffer.from(message, 'utf8'), params.privateKey)
-      .toString('base64');
+    envelope.signature = sign(
+      'RSA-SHA256',
+      Buffer.from(message, 'utf8'),
+      params.privateKey,
+    ).toString('base64');
     return envelope;
   }
 
@@ -151,7 +162,11 @@ describe('Extension task pipeline (e2e)', () => {
     const assetId = inventory.body.assets[0].id as string;
     const lot = await api.createLot(seller, assetId, 100_000);
     await api.deposit(buyer, 250_000, `dep-${Date.now()}`);
-    const order = await api.createOrder(buyer, lot.body.id, `buy-${Date.now()}`);
+    const order = await api.createOrder(
+      buyer,
+      lot.body.id,
+      `buy-${Date.now()}`,
+    );
     const orderId = order.body.id as string;
 
     const task = await prisma.tradeTask.findFirst({ where: { orderId } });
@@ -200,9 +215,13 @@ describe('Extension task pipeline (e2e)', () => {
     });
     expect(tradeOperation?.externalOfferId).toBe('99887766');
 
-    const updatedTask = await prisma.tradeTask.findUnique({ where: { id: taskId } });
+    const updatedTask = await prisma.tradeTask.findUnique({
+      where: { id: taskId },
+    });
     expect(updatedTask?.status).toBe(TradeTaskStatus.ACKED);
-    expect(updatedTask?.executionPhase).toBe(TradeTaskExecutionPhase.OFFER_SENT);
+    expect(updatedTask?.executionPhase).toBe(
+      TradeTaskExecutionPhase.OFFER_SENT,
+    );
   });
 
   it('CONFIRM_PENDING with valid offer id can be followed by OFFER_SENT reconcile', async () => {
@@ -219,7 +238,11 @@ describe('Extension task pipeline (e2e)', () => {
     const assetId = inventory.body.assets[0].id as string;
     const lot = await api.createLot(seller, assetId, 100_000);
     await api.deposit(buyer, 250_000, `dep-guard-${Date.now()}`);
-    const order = await api.createOrder(buyer, lot.body.id, `buy-guard-${Date.now()}`);
+    const order = await api.createOrder(
+      buyer,
+      lot.body.id,
+      `buy-guard-${Date.now()}`,
+    );
     const orderId = order.body.id as string;
     const task = await prisma.tradeTask.findFirst({ where: { orderId } });
     const taskId = task!.id;

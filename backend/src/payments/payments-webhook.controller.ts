@@ -2,15 +2,12 @@ import {
   BadRequestException,
   Body,
   Controller,
-  Get,
   Headers,
-  Param,
   Post,
   Req,
   UnauthorizedException,
-  UseGuards,
 } from '@nestjs/common';
-import { ApiHeader, ApiTags } from '@nestjs/swagger';
+import { ApiTags } from '@nestjs/swagger';
 import type { Request } from 'express';
 import type { PaymentWebhookPayload } from '../providers/payment/payment-provider.interface';
 import { PAYMENT_PROVIDER } from '../providers/tokens';

@@ -11,5 +11,8 @@ export function extensionActiveTradesLimit(): number {
 }
 
 export function getExtensionSiteOrigin(): string {
-  return (process.env.FRONTEND_ORIGIN ?? 'http://localhost:5173').replace(/\/$/, '');
+  return (process.env.FRONTEND_ORIGIN ?? 'http://localhost:5173').replace(
+    /\/$/,
+    '',
+  );
 }

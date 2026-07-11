@@ -40,21 +40,24 @@ describe('ExtensionRolloutService', () => {
     } as never);
 
   it('allows env allowlisted seller', async () => {
-    const decision = await service().shouldCreateExtensionTaskForSeller('seller-1');
+    const decision =
+      await service().shouldCreateExtensionTaskForSeller('seller-1');
     expect(decision.eligible).toBe(true);
     expect(decision.reason).toBe('allowlist_match');
   });
 
   it('blocks when kill switch is active', async () => {
     process.env.EXTENSION_ROLLOUT_KILL_SWITCH = 'true';
-    const decision = await service().shouldCreateExtensionTaskForSeller('seller-1');
+    const decision =
+      await service().shouldCreateExtensionTaskForSeller('seller-1');
     expect(decision.eligible).toBe(false);
     expect(decision.reason).toBe('kill_switch');
   });
 
   it('passes through when rollout gating is disabled', async () => {
     process.env.ENABLE_EXTENSION_ROLLOUT = 'false';
-    const decision = await service().shouldCreateExtensionTaskForSeller('seller-1');
+    const decision =
+      await service().shouldCreateExtensionTaskForSeller('seller-1');
     expect(decision.eligible).toBe(true);
     expect(decision.reason).toBe('rollout_gating_disabled');
   });
@@ -66,8 +69,10 @@ describe('ExtensionRolloutService', () => {
     prisma.user.findUnique.mockResolvedValue({ steamId: '76561198999999999' });
     prisma.extensionRolloutAllowlistEntry.findUnique.mockResolvedValue(null);
 
-    const first = await service().shouldCreateExtensionTaskForSeller('seller-stable-a');
-    const second = await service().shouldCreateExtensionTaskForSeller('seller-stable-a');
+    const first =
+      await service().shouldCreateExtensionTaskForSeller('seller-stable-a');
+    const second =
+      await service().shouldCreateExtensionTaskForSeller('seller-stable-a');
     expect(first.eligible).toBe(second.eligible);
     expect(first.reason).toBe(second.reason);
   });

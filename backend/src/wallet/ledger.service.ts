@@ -67,7 +67,11 @@ export class LedgerService {
     metadata?: Prisma.InputJsonValue;
     tx?: TxClient;
   }): Promise<LedgerOperationResult> {
-    if (params.amountMinor <= 0n || params.feeMinor < 0n || params.netMinor <= 0n) {
+    if (
+      params.amountMinor <= 0n ||
+      params.feeMinor < 0n ||
+      params.netMinor <= 0n
+    ) {
       throw new BadRequestException('Withdrawal amounts must be positive');
     }
 
@@ -788,7 +792,10 @@ export class LedgerService {
 
     await tx.walletAccount.update({
       where: {
-        walletId_type: { walletId: params.walletId, type: WalletAccountType.AVAILABLE },
+        walletId_type: {
+          walletId: params.walletId,
+          type: WalletAccountType.AVAILABLE,
+        },
       },
       data: { balanceMinor: { increment: params.amountMinor } },
     });

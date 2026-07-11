@@ -1,4 +1,7 @@
-import { parseSteamTradeOfferId, isValidSteamOfferId } from './trade-offer.util';
+import {
+  parseSteamTradeOfferId,
+  isValidSteamOfferId,
+} from './trade-offer.util';
 
 describe('trade-offer.util', () => {
   it('parses numeric offer id', () => {

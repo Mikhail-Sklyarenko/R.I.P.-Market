@@ -70,8 +70,13 @@ describe('InventorySyncCacheService', () => {
 
   it('detects rate limit window from fetchedAt', () => {
     const now = new Date('2026-06-26T12:01:00Z');
-    const recent = { fetchedAt: new Date('2026-06-26T12:00:30Z') };
-    const old = { fetchedAt: new Date('2026-06-26T11:00:00Z') };
+    const minInterval = getInventorySyncMinIntervalMs();
+    const recent = {
+      fetchedAt: new Date(now.getTime() - minInterval / 2),
+    };
+    const old = {
+      fetchedAt: new Date(now.getTime() - minInterval * 2),
+    };
 
     expect(service.isWithinRateLimit(recent, now)).toBe(true);
     expect(service.isWithinRateLimit(old, now)).toBe(false);

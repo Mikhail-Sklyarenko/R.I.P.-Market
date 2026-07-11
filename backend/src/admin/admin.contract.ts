@@ -7,11 +7,18 @@ export const ADMIN_DISPUTE_CONTRACT = {
       reasons: [
         {
           code: 'string',
-          category: 'TRADE_REFERENCE|DELIVERY_VERIFICATION|EXTENSION|SETTLEMENT|TIMEOUT|ADMIN',
+          category:
+            'TRADE_REFERENCE|DELIVERY_VERIFICATION|EXTENSION|SETTLEMENT|TIMEOUT|ADMIN',
           reviewType: 'AUTO|MANUAL_REVIEW',
           title: 'string',
           description: 'string',
-          allowedSources: ['SYSTEM', 'ADMIN', 'EXTENSION', 'POLLER', 'RECONCILE'],
+          allowedSources: [
+            'SYSTEM',
+            'ADMIN',
+            'EXTENSION',
+            'POLLER',
+            'RECONCILE',
+          ],
         },
       ],
     },

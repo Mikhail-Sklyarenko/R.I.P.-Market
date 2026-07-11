@@ -18,7 +18,8 @@ export class SteamProfileService {
     if (fromApi.personaname || fromApi.avatarUrl) {
       return fromApi;
     }
-    const personaFromXml = await this.fetchPersonaNameFromCommunityXml(steamId64);
+    const personaFromXml =
+      await this.fetchPersonaNameFromCommunityXml(steamId64);
     return {
       personaname: personaFromXml,
       avatarUrl: null,

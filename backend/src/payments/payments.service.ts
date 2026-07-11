@@ -12,8 +12,14 @@ import {
 } from '@prisma/client';
 import { toJsonSafe } from '../common/json-safe.util';
 import { PrismaService } from '../prisma/prisma.service';
-import type { PaymentProvider, PaymentWebhookPayload } from '../providers/payment/payment-provider.interface';
-import { getPaymentConfig, isCryptoPaymentProvider } from '../providers/payment/payment.config';
+import type {
+  PaymentProvider,
+  PaymentWebhookPayload,
+} from '../providers/payment/payment-provider.interface';
+import {
+  getPaymentConfig,
+  isCryptoPaymentProvider,
+} from '../providers/payment/payment.config';
 import {
   isValidTronAddress,
   sunToUsdMinor,
@@ -44,7 +50,8 @@ export class PaymentsService {
     });
 
     if (!deposit) {
-      const gatewayUser = await this.paymentProvider.ensureDepositAddress(userId);
+      const gatewayUser =
+        await this.paymentProvider.ensureDepositAddress(userId);
       deposit = await this.prisma.userCryptoDeposit.create({
         data: {
           userId,
@@ -128,15 +135,18 @@ export class PaymentsService {
     }
     const netMinor = amountMinor - feeMinor;
 
-    const available = await this.ledgerService.getAvailableBalance(params.userId);
+    const available = await this.ledgerService.getAvailableBalance(
+      params.userId,
+    );
     if (available < amountMinor) {
       throw new BadRequestException('Insufficient available balance');
     }
 
-    const { needsManualReview } = await this.withdrawalGuard.validateAndResolveReview(
-      params.userId,
-      amountMinor,
-    );
+    const { needsManualReview } =
+      await this.withdrawalGuard.validateAndResolveReview(
+        params.userId,
+        amountMinor,
+      );
 
     const initialStatus = needsManualReview
       ? WithdrawalRequestStatus.PENDING_REVIEW
@@ -249,11 +259,12 @@ export class PaymentsService {
     });
 
     try {
-      const gatewayWithdrawal = await this.paymentProvider.createGatewayWithdrawal({
-        userId: withdrawal.userId,
-        toAddress: withdrawal.toAddress,
-        amountSun: usdMinorToSun(withdrawal.netMinor).toString(),
-      });
+      const gatewayWithdrawal =
+        await this.paymentProvider.createGatewayWithdrawal({
+          userId: withdrawal.userId,
+          toAddress: withdrawal.toAddress,
+          amountSun: usdMinorToSun(withdrawal.netMinor).toString(),
+        });
 
       const updated = await this.prisma.withdrawalRequest.update({
         where: { id: withdrawal.id },
@@ -334,7 +345,7 @@ export class PaymentsService {
               : payload.type === 'withdrawal.paid'
                 ? sunToUsdMinor(BigInt(payload.amountSun))
                 : 0n,
-          payload: payload as unknown as Prisma.InputJsonValue,
+          payload: payload,
         },
       });
     } catch (error) {
@@ -376,7 +387,9 @@ export class PaymentsService {
       return;
     }
 
-    const wallet = await this.ledgerService.ensureUserWallet(payload.externalUserId);
+    const wallet = await this.ledgerService.ensureUserWallet(
+      payload.externalUserId,
+    );
 
     await this.prisma.$transaction(async (tx) => {
       await this.ledgerService.deposit({

@@ -5,14 +5,24 @@ describe('SettlementReleaseWorkerService', () => {
   it('releases due holds in batch', async () => {
     const prisma = {
       order: {
-        findMany: jest.fn().mockResolvedValue([{ id: 'order-1' }, { id: 'order-2' }]),
+        findMany: jest
+          .fn()
+          .mockResolvedValue([{ id: 'order-1' }, { id: 'order-2' }]),
       },
     };
     const settlementService = {
       releaseDueSettlementHold: jest
         .fn()
-        .mockResolvedValueOnce({ settled: true, inHold: false, guard: { allowed: true } })
-        .mockResolvedValueOnce({ settled: false, inHold: true, guard: { allowed: true } }),
+        .mockResolvedValueOnce({
+          settled: true,
+          inHold: false,
+          guard: { allowed: true },
+        })
+        .mockResolvedValueOnce({
+          settled: false,
+          inHold: true,
+          guard: { allowed: true },
+        }),
     };
     const worker = new SettlementReleaseWorkerService(
       prisma as never,

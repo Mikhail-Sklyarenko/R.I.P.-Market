@@ -1,7 +1,4 @@
-import {
-  hasValidTradeUrl,
-  isValidSteamTradeUrl,
-} from './trade-url.util';
+import { hasValidTradeUrl, isValidSteamTradeUrl } from './trade-url.util';
 
 describe('trade-url util', () => {
   it('accepts valid Steam trade URLs', () => {

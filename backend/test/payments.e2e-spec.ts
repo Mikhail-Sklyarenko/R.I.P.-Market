@@ -67,7 +67,9 @@ describe('Payments crypto flow (e2e)', () => {
     const session = await api.login(role);
     await prisma.user.update({
       where: { id: session.userId },
-      data: { steamId: `76561198${role === UserRole.SELLER ? '111111111' : '222222222'}` },
+      data: {
+        steamId: `76561198${role === UserRole.SELLER ? '111111111' : '222222222'}`,
+      },
     });
     return session;
   }
@@ -120,7 +122,11 @@ describe('Payments crypto flow (e2e)', () => {
     const priceMinor = 50_000;
 
     const inventory = await api.getInventory(seller);
-    const lot = await api.createLot(seller, inventory.body.assets[0].id, priceMinor);
+    const lot = await api.createLot(
+      seller,
+      inventory.body.assets[0].id,
+      priceMinor,
+    );
 
     const depositPayload = {
       eventId: 'e2e-dep-2',
@@ -134,20 +140,28 @@ describe('Payments crypto flow (e2e)', () => {
     const depositBody = JSON.stringify(depositPayload);
     await request(app.getHttpServer())
       .post('/api/v1/payments/webhooks/crypto')
-      .set('X-Gateway-Signature', signGatewayWebhook(WEBHOOK_SECRET, depositBody))
+      .set(
+        'X-Gateway-Signature',
+        signGatewayWebhook(WEBHOOK_SECRET, depositBody),
+      )
       .send(depositPayload);
 
     const order = await api.createOrder(buyer, lot.body.id, 'e2e-order-1');
     expect([200, 201]).toContain(order.status);
 
-    const trade = await api.mockSuccess(buyer, order.body.id, 'e2e-trade-success-1');
+    const trade = await api.mockSuccess(
+      buyer,
+      order.body.id,
+      'e2e-trade-success-1',
+    );
     expect([200, 201]).toContain(trade.status);
     expect(trade.body.status).toBe('COMPLETED');
 
     const sellerWallet = await api.getWallet(seller);
     const sellerAvailable = Number(
-      sellerWallet.body.accounts.find((a: { type: string }) => a.type === 'AVAILABLE')
-        .balanceMinor,
+      sellerWallet.body.accounts.find(
+        (a: { type: string }) => a.type === 'AVAILABLE',
+      ).balanceMinor,
     );
     expect(sellerAvailable).toBe(Math.floor(priceMinor * 0.95));
 

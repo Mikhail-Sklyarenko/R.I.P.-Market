@@ -24,7 +24,9 @@ describe('payment.util', () => {
     const signature = signGatewayWebhook(secret, body);
 
     expect(verifyGatewayWebhookSignature(secret, body, signature)).toBe(true);
-    expect(verifyGatewayWebhookSignature(secret, body, 'bad-signature')).toBe(false);
+    expect(verifyGatewayWebhookSignature(secret, body, 'bad-signature')).toBe(
+      false,
+    );
     expect(verifyGatewayWebhookSignature(secret, body, undefined)).toBe(false);
   });
 });

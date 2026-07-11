@@ -1,4 +1,11 @@
-import { IsEnum, IsNotEmpty, IsObject, IsOptional, IsString, MaxLength } from 'class-validator';
+import {
+  IsEnum,
+  IsNotEmpty,
+  IsObject,
+  IsOptional,
+  IsString,
+  MaxLength,
+} from 'class-validator';
 import { TradeTaskExecutionPhase } from '@prisma/client';
 
 export class ReportTaskProgressPayloadDto {
