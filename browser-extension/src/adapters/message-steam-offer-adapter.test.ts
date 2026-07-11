@@ -53,6 +53,7 @@ describe('MessageSteamOfferAdapter', () => {
     expect(onItemSelected).toHaveBeenCalledWith({
       assetId: 'asset-1',
       marketHashName: 'AK-47 | Redline',
+      floatValue: null,
     });
     expect(onOfferSubmitted).toHaveBeenCalled();
     expect(steam.sendTradeOffer).toHaveBeenCalled();

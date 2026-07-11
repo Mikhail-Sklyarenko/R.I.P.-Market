@@ -34,12 +34,14 @@ describe('ExtensionTradeTaskService', () => {
     recordTaskOutcome: jest.fn(),
   };
   const antiFraud = { recordTaskFailure: jest.fn() };
+  const tradeAck = { assertOfferSentTrustGate: jest.fn().mockResolvedValue(undefined) };
   const service = new ExtensionTradeTaskService(
     prisma as never,
     reconcile as never,
     disputeOps as never,
     extensionFlowMetrics as never,
     antiFraud as never,
+    tradeAck as never,
   );
 
   beforeEach(() => {

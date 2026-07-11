@@ -11,6 +11,7 @@ export interface SteamOfferAdapter {
   loadSellerInventory(
     sellerSteamId?: string | null,
   ): Promise<SteamInventoryItem[] | null>;
+  warmTradePage(buyerTradeUrl: string): Promise<boolean>;
   draftOffer(input: DraftOfferInput): Promise<DraftOfferResult>;
   sendOffer(draftId: string, hooks?: SendOfferHooks): Promise<SendOfferResult>;
 }

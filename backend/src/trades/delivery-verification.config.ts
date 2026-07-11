@@ -8,8 +8,8 @@ export function getTradeTimeoutMs(): number {
 }
 
 export function getPollBackoffBaseMs(): number {
-  const value = Number(process.env.TRADE_POLL_BACKOFF_MS ?? 120_000);
-  return Number.isFinite(value) && value > 0 ? value : 120_000;
+  const value = Number(process.env.TRADE_POLL_BACKOFF_MS ?? 60_000);
+  return Number.isFinite(value) && value > 0 ? value : 60_000;
 }
 
 export function getPollBackoffMaxMs(): number {

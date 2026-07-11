@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { Module, forwardRef } from '@nestjs/common';
 import { LotsModule } from '../lots/lots.module';
 import { OrdersModule } from '../orders/orders.module';
 import { WalletModule } from '../wallet/wallet.module';
@@ -12,7 +12,12 @@ import { TradeStatusPollerService } from './trade-status-poller.service';
 import { TradesService } from './trades.service';
 
 @Module({
-  imports: [WalletModule, LotsModule, OrdersModule, SettlementModule],
+  imports: [
+    WalletModule,
+    LotsModule,
+    forwardRef(() => OrdersModule),
+    SettlementModule,
+  ],
   controllers: [TradesController],
   providers: [
     TradesService,

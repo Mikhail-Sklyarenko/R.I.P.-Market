@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
   "name": "R.I.P Market Trade Assistant",
-  "description": "Автоматическая отправка trade offer для продавцов R.I.P Market",
-  "version": "0.4.0",
+  "description": "Безопасные P2P-сделки R.I.P Market с подтверждением внутри платформы",
+  "version": "0.5.0",
   "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAuBKYHMwPyBUIPxpxbAqUxfPTxXtftmy2Wr9XDBOUkPL98+gLNo4eIEbA+oh4tNGPwCRGJjxSBax3gybj/EfuHfaK6Rg0JD+YgOc7zg5DmnXBGexuTYrBJ78/GnTMzeYxnyk6hRUgxDHlVWMj8fPN22B5nMa+gA3RRFWc71+P2NWNbHC/q9qiLF0a8CKMlsdrZRY0hRzaZRhcQhbips1dc0ds1FrxVEAKairL5LLMl1HD3kMjKxqfiINBhEB/Oc0XXvKNQBBn8/KQvjcF0h8u3az4Er8zJdCoCmPJ/h1YtImImDum9cCaMBIfSlp8BNbZnpR3h1DQ6EzIojWws+6zCwIDAQAB",
   "permissions": ["storage", "alarms", "tabs", "scripting", "cookies"],
   "host_permissions": [
@@ -20,7 +20,12 @@
   "content_scripts": [
     {
       "matches": ["*://steamcommunity.com/tradeoffer/*"],
-      "js": ["content/steam-bridge.js"],
+      "js": ["content/steam-bridge.js", "content/trade-verification-bridge.js"],
+      "run_at": "document_idle"
+    },
+    {
+      "matches": ["*://steamcommunity.com/my/tradeoffers/*"],
+      "js": ["content/trade-verification-bridge.js"],
       "run_at": "document_idle"
     }
   ],

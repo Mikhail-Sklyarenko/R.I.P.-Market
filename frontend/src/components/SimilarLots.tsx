@@ -5,6 +5,7 @@ import { ItemPreview } from './ItemPreview';
 import { LoadingState } from './LoadingState';
 import { MoneyDisplay } from './MoneyDisplay';
 import { formatFloatValue, formatPaintSeed } from '../utils/item-image';
+import { resolveLotDisplayItem } from '../utils/lot-display';
 
 type SimilarLotsProps = {
   lots: Lot[];
@@ -42,8 +43,9 @@ export function SimilarLots({ lots, loading = false, prominent = false }: Simila
       {!loading ? (
         <div className="similar-lots-grid">
           {lots.map((lot) => {
-            const floatText = formatFloatValue(lot.inventoryAsset.floatValue);
-            const patternText = formatPaintSeed(lot.inventoryAsset.paintSeed);
+            const displayItem = resolveLotDisplayItem(lot);
+            const floatText = formatFloatValue(displayItem.floatValue);
+            const patternText = formatPaintSeed(displayItem.paintSeed);
 
             return (
               <article
@@ -54,11 +56,11 @@ export function SimilarLots({ lots, loading = false, prominent = false }: Simila
                 onKeyDown={(event) => handleCardKeyDown(event, lot.id)}
                 role="link"
                 tabIndex={0}
-                aria-label={`Открыть лот ${lot.inventoryAsset.itemDefinition.marketHashName}`}
+                aria-label={`Открыть лот ${displayItem.itemDefinition.marketHashName}`}
               >
                 <ItemPreview
-                  item={lot.inventoryAsset}
-                  title={lot.inventoryAsset.itemDefinition.marketHashName}
+                  item={displayItem}
+                  title={displayItem.itemDefinition.marketHashName}
                   size="sm"
                   showAttrs={false}
                 />

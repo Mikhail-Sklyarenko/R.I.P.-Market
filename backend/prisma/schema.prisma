@@ -152,6 +152,7 @@ model User {
   extensionDevices ExtensionDevice[]
   extensionSessions ExtensionSession[]
   supportTickets   SupportTicket[]
+  tradeAcknowledgments TradeAcknowledgment[]
 
   @@index([role, status])
 }
@@ -254,10 +255,15 @@ model InventoryAsset {
   assetExternalId  String
   status           InventoryAssetStatus @default(AVAILABLE)
   tradable         Boolean              @default(true)
+  marketable       Boolean              @default(true)
   tradeLockUntil   DateTime?
-  floatValue       Decimal?             @db.Decimal(8, 6)
-  paintSeed        Int?
-  wear             String?
+  floatValue           Decimal?             @db.Decimal(8, 6)
+  paintSeed            Int?
+  wear                 String?
+  stickers             Json?
+  inspectLinkTemplate  String?
+  classExternalId      String?
+  instanceExternalId   String?
   createdAt        DateTime             @default(now())
   updatedAt        DateTime             @updatedAt
   owner            User                 @relation(fields: [ownerId], references: [id], onDelete: Cascade)
@@ -303,9 +309,29 @@ model Lot {
   inventoryAsset     InventoryAsset @relation(fields: [inventoryAssetId], references: [id], onDelete: Restrict)
   orders             Order[]
   statusEvents       LotStatusEvent[]
+  listingSnapshot    LotListingSnapshot?
 
   @@index([sellerId, status])
   @@index([status, createdAt])
+}
+
+model LotListingSnapshot {
+  id              String   @id @default(uuid())
+  lotId           String   @unique
+  assetExternalId String
+  marketHashName  String
+  weapon          String?
+  rarity          String?
+  iconUrl         String?
+  floatValue      Decimal? @db.Decimal(8, 6)
+  paintSeed       Int?
+  wear            String?
+  stickers        Json?
+  inspectLink     String?
+  tradable        Boolean
+  marketable      Boolean  @default(true)
+  capturedAt      DateTime @default(now())
+  lot             Lot      @relation(fields: [lotId], references: [id], onDelete: Cascade)
 }
 
 model Order {
@@ -325,6 +351,7 @@ model Order {
   hold            Hold?
   statusEvents    OrderStatusEvent[]
   tasks           TradeTask[]
+  tradeAcknowledgments TradeAcknowledgment[]
 
   @@index([buyerId, status])
   @@index([sellerId, status])
@@ -422,6 +449,23 @@ model TradeTaskStatusEvent {
 
   @@unique([tradeTaskId, idempotencyKey])
   @@index([tradeTaskId, createdAt])
+}
+
+model TradeAcknowledgment {
+  id             String   @id @default(uuid())
+  orderId        String
+  userId         String
+  role           String
+  type           String
+  offerId        String?
+  idempotencyKey String   @unique
+  metadata       Json?
+  createdAt      DateTime @default(now())
+  order          Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([orderId, role, type])
+  @@index([userId, createdAt])
 }
 
 model TradeOperationStatusEvent {

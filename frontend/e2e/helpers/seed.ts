@@ -120,6 +120,10 @@ export async function seedCatalogLots(request: APIRequestContext) {
   return { akLotId: akLot.id, awpLotId: awpLot.id };
 }
 
+export async function seedStickerLot(request: APIRequestContext) {
+  return seedActiveLot(request);
+}
+
 export async function seedSimilarLots(request: APIRequestContext) {
   const { lotId: sourceLotId } = await seedActiveLot(request);
 

@@ -1,4 +1,4 @@
-import type { KeyboardEvent } from 'react';
+import type { CSSProperties, KeyboardEvent } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import type { Lot } from '../api/types';
 import {
@@ -6,7 +6,8 @@ import {
   parseCatalogLotName,
 } from '../utils/catalog-lot-display';
 import { formatPaintSeed, getSteamItemImageUrl } from '../utils/item-image';
-import { MoneyDisplay } from './MoneyDisplay';
+import { getRarityStyle } from '../utils/rarity-colors';
+import { InventoryPriceStack } from './InventoryPriceStack';
 
 type CatalogLotCardProps = {
   lot: Lot;
@@ -78,6 +79,11 @@ export function CatalogLotCard({ lot, isLoggedIn }: CatalogLotCardProps) {
   const imageUrl = getSteamItemImageUrl(inventoryAsset.itemDefinition.iconUrl);
   const lotPath = `/lots/${lot.id}`;
   const buyPath = isLoggedIn ? `/lots/${lot.id}/checkout` : lotPath;
+  const rarityStyle = getRarityStyle(inventoryAsset.itemDefinition.rarity);
+  const cardStyle = {
+    '--lot-rarity-color': rarityStyle.color,
+    '--lot-rarity-glow': rarityStyle.glow,
+  } as CSSProperties;
 
   function openLot() {
     navigate(lotPath);
@@ -93,6 +99,7 @@ export function CatalogLotCard({ lot, isLoggedIn }: CatalogLotCardProps) {
   return (
     <article
       className="catalog-lot-card"
+      style={cardStyle}
       data-testid={`catalog-lot-${lot.id}`}
       onClick={openLot}
       onKeyDown={handleCardKeyDown}
@@ -144,9 +151,13 @@ export function CatalogLotCard({ lot, isLoggedIn }: CatalogLotCardProps) {
 
         <div className="catalog-lot-card-bottom">
           <div className="catalog-lot-card-price-row">
-            <p className="catalog-lot-card-price">
-              <MoneyDisplay minor={lot.priceMinor} strong />
-            </p>
+            <InventoryPriceStack
+              steamPriceMinor={lot.steamPriceMinor}
+              marketplacePriceMinor={lot.marketplacePriceMinor ?? lot.priceMinor}
+              buffPriceMinor={lot.buffPriceMinor}
+              csfloatPriceMinor={lot.csfloatPriceMinor}
+              testIdPrefix={`catalog-lot-${lot.id}`}
+            />
           </div>
 
           <div className="catalog-lot-card-actions">

@@ -102,7 +102,7 @@ export function ensureCs2InventoryActive(): void {
 }
 
 export async function waitForTradePageReady(
-  timeoutMs = 30_000,
+  timeoutMs = 15_000,
   assetId?: string,
 ): Promise<void> {
   const deadline = Date.now() + timeoutMs;

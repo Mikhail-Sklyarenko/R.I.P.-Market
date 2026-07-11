@@ -110,6 +110,37 @@ describe('CreateOfferOrchestrator', () => {
     });
   });
 
+  it('selects duplicate-name item by expected float', async () => {
+    const reporter = new InMemoryTaskProgressReporter();
+    const adapter = new MockSteamOfferAdapter('happy_path');
+    vi.spyOn(adapter, 'loadSellerInventory').mockResolvedValue([
+      {
+        assetId: 'dup-1',
+        marketHashName: 'AK-47 | Redline (Field-Tested)',
+        floatValue: '0.100000',
+      },
+      {
+        assetId: 'asset-123',
+        marketHashName: 'AK-47 | Redline (Field-Tested)',
+        floatValue: '0.254319',
+      },
+    ]);
+    const orchestrator = new CreateOfferOrchestrator(adapter, reporter);
+
+    await orchestrator.processTask(
+      baseTask({
+        payload: {
+          ...baseTask().payload,
+          expectedFloatValue: '0.254319',
+        },
+      }),
+    );
+
+    expect(reporter.reports.at(-1)).toMatchObject({
+      phase: 'OFFER_SENT',
+    });
+  });
+
   it('fails with ITEM_MISMATCH when multiple inventory items share the name', async () => {
     const reporter = new InMemoryTaskProgressReporter();
     const adapter = new MockSteamOfferAdapter('happy_path');

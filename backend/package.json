@@ -24,7 +24,9 @@
     "prisma:migrate:dev": "prisma migrate dev",
     "prisma:migrate:deploy": "prisma migrate deploy",
     "reconcile:ledger": "ts-node -r tsconfig-paths/register src/scripts/reconcile-ledger.ts",
-    "reconcile:payments": "ts-node -r tsconfig-paths/register src/scripts/reconcile-payments.ts"
+    "reconcile:payments": "ts-node -r tsconfig-paths/register src/scripts/reconcile-payments.ts",
+    "backfill:lot-snapshots": "ts-node -r tsconfig-paths/register src/scripts/backfill-lot-listing-snapshots.ts",
+    "cleanup:orphan-items": "ts-node -r tsconfig-paths/register src/scripts/cleanup-orphan-item-definitions.ts"
   },
   "dependencies": {
     "@nestjs/common": "^11.0.1",

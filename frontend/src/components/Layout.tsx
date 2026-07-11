@@ -34,14 +34,9 @@ export function Layout() {
             <NavLink to="/sell/inventory" className={navLinkClass} data-testid="nav-sell">
               Продать
             </NavLink>
-            <button
-              type="button"
-              className="app-nav-link app-nav-button"
-              data-testid="nav-faq"
-              onClick={() => setSupportOpen(true)}
-            >
+            <NavLink to="/support" className={navLinkClass} data-testid="nav-faq">
               FAQ
-            </button>
+            </NavLink>
           </nav>
         </div>
 
@@ -61,7 +56,7 @@ export function Layout() {
                 )}
               </Link>
               <Link
-                to="/wallet"
+                to="/wallet?tab=deposit"
                 className="header-wallet-deposit"
                 data-testid="header-wallet-deposit"
                 title="Пополнить баланс"

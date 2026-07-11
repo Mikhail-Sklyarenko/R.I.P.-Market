@@ -8,3 +8,4 @@ export * from './adapters/mock-steam-offer-adapter.js';
 export * from './api/task-progress-reporter.js';
 export * from './api/http-task-progress-reporter.js';
 export * from './api/extension-api-client.js';
+export * from './trade-verification.types.js';

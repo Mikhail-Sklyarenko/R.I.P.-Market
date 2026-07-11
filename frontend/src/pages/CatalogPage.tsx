@@ -1,10 +1,10 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { listLots } from '../api/marketplace';
-import type { Lot } from '../api/types';
+import { listCatalogItems, listPopularCatalogItems } from '../api/marketplace';
+import type { CatalogItem } from '../api/types';
 import { useAuth } from '../auth/AuthContext';
 import { CatalogCategoryBar } from '../components/CatalogCategoryBar';
-import { CatalogLotCard } from '../components/CatalogLotCard';
+import { CatalogItemCard } from '../components/CatalogItemCard';
 import { ErrorAlert } from '../components/ErrorAlert';
 import { EmptyState } from '../components/EmptyState';
 import { LoadingState } from '../components/LoadingState';
@@ -27,15 +27,21 @@ import {
   CATALOG_WEAR_FILTERS,
   getWearFilterTestId,
 } from '../utils/wear-filters';
+import { formatDataTimestamp } from '../utils/lot-display';
 
-type SortOption = 'newest' | 'price-asc' | 'price-desc';
+type SortOption = 'newest' | 'price-asc' | 'price-desc' | 'popular';
 
-function toApiSort(sort: SortOption): 'newest' | 'price_asc' | 'price_desc' {
+function toCatalogSort(
+  sort: SortOption,
+): 'newest' | 'cheapest' | 'price_desc' | 'popular' {
   if (sort === 'price-asc') {
-    return 'price_asc';
+    return 'cheapest';
   }
   if (sort === 'price-desc') {
     return 'price_desc';
+  }
+  if (sort === 'popular') {
+    return 'popular';
   }
   return 'newest';
 }
@@ -53,7 +59,9 @@ export function CatalogPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const weaponParam = searchParams.get('weapon');
 
-  const [lots, setLots] = useState<Lot[]>([]);
+  const [items, setItems] = useState<CatalogItem[]>([]);
+  const [popularItems, setPopularItems] = useState<CatalogItem[]>([]);
+  const [steamPriceFetchedAt, setSteamPriceFetchedAt] = useState<string | null>(null);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<unknown>(null);
@@ -63,6 +71,8 @@ export function CatalogPage() {
   const [maxPrice, setMaxPrice] = useState('');
   const [rarityFilter, setRarityFilter] = useState('');
   const [wearFilter, setWearFilter] = useState('');
+  const [floatMin, setFloatMin] = useState('');
+  const [floatMax, setFloatMax] = useState('');
   const [page, setPage] = useState(1);
   const [pageLimit, setPageLimit] = useState<CatalogPageLimit>(24);
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -79,6 +89,8 @@ export function CatalogPage() {
   const query = useMemo(() => {
     const minMinor = minPrice ? parseUsdToMinor(minPrice) : undefined;
     const maxMinor = maxPrice ? parseUsdToMinor(maxPrice) : undefined;
+    const parsedFloatMin = floatMin.trim() ? Number(floatMin) : undefined;
+    const parsedFloatMax = floatMax.trim() ? Number(floatMax) : undefined;
 
     return {
       q: search.trim() || categoryFilter.q || undefined,
@@ -87,27 +99,54 @@ export function CatalogPage() {
       weapon: categoryFilter.weapon,
       rarity: rarityFilter || categoryFilter.rarity,
       wear: wearFilter || undefined,
-      sort: toApiSort(sort),
+      floatMin:
+        parsedFloatMin !== undefined && Number.isFinite(parsedFloatMin)
+          ? parsedFloatMin
+          : undefined,
+      floatMax:
+        parsedFloatMax !== undefined && Number.isFinite(parsedFloatMax)
+          ? parsedFloatMax
+          : undefined,
+      sort: toCatalogSort(sort),
       page,
       limit: pageLimit,
     };
-  }, [search, sort, minPrice, maxPrice, rarityFilter, wearFilter, page, pageLimit, categoryFilter]);
+  }, [search, sort, minPrice, maxPrice, rarityFilter, wearFilter, floatMin, floatMax, page, pageLimit, categoryFilter]);
+
+  const showResetFilters = hasActiveCatalogFilters({
+    search,
+    sort,
+    minPrice,
+    maxPrice,
+    activeTabId,
+    categoryValue,
+    wearFilter,
+    floatMin,
+    floatMax,
+  }) || Boolean(rarityFilter);
+
+  const filtersActive = showResetFilters;
 
   useEffect(() => {
     setLoading(true);
     setError(null);
-    listLots(query)
-      .then((response) => {
-        setLots(response.items);
+    Promise.all([
+      listCatalogItems(query),
+      filtersActive ? Promise.resolve([] as CatalogItem[]) : listPopularCatalogItems(12),
+    ])
+      .then(([response, popular]) => {
+        setItems(response.items);
         setTotal(response.total);
+        setPopularItems(popular);
+        setSteamPriceFetchedAt(response.steamPriceFetchedAt ?? null);
       })
       .catch((err: unknown) => setError(err))
       .finally(() => setLoading(false));
-  }, [query]);
+  }, [query, filtersActive]);
 
   useEffect(() => {
     setPage(1);
-  }, [search, sort, minPrice, maxPrice, rarityFilter, wearFilter, activeTabId, categoryValue, pageLimit]);
+  }, [search, sort, minPrice, maxPrice, rarityFilter, wearFilter, floatMin, floatMax, activeTabId, categoryValue, pageLimit]);
 
   useEffect(() => {
     if (!weaponParam) {
@@ -120,15 +159,6 @@ export function CatalogPage() {
 
   const totalPages = Math.max(1, Math.ceil(total / pageLimit));
   const currentPage = Math.min(page, totalPages);
-  const showResetFilters = hasActiveCatalogFilters({
-    search,
-    sort,
-    minPrice,
-    maxPrice,
-    activeTabId,
-    categoryValue,
-    wearFilter,
-  }) || Boolean(rarityFilter);
 
   function handleCategoryChange(value: string) {
     setCategoryValue(value);
@@ -164,6 +194,8 @@ export function CatalogPage() {
     setMaxPrice('');
     setRarityFilter('');
     setWearFilter('');
+    setFloatMin('');
+    setFloatMax('');
     setActiveTabId('all');
     setCategoryValue('');
     setPage(1);
@@ -175,7 +207,7 @@ export function CatalogPage() {
     <div className="page">
       <PageHeader
         title="Каталог"
-        subtitle="Активные лоты, доступные для покупки."
+        subtitle="Все скины CS2, доступные к обмену — с ценами Steam и маркетплейса."
       />
 
       <TrustBanner />
@@ -199,6 +231,7 @@ export function CatalogPage() {
               onChange={(event) => setSort(event.target.value as SortOption)}
               data-testid="catalog-sort"
             >
+              <option value="popular">Популярные</option>
               <option value="newest">Сначала новые</option>
               <option value="price-asc">Цена ↑</option>
               <option value="price-desc">Цена ↓</option>
@@ -314,6 +347,34 @@ export function CatalogPage() {
             </fieldset>
 
             <fieldset className="catalog-sidebar-section">
+              <legend className="field-label">Float</legend>
+              <div className="catalog-sidebar-price-fields">
+                <label className="field catalog-filter-field">
+                  <span className="field-label">От</span>
+                  <input
+                    type="text"
+                    inputMode="decimal"
+                    value={floatMin}
+                    onChange={(event) => setFloatMin(event.target.value)}
+                    placeholder="0.00"
+                    data-testid="catalog-float-min"
+                  />
+                </label>
+                <label className="field catalog-filter-field">
+                  <span className="field-label">До</span>
+                  <input
+                    type="text"
+                    inputMode="decimal"
+                    value={floatMax}
+                    onChange={(event) => setFloatMax(event.target.value)}
+                    placeholder="1.00"
+                    data-testid="catalog-float-max"
+                  />
+                </label>
+              </div>
+            </fieldset>
+
+            <fieldset className="catalog-sidebar-section">
               <legend className="field-label">Износ</legend>
               <div className="catalog-rarity-filters" role="group" aria-label="Фильтр износа">
                 <button
@@ -351,22 +412,40 @@ export function CatalogPage() {
           {loading ? <LoadingState message="Загрузка каталога…" /> : null}
 
           {!loading ? (
-            <p className="catalog-total" data-testid="catalog-total">
-              Найдено лотов: {total}
-            </p>
+            <>
+              <p className="catalog-total" data-testid="catalog-total">
+                Найдено скинов: {total}
+              </p>
+              {formatDataTimestamp(steamPriceFetchedAt) ? (
+                <p className="muted small" data-testid="catalog-steam-price-updated-at">
+                  Цены Steam обновлены: {formatDataTimestamp(steamPriceFetchedAt)}
+                </p>
+              ) : null}
+            </>
           ) : null}
 
-          {!loading && lots.length === 0 ? (
+          {!loading && popularItems.length > 0 ? (
+            <section className="catalog-popular-section" data-testid="catalog-popular-section">
+              <h2 className="catalog-section-title">Популярные и покупаемые</h2>
+              <div className="catalog-grid catalog-grid-compact">
+                {popularItems.map((item) => (
+                  <CatalogItemCard key={`popular-${item.id}`} item={item} isLoggedIn={Boolean(token)} />
+                ))}
+              </div>
+            </section>
+          ) : null}
+
+          {!loading && items.length === 0 ? (
             <EmptyState
-              title="Пока нет лотов"
-              message="Продавцы ещё не выставили предметы или ничего не найдено по фильтрам."
+              title="Ничего не найдено"
+              message="Измените фильтры или дождитесь появления новых предметов в каталоге."
             />
           ) : null}
 
-          {!loading && lots.length > 0 ? (
+          {!loading && items.length > 0 ? (
             <div className="catalog-grid" data-testid="catalog-grid">
-              {lots.map((lot) => (
-                <CatalogLotCard key={lot.id} lot={lot} isLoggedIn={Boolean(token)} />
+              {items.map((item) => (
+                <CatalogItemCard key={item.id} item={item} isLoggedIn={Boolean(token)} />
               ))}
             </div>
           ) : null}

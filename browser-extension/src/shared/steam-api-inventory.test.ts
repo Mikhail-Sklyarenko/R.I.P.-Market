@@ -77,6 +77,7 @@ describe('steam-api-inventory', () => {
         classId: '111',
         instanceId: '222',
         marketHashName: 'M4A4 | Howl (Factory New)',
+        floatValue: null,
       },
     ]);
   });

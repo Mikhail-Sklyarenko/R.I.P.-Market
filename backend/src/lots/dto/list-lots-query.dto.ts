@@ -2,6 +2,7 @@ import { Type } from 'class-transformer';
 import {
   IsIn,
   IsInt,
+  IsNumber,
   IsOptional,
   IsPositive,
   IsString,
@@ -38,6 +39,20 @@ export class ListLotsQueryDto {
   @IsOptional()
   @IsIn(['FN', 'MW', 'FT', 'WW', 'BS'])
   wear?: string;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  @Min(0)
+  @Max(1)
+  floatMin?: number;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  @Min(0)
+  @Max(1)
+  floatMax?: number;
 
   @IsOptional()
   @IsIn(['price_asc', 'price_desc', 'newest'])

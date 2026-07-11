@@ -17,16 +17,19 @@ describe('steam-inventory.parser', () => {
       iconUrl:
         '-9a81dlWLwJ2UUGcVs_nsVze-rNIjLSm9wSizZLQmfJIMWn3kSKfJjx0XfZR2f0XqYh8f_large',
       tradable: true,
+      marketable: true,
       tradeLockUntil: null,
       floatValue: '0.254319',
       paintSeed: 661,
       wear: 'FT',
+      stickers: [],
     });
     expect(parsed[1]).toMatchObject({
       assetExternalId: '12345678902',
       iconUrl:
         '-9a81dlWLwJ2UUGcVs_nsVze-rNIjLSm9wSizZLQmfJIMWn3kSKfJjx0XfZR2f0XqYh8g',
       tradable: false,
+      marketable: false,
       wear: 'BS',
       tradeLockUntil: new Date('2026-07-01T00:00:00Z'),
     });

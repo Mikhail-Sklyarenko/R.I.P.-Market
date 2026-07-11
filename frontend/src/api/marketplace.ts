@@ -7,6 +7,8 @@ import type {
   ListMyOrdersParams,
   Lot,
   LotsPage,
+  CatalogItem,
+  CatalogItemsPage,
   Notification,
   NotificationCategory,
   Order,
@@ -92,11 +94,48 @@ export function listLots(params: ListLotsParams) {
     weapon: params.weapon,
     rarity: params.rarity,
     wear: params.wear,
+    floatMin: params.floatMin,
+    floatMax: params.floatMax,
     sort: params.sort,
     page: params.page,
     limit: params.limit,
   });
   return apiRequest<LotsPage>(`/lots${query}`);
+}
+
+export type ListCatalogItemsParams = {
+  q?: string;
+  weapon?: string;
+  rarity?: string;
+  wear?: string;
+  floatMin?: number;
+  floatMax?: number;
+  minPriceMinor?: number;
+  maxPriceMinor?: number;
+  sort?: 'popular' | 'cheapest' | 'newest' | 'price_desc';
+  page?: number;
+  limit?: number;
+};
+
+export function listCatalogItems(params: ListCatalogItemsParams) {
+  const query = buildQueryString({
+    q: params.q,
+    weapon: params.weapon,
+    rarity: params.rarity,
+    wear: params.wear,
+    floatMin: params.floatMin,
+    floatMax: params.floatMax,
+    minPriceMinor: params.minPriceMinor,
+    maxPriceMinor: params.maxPriceMinor,
+    sort: params.sort,
+    page: params.page,
+    limit: params.limit,
+  });
+  return apiRequest<CatalogItemsPage>(`/catalog/items${query}`);
+}
+
+export function listPopularCatalogItems(limit = 12) {
+  return apiRequest<CatalogItem[]>(`/catalog/popular?limit=${limit}`);
 }
 
 export function listSimilarLots(lotId: string, limit = 6) {
@@ -110,6 +149,14 @@ export function getLot(lotId: string) {
 export function getInventory(token: string, options?: { forceRefresh?: boolean }) {
   const query = options?.forceRefresh ? '?forceRefresh=true' : '';
   return apiRequest<InventoryResponse>(`/inventory${query}`, { token });
+}
+
+export function getInventoryPriceHints(token: string, marketHashNames: string[]) {
+  return apiRequest<import('./types').InventoryPriceHintsResponse>('/inventory/price-hints', {
+    method: 'POST',
+    token,
+    body: { marketHashNames },
+  });
 }
 
 export function checkInventoryAsset(token: string, assetId: string) {

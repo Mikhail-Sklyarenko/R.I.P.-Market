@@ -20,6 +20,7 @@ import { ObservabilityModule } from './common/observability/observability.module
 import { RequestIdMiddleware } from './common/observability/request-id.middleware';
 import { TestModule } from './test/test.module';
 import { ExtensionModule } from './extension/extension.module';
+import { CatalogModule } from './catalog/catalog.module';
 import { SupportModule } from './support/support.module';
 
 @Module({
@@ -41,6 +42,7 @@ import { SupportModule } from './support/support.module';
     NotificationsModule,
     PaymentsModule,
     SupportModule,
+    CatalogModule,
     ...(process.env.ENABLE_EXTENSION_CHANNEL === 'true' ? [ExtensionModule] : []),
     ...(process.env.ENABLE_TEST_ROUTES === 'true' ||
     process.env.ENABLE_MOCK_TRADE === 'true'

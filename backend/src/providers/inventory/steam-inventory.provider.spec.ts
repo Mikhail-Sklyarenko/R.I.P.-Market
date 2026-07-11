@@ -35,6 +35,7 @@ describe('SteamInventoryProvider', () => {
     };
     syncCache = {
       getLatestRun: jest.fn().mockResolvedValue(null),
+      clearRuns: jest.fn().mockResolvedValue(undefined),
       recordRun: jest.fn().mockResolvedValue({
         status: InventorySyncStatus.SUCCESS,
         itemCount: 2,
@@ -154,5 +155,44 @@ describe('SteamInventoryProvider', () => {
     expect(result.stale).toBe(true);
     expect(result.cacheHit).toBe(true);
     expect(result.warning).toContain('Steam timeout');
+  });
+
+  it('marks service medals as non-marketable during sync', async () => {
+    jest.spyOn(steamClient, 'fetchAllSteamInventoryPages').mockResolvedValue({
+      success: 1,
+      assets: [
+        {
+          appid: 730,
+          contextid: '2',
+          assetid: '999',
+          classid: '1',
+          instanceid: '1',
+        },
+      ],
+      descriptions: [
+        {
+          classid: '1',
+          instanceid: '1',
+          market_hash_name: '2024 Service Medal',
+          tradable: 1,
+          marketable: 1,
+        },
+      ],
+    });
+
+    await provider.syncInventory('user-1', '76561198000000000');
+
+    expect(prisma.inventoryAsset.upsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        create: expect.objectContaining({
+          marketable: false,
+          tradable: false,
+        }),
+        update: expect.objectContaining({
+          marketable: false,
+          tradable: false,
+        }),
+      }),
+    );
   });
 });

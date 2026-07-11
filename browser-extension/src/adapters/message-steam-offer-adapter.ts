@@ -39,6 +39,11 @@ export class MessageSteamOfferAdapter implements SteamOfferAdapter {
     return items.length > 0 ? items : null;
   }
 
+  async warmTradePage(buyerTradeUrl: string): Promise<boolean> {
+    const tabId = await this.steam.navigateToTradePage(buyerTradeUrl);
+    return tabId !== null;
+  }
+
   async draftOffer(input: DraftOfferInput): Promise<DraftOfferResult> {
     const draftId = input.taskId
       ? `draft-${input.taskId}`
@@ -64,10 +69,11 @@ export class MessageSteamOfferAdapter implements SteamOfferAdapter {
   async sendOffer(draftId: string, hooks?: SendOfferHooks): Promise<SendOfferResult> {
     const cached = await getCachedSentOffer(draftId);
     if (cached?.ok) {
-      await hooks?.onItemSelected?.({
-        assetId: cached.assetId ?? cached.offerId,
-        marketHashName: cached.marketHashName ?? null,
-      });
+    await hooks?.onItemSelected?.({
+      assetId: cached.assetId ?? cached.offerId,
+      marketHashName: cached.marketHashName ?? null,
+      floatValue: cached.floatValue ?? null,
+    });
       await hooks?.onOfferSubmitted?.();
       return {
         ok: true,
@@ -96,6 +102,7 @@ export class MessageSteamOfferAdapter implements SteamOfferAdapter {
     await hooks?.onItemSelected?.({
       assetId: draft.item.assetId,
       marketHashName: draft.item.marketHashName ?? null,
+      floatValue: draft.item.floatValue ?? null,
     });
     await hooks?.onOfferSubmitted?.();
 

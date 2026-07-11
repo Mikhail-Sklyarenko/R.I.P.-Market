@@ -1,4 +1,4 @@
-import { HttpStatus, Injectable, Logger } from '@nestjs/common';
+import { HttpStatus, Inject, Injectable, Logger, forwardRef } from '@nestjs/common';
 import {
   InventoryAssetStatus,
   LotStatus,
@@ -17,6 +17,7 @@ import {
   isValidSteamOfferId,
   normalizeTradeReferenceInput,
 } from './trade-reference.util';
+import { TradeStatusPollerService } from './trade-status-poller.service';
 
 export type TradeReferenceSource = 'MANUAL' | 'EXTENSION';
 
@@ -44,6 +45,8 @@ export class TradeReferenceReconcileService {
     private readonly prisma: PrismaService,
     private readonly orderStateService: OrderStateService,
     private readonly lotStateService: LotStateService,
+    @Inject(forwardRef(() => TradeStatusPollerService))
+    private readonly tradeStatusPoller: TradeStatusPollerService,
   ) {}
 
   async reconcile(params: {
@@ -254,6 +257,14 @@ export class TradeReferenceReconcileService {
         strict,
       }),
     );
+
+    void this.tradeStatusPoller.pollOrderById(order.id).catch((error) => {
+      this.logger.warn(
+        `Immediate trade poll failed for order ${order.id}: ${
+          error instanceof Error ? error.message : 'unknown'
+        }`,
+      );
+    });
 
     return {
       orderId: order.id,

@@ -1,5 +1,9 @@
 import { signatureMessage } from '../crypto/signature.js';
 import type { PolledTradeTask, TaskProgressReport } from '../types.js';
+import type {
+  TradeAcknowledgmentType,
+  TradeVerificationResult,
+} from '../trade-verification.types.js';
 
 export class ExtensionApiError extends Error {
   readonly path: string;
@@ -165,6 +169,44 @@ export class ExtensionApiClient {
 
   async revokeSession(): Promise<void> {
     await this.signedPost('/extension/session/revoke', {});
+  }
+
+  async listActiveTrades(limit = 10): Promise<TradeVerificationResult[]> {
+    const body = await this.signedPost<{ trades: TradeVerificationResult[] }>(
+      '/extension/trades/active',
+      { limit },
+    );
+    return body.trades ?? [];
+  }
+
+  async verifyTrade(
+    orderId: string,
+    offerId?: string | null,
+    observed?: {
+      assetId?: string | null;
+      floatValue?: string | null;
+    },
+  ): Promise<TradeVerificationResult> {
+    return this.signedPost<TradeVerificationResult>('/extension/trades/verify', {
+      orderId,
+      ...(offerId ? { offerId } : {}),
+      ...(observed?.assetId ? { observedAssetId: observed.assetId } : {}),
+      ...(observed?.floatValue ? { observedFloatValue: observed.floatValue } : {}),
+    });
+  }
+
+  async acknowledgeTrade(params: {
+    orderId: string;
+    type: TradeAcknowledgmentType;
+    offerId?: string | null;
+    idempotencyKey: string;
+  }): Promise<{ ok: true; type: TradeAcknowledgmentType; idempotent: boolean }> {
+    return this.signedPost('/extension/trades/acknowledge', {
+      orderId: params.orderId,
+      type: params.type,
+      idempotencyKey: params.idempotencyKey,
+      ...(params.offerId ? { offerId: params.offerId } : {}),
+    });
   }
 
   private async signedPost<T>(

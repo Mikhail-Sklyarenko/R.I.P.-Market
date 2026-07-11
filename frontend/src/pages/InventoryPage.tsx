@@ -4,11 +4,18 @@ import {
   createLot,
   getAuthConfig,
   getInventory,
+  getInventoryPriceHints,
   getPricingPreview,
   getUserMe,
   resetDevTrades,
 } from '../api/sell';
-import type { AuthConfig, InventoryAsset, InventorySyncMeta, PricingPreview } from '../api/types';
+import type {
+  AuthConfig,
+  InventoryAsset,
+  InventoryPriceHint,
+  InventorySyncMeta,
+  PricingPreview,
+} from '../api/types';
 import { useAuth } from '../auth/AuthContext';
 import { EmptyState } from '../components/EmptyState';
 import { ErrorAlert } from '../components/ErrorAlert';
@@ -28,6 +35,7 @@ import {
 } from '../utils/seller-flow';
 import { profileToAuthUser } from '../utils/user-profile';
 import { hasTradeUrl } from '../utils/trade-url';
+import { formatDataTimestamp } from '../utils/lot-display';
 
 export function InventoryPage() {
   const { token, user, updateUser } = useAuth();
@@ -42,11 +50,15 @@ export function InventoryPage() {
   const [sellError, setSellError] = useState<unknown>(null);
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<InventoryStatusFilter>('all');
+  const [showUnavailable, setShowUnavailable] = useState(false);
   const [selectedAssetId, setSelectedAssetId] = useState<string | null>(null);
   const [priceInput, setPriceInput] = useState('10.00');
   const [preview, setPreview] = useState<PricingPreview | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [priceError, setPriceError] = useState<string | null>(null);
+  const [priceHints, setPriceHints] = useState<Record<string, InventoryPriceHint>>({});
+  const [steamPriceFetchedAt, setSteamPriceFetchedAt] = useState<string | null>(null);
+  const [pricesLoading, setPricesLoading] = useState(false);
 
   const inventoryProvider = config?.inventoryProvider ?? 'mock';
   const requiresSteamLink = inventoryProvider === 'steam';
@@ -62,6 +74,33 @@ export function InventoryPage() {
 
   const priceMinor = useMemo(() => parseUsdToMinor(priceInput), [priceInput]);
   const selectedListable = selectedAsset ? canListAsset(selectedAsset) : false;
+
+  const loadPriceHints = useCallback(
+    async (inventoryAssets: InventoryAsset[]) => {
+      if (!token || inventoryAssets.length === 0) {
+        setPriceHints({});
+        setSteamPriceFetchedAt(null);
+        setPricesLoading(false);
+        return;
+      }
+
+      const marketHashNames = [
+        ...new Set(inventoryAssets.map((asset) => asset.itemDefinition.marketHashName)),
+      ];
+      setPricesLoading(true);
+      try {
+        const response = await getInventoryPriceHints(token, marketHashNames);
+        setPriceHints(response.hints);
+        setSteamPriceFetchedAt(response.steamPriceFetchedAt ?? null);
+      } catch {
+        setPriceHints({});
+        setSteamPriceFetchedAt(null);
+      } finally {
+        setPricesLoading(false);
+      }
+    },
+    [token],
+  );
 
   const loadInventory = useCallback(
     async (forceRefresh = false) => {
@@ -80,6 +119,7 @@ export function InventoryPage() {
         const response = await getInventory(token, { forceRefresh });
         setAssets(response.assets);
         setSync(response.sync);
+        void loadPriceHints(response.assets);
       } catch (err: unknown) {
         setError(err);
       } finally {
@@ -87,7 +127,7 @@ export function InventoryPage() {
         setRefreshing(false);
       }
     },
-    [token, steamLinked],
+    [token, steamLinked, loadPriceHints],
   );
 
   useEffect(() => {
@@ -121,6 +161,7 @@ export function InventoryPage() {
         }
         setAssets(response.assets);
         setSync(response.sync);
+        void loadPriceHints(response.assets);
       })
       .catch((err: unknown) => {
         if (!cancelled) {
@@ -136,7 +177,7 @@ export function InventoryPage() {
     return () => {
       cancelled = true;
     };
-  }, [token, updateUser]);
+  }, [token, updateUser, loadPriceHints]);
 
   useEffect(() => {
     if (!priceMinor) {
@@ -164,8 +205,13 @@ export function InventoryPage() {
     sync?.stale || (sync ? new Date(sync.expiresAt) <= new Date() : false);
 
   const filteredAssets = useMemo(
-    () => filterInventoryAssets(assets, search, statusFilter),
-    [assets, search, statusFilter],
+    () => filterInventoryAssets(assets, search, statusFilter, showUnavailable),
+    [assets, search, statusFilter, showUnavailable],
+  );
+
+  const visibleCount = useMemo(
+    () => filterInventoryAssets(assets, '', 'all', showUnavailable).length,
+    [assets, showUnavailable],
   );
 
   function selectAsset(asset: InventoryAsset) {
@@ -271,6 +317,9 @@ export function InventoryPage() {
       {sync ? (
         <p className="muted small">
           Последняя синхронизация: {new Date(sync.lastSyncedAt).toLocaleString()}
+          {formatDataTimestamp(steamPriceFetchedAt) ? (
+            <span> · Цены Steam: {formatDataTimestamp(steamPriceFetchedAt)}</span>
+          ) : null}
           {showStaleBadge ? (
             <span className="badge badge-stale" style={{ marginLeft: '0.5rem' }}>
               Устарело
@@ -345,9 +394,18 @@ export function InventoryPage() {
                     ))}
                   </select>
                 </label>
+                <label className="inventory-show-unavailable">
+                  <input
+                    type="checkbox"
+                    checked={showUnavailable}
+                    onChange={(event) => setShowUnavailable(event.target.checked)}
+                    data-testid="inventory-show-unavailable"
+                  />
+                  <span className="muted small">Показать недоступные</span>
+                </label>
               </div>
               <p className="muted small inventory-filter-total" data-testid="inventory-filter-total">
-                Показано: {filteredAssets.length} из {assets.length}
+                Показано: {filteredAssets.length} из {visibleCount}
               </p>
             </div>
 
@@ -363,6 +421,8 @@ export function InventoryPage() {
                     key={asset.id}
                     asset={asset}
                     isSelected={selectedAssetId === asset.id}
+                    priceHint={priceHints[asset.itemDefinition.marketHashName]}
+                    pricesLoading={pricesLoading}
                     onSelect={selectAsset}
                   />
                 ))}
@@ -378,6 +438,7 @@ export function InventoryPage() {
             {selectedAsset && selectedListable ? (
               <InventorySellPanel
                 asset={selectedAsset}
+                priceHint={priceHints[selectedAsset.itemDefinition.marketHashName]}
                 priceInput={priceInput}
                 priceError={priceError}
                 preview={preview}

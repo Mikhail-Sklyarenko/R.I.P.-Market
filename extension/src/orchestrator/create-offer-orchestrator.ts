@@ -1,3 +1,4 @@
+import { floatsMatch } from '../float-match.util.js';
 import type { SteamOfferAdapter } from '../adapters/steam-offer-adapter.js';
 import type { TaskProgressReporter } from '../api/task-progress-reporter.js';
 import { OfferErrorCode } from '../error-codes.js';
@@ -28,6 +29,12 @@ export class CreateOfferOrchestrator {
 
     const resumeAtSend = task.executionPhase === 'OFFER_DRAFTED';
     const buyerTradeUrl = task.payload.buyerTradeUrl?.trim() ?? '';
+    let matchedItem: SteamInventoryItem | null = null;
+    let selectedObserved: {
+      assetId: string;
+      floatValue: string | null;
+      marketHashName: string | null;
+    } | null = null;
 
     if (!resumeAtSend) {
       if (task.executionPhase !== 'ACKED') {
@@ -64,8 +71,11 @@ export class CreateOfferOrchestrator {
       const sellerSteamId = task.payload.sellerSteamId
         ? String(task.payload.sellerSteamId)
         : null;
+
+      const warmPagePromise = this.steam.warmTradePage(buyerTradeUrl);
       const sessionSteamId = await this.steam.resolveSessionSteamId();
       if (!sessionSteamId) {
+        await warmPagePromise.catch(() => undefined);
         await this.failTask(
           task.id,
           `${baseKey}:OFFER_FAILED:inventory`,
@@ -76,6 +86,7 @@ export class CreateOfferOrchestrator {
         return;
       }
       if (sellerSteamId && sessionSteamId !== sellerSteamId) {
+        await warmPagePromise.catch(() => undefined);
         await this.failTask(
           task.id,
           `${baseKey}:OFFER_FAILED:account_mismatch`,
@@ -86,7 +97,10 @@ export class CreateOfferOrchestrator {
         return;
       }
 
-      const inventory = await this.steam.loadSellerInventory(sellerSteamId);
+      const [, inventory] = await Promise.all([
+        warmPagePromise,
+        this.steam.loadSellerInventory(sellerSteamId),
+      ]);
       if (!inventory || inventory.length === 0) {
         await this.failTask(
           task.id,
@@ -125,6 +139,8 @@ export class CreateOfferOrchestrator {
         return;
       }
 
+      matchedItem = item;
+
       const draft = await this.steam.draftOffer({
         buyerTradeUrl,
         item,
@@ -160,8 +176,21 @@ export class CreateOfferOrchestrator {
     }
 
     const draftId = `draft-${task.id}`;
+    if (resumeAtSend && !matchedItem && task.payload.expectedAssetId) {
+      matchedItem = {
+        assetId: String(task.payload.expectedAssetId),
+        floatValue: task.payload.expectedFloatValue ?? null,
+        marketHashName: task.payload.marketHashName ?? null,
+      };
+    }
+
     const sent = await this.steam.sendOffer(draftId, {
       onItemSelected: async (details) => {
+        selectedObserved = {
+          assetId: details.assetId,
+          floatValue: details.floatValue ?? null,
+          marketHashName: details.marketHashName ?? null,
+        };
         await this.reporter.report({
           taskId: task.id,
           phase: 'ITEM_SELECTED',
@@ -169,6 +198,8 @@ export class CreateOfferOrchestrator {
           details: {
             assetId: details.assetId,
             marketHashName: details.marketHashName ?? null,
+            observedAssetId: details.assetId,
+            observedFloatValue: details.floatValue ?? null,
           },
         });
       },
@@ -191,6 +222,17 @@ export class CreateOfferOrchestrator {
     }
 
     const offerId = normalizeSteamOfferId(sent.offerId);
+    const observedAssetId =
+      selectedObserved?.assetId ?? matchedItem?.assetId ?? null;
+    const observedFloatValue =
+      selectedObserved?.floatValue ?? matchedItem?.floatValue ?? null;
+    const observedDetails = {
+      orderId: task.orderId,
+      tradeOperationId: task.tradeOperationId,
+      ...(observedAssetId ? { observedAssetId } : {}),
+      ...(observedFloatValue ? { observedFloatValue } : {}),
+    };
+
     if (sent.confirmPending) {
       await this.reporter.report({
         taskId: task.id,
@@ -211,8 +253,7 @@ export class CreateOfferOrchestrator {
           idempotencyKey: `${baseKey}:OFFER_SENT`,
           offerId,
           details: {
-            orderId: task.orderId,
-            tradeOperationId: task.tradeOperationId,
+            ...observedDetails,
             confirmPending: true,
           },
         });
@@ -236,10 +277,7 @@ export class CreateOfferOrchestrator {
       phase: 'OFFER_SENT',
       idempotencyKey: `${baseKey}:OFFER_SENT`,
       offerId,
-      details: {
-        orderId: task.orderId,
-        tradeOperationId: task.tradeOperationId,
-      },
+      details: observedDetails,
     });
   }
 
@@ -251,13 +289,16 @@ export class CreateOfferOrchestrator {
       ? String(task.payload.expectedAssetId)
       : null;
     const marketHashName = task.payload.marketHashName?.trim() ?? null;
+    const expectedFloatValue = task.payload.expectedFloatValue ?? null;
 
     if (expectedAssetId) {
       const byAsset = inventory.find(
         (entry) => String(entry.assetId) === expectedAssetId,
       );
       if (byAsset) {
-        return byAsset;
+        return floatsMatch(expectedFloatValue, byAsset.floatValue)
+          ? byAsset
+          : null;
       }
     }
 
@@ -267,6 +308,20 @@ export class CreateOfferOrchestrator {
         (entry) =>
           entry.marketHashName?.trim().toLowerCase() === normalizedTarget,
       );
+      if (expectedFloatValue) {
+        const byFloat = byName.filter((entry) =>
+          floatsMatch(expectedFloatValue, entry.floatValue),
+        );
+        if (byFloat.length === 1) {
+          return byFloat[0] ?? null;
+        }
+        if (byFloat.length > 1 && expectedAssetId) {
+          return null;
+        }
+        if (byFloat.length === 0) {
+          return null;
+        }
+      }
       if (byName.length === 1) {
         return byName[0] ?? null;
       }

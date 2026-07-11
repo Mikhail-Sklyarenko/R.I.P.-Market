@@ -29,6 +29,8 @@ import { isExtensionTradeReferenceEnabled } from '../trades/trade-reference.conf
 import { TradeReferenceReconcileService } from '../trades/trade-reference-reconcile.service';
 import { AntiFraudRuleService } from '../common/observability/anti-fraud.service';
 import { ExtensionRateLimitService } from '../common/observability/extension-rate-limit.service';
+import { ExtensionTradeAckService } from './extension-trade-ack.service';
+import { isExtensionTradeAcknowledgmentEnabled } from './extension-trade-ack.config';
 
 @ApiTags('extension')
 @Controller('extension')
@@ -40,6 +42,7 @@ export class ExtensionController {
     private readonly prisma: PrismaService,
     private readonly rateLimit: ExtensionRateLimitService,
     private readonly antiFraud: AntiFraudRuleService,
+    private readonly extensionTradeAckService: ExtensionTradeAckService,
   ) {}
 
   @ApiBearerAuth()
@@ -212,6 +215,91 @@ export class ExtensionController {
   @ApiBearerAuth()
   @ApiHeader({ name: 'Authorization', required: true })
   @UseGuards(ExtensionSessionGuard, ExtensionSignatureGuard)
+  @Post('trades/active')
+  @HttpCode(HttpStatus.OK)
+  async listActiveTrades(
+    @CurrentExtensionAuth() auth: { userId: string; sessionId: string },
+    @Body() dto: SignedEnvelopeDto,
+  ) {
+    this.assertSignedRateLimit(auth.sessionId);
+    this.ensureTradeAcknowledgmentEnabled();
+    const limit = Number(dto.payload.limit ?? 10);
+    const trades = await this.extensionTradeAckService.listActiveTrades(
+      auth.userId,
+      limit,
+    );
+    return { trades };
+  }
+
+  @ApiBearerAuth()
+  @ApiHeader({ name: 'Authorization', required: true })
+  @UseGuards(ExtensionSessionGuard, ExtensionSignatureGuard)
+  @Post('trades/verify')
+  @HttpCode(HttpStatus.OK)
+  async verifyTrade(
+    @CurrentExtensionAuth() auth: { userId: string; sessionId: string },
+    @Body() dto: SignedEnvelopeDto,
+  ) {
+    this.assertSignedRateLimit(auth.sessionId);
+    this.ensureTradeAcknowledgmentEnabled();
+    const orderId = String(dto.payload.orderId ?? '');
+    if (!orderId) {
+      throw new AppException(
+        ErrorCode.VALIDATION_ERROR,
+        'payload.orderId is required',
+      );
+    }
+    const offerId = dto.payload.offerId ? String(dto.payload.offerId) : null;
+    const observedAssetId = dto.payload.observedAssetId
+      ? String(dto.payload.observedAssetId)
+      : null;
+    const observedFloatValue = dto.payload.observedFloatValue
+      ? String(dto.payload.observedFloatValue)
+      : null;
+    return this.extensionTradeAckService.verifyTrade(
+      auth.userId,
+      orderId,
+      offerId,
+      {
+        assetId: observedAssetId,
+        floatValue: observedFloatValue,
+      },
+    );
+  }
+
+  @ApiBearerAuth()
+  @ApiHeader({ name: 'Authorization', required: true })
+  @UseGuards(ExtensionSessionGuard, ExtensionSignatureGuard)
+  @Post('trades/acknowledge')
+  @HttpCode(HttpStatus.OK)
+  async acknowledgeTrade(
+    @CurrentExtensionAuth() auth: { userId: string; sessionId: string },
+    @Body() dto: SignedEnvelopeDto,
+  ) {
+    this.assertSignedRateLimit(auth.sessionId);
+    this.ensureTradeAcknowledgmentEnabled();
+    const payload = dto.payload;
+    const orderId = String(payload.orderId ?? '');
+    const type = String(payload.type ?? '');
+    const idempotencyKey = String(payload.idempotencyKey ?? '');
+    if (!orderId || !type || !idempotencyKey) {
+      throw new AppException(
+        ErrorCode.VALIDATION_ERROR,
+        'payload.orderId, payload.type and payload.idempotencyKey are required',
+      );
+    }
+    return this.extensionTradeAckService.acknowledge({
+      userId: auth.userId,
+      orderId,
+      type,
+      offerId: payload.offerId ? String(payload.offerId) : null,
+      idempotencyKey,
+    });
+  }
+
+  @ApiBearerAuth()
+  @ApiHeader({ name: 'Authorization', required: true })
+  @UseGuards(ExtensionSessionGuard, ExtensionSignatureGuard)
   @Post('session/rotate')
   async rotate(@CurrentExtensionAuth() auth: { sessionId: string }) {
     this.assertSignedRateLimit(auth.sessionId);
@@ -266,6 +354,16 @@ export class ExtensionController {
       throw new AppException(
         ErrorCode.EXTENSION_CHANNEL_DISABLED,
         'Extension trade reference endpoint is disabled',
+      );
+    }
+  }
+
+  private ensureTradeAcknowledgmentEnabled(): void {
+    this.ensureEnabled();
+    if (!isExtensionTradeAcknowledgmentEnabled()) {
+      throw new AppException(
+        ErrorCode.EXTENSION_CHANNEL_DISABLED,
+        'Extension trade acknowledgment is disabled',
       );
     }
   }

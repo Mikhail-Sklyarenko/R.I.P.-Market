@@ -51,11 +51,50 @@ test.describe('Main navigation', () => {
     await expect(page.getByTestId('buy-lot-button')).toBeVisible();
   });
 
-  test('faq button opens support widget', async ({ page }) => {
+  test('faq nav link opens full support page', async ({ page }) => {
     await loginAsBuyer(page);
 
     await page.getByTestId('nav-faq').click();
+    await expect(page).toHaveURL(/\/support$/);
+    await expect(page.getByTestId('support-faq-section')).toBeVisible();
+    await expect(page.getByTestId('support-faq-content')).toBeVisible();
+    await expect(page.getByTestId('support-faq-category-general')).toBeVisible();
+  });
+
+  test('support widget fab opens quick help', async ({ page }) => {
+    await loginAsBuyer(page);
+
+    await page.getByTestId('support-widget-fab').click();
     await expect(page.getByTestId('support-widget-panel')).toBeVisible();
     await expect(page.getByTestId('support-widget-articles')).toBeVisible();
+    await expect(page.getByTestId('support-widget-article-widget-withdraw-time')).toBeVisible();
+    await expect(page.getByTestId('support-widget-page-link')).toHaveText(/Все вопросы/);
+  });
+
+  test('support widget on faq page links to ticket form', async ({ page }) => {
+    await loginAsBuyer(page);
+
+    await page.goto('/support');
+    await page.getByTestId('support-widget-fab').click();
+    await expect(page.getByTestId('support-widget-ticket-link')).toHaveText(/Создать тикет/);
+    await expect(page.getByTestId('support-widget-page-link')).toHaveCount(0);
+  });
+
+  test('faq category collapses on second click', async ({ page }) => {
+    await loginAsBuyer(page);
+    await page.goto('/support');
+
+    const generalCategory = page.getByTestId('support-faq-category-general');
+    await expect(generalCategory.getByRole('button', { name: /Общие вопросы/ })).toHaveAttribute(
+      'aria-expanded',
+      'true',
+    );
+
+    await generalCategory.getByRole('button', { name: /Общие вопросы/ }).click();
+    await expect(generalCategory.getByRole('button', { name: /Общие вопросы/ })).toHaveAttribute(
+      'aria-expanded',
+      'false',
+    );
+    await expect(page.getByTestId('support-faq-content')).toBeVisible();
   });
 });

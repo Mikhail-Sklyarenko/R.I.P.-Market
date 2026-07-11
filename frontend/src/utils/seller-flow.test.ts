@@ -17,11 +17,18 @@ describe('seller-flow utils', () => {
     const assets = [
       {
         status: 'AVAILABLE',
+        tradable: true,
         itemDefinition: { marketHashName: 'AK-47 | Redline' },
       },
       {
         status: 'LISTED',
+        tradable: true,
         itemDefinition: { marketHashName: 'AWP | Asiimov' },
+      },
+      {
+        status: 'AVAILABLE',
+        tradable: false,
+        itemDefinition: { marketHashName: 'Sticker | Capsule' },
       },
     ];
 
@@ -33,6 +40,8 @@ describe('seller-flow utils', () => {
       filterInventoryAssets(assets, '', 'LISTED').length,
       1,
     );
+    assert.equal(filterInventoryAssets(assets, '', 'all').length, 2);
+    assert.equal(filterInventoryAssets(assets, '', 'all', true).length, 3);
   });
 
   it('filters seller lots by status and search', () => {

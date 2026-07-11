@@ -52,6 +52,12 @@ Backend env:
 ENABLE_EXTENSION_UI_TRADE_FLOW=true
 ```
 
+Trade acknowledgment (internal deal confirmation in extension):
+
+```env
+ENABLE_EXTENSION_TRADE_ACKNOWLEDGMENT=true
+```
+
 ## Architecture
 
 ```
@@ -65,6 +71,16 @@ Web app ──externally_connectable──► Extension service worker
 ```
 
 Shared orchestrator logic lives in `extension/` (`@rip-market/extension-orchestrator`).
+
+### Trade acknowledgment (v0.5+)
+
+When `ENABLE_EXTENSION_TRADE_ACKNOWLEDGMENT=true`:
+
+- Extension polls `POST /extension/trades/active` for buyer and seller
+- Popup shows active deals and next action
+- Content script overlay on `steamcommunity.com/tradeoffer/*` verifies deal before Steam accept
+- Buyer can tap **«Подтверждаю, принимаю в Steam»** → `BUYER_ACK_PRE_ACCEPT`
+- `TRADE_CONFIRMED` still comes from platform dual-signal, not from extension ack alone
 
 Execution phases reported to backend: `ACKED` → `TRADE_PAGE_OPENED` → `OFFER_DRAFTED` → `ITEM_SELECTED` → `OFFER_SUBMITTED` → `CONFIRM_PENDING` → `OFFER_SENT`.
 

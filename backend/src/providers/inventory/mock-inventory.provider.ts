@@ -14,18 +14,24 @@ const DEFAULT_ITEMS = [
     weapon: 'AK-47',
     rarity: 'Classified',
     wear: 'FT',
+    stickers: [
+      { name: 'Sticker | Titan (Holo) | Katowice 2014', wearPercent: 12 },
+      { name: 'Sticker | Crown (Foil)', wearPercent: 0 },
+    ],
   },
   {
     marketHashName: 'AWP | Asiimov (Battle-Scarred)',
     weapon: 'AWP',
     rarity: 'Covert',
     wear: 'BS',
+    stickers: [],
   },
   {
     marketHashName: 'M4A1-S | Printstream (Minimal Wear)',
     weapon: 'M4A1-S',
     rarity: 'Covert',
     wear: 'MW',
+    stickers: [],
   },
 ];
 
@@ -86,9 +92,11 @@ export class MockInventoryProvider implements InventoryProvider {
             assetExternalId: `mock-${ownerId}-${i + 1}`,
             status: InventoryAssetStatus.AVAILABLE,
             tradable: true,
+            marketable: true,
             wear: item.wear,
             paintSeed: 100 + i,
             floatValue: (0.05 + i * 0.02).toFixed(6),
+            stickers: item.stickers ?? [],
           },
         });
       }

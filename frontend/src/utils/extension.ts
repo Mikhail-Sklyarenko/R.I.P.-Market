@@ -3,6 +3,7 @@ export type ExtensionPublicConfig = {
   extensionTaskPipelineEnabled: boolean;
   extensionFirstTradeFlowEnabled: boolean;
   extensionUiTradeFlowEnabled: boolean;
+  extensionTradeAcknowledgmentEnabled: boolean;
   settlementHoldWindowEnabled: boolean;
   extensionRolloutEnabled: boolean;
   extensionRolloutStage: string;

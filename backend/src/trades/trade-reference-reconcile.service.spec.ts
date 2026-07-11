@@ -15,10 +15,12 @@ describe('TradeReferenceReconcileService', () => {
   };
   const orderStateService = { transitionByEvent: jest.fn() };
   const lotStateService = { transition: jest.fn() };
+  const tradeStatusPoller = { pollOrderById: jest.fn().mockResolvedValue(false) };
   const service = new TradeReferenceReconcileService(
     prisma as never,
     orderStateService as never,
     lotStateService as never,
+    tradeStatusPoller as never,
   );
 
   const baseOrder = {

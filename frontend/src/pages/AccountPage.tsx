@@ -297,15 +297,6 @@ export function AccountPage() {
               </button>
 
               <SteamTradeUrlButton />
-
-              <details className="account-trade-url-help">
-                <summary>Как получить ссылку</summary>
-                <ol className="account-trade-url-steps">
-                  <li>Нажмите «Открыть настройки Steam» выше.</li>
-                  <li>Раздел «Кто может присылать мне предложения обмена?»</li>
-                  <li>Скопируйте ссылку и вставьте в поле выше.</li>
-                </ol>
-              </details>
             </div>
 
             {token && config?.extension?.extensionChannelEnabled ? (

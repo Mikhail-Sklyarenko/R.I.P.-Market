@@ -20,6 +20,15 @@ import {
 import { LotStateService } from './lot-state.service';
 import { hasValidTradeUrl } from '../users/trade-url.util';
 import { SteamVacService } from '../users/steam-vac.service';
+import { SteamMarketPriceService } from '../catalog/steam-market-price.service';
+import { ReferencePriceService } from '../catalog/reference-price.service';
+import { assertListingEligible } from './listing-eligibility.util';
+import { buildLotListingSnapshotData } from './lot-listing-snapshot.util';
+import {
+  buildFallbackInspectLink,
+  resolveInspectLink,
+} from './inspect-link.util';
+import { pickSimilarLots } from './similar-lots.util';
 
 @Injectable()
 export class LotsService {
@@ -28,6 +37,8 @@ export class LotsService {
     private readonly lotStateService: LotStateService,
     private readonly inventoryService: InventoryService,
     private readonly steamVacService: SteamVacService,
+    private readonly steamMarketPrice: SteamMarketPriceService,
+    private readonly referencePrice: ReferencePriceService,
   ) {}
 
   getPricingPreview(priceMinor: number) {
@@ -65,6 +76,7 @@ export class LotsService {
 
     const asset = await this.prisma.inventoryAsset.findUnique({
       where: { id: dto.inventoryAssetId },
+      include: { itemDefinition: true },
     });
     if (!asset || asset.ownerId !== sellerId) {
       throw new AppException(
@@ -89,29 +101,23 @@ export class LotsService {
       );
     }
 
-    if (asset.status !== InventoryAssetStatus.AVAILABLE) {
+    assertListingEligible({
+      status: asset.status,
+      tradable: asset.tradable,
+      marketable: asset.marketable,
+      tradeLockUntil: asset.tradeLockUntil,
+      itemDefinition: asset.itemDefinition,
+    });
+
+    if (!seller.steamId) {
       throw new AppException(
-        ErrorCode.INVENTORY_ASSET_NOT_AVAILABLE,
-        'This item is not available for listing',
+        ErrorCode.TRADE_URL_REQUIRED,
+        'Link your Steam account before listing items',
         HttpStatus.BAD_REQUEST,
-        { status: asset.status },
       );
     }
-    if (!asset.tradable) {
-      throw new AppException(
-        ErrorCode.INVENTORY_ASSET_NOT_TRADABLE,
-        'This item is not tradable',
-        HttpStatus.BAD_REQUEST,
-      );
-    }
-    if (asset.tradeLockUntil && asset.tradeLockUntil > new Date()) {
-      throw new AppException(
-        ErrorCode.INVENTORY_ASSET_TRADE_LOCKED,
-        'This item is trade-locked',
-        HttpStatus.BAD_REQUEST,
-        { tradeLockUntil: asset.tradeLockUntil.toISOString() },
-      );
-    }
+
+    const snapshotData = buildLotListingSnapshotData(asset, seller.steamId);
 
     const commissionMinor = calculateCommissionMinor(dto.priceMinor);
     const sellerReceiveMinor = dto.priceMinor - commissionMinor;
@@ -137,6 +143,7 @@ export class LotsService {
               },
               include: {
                 inventoryAsset: { include: { itemDefinition: true } },
+                listingSnapshot: true,
               },
             })
           : await tx.lot.create({
@@ -150,8 +157,18 @@ export class LotsService {
               },
               include: {
                 inventoryAsset: { include: { itemDefinition: true } },
+                listingSnapshot: true,
               },
             });
+
+      await tx.lotListingSnapshot.upsert({
+        where: { lotId: created.id },
+        create: {
+          lotId: created.id,
+          ...snapshotData,
+        },
+        update: snapshotData,
+      });
 
       if (reusableLot && reusableLot.id === created.id) {
         await tx.lotStatusEvent.create({
@@ -172,7 +189,13 @@ export class LotsService {
         data: { status: InventoryAssetStatus.LISTED },
       });
 
-      return created;
+      return tx.lot.findUnique({
+        where: { id: created.id },
+        include: {
+          inventoryAsset: { include: { itemDefinition: true } },
+          listingSnapshot: true,
+        },
+      });
     });
 
     return toJsonSafe(lot);
@@ -205,11 +228,57 @@ export class LotsService {
       }),
     ]);
 
+    const [steamPrices, referencePrices] = await Promise.all([
+      this.steamMarketPrice.getPricesWithMeta(
+        lots.map((lot) => {
+          const snapshotName = lot.listingSnapshot?.marketHashName;
+          return (
+            snapshotName ?? lot.inventoryAsset.itemDefinition.marketHashName
+          );
+        }),
+      ),
+      this.referencePrice.getPricesWithMeta(
+        lots.map((lot) => {
+          const snapshotName = lot.listingSnapshot?.marketHashName;
+          return (
+            snapshotName ?? lot.inventoryAsset.itemDefinition.marketHashName
+          );
+        }),
+      ),
+    ]);
+    const latestSteamPriceFetch = Object.values(steamPrices)
+      .map((entry) => entry.fetchedAt)
+      .filter((value): value is string => Boolean(value))
+      .sort()
+      .at(-1) ?? null;
+    const latestReferencePriceFetch = Object.values(referencePrices)
+      .map((entry) => entry.fetchedAt)
+      .filter((value): value is string => Boolean(value))
+      .sort()
+      .at(-1) ?? null;
+
+    const enrichedLots = lots.map((lot) => {
+      const marketHashName =
+        lot.listingSnapshot?.marketHashName ??
+        lot.inventoryAsset.itemDefinition.marketHashName;
+      return {
+        ...lot,
+        steamPriceMinor: steamPrices[marketHashName]?.priceMinor ?? null,
+        steamPriceFetchedAt: steamPrices[marketHashName]?.fetchedAt ?? null,
+        buffPriceMinor: referencePrices[marketHashName]?.buffPriceMinor ?? null,
+        csfloatPriceMinor:
+          referencePrices[marketHashName]?.csfloatPriceMinor ?? null,
+        marketplacePriceMinor: lot.priceMinor.toString(),
+      };
+    });
+
     return toJsonSafe({
-      items: lots,
+      items: enrichedLots,
       page,
       limit,
       total,
+      steamPriceFetchedAt: latestSteamPriceFetch,
+      referencePriceFetchedAt: latestReferencePriceFetch,
     });
   }
 
@@ -218,6 +287,7 @@ export class LotsService {
       where: { id: lotId },
       include: {
         inventoryAsset: { include: { itemDefinition: true } },
+        listingSnapshot: true,
       },
     });
 
@@ -231,9 +301,12 @@ export class LotsService {
 
     const itemDefinitionId = source.inventoryAsset.itemDefinitionId;
     const weapon = source.inventoryAsset.itemDefinition.weapon;
+    const marketHashName =
+      source.listingSnapshot?.marketHashName ??
+      source.inventoryAsset.itemDefinition.marketHashName;
     const similarLimit = Math.min(Math.max(limit, 1), 24);
 
-    const lots = await this.prisma.lot.findMany({
+    const candidates = await this.prisma.lot.findMany({
       where: {
         status: LotStatus.ACTIVE,
         id: { not: lotId },
@@ -245,16 +318,47 @@ export class LotsService {
         ],
       },
       include: this.lotInclude(),
-      orderBy: { createdAt: 'desc' },
-      take: similarLimit,
+      take: 120,
     });
 
-    return toJsonSafe(lots);
+    const picked = pickSimilarLots(
+      {
+        id: source.id,
+        itemDefinitionId,
+        marketHashName,
+        floatValue:
+          source.listingSnapshot?.floatValue ?? source.inventoryAsset.floatValue,
+        wear: source.listingSnapshot?.wear ?? source.inventoryAsset.wear,
+      },
+      candidates.map((lot) => ({
+        id: lot.id,
+        priceMinor: lot.priceMinor,
+        floatValue:
+          lot.listingSnapshot?.floatValue ?? lot.inventoryAsset.floatValue,
+        wear: lot.listingSnapshot?.wear ?? lot.inventoryAsset.wear,
+        itemDefinitionId: lot.inventoryAsset.itemDefinitionId,
+        marketHashName:
+          lot.listingSnapshot?.marketHashName ??
+          lot.inventoryAsset.itemDefinition.marketHashName,
+      })),
+      similarLimit,
+    );
+
+    const pickedIds = new Set(picked.map((entry) => entry.id));
+    const orderedLots = candidates.filter((lot) => pickedIds.has(lot.id));
+    orderedLots.sort(
+      (a, b) =>
+        picked.findIndex((entry) => entry.id === a.id) -
+        picked.findIndex((entry) => entry.id === b.id),
+    );
+
+    return toJsonSafe(orderedLots);
   }
 
   private lotInclude() {
     return {
       inventoryAsset: { include: { itemDefinition: true } },
+      listingSnapshot: true,
     } as const;
   }
 
@@ -299,6 +403,41 @@ export class LotsService {
       where.inventoryAsset = inventoryAssetFilter;
     }
 
+    if (query.floatMin !== undefined || query.floatMax !== undefined) {
+      where.AND = [
+        ...(Array.isArray(where.AND) ? where.AND : where.AND ? [where.AND] : []),
+        {
+          OR: [
+            {
+              listingSnapshot: {
+                floatValue: {
+                  ...(query.floatMin !== undefined
+                    ? { gte: query.floatMin }
+                    : {}),
+                  ...(query.floatMax !== undefined
+                    ? { lte: query.floatMax }
+                    : {}),
+                },
+              },
+            },
+            {
+              listingSnapshot: { is: null },
+              inventoryAsset: {
+                floatValue: {
+                  ...(query.floatMin !== undefined
+                    ? { gte: query.floatMin }
+                    : {}),
+                  ...(query.floatMax !== undefined
+                    ? { lte: query.floatMax }
+                    : {}),
+                },
+              },
+            },
+          ],
+        },
+      ];
+    }
+
     if (
       query.minPriceMinor !== undefined ||
       query.maxPriceMinor !== undefined
@@ -332,7 +471,8 @@ export class LotsService {
     const lot = await this.prisma.lot.findUnique({
       where: { id: lotId },
       include: {
-        inventoryAsset: { include: { itemDefinition: true } },
+        ...this.lotInclude(),
+        seller: { select: { steamId: true } },
       },
     });
     if (!lot) {
@@ -342,7 +482,43 @@ export class LotsService {
         HttpStatus.NOT_FOUND,
       );
     }
-    return toJsonSafe(lot);
+
+    const marketHashName =
+      lot.listingSnapshot?.marketHashName ??
+      lot.inventoryAsset.itemDefinition.marketHashName;
+    const [steamPriceMeta, referencePriceMeta] = await Promise.all([
+      this.steamMarketPrice.getPriceMeta(marketHashName),
+      this.referencePrice.getPricesWithMeta([marketHashName]),
+    ]);
+    const inspectLink =
+      lot.listingSnapshot?.inspectLink ??
+      (lot.seller.steamId
+        ? resolveInspectLink(
+            lot.inventoryAsset.inspectLinkTemplate,
+            lot.seller.steamId,
+            lot.inventoryAsset.assetExternalId,
+          ) ??
+          buildFallbackInspectLink({
+            ownerSteamId: lot.seller.steamId,
+            assetExternalId: lot.inventoryAsset.assetExternalId,
+            classId: lot.inventoryAsset.classExternalId,
+            instanceId: lot.inventoryAsset.instanceExternalId,
+          })
+        : null);
+
+    return toJsonSafe({
+      ...lot,
+      inspectLink,
+      steamPriceMinor: steamPriceMeta.priceMinor,
+      steamPriceFetchedAt: steamPriceMeta.fetchedAt,
+      buffPriceMinor:
+        referencePriceMeta[marketHashName]?.buffPriceMinor ?? null,
+      csfloatPriceMinor:
+        referencePriceMeta[marketHashName]?.csfloatPriceMinor ?? null,
+      referencePriceFetchedAt:
+        referencePriceMeta[marketHashName]?.fetchedAt ?? null,
+      marketplacePriceMinor: lot.priceMinor.toString(),
+    });
   }
 
   async listMyLots(sellerId: string) {

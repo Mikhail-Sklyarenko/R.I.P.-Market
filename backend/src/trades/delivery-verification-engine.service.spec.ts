@@ -51,6 +51,15 @@ describe('DeliveryVerificationEngineService', () => {
 
     expect(result.decision.action).toBe('CONFIRM');
     expect(result.evidence.reasonCode).toBe('DUAL_SIGNAL_CONFIRMED');
+    expect(inventoryDelta.verify).toHaveBeenCalledWith(
+      'seller-1',
+      'buyer-1',
+      'seller-steam',
+      'buyer-steam',
+      'asset-1',
+      'AK-47 | Redline (Field-Tested)',
+      expect.objectContaining({ force: true }),
+    );
   });
 
   it('returns BACKOFF decision on Steam 429', async () => {

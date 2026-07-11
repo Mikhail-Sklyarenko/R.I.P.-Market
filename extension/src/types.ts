@@ -14,6 +14,7 @@ export type CreateOfferTaskPayload = {
   sellerId: string;
   buyerId: string;
   expectedAssetId: string | null;
+  expectedFloatValue: string | null;
   marketHashName: string | null;
   buyerTradeUrl: string | null;
   inventoryAssetId: string;
@@ -48,6 +49,7 @@ export type SteamInventoryItem = {
   classId?: string;
   instanceId?: string;
   marketHashName?: string;
+  floatValue?: string | null;
 };
 
 export type DraftOfferInput = {
@@ -68,6 +70,7 @@ export type SendOfferHooks = {
   onItemSelected?: (details: {
     assetId: string;
     marketHashName?: string | null;
+    floatValue?: string | null;
   }) => void | Promise<void>;
   onOfferSubmitted?: () => void | Promise<void>;
 };

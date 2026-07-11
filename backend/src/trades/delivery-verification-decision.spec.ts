@@ -73,8 +73,31 @@ describe('decideDeliveryVerification', () => {
         checkCount: 5,
       }),
     );
-    expect(decision.action).toBe('DISPUTE');
+    expect(decision.action).toBe('CONFIRM');
+    expect(decision.reason).toBe('OFFER_ACCEPTED_INVENTORY_LAG');
     delete process.env.DELIVERY_ACCEPTED_INVENTORY_PENDING_MAX_CHECKS;
+  });
+
+  it('confirms when offer accepted but inventory sync is unknown', () => {
+    const decision = decideDeliveryVerification(
+      baseSignals({
+        offerStatus: 'accepted',
+        inventoryDelta: 'unknown',
+      }),
+    );
+    expect(decision.action).toBe('CONFIRM');
+    expect(decision.reason).toBe('OFFER_ACCEPTED_INVENTORY_UNKNOWN');
+  });
+
+  it('confirms when inventory confirmed but offer status unknown', () => {
+    const decision = decideDeliveryVerification(
+      baseSignals({
+        offerStatus: 'unknown',
+        inventoryDelta: 'confirmed',
+      }),
+    );
+    expect(decision.action).toBe('CONFIRM');
+    expect(decision.reason).toBe('INVENTORY_CONFIRMED_OFFER_UNKNOWN');
   });
 
   it('backs off on rate limit without transition', () => {

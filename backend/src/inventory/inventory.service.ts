@@ -4,16 +4,25 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { InventoryAssetStatus } from '@prisma/client';
+import { InventoryAssetStatus, LotStatus } from '@prisma/client';
 import { AppException } from '../common/errors/app.exception';
 import { ErrorCode } from '../common/errors/error-codes';
 import { toJsonSafe } from '../common/json-safe.util';
 import { PrismaService } from '../prisma/prisma.service';
+import { SteamMarketPriceService } from '../catalog/steam-market-price.service';
+import { ReferencePriceService } from '../catalog/reference-price.service';
 import { INVENTORY_PROVIDER } from '../providers/tokens';
 import type {
   InventoryProvider,
   SyncResult,
 } from '../providers/inventory/inventory-provider.interface';
+
+export type InventoryPriceHint = {
+  steamPriceMinor: number | null;
+  buffPriceMinor: number | null;
+  csfloatPriceMinor: number | null;
+  minMarketplacePriceMinor: string | null;
+};
 
 export type InventoryListResult = {
   assets: ReturnType<typeof toJsonSafe>;
@@ -35,6 +44,8 @@ export class InventoryService {
     private readonly prisma: PrismaService,
     @Inject(INVENTORY_PROVIDER)
     private readonly inventoryProvider: InventoryProvider,
+    private readonly steamMarketPrice: SteamMarketPriceService,
+    private readonly referencePrice: ReferencePriceService,
   ) {}
 
   async getUserInventory(
@@ -130,5 +141,79 @@ export class InventoryService {
     }
 
     return toJsonSafe(asset);
+  }
+
+  async getPriceHints(marketHashNames: string[]) {
+    const uniqueNames = [...new Set(marketHashNames.filter(Boolean))];
+    const [steamPrices, referencePrices, marketplacePrices] = await Promise.all([
+      this.steamMarketPrice.getPricesWithMeta(uniqueNames),
+      this.referencePrice.getPricesWithMeta(uniqueNames),
+      this.loadMinMarketplacePrices(uniqueNames),
+    ]);
+
+    const hints: Record<string, InventoryPriceHint> = {};
+    for (const name of uniqueNames) {
+      hints[name] = {
+        steamPriceMinor: steamPrices[name]?.priceMinor ?? null,
+        buffPriceMinor: referencePrices[name]?.buffPriceMinor ?? null,
+        csfloatPriceMinor: referencePrices[name]?.csfloatPriceMinor ?? null,
+        minMarketplacePriceMinor: marketplacePrices.get(name) ?? null,
+      };
+    }
+
+    const steamPriceFetchedAt =
+      Object.values(steamPrices)
+        .map((entry) => entry.fetchedAt)
+        .filter((value): value is string => Boolean(value))
+        .sort()
+        .at(-1) ?? null;
+    const referencePriceFetchedAt =
+      Object.values(referencePrices)
+        .map((entry) => entry.fetchedAt)
+        .filter((value): value is string => Boolean(value))
+        .sort()
+        .at(-1) ?? null;
+
+    return toJsonSafe({ hints, steamPriceFetchedAt, referencePriceFetchedAt });
+  }
+
+  private async loadMinMarketplacePrices(
+    marketHashNames: string[],
+  ): Promise<Map<string, string>> {
+    if (marketHashNames.length === 0) {
+      return new Map();
+    }
+
+    const lots = await this.prisma.lot.findMany({
+      where: {
+        status: LotStatus.ACTIVE,
+        inventoryAsset: {
+          itemDefinition: {
+            marketHashName: { in: marketHashNames },
+          },
+        },
+      },
+      select: {
+        priceMinor: true,
+        inventoryAsset: {
+          select: {
+            itemDefinition: { select: { marketHashName: true } },
+          },
+        },
+      },
+    });
+
+    const map = new Map<string, bigint>();
+    for (const lot of lots) {
+      const name = lot.inventoryAsset.itemDefinition.marketHashName;
+      const current = map.get(name);
+      if (!current || lot.priceMinor < current) {
+        map.set(name, lot.priceMinor);
+      }
+    }
+
+    return new Map(
+      [...map.entries()].map(([name, priceMinor]) => [name, priceMinor.toString()]),
+    );
   }
 }

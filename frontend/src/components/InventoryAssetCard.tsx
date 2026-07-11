@@ -1,34 +1,61 @@
-import type { KeyboardEvent } from 'react';
+import type { CSSProperties, KeyboardEvent } from 'react';
 import { Link } from 'react-router-dom';
-import type { InventoryAsset } from '../api/types';
+import type { InventoryAsset, InventoryPriceHint } from '../api/types';
 import {
   getWearBadgeStyle,
   parseCatalogLotName,
 } from '../utils/catalog-lot-display';
-import { getSteamItemImageUrl } from '../utils/item-image';
+import { formatPaintSeed, getSteamItemImageUrl } from '../utils/item-image';
+import { getRarityStyle } from '../utils/rarity-colors';
 import {
   assetUnavailableReason,
   canListAsset,
   formatAssetStatus,
 } from '../utils/seller-flow';
+import { InventoryPriceStack } from './InventoryPriceStack';
 
 type InventoryAssetCardProps = {
   asset: InventoryAsset;
   isSelected: boolean;
+  priceHint?: InventoryPriceHint | null;
+  pricesLoading?: boolean;
   onSelect: (asset: InventoryAsset) => void;
 };
+
+function statusBadgeClass(status: string): string {
+  if (status === 'LISTED') {
+    return 'inventory-asset-card-badge inventory-asset-card-badge-listed';
+  }
+  if (status === 'RESERVED') {
+    return 'inventory-asset-card-badge inventory-asset-card-badge-reserved';
+  }
+  if (status === 'SOLD') {
+    return 'inventory-asset-card-badge inventory-asset-card-badge-sold';
+  }
+  return 'inventory-asset-card-badge';
+}
 
 export function InventoryAssetCard({
   asset,
   isSelected,
+  priceHint,
+  pricesLoading = false,
   onSelect,
 }: InventoryAssetCardProps) {
   const listable = canListAsset(asset);
   const name = asset.itemDefinition.marketHashName;
   const { weapon, skin } = parseCatalogLotName(name);
   const wearBadge = getWearBadgeStyle(asset.wear);
+  const patternText = formatPaintSeed(asset.paintSeed);
   const imageUrl = getSteamItemImageUrl(asset.itemDefinition.iconUrl);
-  const showStatus = asset.status !== 'AVAILABLE';
+  const showStatusBadge = asset.status !== 'AVAILABLE';
+  const rarityStyle = getRarityStyle(asset.itemDefinition.rarity);
+  const unavailableReason = !listable ? assetUnavailableReason(asset) : null;
+
+  const cardStyle = {
+    '--lot-rarity-color': rarityStyle.color,
+    '--lot-rarity-glow': rarityStyle.glow,
+  } as CSSProperties;
 
   function handleSelect() {
     if (listable) {
@@ -66,25 +93,55 @@ export function InventoryAssetCard({
       }
     : {
         'data-testid': `asset-${asset.id}`,
+        title: unavailableReason ?? undefined,
       };
 
   return (
-    <article className={cardClass} {...interactiveProps}>
+    <article className={cardClass} style={cardStyle} {...interactiveProps}>
       <div className="inventory-asset-card-top">
-        {wearBadge ? (
-          <span
-            className="inventory-asset-card-wear"
-            style={{ color: wearBadge.color }}
-            data-testid={`inventory-asset-wear-${asset.id}`}
-          >
-            {wearBadge.label}
-          </span>
-        ) : (
-          <span
-            className="inventory-asset-card-wear inventory-asset-card-wear-empty"
-            aria-hidden="true"
-          />
-        )}
+        <div className="inventory-asset-card-top-start">
+          {wearBadge ? (
+            <span
+              className="inventory-asset-card-wear"
+              style={{ color: wearBadge.color }}
+              data-testid={`inventory-asset-wear-${asset.id}`}
+            >
+              {wearBadge.label}
+            </span>
+          ) : (
+            <span
+              className="inventory-asset-card-wear inventory-asset-card-wear-empty"
+              aria-hidden="true"
+            />
+          )}
+          {patternText ? (
+            <span
+              className="inventory-asset-card-pattern-tag muted small"
+              data-testid={`inventory-asset-pattern-${asset.id}`}
+            >
+              #{patternText}
+            </span>
+          ) : null}
+        </div>
+
+        <div className="inventory-asset-card-top-end">
+          {showStatusBadge ? (
+            asset.status === 'LISTED' ? (
+              <Link
+                className={statusBadgeClass(asset.status)}
+                to="/sell/my-lots"
+                data-testid={`view-lot-${asset.id}`}
+                onClick={(event) => event.stopPropagation()}
+              >
+                {formatAssetStatus(asset.status)}
+              </Link>
+            ) : (
+              <span className={statusBadgeClass(asset.status)}>
+                {formatAssetStatus(asset.status)}
+              </span>
+            )
+          ) : null}
+        </div>
       </div>
 
       <div className="inventory-asset-card-image-wrap">
@@ -104,24 +161,12 @@ export function InventoryAssetCard({
           </h3>
         </div>
 
-        {showStatus ? (
-          <p className="inventory-asset-card-status">{formatAssetStatus(asset.status)}</p>
-        ) : null}
-
-        {asset.status === 'LISTED' ? (
-          <Link
-            className="inventory-asset-card-link"
-            to="/sell/my-lots"
-            data-testid={`view-lot-${asset.id}`}
-            onClick={(event) => event.stopPropagation()}
-          >
-            Активный лот
-          </Link>
-        ) : null}
-
-        {!listable && asset.status !== 'LISTED' ? (
-          <p className="inventory-asset-card-reason">{assetUnavailableReason(asset)}</p>
-        ) : null}
+        <InventoryPriceStack
+          steamPriceMinor={priceHint?.steamPriceMinor}
+          marketplacePriceMinor={priceHint?.minMarketplacePriceMinor}
+          testIdPrefix={`inventory-asset-${asset.id}`}
+          loading={pricesLoading}
+        />
       </div>
     </article>
   );

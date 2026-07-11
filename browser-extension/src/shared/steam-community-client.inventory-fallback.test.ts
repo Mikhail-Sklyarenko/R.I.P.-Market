@@ -105,6 +105,7 @@ describe('SteamCommunityClient.loadInventory web API fallback', () => {
         classId: 'class-1',
         instanceId: 'instance-1',
         marketHashName: 'Desert Eagle | Blaze (Factory New)',
+        floatValue: null,
       },
     ]);
   });

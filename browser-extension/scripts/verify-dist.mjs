@@ -7,6 +7,7 @@ const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 
 const isolatedScripts = [
   'dist/content/steam-bridge.js',
+  'dist/content/trade-verification-bridge.js',
   'dist/page-scripts/trade-offer-ui.js',
 ];
 

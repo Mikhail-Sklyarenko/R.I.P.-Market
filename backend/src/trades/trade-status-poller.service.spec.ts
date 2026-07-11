@@ -3,7 +3,8 @@ import { TradesService } from './trades.service';
 
 describe('TradeStatusPollerService', () => {
   function buildPoller(deps: {
-    operations: unknown[];
+    operations?: unknown[];
+    singleOperation?: unknown | null;
     evaluation: {
       decision: {
         action: string;
@@ -19,7 +20,8 @@ describe('TradeStatusPollerService', () => {
   }) {
     const prisma = {
       tradeOperation: {
-        findMany: jest.fn().mockResolvedValue(deps.operations),
+        findMany: jest.fn().mockResolvedValue(deps.operations ?? []),
+        findFirst: jest.fn().mockResolvedValue(deps.singleOperation ?? null),
         update: jest.fn().mockResolvedValue({}),
       },
       tradePollEvent: {
@@ -40,11 +42,13 @@ describe('TradeStatusPollerService', () => {
       ...deps.tradesService,
     };
     const shadowComparator = { recordSnapshot: jest.fn() };
+    const extensionFlowMetrics = { recordVerifyMismatch: jest.fn() };
     const poller = new TradeStatusPollerService(
       prisma as never,
       tradesService as unknown as TradesService,
       deliveryEngine as never,
       shadowComparator as never,
+      extensionFlowMetrics as never,
     );
     return { poller, prisma, deliveryEngine, tradesService, shadowComparator };
   }
@@ -62,8 +66,11 @@ describe('TradeStatusPollerService', () => {
       sellerId: 'seller-1',
       createdAt: new Date(),
       lot: {
+        listingSnapshot: null,
         inventoryAsset: {
           assetExternalId: 'asset-1',
+          floatValue: null,
+          paintSeed: null,
           itemDefinition: { marketHashName: 'AK-47 | Redline (Field-Tested)' },
         },
       },
@@ -181,5 +188,38 @@ describe('TradeStatusPollerService', () => {
       'order-1',
     );
     expect(tradesService.applyTradeConfirmedFromPoll).not.toHaveBeenCalled();
+  });
+
+  it('polls a single order immediately by id', async () => {
+    const previousTradeProvider = process.env.TRADE_PROVIDER;
+    process.env.TRADE_PROVIDER = 'steam';
+    const evidence = {
+      offerStatus: 'accepted',
+      inventoryDelta: 'confirmed',
+      reasonCode: 'DUAL_SIGNAL_CONFIRMED',
+      engineEnabled: true,
+    };
+    const { poller, tradesService } = buildPoller({
+      singleOperation: baseOperation,
+      evaluation: {
+        decision: {
+          action: 'CONFIRM',
+          pollOutcome: 'CONFIRMED',
+          reasonCode: 'DUAL_SIGNAL_CONFIRMED',
+        },
+        offerStatus: 'accepted',
+        inventoryDelta: 'confirmed',
+        evidence,
+      },
+    });
+
+    const transitioned = await poller.pollOrderById('order-1');
+
+    expect(transitioned).toBe(true);
+    expect(tradesService.applyTradeConfirmedFromPoll).toHaveBeenCalledWith(
+      'order-1',
+      evidence,
+    );
+    process.env.TRADE_PROVIDER = previousTradeProvider;
   });
 });

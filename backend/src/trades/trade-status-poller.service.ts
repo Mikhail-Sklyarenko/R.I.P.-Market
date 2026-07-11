@@ -14,7 +14,22 @@ import { TradeShadowComparatorService } from './trade-shadow-comparator.service'
 import { assertShadowModeConfig } from './trade-verification.config';
 import { TradesService } from './trades.service';
 
-const POLLABLE_MODES = new Set(['STEAM_POLL', 'SHADOW']);
+const POLLABLE_MODES = new Set(['STEAM_POLL', 'SHADOW', 'OFF']);
+
+const OPERATION_INCLUDE = {
+  order: {
+    include: {
+      lot: {
+        include: {
+          listingSnapshot: true,
+          inventoryAsset: { include: { itemDefinition: true } },
+        },
+      },
+      buyer: { select: { id: true, steamId: true } },
+      seller: { select: { id: true, steamId: true } },
+    },
+  },
+} as const;
 
 @Injectable()
 export class TradeStatusPollerService implements OnModuleInit {
@@ -47,6 +62,28 @@ export class TradeStatusPollerService implements OnModuleInit {
     await this.pollWaitingTrades();
   }
 
+  async pollOrderById(orderId: string): Promise<boolean> {
+    if (getProvidersConfig().trade === 'mock') {
+      return false;
+    }
+
+    const operation = await this.prisma.tradeOperation.findFirst({
+      where: {
+        orderId,
+        status: TradeOperationStatus.WAITING,
+        verificationMode: { in: [...POLLABLE_MODES] },
+        order: { status: OrderStatus.WAITING_TRADE },
+      },
+      include: OPERATION_INCLUDE,
+    });
+
+    if (!operation || this.deliveryEngine.isInBackoff(orderId)) {
+      return false;
+    }
+
+    return this.checkOperation(operation as DeliveryVerificationOperation);
+  }
+
   async pollWaitingTrades(): Promise<{ checked: number; transitions: number }> {
     if (this.processing) {
       return { checked: 0, transitions: 0 };
@@ -63,20 +100,9 @@ export class TradeStatusPollerService implements OnModuleInit {
           verificationMode: { in: [...POLLABLE_MODES] },
           order: { status: OrderStatus.WAITING_TRADE },
         },
-        include: {
-          order: {
-            include: {
-              lot: {
-                include: {
-                  inventoryAsset: { include: { itemDefinition: true } },
-                },
-              },
-              buyer: { select: { id: true, steamId: true } },
-              seller: { select: { id: true, steamId: true } },
-            },
-          },
-        },
+        include: OPERATION_INCLUDE,
         take: 50,
+        orderBy: [{ externalOfferId: 'desc' }, { lastCheckedAt: 'asc' }],
       });
 
       for (const operation of operations) {

@@ -1,11 +1,20 @@
 import type { FormEvent } from 'react';
-import type { InventoryAsset, PricingPreview } from '../api/types';
+import type { InventoryAsset, InventoryPriceHint, PricingPreview } from '../api/types';
+import { formatUsdFromMinor } from '../utils/format';
+import { formatPaintSeed } from '../utils/item-image';
+import {
+  getRecommendedPriceMinor,
+  getRecommendedPriceSource,
+  minorToPriceInput,
+} from '../utils/inventory-pricing';
 import { ErrorAlert } from './ErrorAlert';
-import { ItemPreview } from './ItemPreview';
+import { LotItemHero } from './LotItemHero';
 import { MoneyDisplay } from './MoneyDisplay';
+import { WearBar } from './WearBar';
 
 type InventorySellPanelProps = {
   asset: InventoryAsset;
+  priceHint?: InventoryPriceHint | null;
   priceInput: string;
   priceError: string | null;
   preview: PricingPreview | null;
@@ -20,6 +29,7 @@ type InventorySellPanelProps = {
 
 export function InventorySellPanel({
   asset,
+  priceHint,
   priceInput,
   priceError,
   preview,
@@ -31,6 +41,14 @@ export function InventorySellPanel({
   onClose,
   showClose = false,
 }: InventorySellPanelProps) {
+  const patternText = formatPaintSeed(asset.paintSeed);
+  const recommendedMinor = getRecommendedPriceMinor(priceHint);
+  const recommendedSource = getRecommendedPriceSource(priceHint);
+  const hasFloat =
+    asset.floatValue !== null &&
+    asset.floatValue !== undefined &&
+    asset.floatValue !== '';
+
   return (
     <form
       className="card inventory-sell-panel"
@@ -53,13 +71,41 @@ export function InventorySellPanel({
         <h2 className="inventory-sell-panel-title">Выставить лот</h2>
       )}
 
-      <ItemPreview
+      <LotItemHero
         item={asset}
         title={asset.itemDefinition.marketHashName}
         size="sm"
       />
 
+      {hasFloat ? <WearBar floatValue={asset.floatValue!} /> : null}
+
+      {patternText ? (
+        <p className="inventory-sell-panel-pattern muted small" data-testid="inventory-sell-pattern">
+          Паттерн {patternText}
+        </p>
+      ) : null}
+
       <div className="inventory-sell-panel-fields">
+        {recommendedMinor ? (
+          <div className="inventory-price-recommendation" data-testid="inventory-price-recommendation">
+            <p className="muted small">
+              Рекомендуем от{' '}
+              <strong>{formatUsdFromMinor(recommendedMinor)}</strong>
+              {recommendedSource === 'market'
+                ? ' — минимальная цена на маркете'
+                : ' — ориентир Steam −5%'}
+            </p>
+            <button
+              type="button"
+              className="button secondary sm"
+              data-testid="inventory-apply-recommended-price"
+              onClick={() => onPriceChange(minorToPriceInput(recommendedMinor))}
+            >
+              Подставить
+            </button>
+          </div>
+        ) : null}
+
         <label className="field" htmlFor="inventory-price-input">
           <span className="field-label">Цена ($)</span>
           <input

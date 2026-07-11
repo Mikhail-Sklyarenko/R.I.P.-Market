@@ -38,6 +38,11 @@ import {
   formatWithdrawalStatus,
   withdrawalStatusClass,
 } from '../utils/withdrawal-labels';
+import {
+  parseWalletTab,
+  WALLET_TABS,
+  type WalletTab,
+} from '../utils/wallet-tabs';
 
 const DEPOSIT_STATUS_POLL_MS = 10_000;
 
@@ -49,9 +54,16 @@ export function WalletPage() {
   const { token, user } = useAuth();
   const { wallet, transactions, loading, error, refresh, applyWallet } = useWallet();
   const navigate = useNavigate();
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   const returnUrl = searchParams.get('returnUrl');
   const neededMinor = searchParams.get('needed');
+  const activeTab = parseWalletTab(searchParams.get('tab'));
+
+  function setActiveTab(tab: WalletTab) {
+    const next = new URLSearchParams(searchParams);
+    next.set('tab', tab);
+    setSearchParams(next, { replace: true });
+  }
 
   const [amountInput, setAmountInput] = useState(
     neededMinor ? String(Number(neededMinor) / 100) : '1000',
@@ -333,7 +345,22 @@ export function WalletPage() {
             </div>
           </div>
 
-          {cryptoPaymentsEnabled ? (
+          <nav className="wallet-tabs" aria-label="Разделы кошелька" data-testid="wallet-tabs">
+            {WALLET_TABS.map((tab) => (
+              <button
+                key={tab.id}
+                type="button"
+                className={`wallet-tab${activeTab === tab.id ? ' wallet-tab-active' : ''}`}
+                data-testid={`wallet-tab-${tab.id}`}
+                aria-current={activeTab === tab.id ? 'page' : undefined}
+                onClick={() => setActiveTab(tab.id)}
+              >
+                {tab.label}
+              </button>
+            ))}
+          </nav>
+
+          {activeTab === 'deposit' && cryptoPaymentsEnabled ? (
             <div className="card wallet-deposit-form" data-testid="wallet-usdt-deposit">
               <h3>Пополнить USDT (TRC-20)</h3>
               <ul className="wallet-crypto-warnings" data-testid="deposit-warnings">
@@ -388,7 +415,7 @@ export function WalletPage() {
             </div>
           ) : null}
 
-          {cryptoPaymentsEnabled ? (
+          {activeTab === 'withdraw' && cryptoPaymentsEnabled ? (
             <form
               className="card form-card wallet-withdraw-form"
               onSubmit={(event) => void handleWithdraw(event)}
@@ -484,7 +511,7 @@ export function WalletPage() {
         </>
       ) : null}
 
-      {showDepositForm ? (
+      {activeTab === 'deposit' && showDepositForm ? (
         <form
           className="card form-card wallet-deposit-form"
           onSubmit={(event) => void handleDeposit(event)}
@@ -523,7 +550,13 @@ export function WalletPage() {
         </form>
       ) : null}
 
-      {transactions.length > 0 ? (
+      {activeTab === 'transactions' && transactions.length === 0 ? (
+        <div className="card wallet-transactions-empty" data-testid="wallet-transactions-empty">
+          <p className="muted small">История операций пока пуста.</p>
+        </div>
+      ) : null}
+
+      {activeTab === 'transactions' && transactions.length > 0 ? (
         <div className="card wallet-transactions" data-testid="wallet-transactions">
           <h3>История операций</h3>
           <div className="table-wrap">

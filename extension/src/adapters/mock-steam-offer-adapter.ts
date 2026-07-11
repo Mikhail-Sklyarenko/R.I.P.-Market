@@ -48,6 +48,10 @@ export class MockSteamOfferAdapter implements SteamOfferAdapter {
     return this.inventory;
   }
 
+  async warmTradePage(_buyerTradeUrl: string) {
+    return true;
+  }
+
   async draftOffer(input: DraftOfferInput) {
     if (this.scenario === 'buyer_url_missing') {
       return {

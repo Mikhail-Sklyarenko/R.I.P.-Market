@@ -7,6 +7,9 @@ export function hasLotsListFilters(query: ListLotsQueryDto): boolean {
     query.maxPriceMinor !== undefined ||
     query.weapon ||
     query.rarity ||
+    query.wear ||
+    query.floatMin !== undefined ||
+    query.floatMax !== undefined ||
     query.sort ||
     query.page !== undefined ||
     query.limit !== undefined,

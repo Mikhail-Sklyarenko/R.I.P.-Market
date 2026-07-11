@@ -80,7 +80,7 @@ export function UserMenu() {
             </Link>
           )}
           <Link
-            to="/wallet"
+            to="/wallet?tab=deposit"
             className="user-menu-item"
             data-testid="user-menu-deposit"
             onClick={() => setOpen(false)}
@@ -88,7 +88,7 @@ export function UserMenu() {
             Пополнить баланс
           </Link>
           <Link
-            to="/wallet"
+            to="/wallet?tab=withdraw"
             className="user-menu-item"
             data-testid="user-menu-withdraw"
             onClick={() => setOpen(false)}
@@ -104,7 +104,7 @@ export function UserMenu() {
             Личный кабинет
           </Link>
           <Link
-            to="/wallet"
+            to="/wallet?tab=transactions"
             className="user-menu-item"
             data-testid="user-menu-transactions"
             onClick={() => setOpen(false)}

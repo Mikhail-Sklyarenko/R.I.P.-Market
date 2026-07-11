@@ -1,3 +1,6 @@
+import { extractInspectLinkTemplate } from '../../lots/inspect-link.util';
+import { parseStickersFromDescriptionLines, type ListingSticker } from './sticker-parser.util';
+
 export type SteamInventoryAsset = {
   appid: number;
   contextid: string;
@@ -15,9 +18,12 @@ export type SteamInventoryDescription = {
   icon_url?: string;
   icon_url_large?: string;
   tradable?: number;
+  marketable?: number;
   market_tradable_restriction?: number;
   cache_expiration?: string;
   tags?: Array<{ category: string; localized_tag_name?: string }>;
+  descriptions?: Array<{ value?: string }>;
+  actions?: Array<{ link?: string; name?: string }>;
 };
 
 export type SteamAssetProperty = {
@@ -50,10 +56,15 @@ export type ParsedSteamAsset = {
   rarity?: string;
   iconUrl: string | null;
   tradable: boolean;
+  marketable: boolean;
   tradeLockUntil: Date | null;
   floatValue: string | null;
   paintSeed: number | null;
   wear: string | null;
+  stickers: ListingSticker[];
+  inspectLinkTemplate: string | null;
+  classExternalId: string;
+  instanceExternalId: string;
 };
 
 const WEAR_SUFFIX_MAP: Record<string, string> = {
@@ -147,10 +158,18 @@ export function parseSteamInventoryResponse(
       rarity: parseRarityFromTags(description.tags),
       iconUrl: parseIconUrl(description),
       tradable: description.tradable === 1,
+      marketable:
+        description.marketable === undefined
+          ? description.tradable === 1
+          : description.marketable === 1,
       tradeLockUntil: parseTradeLockUntil(description),
       floatValue: floatProp?.float_value ?? null,
       paintSeed: seedProp?.int_value ? Number(seedProp.int_value) : null,
       wear: parseWearFromMarketHashName(description.market_hash_name),
+      stickers: parseStickersFromDescriptionLines(description.descriptions),
+      inspectLinkTemplate: extractInspectLinkTemplate(description.actions),
+      classExternalId: asset.classid,
+      instanceExternalId: asset.instanceid,
     });
   }
 

@@ -8,6 +8,7 @@ import { ErrorAlert } from '../components/ErrorAlert';
 import { EscrowNotice } from '../components/EscrowNotice';
 import { LotItemHero } from '../components/LotItemHero';
 import { LotSpecTable } from '../components/LotSpecTable';
+import { LotStickers } from '../components/LotStickers';
 import { LoadingState } from '../components/LoadingState';
 import { LotBreadcrumbs } from '../components/LotBreadcrumbs';
 import { MoneyDisplay } from '../components/MoneyDisplay';
@@ -15,9 +16,11 @@ import {
   isPurchaseBlocked,
   PurchaseReadinessAlerts,
 } from '../components/PurchaseReadinessAlerts';
+import { ReferencePriceHints } from '../components/ReferencePriceHints';
 import { SimilarLots } from '../components/SimilarLots';
 import { StatusBadge } from '../components/StatusBadge';
 import { WearBar } from '../components/WearBar';
+import { formatDataTimestamp, resolveLotDisplayItem } from '../utils/lot-display';
 
 export function LotPage() {
   const { id } = useParams();
@@ -82,17 +85,20 @@ export function LotPage() {
   }
 
   const asset = lot?.inventoryAsset;
+  const displayItem = lot ? resolveLotDisplayItem(lot) : null;
+  const snapshotCapturedAt = formatDataTimestamp(displayItem?.capturedAt ?? null);
+  const steamPriceUpdatedAt = formatDataTimestamp(lot?.steamPriceFetchedAt ?? null);
 
   return (
     <div className="page lot-page" data-testid="lot-page">
       {loading ? <LoadingState message="Загрузка лота…" /> : null}
 
-      {lot && asset ? (
+      {lot && asset && displayItem ? (
         <>
           <LotBreadcrumbs
-            marketHashName={asset.itemDefinition.marketHashName}
-            weapon={asset.itemDefinition.weapon}
-            categoryLabel={asset.itemDefinition.rarity}
+            marketHashName={displayItem.itemDefinition.marketHashName}
+            weapon={displayItem.itemDefinition.weapon}
+            categoryLabel={displayItem.itemDefinition.rarity}
           />
 
           {isUnavailable ? (
@@ -102,23 +108,46 @@ export function LotPage() {
           <div className="lot-page-grid">
             <div className="lot-page-main">
               <div className="card lot-preview-card">
-                <LotItemHero item={asset} />
+                <LotItemHero item={displayItem} />
 
-                {asset.floatValue !== null && asset.floatValue !== undefined && asset.floatValue !== '' ? (
-                  <WearBar floatValue={asset.floatValue} />
+                {displayItem.floatValue !== null && displayItem.floatValue !== undefined && displayItem.floatValue !== '' ? (
+                  <WearBar floatValue={displayItem.floatValue} />
                 ) : null}
 
-                <LotSpecTable item={asset} />
+                <LotSpecTable item={displayItem} />
+
+                <LotStickers stickers={displayItem.stickers} testIdPrefix="lot" />
+
+                {snapshotCapturedAt ? (
+                  <p className="muted small" data-testid="lot-snapshot-captured-at">
+                    Характеристики зафиксированы при выставлении: {snapshotCapturedAt}
+                  </p>
+                ) : null}
+
+                {steamPriceUpdatedAt ? (
+                  <p className="muted small" data-testid="lot-steam-price-updated-at">
+                    Цена Steam обновлена: {steamPriceUpdatedAt}
+                  </p>
+                ) : null}
 
                 <p className="lot-inspect-link-wrap">
+                  {lot.inspectLink ? (
+                    <a
+                      href={lot.inspectLink}
+                      className="lot-inspect-link"
+                      data-testid="lot-inspect-link"
+                    >
+                      Inspect в игре
+                    </a>
+                  ) : null}
                   <a
-                    href={`https://steamcommunity.com/market/listings/730/${encodeURIComponent(asset.itemDefinition.marketHashName)}`}
+                    href={`https://steamcommunity.com/market/listings/730/${encodeURIComponent(displayItem.itemDefinition.marketHashName)}`}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="lot-inspect-link"
-                    data-testid="lot-inspect-link"
+                    className="lot-inspect-link lot-market-link"
+                    data-testid="lot-steam-market-link"
                   >
-                    Посмотреть на Steam Market
+                    Steam Market
                   </a>
                 </p>
               </div>
@@ -133,6 +162,12 @@ export function LotPage() {
                 <p className="lot-purchase-price" data-testid="lot-purchase-price">
                   <MoneyDisplay minor={lot.priceMinor} strong />
                 </p>
+
+                <ReferencePriceHints
+                  buffPriceMinor={lot.buffPriceMinor}
+                  csfloatPriceMinor={lot.csfloatPriceMinor}
+                  testIdPrefix="lot"
+                />
 
                 <details className="lot-pricing-details">
                   <summary className="lot-pricing-details-summary">

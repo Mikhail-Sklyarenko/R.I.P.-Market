@@ -228,6 +228,8 @@ export function hasActiveCatalogFilters(input: {
   activeTabId: string;
   categoryValue: string;
   wearFilter?: string;
+  floatMin?: string;
+  floatMax?: string;
 }): boolean {
   return Boolean(
     input.search.trim() ||
@@ -236,6 +238,8 @@ export function hasActiveCatalogFilters(input: {
       input.sort !== 'newest' ||
       input.activeTabId !== 'all' ||
       input.categoryValue ||
-      input.wearFilter,
+      input.wearFilter ||
+      input.floatMin?.trim() ||
+      input.floatMax?.trim(),
   );
 }

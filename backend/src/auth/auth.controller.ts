@@ -61,6 +61,8 @@ export class AuthController {
         Number(process.env.TRADE_TIMEOUT_MINUTES ?? 60) || 60,
       ),
       extension: getExtensionPublicConfig(),
+      steamPriceEnabled: process.env.STEAM_MARKET_PRICE_ENABLED !== 'false',
+      referencePriceEnabled: process.env.REFERENCE_PRICE_ENABLED !== 'false',
     };
   }
 

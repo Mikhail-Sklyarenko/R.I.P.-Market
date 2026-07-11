@@ -12,9 +12,9 @@ import { getAcceptedInventoryPendingMaxChecks, getInventoryUnknownMaxChecks } fr
  * | (timeout)    | *                   | *      | TIMEOUT | TRADE_TIMEOUT                  |
  * | (rate limit) | *                   | *      | BACKOFF | RATE_LIMITED                   |
  * | accepted     | confirmed           | on     | CONFIRM | DUAL_SIGNAL_CONFIRMED          |
- * | accepted     | pending             | on     | WAIT*   | INVENTORY_PENDING              |
- * | accepted     | seller_still_holds  | on     | DISPUTE | DELIVERY_INVENTORY_MISMATCH    |
- * | accepted     | unknown             | on     | DISPUTE | DELIVERY_VERIFICATION_UNKNOWN  |
+ * | accepted     | pending (exhausted checks) | **CONFIRM** | `OFFER_ACCEPTED_INVENTORY_LAG` |
+ * | accepted     | seller_still_holds | **DISPUTE** | `DELIVERY_INVENTORY_MISMATCH` |
+ * | accepted     | unknown             | on     | **CONFIRM** | `OFFER_ACCEPTED_INVENTORY_UNKNOWN` |
  * | pending      | confirmed           | on     | DISPUTE | DELIVERY_SIGNAL_CONFLICT       |
  * | pending      | pending/holds       | on     | WAIT    | OFFER_PENDING                  |
  * | pending      | unknown             | on     | WAIT    | INVENTORY_PENDING              |
@@ -27,7 +27,7 @@ import { getAcceptedInventoryPendingMaxChecks, getInventoryUnknownMaxChecks } fr
  * | accepted     | *                   | off    | CONFIRM | LEGACY_OFFER_ACCEPTED          |
  * | (no offer)   | confirmed           | off    | CONFIRM | LEGACY_INVENTORY_CONFIRMED     |
  *
- * * WAIT becomes DISPUTE when checkCount exceeds DELIVERY_ACCEPTED_INVENTORY_PENDING_MAX_CHECKS.
+ * * WAIT becomes CONFIRM when checkCount exceeds DELIVERY_ACCEPTED_INVENTORY_PENDING_MAX_CHECKS.
  */
 export function decideDeliveryVerification(
   signals: DeliveryVerificationSignals,
@@ -83,13 +83,22 @@ function decideLegacy(
       );
     }
     if (signals.offerStatus === 'unknown') {
+      if (signals.inventoryDelta === 'confirmed') {
+        return decision(
+          'CONFIRM',
+          'LEGACY_INVENTORY_CONFIRMED',
+          'LEGACY_INVENTORY_CONFIRMED',
+          signals.offerStatus,
+          signals.inventoryDelta,
+          'CONFIRMED',
+        );
+      }
       return decision(
-        'DISPUTE',
-        'OFFER_UNKNOWN',
-        'OFFER_UNKNOWN',
+        'WAIT',
+        'OFFER_PENDING',
+        'OFFER_UNKNOWN_RETRY',
         signals.offerStatus,
         signals.inventoryDelta,
-        'FAILED_DISPUTE',
       );
     }
     return decision(
@@ -148,6 +157,25 @@ function decideDualSignal(
     );
   }
   if (offer === 'unknown') {
+    if (inventory === 'confirmed') {
+      return decision(
+        'CONFIRM',
+        'INVENTORY_CONFIRMED_OFFER_UNKNOWN',
+        'INVENTORY_CONFIRMED_OFFER_UNKNOWN',
+        offer,
+        inventory,
+        'CONFIRMED',
+      );
+    }
+    if (inventory === 'pending' || inventory === 'seller_still_holds') {
+      return decision(
+        'WAIT',
+        'OFFER_UNKNOWN',
+        'OFFER_UNKNOWN_RETRY',
+        offer,
+        inventory,
+      );
+    }
     return decision(
       'DISPUTE',
       'OFFER_UNKNOWN',
@@ -181,24 +209,24 @@ function decideDualSignal(
     }
     if (inventory === 'unknown') {
       return decision(
-        'DISPUTE',
-        'DELIVERY_VERIFICATION_UNKNOWN',
-        'DELIVERY_VERIFICATION_UNKNOWN',
+        'CONFIRM',
+        'OFFER_ACCEPTED_INVENTORY_UNKNOWN',
+        'OFFER_ACCEPTED_INVENTORY_UNKNOWN',
         offer,
         inventory,
-        'FAILED_DISPUTE',
+        'CONFIRMED',
       );
     }
     if (
       signals.checkCount >= getAcceptedInventoryPendingMaxChecks()
     ) {
       return decision(
-        'DISPUTE',
-        'DELIVERY_VERIFICATION_UNKNOWN',
-        'DELIVERY_ACCEPTED_INVENTORY_PENDING_EXHAUSTED',
+        'CONFIRM',
+        'OFFER_ACCEPTED_INVENTORY_LAG',
+        'OFFER_ACCEPTED_INVENTORY_LAG',
         offer,
         inventory,
-        'FAILED_DISPUTE',
+        'CONFIRMED',
       );
     }
     return decision(

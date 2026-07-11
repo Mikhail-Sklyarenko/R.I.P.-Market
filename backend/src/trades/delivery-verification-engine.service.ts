@@ -13,7 +13,6 @@ import type {
   DeliveryVerificationEvidence,
   DeliveryVerificationSignals,
 } from './delivery-verification.types';
-import { isShadowVerificationMode } from './trade-verification.config';
 import {
   TradeInventoryDeltaService,
   type InventoryDeltaResult,
@@ -33,8 +32,15 @@ export type DeliveryVerificationOperation = {
     sellerId: string;
     createdAt: Date;
     lot: {
+      listingSnapshot?: {
+        floatValue: number | null;
+        paintSeed: number | null;
+        marketHashName: string;
+      } | null;
       inventoryAsset: {
         assetExternalId: string;
+        floatValue: number | null;
+        paintSeed: number | null;
         itemDefinition: { marketHashName: string };
       };
     };
@@ -128,13 +134,23 @@ export class DeliveryVerificationEngineService {
         const expected =
           operation.expectedAssetId ??
           operation.order.lot.inventoryAsset.assetExternalId;
+        const snapshot = operation.order.lot.listingSnapshot;
+        const asset = operation.order.lot.inventoryAsset;
         inventoryDelta = await this.inventoryDelta.verify(
           operation.order.sellerId,
           operation.order.buyerId,
           operation.order.seller.steamId,
           operation.order.buyer.steamId,
           expected,
-          operation.order.lot.inventoryAsset.itemDefinition.marketHashName,
+          snapshot?.marketHashName ??
+            asset.itemDefinition.marketHashName,
+          {
+            force: true,
+            expectedFloatValue:
+              snapshot?.floatValue ?? asset.floatValue ?? null,
+            expectedPaintSeed:
+              snapshot?.paintSeed ?? asset.paintSeed ?? null,
+          },
         );
       }
 

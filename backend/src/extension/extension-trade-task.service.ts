@@ -28,6 +28,7 @@ import { mapExtensionErrorToDisputeReason } from '../disputes/dispute-reason-cod
 import { isValidSteamOfferId } from '../providers/trade/trade-offer.util';
 import { AntiFraudRuleService } from '../common/observability/anti-fraud.service';
 import { ExtensionFlowMetricsService } from '../common/observability/extension-flow-metrics.service';
+import { ExtensionTradeAckService } from './extension-trade-ack.service';
 
 export type CreateOfferTaskContext = {
   orderId: string;
@@ -35,6 +36,7 @@ export type CreateOfferTaskContext = {
   sellerId: string;
   buyerId: string;
   expectedAssetId: string | null;
+  expectedFloatValue: string | null;
   marketHashName: string | null;
   buyerTradeUrl: string | null;
   inventoryAssetId: string;
@@ -66,6 +68,7 @@ export class ExtensionTradeTaskService {
     private readonly disputeOpsService: DisputeOpsService,
     private readonly extensionFlowMetrics: ExtensionFlowMetricsService,
     private readonly antiFraud: AntiFraudRuleService,
+    private readonly extensionTradeAckService: ExtensionTradeAckService,
   ) {}
 
   async createOfferTask(params: CreateOfferTaskContext): Promise<void> {
@@ -90,6 +93,7 @@ export class ExtensionTradeTaskService {
           sellerId: params.sellerId,
           buyerId: params.buyerId,
           expectedAssetId: params.expectedAssetId,
+          expectedFloatValue: params.expectedFloatValue,
           marketHashName: params.marketHashName,
           buyerTradeUrl: params.buyerTradeUrl,
           inventoryAssetId: params.inventoryAssetId,
@@ -237,6 +241,36 @@ export class ExtensionTradeTaskService {
     }
 
     this.ensurePhaseTransition(task.executionPhase, params.phase);
+
+    if (params.phase === TradeTaskExecutionPhase.OFFER_SENT) {
+      const offerId = params.offerId?.trim();
+      if (!offerId || !isValidSteamOfferId(offerId)) {
+        throw new AppException(
+          ErrorCode.EXTENSION_TASK_INVALID_ACK,
+          'OFFER_SENT requires a valid Steam offer id',
+          HttpStatus.BAD_REQUEST,
+        );
+      }
+
+      const order = await this.prisma.order.findUnique({
+        where: { id: task.orderId },
+        select: { sellerId: true },
+      });
+      if (!order) {
+        throw new AppException(
+          ErrorCode.ORDER_NOT_FOUND,
+          'Order not found',
+          HttpStatus.NOT_FOUND,
+        );
+      }
+
+      await this.extensionTradeAckService.assertOfferSentTrustGate({
+        sellerId: order.sellerId,
+        orderId: task.orderId,
+        offerId,
+        observed: this.extractObservedFromProgressDetails(params.details),
+      });
+    }
 
     const offerSentReconcile = await this.prisma.$transaction(async (tx) => {
       await tx.tradeTaskStatusEvent.create({
@@ -651,6 +685,34 @@ export class ExtensionTradeTaskService {
       idempotencyKey: `ext-dispute:${orderId}:${reasonCode}`,
       details: { extensionErrorCode },
     });
+  }
+
+  private extractObservedFromProgressDetails(
+    details?: Prisma.JsonObject,
+  ): { assetId?: string | null; floatValue?: string | null } | undefined {
+    if (!details) {
+      return undefined;
+    }
+
+    const assetIdRaw =
+      details.observedAssetId ?? details.assetId ?? details.expectedAssetId;
+    const floatValueRaw =
+      details.observedFloatValue ?? details.floatValue ?? details.expectedFloatValue;
+
+    const assetId =
+      assetIdRaw === undefined || assetIdRaw === null
+        ? null
+        : String(assetIdRaw).trim() || null;
+    const floatValue =
+      floatValueRaw === undefined || floatValueRaw === null
+        ? null
+        : String(floatValueRaw).trim() || null;
+
+    if (!assetId && !floatValue) {
+      return undefined;
+    }
+
+    return { assetId, floatValue };
   }
 
   private ensurePhaseTransition(

@@ -12,10 +12,26 @@ export type InventoryResponseBody = {
     market_hash_name?: string;
     market_name?: string;
   }>;
+  asset_properties?: Array<{
+    assetid: string;
+    asset_properties?: Array<{
+      propertyid: number;
+      float_value?: string;
+    }>;
+  }>;
   more_items?: number;
   last_assetid?: string;
   error?: string;
 };
+
+function readFloatValue(
+  assetId: string,
+  assetProperties?: InventoryResponseBody['asset_properties'],
+): string | null {
+  const entry = assetProperties?.find((item) => String(item.assetid) === assetId);
+  const floatProp = entry?.asset_properties?.find((prop) => prop.propertyid === 1);
+  return floatProp?.float_value ?? null;
+}
 
 export function parseInventoryPage(body: InventoryResponseBody): SteamInventoryItem[] {
   if (body.success === 0) {
@@ -40,6 +56,7 @@ export function parseInventoryPage(body: InventoryResponseBody): SteamInventoryI
       classId: asset.classid,
       instanceId: asset.instanceid,
       marketHashName: meta?.marketHashName ?? meta?.marketName,
+      floatValue: readFloatValue(String(asset.assetid), body.asset_properties),
     };
   });
 }

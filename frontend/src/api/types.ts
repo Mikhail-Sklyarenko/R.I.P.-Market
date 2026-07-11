@@ -49,6 +49,8 @@ export type AuthConfig = {
   enableRealSettlement: boolean;
   liveVerificationMode: boolean;
   tradeTimeoutMinutes: number;
+  steamPriceEnabled?: boolean;
+  referencePriceEnabled?: boolean;
   extension?: ExtensionPublicConfig;
 };
 
@@ -57,6 +59,7 @@ export type ExtensionPublicConfig = {
   extensionTaskPipelineEnabled: boolean;
   extensionFirstTradeFlowEnabled: boolean;
   extensionUiTradeFlowEnabled: boolean;
+  extensionTradeAcknowledgmentEnabled: boolean;
   settlementHoldWindowEnabled: boolean;
   extensionRolloutEnabled: boolean;
   extensionRolloutStage: string;
@@ -162,15 +165,53 @@ export type InventoryResponse = {
   sync: InventorySyncMeta;
 };
 
+export type ListingSticker = {
+  name: string;
+  wearPercent?: number | null;
+};
+
 export type InventoryAsset = {
   id: string;
   status: string;
   tradable: boolean;
+  marketable?: boolean;
   tradeLockUntil?: string | null;
   wear?: string | null;
   floatValue?: string | null;
   paintSeed?: number | null;
+  stickers?: ListingSticker[] | null;
   itemDefinition: ItemDefinition;
+};
+
+export type InventoryPriceHint = {
+  steamPriceMinor: number | null;
+  buffPriceMinor: number | null;
+  csfloatPriceMinor: number | null;
+  minMarketplacePriceMinor: string | null;
+};
+
+export type InventoryPriceHintsResponse = {
+  hints: Record<string, InventoryPriceHint>;
+  steamPriceFetchedAt?: string | null;
+  referencePriceFetchedAt?: string | null;
+};
+
+export type LotListingSnapshot = {
+  id: string;
+  lotId: string;
+  assetExternalId: string;
+  marketHashName: string;
+  weapon?: string | null;
+  rarity?: string | null;
+  iconUrl?: string | null;
+  floatValue?: string | null;
+  paintSeed?: number | null;
+  wear?: string | null;
+  stickers?: ListingSticker[] | null;
+  tradable: boolean;
+  marketable: boolean;
+  capturedAt: string;
+  inspectLink?: string | null;
 };
 
 export type Lot = {
@@ -182,6 +223,38 @@ export type Lot = {
   sellerReceiveMinor: string;
   createdAt: string;
   inventoryAsset: InventoryAsset;
+  listingSnapshot?: LotListingSnapshot | null;
+  steamPriceMinor?: number | null;
+  steamPriceFetchedAt?: string | null;
+  buffPriceMinor?: number | null;
+  csfloatPriceMinor?: number | null;
+  referencePriceFetchedAt?: string | null;
+  inspectLink?: string | null;
+  marketplacePriceMinor?: string | null;
+};
+
+export type CatalogItem = {
+  id: string;
+  marketHashName: string;
+  weapon: string | null;
+  rarity: string | null;
+  iconUrl: string | null;
+  minMarketplacePriceMinor: string | null;
+  activeLotCount: number;
+  orderCount30d: number;
+  steamPriceMinor: number | null;
+  buffPriceMinor: number | null;
+  csfloatPriceMinor: number | null;
+  featuredLotId: string | null;
+};
+
+export type CatalogItemsPage = {
+  items: CatalogItem[];
+  page: number;
+  limit: number;
+  total: number;
+  steamPriceFetchedAt?: string | null;
+  referencePriceFetchedAt?: string | null;
 };
 
 export type PricingPreview = {
@@ -257,6 +330,12 @@ export type TradeTaskSummary = {
   updatedAt: string;
 };
 
+export type TradeAcknowledgmentSummary = {
+  sellerAckSent: boolean;
+  buyerPreAccept: boolean;
+  buyerReceived: boolean;
+};
+
 export type Order = {
   id: string;
   lotId: string;
@@ -270,6 +349,7 @@ export type Order = {
   lot: Lot;
   tradeOperation?: TradeOperation | null;
   tradeTask?: TradeTaskSummary | null;
+  tradeAcknowledgments?: TradeAcknowledgmentSummary | null;
   hold?: { id: string; amountMinor: string } | null;
   buyer?: OrderParty;
   seller?: OrderParty;
@@ -290,6 +370,8 @@ export type ListLotsParams = {
   weapon?: string;
   rarity?: string;
   wear?: string;
+  floatMin?: number;
+  floatMax?: number;
   sort?: 'price_asc' | 'price_desc' | 'newest';
   page?: number;
   limit?: number;

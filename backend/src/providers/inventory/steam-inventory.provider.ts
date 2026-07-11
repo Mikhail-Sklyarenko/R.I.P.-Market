@@ -3,6 +3,7 @@ import { InventoryAssetStatus, InventorySyncStatus } from '@prisma/client';
 import { AppException } from '../../common/errors/app.exception';
 import { ErrorCode } from '../../common/errors/error-codes';
 import { isRealSteamId } from '../../common/steam-id.util';
+import { isListableMarketHashName } from '../../lots/listing-eligibility.util';
 import { PrismaService } from '../../prisma/prisma.service';
 import { InventoryMetricsService } from './inventory-metrics.service';
 import { InventorySyncCacheService } from './inventory-sync-cache.service';
@@ -12,6 +13,7 @@ import {
   SyncResult,
 } from './inventory-provider.interface';
 import { fetchAllSteamInventoryPages } from './steam-inventory.client';
+import { cleanupOrphanItemDefinitions } from '../../item-definitions/cleanup-orphan-item-definitions.util';
 import {
   parseSteamInventoryResponse,
   ParsedSteamAsset,
@@ -116,6 +118,7 @@ export class SteamInventoryProvider implements InventoryProvider {
           ownerId,
           parsed.map((item) => item.assetExternalId),
         );
+        await cleanupOrphanItemDefinitions(this.prisma);
       }
 
       const run = await this.syncCache.recordRun({
@@ -193,6 +196,10 @@ export class SteamInventoryProvider implements InventoryProvider {
 
   private async upsertParsedAssets(ownerId: string, items: ParsedSteamAsset[]) {
     for (const item of items) {
+      const listableByName = isListableMarketHashName(item.marketHashName);
+      const marketable = item.marketable && listableByName;
+      const tradable = item.tradable && listableByName;
+
       const itemDefinition = await this.prisma.itemDefinition.upsert({
         where: { marketHashName: item.marketHashName },
         create: {
@@ -221,19 +228,29 @@ export class SteamInventoryProvider implements InventoryProvider {
           itemDefinitionId: itemDefinition.id,
           assetExternalId: item.assetExternalId,
           status: InventoryAssetStatus.AVAILABLE,
-          tradable: item.tradable,
+          tradable,
+          marketable,
           tradeLockUntil: item.tradeLockUntil,
           floatValue: item.floatValue,
           paintSeed: item.paintSeed,
           wear: item.wear,
+          stickers: item.stickers,
+          inspectLinkTemplate: item.inspectLinkTemplate,
+          classExternalId: item.classExternalId,
+          instanceExternalId: item.instanceExternalId,
         },
         update: {
           itemDefinitionId: itemDefinition.id,
-          tradable: item.tradable,
+          tradable,
+          marketable,
           tradeLockUntil: item.tradeLockUntil,
           floatValue: item.floatValue,
           paintSeed: item.paintSeed,
           wear: item.wear,
+          stickers: item.stickers,
+          inspectLinkTemplate: item.inspectLinkTemplate,
+          classExternalId: item.classExternalId,
+          instanceExternalId: item.instanceExternalId,
           status: InventoryAssetStatus.AVAILABLE,
         },
       });

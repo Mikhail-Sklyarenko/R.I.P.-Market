@@ -1,3 +1,5 @@
+import { isListableMarketHashName } from './lot-display';
+
 export const LOT_STATUS_LABELS: Record<string, string> = {
   ACTIVE: 'Активен',
   RESERVED: 'В сделке',
@@ -70,10 +72,24 @@ export function computeSellerPendingReceiveMinor(
 }
 
 export function filterInventoryAssets<
-  T extends { status: string; itemDefinition: { marketHashName: string } },
->(assets: T[], search: string, statusFilter: InventoryStatusFilter): T[] {
+  T extends {
+    status: string;
+    tradable: boolean;
+    marketable?: boolean;
+    tradeLockUntil?: string | null;
+    itemDefinition: { marketHashName: string };
+  },
+>(
+  assets: T[],
+  search: string,
+  statusFilter: InventoryStatusFilter,
+  showUnavailable = false,
+): T[] {
   const query = search.trim().toLowerCase();
   return assets.filter((asset) => {
+    if (!isInventoryAssetVisible(asset, showUnavailable)) {
+      return false;
+    }
     if (statusFilter !== 'all' && asset.status !== statusFilter) {
       return false;
     }
@@ -122,12 +138,20 @@ export function formatAssetStatus(status: string): string {
 export function canListAsset(asset: {
   status: string;
   tradable: boolean;
+  marketable?: boolean;
   tradeLockUntil?: string | null;
+  itemDefinition: { marketHashName: string };
 }): boolean {
   if (asset.status !== 'AVAILABLE') {
     return false;
   }
   if (!asset.tradable) {
+    return false;
+  }
+  if (asset.marketable === false) {
+    return false;
+  }
+  if (!isListableMarketHashName(asset.itemDefinition.marketHashName)) {
     return false;
   }
   if (asset.tradeLockUntil && new Date(asset.tradeLockUntil) > new Date()) {
@@ -136,10 +160,31 @@ export function canListAsset(asset: {
   return true;
 }
 
+export function isInventoryAssetVisible(
+  asset: {
+    status: string;
+    tradable: boolean;
+    marketable?: boolean;
+    tradeLockUntil?: string | null;
+    itemDefinition: { marketHashName: string };
+  },
+  showUnavailable: boolean,
+): boolean {
+  if (showUnavailable) {
+    return true;
+  }
+  if (asset.status === 'LISTED' || asset.status === 'RESERVED') {
+    return true;
+  }
+  return canListAsset(asset);
+}
+
 export function assetUnavailableReason(asset: {
   status: string;
   tradable: boolean;
+  marketable?: boolean;
   tradeLockUntil?: string | null;
+  itemDefinition: { marketHashName: string };
 }): string {
   if (asset.status === 'LISTED') {
     return 'Уже выставлен на продажу';
@@ -158,6 +203,12 @@ export function assetUnavailableReason(asset: {
   }
   if (!asset.tradable) {
     return 'Нельзя обменять';
+  }
+  if (asset.marketable === false) {
+    return 'Нельзя продать на маркете';
+  }
+  if (!isListableMarketHashName(asset.itemDefinition.marketHashName)) {
+    return 'Тип предмета нельзя выставить';
   }
   if (asset.tradeLockUntil && new Date(asset.tradeLockUntil) > new Date()) {
     return `Trade-lock до ${new Date(asset.tradeLockUntil).toLocaleString()}`;

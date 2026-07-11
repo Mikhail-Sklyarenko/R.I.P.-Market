@@ -55,11 +55,14 @@ export class SteamTradeProvider implements TradeProvider {
   ): Promise<TradeVerificationResult> {
     const apiKey = process.env.STEAM_WEB_API_KEY;
     if (!apiKey) {
-      throw new AppException(
-        ErrorCode.BAD_REQUEST,
-        'STEAM_WEB_API_KEY is required for trade offer verification',
-        HttpStatus.BAD_REQUEST,
+      this.logger.warn(
+        'STEAM_WEB_API_KEY is not configured; trade offer status unavailable',
       );
+      return {
+        status: 'unknown',
+        tradable: null,
+        tradeLockUntil: null,
+      };
     }
 
     const url = new URL(

@@ -2,6 +2,7 @@ import {
   BadRequestException,
   Inject,
   Injectable,
+  Logger,
   NotFoundException,
 } from '@nestjs/common';
 import {
@@ -17,6 +18,7 @@ import { LotStateService } from '../lots/lot-state.service';
 import { OrderStateService } from '../orders/order-state.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { TRADE_PROVIDER } from '../providers/tokens';
+import { SteamTradeRateLimitError } from '../providers/trade/steam-trade.provider';
 import type {
   TradeProvider,
   TradeVerificationResult,
@@ -36,6 +38,8 @@ import {
 
 @Injectable()
 export class TradesService {
+  private readonly logger = new Logger(TradesService.name);
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly ledgerService: LedgerService,
@@ -687,7 +691,19 @@ export class TradesService {
     if (!this.tradeProvider.verifyTradeOffer) {
       return { status: 'unknown', tradable: null, tradeLockUntil: null };
     }
-    return this.tradeProvider.verifyTradeOffer(tradeOfferId);
+    try {
+      return await this.tradeProvider.verifyTradeOffer(tradeOfferId);
+    } catch (error) {
+      if (error instanceof SteamTradeRateLimitError) {
+        throw error;
+      }
+      this.logger.warn(
+        `Trade offer verification failed for ${tradeOfferId}: ${
+          error instanceof Error ? error.message : 'unknown'
+        }`,
+      );
+      return { status: 'unknown', tradable: null, tradeLockUntil: null };
+    }
   }
 
   async applyTradeConfirmedFromPoll(

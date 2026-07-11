@@ -31,12 +31,14 @@ describe('ExtensionTradeTaskService progress', () => {
     recordTaskOutcome: jest.fn(),
   };
   const antiFraud = { recordTaskFailure: jest.fn() };
+  const tradeAck = { assertOfferSentTrustGate: jest.fn().mockResolvedValue(undefined) };
   const service = new ExtensionTradeTaskService(
     prisma as never,
     reconcile as never,
     disputeOps as never,
     extensionFlowMetrics as never,
     antiFraud as never,
+    tradeAck as never,
   );
 
   beforeEach(() => {
@@ -62,9 +64,21 @@ describe('ExtensionTradeTaskService progress', () => {
       phase: TradeTaskExecutionPhase.OFFER_SENT,
       idempotencyKey: 'progress:task-1:OFFER_SENT',
       offerId: '999001',
+      details: {
+        observedAssetId: 'asset-1',
+        observedFloatValue: '0.25',
+      },
     });
 
     expect(result.terminal).toBe(true);
+    expect(tradeAck.assertOfferSentTrustGate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        sellerId: 'seller-1',
+        orderId: 'order-1',
+        offerId: '999001',
+        observed: { assetId: 'asset-1', floatValue: '0.25' },
+      }),
+    );
     expect(reconcile.reconcile).toHaveBeenCalledWith(
       expect.objectContaining({
         orderId: 'order-1',

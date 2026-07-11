@@ -17,7 +17,7 @@ import {
 } from './trade-offer-ui-runner.js';
 
 const STEAM_TAB_URL = 'https://steamcommunity.com/my/inventory/#730_2';
-const TRADE_PAGE_SETTLE_MS = 3000;
+const TRADE_PAGE_SETTLE_MS = 800;
 
 function isUsableSteamTab(url = ''): boolean {
   if (!url.includes('steamcommunity.com')) {

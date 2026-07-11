@@ -12,6 +12,7 @@ import { toJsonSafe } from '../common/json-safe.util';
 import { getAuditContext } from '../common/observability/audit-context';
 import { ExtensionFlowMetricsService } from '../common/observability/extension-flow-metrics.service';
 import { LotStateService } from '../lots/lot-state.service';
+import { resolveLotTradeExpectations } from '../lots/lot-trade-expectations.util';
 import { PrismaService } from '../prisma/prisma.service';
 import { getProvidersConfig } from '../providers/config';
 import { resolveOrderVerificationMode } from '../trades/trade-verification.config';
@@ -228,15 +229,21 @@ export class OrdersService {
 
         const reservedAsset = await tx.inventoryAsset.findUnique({
           where: { id: lot.inventoryAssetId },
-          select: { assetExternalId: true },
+          include: { itemDefinition: true },
         });
+        const listingSnapshot = await tx.lotListingSnapshot.findUnique({
+          where: { lotId: lot.id },
+        });
+        const tradeExpectations = reservedAsset
+          ? resolveLotTradeExpectations(listingSnapshot, reservedAsset)
+          : null;
 
         const tradeOperation = await tx.tradeOperation.create({
           data: {
             orderId: createdOrder.id,
             status: TradeOperationStatus.WAITING,
             verificationMode: this.resolveVerificationMode(),
-            expectedAssetId: reservedAsset?.assetExternalId ?? null,
+            expectedAssetId: tradeExpectations?.expectedAssetId ?? null,
           },
         });
 
@@ -264,6 +271,12 @@ export class OrdersService {
               where: { id: lot.inventoryAssetId },
               include: { itemDefinition: true },
             });
+            const snapshotForTask = await tx.lotListingSnapshot.findUnique({
+              where: { lotId: lot.id },
+            });
+            const taskExpectations = inventoryAsset
+              ? resolveLotTradeExpectations(snapshotForTask, inventoryAsset)
+              : null;
             const dedupKey = `create_offer:${tradeOperation.id}`;
             const idempotencyTaskKey = `trade-task:${dedupKey}`;
             await tx.tradeTask.upsert({
@@ -283,9 +296,9 @@ export class OrdersService {
                   tradeOperationId: tradeOperation.id,
                   sellerId: lot.sellerId,
                   buyerId,
-                  expectedAssetId: reservedAsset?.assetExternalId ?? null,
-                  marketHashName:
-                    inventoryAsset?.itemDefinition.marketHashName ?? null,
+                  expectedAssetId: taskExpectations?.expectedAssetId ?? null,
+                  expectedFloatValue: taskExpectations?.expectedFloatValue ?? null,
+                  marketHashName: taskExpectations?.marketHashName ?? null,
                   buyerTradeUrl: buyerProfile?.tradeUrl ?? null,
                   inventoryAssetId: lot.inventoryAssetId,
                   idempotencyKey: idempotencyTaskKey,
@@ -479,9 +492,22 @@ export class OrdersService {
           updatedAt: rawTask.updatedAt,
         }
       : null;
+
+    const ackRows = await this.prisma.tradeAcknowledgment.findMany({
+      where: { orderId },
+      select: { type: true },
+    });
+    const ackTypes = new Set(ackRows.map((row) => row.type));
+    const tradeAcknowledgments = {
+      sellerAckSent: ackTypes.has('SELLER_ACK_SENT'),
+      buyerPreAccept: ackTypes.has('BUYER_ACK_PRE_ACCEPT'),
+      buyerReceived: ackTypes.has('BUYER_ACK_RECEIVED'),
+    };
+
     return toJsonSafe({
       ...orderRest,
       tradeTask,
+      tradeAcknowledgments,
     });
   }
 

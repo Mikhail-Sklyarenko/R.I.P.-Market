@@ -56,6 +56,32 @@ export function OrderTradeBuyerPanel({
         </ul>
       </div>
 
+      {order.tradeAcknowledgments?.buyerReceived ? (
+        <p className="alert alert-success" data-testid="buyer-received-ack">
+          Вы подтвердили получение предмета в R.I.P Market.
+        </p>
+      ) : order.tradeAcknowledgments?.buyerPreAccept ? (
+        <p className="alert alert-success" data-testid="buyer-extension-ack">
+          Сделка подтверждена в расширении R.I.P Market. Примите обмен в Steam.
+        </p>
+      ) : extensionMode ? (
+        <p className="muted small" data-testid="buyer-extension-hint">
+          Установите расширение R.I.P Market — на странице обмена в Steam вы увидите
+          проверку сделки перед принятием.
+        </p>
+      ) : null}
+
+      {hasOfferSaved &&
+      !order.tradeAcknowledgments?.buyerReceived &&
+      (order.tradeAcknowledgments?.buyerPreAccept ||
+        order.status === 'TRADE_CONFIRMED' ||
+        order.status === 'SETTLEMENT_HOLD') ? (
+        <p className="muted small" data-testid="buyer-confirm-received-hint">
+          После принятия обмена в Steam откройте страницу trade offer с расширением
+          R.I.P Market и нажмите «Подтвердил получение предмета».
+        </p>
+      ) : null}
+
       {!hasOfferSaved && extensionTaskActive ? (
         <p className="muted small" data-testid="buyer-awaiting-offer-message">
           Продавец отправляет предмет через расширение. Обычно это занимает 1–2 минуты —

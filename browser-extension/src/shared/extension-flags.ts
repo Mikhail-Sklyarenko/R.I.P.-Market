@@ -1,11 +1,14 @@
-export const USE_DIRECT_TRADE_API_KEY = 'USE_DIRECT_TRADE_API';
-/** Emergency override only — forces legacy Steam API POST instead of UI autofill. */
-export const UI_TRADE_FLOW_ENABLED_KEY = 'extensionUiTradeFlowEnabled';
+import {
+  TRADE_ACK_ENABLED_KEY,
+  UI_TRADE_FLOW_ENABLED_KEY,
+  USE_DIRECT_TRADE_API_KEY,
+} from './active-trades-cache.js';
 const TASK_UI_TRADE_FLOW_SESSION_KEY = 'rip:taskUiTradeFlow';
 
 type AuthConfigResponse = {
   extension?: {
     extensionUiTradeFlowEnabled?: boolean;
+    extensionTradeAcknowledgmentEnabled?: boolean;
   };
 };
 
@@ -22,9 +25,14 @@ export async function syncUiTradeFlowFromAuthConfig(
     return false;
   }
   const config = (await response.json()) as AuthConfigResponse;
-  const enabled = config.extension?.extensionUiTradeFlowEnabled === true;
-  await chrome.storage.local.set({ [UI_TRADE_FLOW_ENABLED_KEY]: enabled });
-  return enabled;
+  const uiEnabled = config.extension?.extensionUiTradeFlowEnabled === true;
+  const ackEnabled =
+    config.extension?.extensionTradeAcknowledgmentEnabled === true;
+  await chrome.storage.local.set({
+    [UI_TRADE_FLOW_ENABLED_KEY]: uiEnabled,
+    [TRADE_ACK_ENABLED_KEY]: ackEnabled,
+  });
+  return uiEnabled;
 }
 
 export async function setTaskUiTradeFlowOverride(
@@ -56,3 +64,5 @@ export async function applyTaskUiTradeFlowFlag(
 ): Promise<void> {
   await setTaskUiTradeFlowOverride(taskUiTradeFlow === true ? true : undefined);
 }
+
+export { USE_DIRECT_TRADE_API_KEY, UI_TRADE_FLOW_ENABLED_KEY };

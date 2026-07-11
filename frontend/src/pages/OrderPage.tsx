@@ -158,7 +158,7 @@ export function OrderPage() {
     void requestExtensionPoll();
     const timer = window.setInterval(() => {
       void requestExtensionPoll();
-    }, 20_000);
+    }, 4_000);
     return () => window.clearInterval(timer);
   }, [isSeller, showTradePanels, order?.tradeTask?.id, order?.tradeTask?.executionPhase]);
 

@@ -1,4 +1,5 @@
 import {
+  Body,
   Controller,
   Get,
   Param,
@@ -12,6 +13,7 @@ import type { Response } from 'express';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { CurrentUser } from '../common/current-user.decorator';
 import type { AuthUser } from '../common/auth-user.interface';
+import { InventoryPriceHintsDto } from './dto/inventory-price-hints.dto';
 import { InventoryService } from './inventory.service';
 
 @ApiTags('inventory')
@@ -44,6 +46,11 @@ export class InventoryController {
     }
 
     return result;
+  }
+
+  @Post('price-hints')
+  getPriceHints(@Body() body: InventoryPriceHintsDto) {
+    return this.inventoryService.getPriceHints(body.marketHashNames);
   }
 
   @Post(':assetId/check')

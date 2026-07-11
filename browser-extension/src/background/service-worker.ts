@@ -3,6 +3,7 @@ import {
   ExtensionApiClient,
   HttpTaskProgressReporter,
   isExtensionAuthError,
+  type TradeVerificationResult,
 } from '@rip-market/extension-orchestrator';
 import { MessageSteamOfferAdapter } from '../adapters/message-steam-offer-adapter.js';
 import {
@@ -20,8 +21,17 @@ import {
   setTaskUiTradeFlowOverride,
   syncUiTradeFlowFromAuthConfig,
 } from '../shared/extension-flags.js';
+import {
+  countActionableTrades,
+  getActiveTradesCache,
+  isTradeAcknowledgmentEnabled,
+  setActiveTradesCache,
+} from '../shared/active-trades-cache.js';
+import { TRADE_VERIFICATION_RUNTIME } from '../shared/trade-verification-runtime.js';
+import { loadCs2InventoryFromCookies } from '../shared/steam-cookie-client.js';
 
 const POLL_ALARM = 'rip-market-poll-tasks';
+const ACTIVE_TRADES_ALARM = 'rip-market-poll-active-trades';
 const HEARTBEAT_ALARM = 'rip-market-heartbeat';
 const processingTasks = new Set<string>();
 let pollInFlight: Promise<void> | null = null;
@@ -67,6 +77,7 @@ export async function pairExtension(params: {
     await syncUiTradeFlowFromAuthConfig(apiBaseUrl);
     await scheduleAlarms();
     void pollAndProcessTasks();
+    void pollActiveTrades();
     return { ok: true, sessionId: session.sessionId };
   } catch (error) {
     return {
@@ -114,7 +125,8 @@ export async function getExtensionStatus(): Promise<{
 }
 
 export async function scheduleAlarms(): Promise<void> {
-  await chrome.alarms.create(POLL_ALARM, { periodInMinutes: 0.25 });
+  await chrome.alarms.create(POLL_ALARM, { periodInMinutes: 0.05 });
+  await chrome.alarms.create(ACTIVE_TRADES_ALARM, { periodInMinutes: 0.5 });
   await chrome.alarms.create(HEARTBEAT_ALARM, { periodInMinutes: 1 });
 }
 
@@ -172,6 +184,210 @@ async function ensureFreshSession(
   }
 }
 
+async function buildAuthenticatedClient(): Promise<{
+  client: ExtensionApiClient;
+  state: ExtensionSessionState;
+} | null> {
+  if (!(await assertSessionDeviceConsistency())) {
+    return null;
+  }
+  const state = await getSessionState();
+  if (!state || Date.parse(state.expiresAt) <= Date.now()) {
+    if (state) {
+      await clearSessionState();
+    }
+    return null;
+  }
+
+  const keys = await ensureDeviceKeys();
+  let client = buildClient(state, keys, keys.privateKeyJwk);
+  const freshState = await ensureFreshSession(client, state);
+  if (!freshState) {
+    return null;
+  }
+  client = buildClient(freshState, keys, keys.privateKeyJwk);
+  return { client, state: freshState };
+}
+
+export async function pollActiveTrades(): Promise<TradeVerificationResult[]> {
+  if (!(await isTradeAcknowledgmentEnabled())) {
+    await setActiveTradesCache([]);
+    await chrome.action.setBadgeText({ text: '' });
+    return [];
+  }
+
+  const auth = await buildAuthenticatedClient();
+  if (!auth) {
+    return [];
+  }
+
+  try {
+    const trades = await auth.client.listActiveTrades(10);
+    await setActiveTradesCache(trades);
+    const actionable = countActionableTrades(trades);
+    await chrome.action.setBadgeText({
+      text: actionable > 0 ? String(actionable) : '',
+    });
+    await chrome.action.setBadgeBackgroundColor({ color: '#5b8def' });
+    return trades;
+  } catch (error) {
+    await invalidateSessionOnAuthError(error);
+    throw error;
+  }
+}
+
+async function verifyTradeFromRuntime(params: {
+  orderId?: string;
+  offerId?: string;
+  observedAssetId?: string;
+  observedFloatValue?: string;
+}): Promise<TradeVerificationResult | null> {
+  const hasObserved = Boolean(
+    params.observedAssetId?.trim() || params.observedFloatValue?.trim(),
+  );
+  const cache = await getActiveTradesCache();
+  if (params.offerId && cache && !hasObserved) {
+    const cached = cache.trades.find((trade) => trade.offerId === params.offerId);
+    if (cached) {
+      return cached;
+    }
+  }
+
+  const auth = await buildAuthenticatedClient();
+  if (!auth) {
+    return null;
+  }
+
+  const observed = {
+    assetId: params.observedAssetId ?? null,
+    floatValue: params.observedFloatValue ?? null,
+  };
+
+  if (params.orderId) {
+    return auth.client.verifyTrade(params.orderId, params.offerId ?? null, observed);
+  }
+
+  if (params.offerId && cache) {
+    const byOffer = cache.trades.find((trade) => trade.offerId === params.offerId);
+    if (byOffer) {
+      return auth.client.verifyTrade(byOffer.orderId, params.offerId, observed);
+    }
+  }
+
+  return null;
+}
+
+async function acknowledgeTradeFromRuntime(params: {
+  orderId: string;
+  ackType: 'SELLER_ACK_SENT' | 'BUYER_ACK_PRE_ACCEPT' | 'BUYER_ACK_RECEIVED';
+  offerId?: string;
+  idempotencyKey: string;
+}): Promise<{ ok: boolean; error?: string }> {
+  const auth = await buildAuthenticatedClient();
+  if (!auth) {
+    return { ok: false, error: 'Расширение не подключено' };
+  }
+
+  try {
+    await auth.client.acknowledgeTrade({
+      orderId: params.orderId,
+      type: params.ackType,
+      offerId: params.offerId,
+      idempotencyKey: params.idempotencyKey,
+    });
+    await pollActiveTrades();
+    return { ok: true };
+  } catch (error) {
+    await invalidateSessionOnAuthError(error);
+    return {
+      ok: false,
+      error: error instanceof Error ? error.message : 'Acknowledgment failed',
+    };
+  }
+}
+
+function handleTradeVerificationRuntimeMessage(
+  message: Record<string, unknown>,
+  sendResponse: (response: unknown) => void,
+): boolean {
+  if (message?.type === TRADE_VERIFICATION_RUNTIME.GET_ACTIVE_TRADES) {
+    void getActiveTradesCache().then((cache) => {
+      sendResponse({
+        ok: true,
+        trades: cache?.trades ?? [],
+        updatedAt: cache?.updatedAt ?? null,
+      });
+    });
+    return true;
+  }
+
+  if (message?.type === TRADE_VERIFICATION_RUNTIME.REFRESH_ACTIVE_TRADES) {
+    void pollActiveTrades()
+      .then((trades) => sendResponse({ ok: true, trades }))
+      .catch((error: unknown) =>
+        sendResponse({
+          ok: false,
+          error: error instanceof Error ? error.message : 'Refresh failed',
+        }),
+      );
+    return true;
+  }
+
+  if (message?.type === TRADE_VERIFICATION_RUNTIME.VERIFY_TRADE) {
+    void verifyTradeFromRuntime({
+      orderId: message.orderId ? String(message.orderId) : undefined,
+      offerId: message.offerId ? String(message.offerId) : undefined,
+      observedAssetId: message.observedAssetId
+        ? String(message.observedAssetId)
+        : undefined,
+      observedFloatValue: message.observedFloatValue
+        ? String(message.observedFloatValue)
+        : undefined,
+    })
+      .then((trade) => sendResponse({ ok: Boolean(trade), trade }))
+      .catch((error: unknown) =>
+        sendResponse({
+          ok: false,
+          error: error instanceof Error ? error.message : 'Verify failed',
+        }),
+      );
+    return true;
+  }
+
+  if (message?.type === TRADE_VERIFICATION_RUNTIME.ACK_TRADE) {
+    void acknowledgeTradeFromRuntime({
+      orderId: String(message.orderId ?? ''),
+      ackType: message.ackType as
+        | 'SELLER_ACK_SENT'
+        | 'BUYER_ACK_PRE_ACCEPT'
+        | 'BUYER_ACK_RECEIVED',
+      offerId: message.offerId ? String(message.offerId) : undefined,
+      idempotencyKey: String(message.idempotencyKey ?? ''),
+    }).then(sendResponse);
+    return true;
+  }
+
+  if (message?.type === TRADE_VERIFICATION_RUNTIME.RESOLVE_ASSET_FLOAT) {
+    const assetId = message.assetId ? String(message.assetId).trim() : '';
+    if (!assetId) {
+      sendResponse({ ok: false, floatValue: null });
+      return true;
+    }
+    void loadCs2InventoryFromCookies()
+      .then((inventory) => {
+        const item = inventory.items.find((entry) => entry.assetId === assetId);
+        sendResponse({
+          ok: Boolean(item?.floatValue),
+          floatValue: item?.floatValue ?? null,
+        });
+      })
+      .catch(() => sendResponse({ ok: false, floatValue: null }));
+    return true;
+  }
+
+  return false;
+}
+
 export async function pollAndProcessTasks(): Promise<void> {
   if (pollInFlight) {
     return pollInFlight;
@@ -183,6 +399,10 @@ export async function pollAndProcessTasks(): Promise<void> {
 }
 
 async function pollAndProcessTasksInner(): Promise<void> {
+  void pollActiveTrades().catch((error) => {
+    console.warn('[rip-market] active trades poll failed', error);
+  });
+
   if (!(await assertSessionDeviceConsistency())) {
     return;
   }
@@ -281,6 +501,9 @@ chrome.alarms.onAlarm.addListener((alarm) => {
   if (alarm.name === POLL_ALARM) {
     void pollAndProcessTasks();
   }
+  if (alarm.name === ACTIVE_TRADES_ALARM) {
+    void pollActiveTrades();
+  }
   if (alarm.name === HEARTBEAT_ALARM) {
     void sendHeartbeat();
   }
@@ -310,6 +533,9 @@ chrome.runtime.onMessageExternal.addListener((message, _sender, sendResponse) =>
 });
 
 chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
+  if (handleTradeVerificationRuntimeMessage(message, sendResponse)) {
+    return true;
+  }
   if (message?.type === 'RIP_MARKET_STATUS') {
     void getExtensionStatus().then(sendResponse);
     return true;
@@ -327,6 +553,9 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
 
 void getSessionState().then((state) => {
   if (state) {
-    void scheduleAlarms().then(() => pollAndProcessTasks());
+    void scheduleAlarms().then(() => {
+      void pollAndProcessTasks();
+      void pollActiveTrades();
+    });
   }
 });

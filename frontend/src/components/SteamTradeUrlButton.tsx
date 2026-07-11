@@ -7,7 +7,7 @@ type SteamTradeUrlButtonProps = {
 
 export function SteamTradeUrlButton({
   className = 'button secondary sm',
-  label = 'Открыть настройки Steam',
+  label = 'Получить ссылку',
 }: SteamTradeUrlButtonProps) {
   return (
     <a

@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { Inject } from '@nestjs/common';
+import { InventoryAssetStatus } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { INVENTORY_PROVIDER } from '../providers/tokens';
 import type { InventoryProvider } from '../providers/inventory/inventory-provider.interface';
@@ -9,6 +10,12 @@ export type InventoryDeltaResult =
   | 'confirmed'
   | 'seller_still_holds'
   | 'unknown';
+
+export type InventoryDeltaVerifyOptions = {
+  force?: boolean;
+  expectedFloatValue?: number | null;
+  expectedPaintSeed?: number | null;
+};
 
 @Injectable()
 export class TradeInventoryDeltaService {
@@ -25,40 +32,87 @@ export class TradeInventoryDeltaService {
     buyerSteamId: string | null | undefined,
     expectedAssetExternalId: string,
     marketHashName: string,
+    options?: InventoryDeltaVerifyOptions,
   ): Promise<InventoryDeltaResult> {
     if (!sellerSteamId || !buyerSteamId) {
       return 'unknown';
     }
 
-    await this.inventoryProvider.syncInventory(sellerId, sellerSteamId, {
-      force: false,
-    });
-    await this.inventoryProvider.syncInventory(buyerId, buyerSteamId, {
-      force: false,
-    });
+    const force = options?.force ?? false;
 
-    const sellerStillHas = await this.prisma.inventoryAsset.findFirst({
+    try {
+      await this.inventoryProvider.syncInventory(sellerId, sellerSteamId, {
+        force,
+      });
+      await this.inventoryProvider.syncInventory(buyerId, buyerSteamId, {
+        force,
+      });
+    } catch {
+      return 'unknown';
+    }
+
+    const sellerLiveHolds = await this.prisma.inventoryAsset.findFirst({
       where: {
         ownerId: sellerId,
         assetExternalId: expectedAssetExternalId,
-        status: { in: ['AVAILABLE', 'LISTED', 'RESERVED'] },
+        status: InventoryAssetStatus.AVAILABLE,
       },
     });
-    if (sellerStillHas) {
-      return 'seller_still_holds';
-    }
 
-    const buyerReceived = await this.prisma.inventoryAsset.findFirst({
+    const buyerByAssetId = await this.prisma.inventoryAsset.findFirst({
       where: {
         ownerId: buyerId,
         assetExternalId: expectedAssetExternalId,
+        status: InventoryAssetStatus.AVAILABLE,
         itemDefinition: { marketHashName },
       },
     });
-    if (buyerReceived) {
+    if (buyerByAssetId) {
       return 'confirmed';
     }
 
+    const buyerByHashName = await this.findBuyerReceivedByHashName(
+      buyerId,
+      marketHashName,
+      options?.expectedFloatValue,
+      options?.expectedPaintSeed,
+    );
+    if (buyerByHashName && !sellerLiveHolds) {
+      return 'confirmed';
+    }
+
+    if (sellerLiveHolds) {
+      return 'seller_still_holds';
+    }
+
     return 'pending';
+  }
+
+  private async findBuyerReceivedByHashName(
+    buyerId: string,
+    marketHashName: string,
+    expectedFloatValue?: number | null,
+    expectedPaintSeed?: number | null,
+  ) {
+    const where: {
+      ownerId: string;
+      status: InventoryAssetStatus;
+      itemDefinition: { marketHashName: string };
+      floatValue?: number;
+      paintSeed?: number;
+    } = {
+      ownerId: buyerId,
+      status: InventoryAssetStatus.AVAILABLE,
+      itemDefinition: { marketHashName },
+    };
+
+    if (expectedFloatValue != null && Number.isFinite(expectedFloatValue)) {
+      where.floatValue = expectedFloatValue;
+    }
+    if (expectedPaintSeed != null && Number.isFinite(expectedPaintSeed)) {
+      where.paintSeed = expectedPaintSeed;
+    }
+
+    return this.prisma.inventoryAsset.findFirst({ where });
   }
 }
