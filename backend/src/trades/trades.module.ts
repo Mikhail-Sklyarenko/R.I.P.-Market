@@ -16,7 +16,7 @@ import { TradesService } from './trades.service';
     WalletModule,
     LotsModule,
     forwardRef(() => OrdersModule),
-    SettlementModule,
+    forwardRef(() => SettlementModule),
   ],
   controllers: [TradesController],
   providers: [
