@@ -1,5 +1,7 @@
 import { useEffect, useState } from 'react';
 import type { WeaponCategoryIconId } from '../utils/catalog-filters';
+import { getWeaponIconTiltClass } from '../utils/weapon-icon-tilt';
+import { WeaponIconShell } from './WeaponIconShell';
 
 type WeaponCategoryIconProps = {
   icon: WeaponCategoryIconId;
@@ -53,7 +55,13 @@ function FallbackCategoryIcon({
 
 export function WeaponCategoryIcon({ icon, className }: WeaponCategoryIconProps) {
   const [failed, setFailed] = useState(false);
-  const classNames = ['weapon-category-icon', className].filter(Boolean).join(' ');
+  const classNames = [
+    'weapon-category-icon',
+    getWeaponIconTiltClass({ icon }),
+    className,
+  ]
+    .filter(Boolean)
+    .join(' ');
   const fileSlug = CATEGORY_ICON_FILES[icon];
 
   useEffect(() => {
@@ -65,14 +73,16 @@ export function WeaponCategoryIcon({ icon, className }: WeaponCategoryIconProps)
   }
 
   return (
-    <img
-      src={`/icons/weapons/categories/${fileSlug}.svg`}
-      alt=""
-      className={classNames}
-      width={18}
-      height={18}
-      loading="lazy"
-      onError={() => setFailed(true)}
-    />
+    <WeaponIconShell variant="category">
+      <img
+        src={`/icons/weapons/categories/${fileSlug}.svg`}
+        alt=""
+        className={classNames}
+        width={18}
+        height={18}
+        loading="lazy"
+        onError={() => setFailed(true)}
+      />
+    </WeaponIconShell>
   );
 }

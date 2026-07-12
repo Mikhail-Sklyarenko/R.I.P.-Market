@@ -37,7 +37,7 @@ download bayonet.svg "$WEAPONS_DIR/bayonet.svg"
 download clothing_hands.svg "$WEAPONS_DIR/gloves-extraordinary.svg"
 
 # Category tab icons
-download knife.svg "$CATEGORIES_DIR/knife.svg"
+download knife_karambit.svg "$CATEGORIES_DIR/knife.svg"
 download glock.svg "$CATEGORIES_DIR/pistol.svg"
 download ak47.svg "$CATEGORIES_DIR/rifle.svg"
 download awp.svg "$CATEGORIES_DIR/sniper.svg"

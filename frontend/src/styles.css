@@ -2717,11 +2717,30 @@ p {
   white-space: nowrap;
 }
 
+.weapon-icon-shell {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  overflow: visible;
+}
+
+.weapon-icon-shell-category {
+  width: 22px;
+  height: 22px;
+}
+
+.weapon-icon-shell-model {
+  width: 24px;
+  height: 24px;
+}
+
 .weapon-category-icon {
   width: 18px;
   height: 18px;
   flex-shrink: 0;
   object-fit: contain;
+  transform-origin: center;
 }
 
 .weapon-model-icon {
@@ -2729,6 +2748,31 @@ p {
   height: 20px;
   flex-shrink: 0;
   object-fit: contain;
+  transform-origin: center;
+}
+
+.weapon-icon-tilt-knife {
+  transform: rotate(-42deg);
+}
+
+.weapon-icon-tilt-pistol {
+  transform: rotate(-32deg);
+}
+
+.weapon-icon-tilt-rifle {
+  transform: rotate(-28deg);
+}
+
+.weapon-icon-tilt-sniper {
+  transform: rotate(-24deg);
+}
+
+.weapon-icon-tilt-smg {
+  transform: rotate(-30deg);
+}
+
+.weapon-icon-tilt-shotgun {
+  transform: rotate(-30deg);
 }
 
 .catalog-category-bar-label {
