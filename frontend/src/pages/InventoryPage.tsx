@@ -240,7 +240,7 @@ export function InventoryPage() {
       }
       await createLot(token, selectedAssetId, priceMinor);
       setSelectedAssetId(null);
-      navigate('/sell/my-lots');
+      navigate('/deals?tab=listings');
     } catch (err: unknown) {
       setSellError(err);
     } finally {

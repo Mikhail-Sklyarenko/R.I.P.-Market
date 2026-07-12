@@ -10,6 +10,7 @@ import type { AuthConfig } from '../api/types';
 import { useAuth } from '../auth/AuthContext';
 import { ErrorAlert } from '../components/ErrorAlert';
 import { ExtensionConnectPanel } from '../components/ExtensionConnectPanel';
+import { AccountTradingOnboarding } from '../components/AccountTradingOnboarding';
 import { PageHeader } from '../components/PageHeader';
 import { ReadinessChecklist } from '../components/ReadinessChecklist';
 import { hasLinkedSteamId } from '../utils/steam-id';
@@ -202,7 +203,11 @@ export function AccountPage() {
             ) : null}
 
             {canLinkSteam ? (
-              <div className="account-steam-actions" data-testid="link-steam-panel">
+              <div
+                className="account-steam-actions"
+                data-testid="link-steam-panel"
+                id="account-steam-section"
+              >
                 <p className="muted small">
                   Привяжите Steam для синхронизации инвентаря и сделок.
                 </p>
@@ -219,7 +224,11 @@ export function AccountPage() {
             ) : null}
 
             {steamLinked ? (
-              <div className="account-steam-actions" data-testid="steam-linked-panel">
+              <div
+                className="account-steam-actions"
+                data-testid="steam-linked-panel"
+                id="account-steam-section"
+              >
                 <p className="success-text" data-testid="steam-linked-message">
                   Steam привязан
                   {user?.steamPersonaName ? `: ${user.steamPersonaName}` : ''}
@@ -247,12 +256,18 @@ export function AccountPage() {
         </div>
 
         <aside className="account-page-sidebar">
+          <AccountTradingOnboarding
+            steamId={user?.steamId}
+            tradeUrl={user?.tradeUrl}
+            config={config}
+          />
+
           <div data-testid="account-readiness">
             <ReadinessChecklist user={user} config={config} compactWhenReady />
           </div>
 
           <div className="card account-settings-card">
-            <div className="account-trade-url-section">
+            <div className="account-trade-url-section" id="account-trade-url-section">
               <h3 className="account-section-title">Trade URL</h3>
               <p className="muted small">
                 Нужен для обменов в Steam.
@@ -300,7 +315,9 @@ export function AccountPage() {
             </div>
 
             {token && config?.extension?.extensionChannelEnabled ? (
-              <ExtensionConnectPanel token={token} compact />
+              <div id="account-extension-section">
+                <ExtensionConnectPanel token={token} compact />
+              </div>
             ) : null}
           </div>
 

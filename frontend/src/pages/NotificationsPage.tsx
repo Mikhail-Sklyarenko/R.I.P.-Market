@@ -121,7 +121,7 @@ export function NotificationsPage() {
           <p className="empty-state-message">
             Здесь появятся события по вашим сделкам и кошельку.
           </p>
-          <Link to="/my/orders" className="button secondary">
+          <Link to="/deals?tab=purchases" className="button secondary">
             Мои сделки
           </Link>
         </div>

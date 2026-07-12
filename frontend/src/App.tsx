@@ -19,8 +19,12 @@ import { InventoryPage } from './pages/InventoryPage';
 import { LoginPage } from './pages/LoginPage';
 import { SteamCallbackPage } from './pages/SteamCallbackPage';
 import { LotPage } from './pages/LotPage';
-import { MyOrdersPage } from './pages/MyOrdersPage';
-import { SellerActivityPage } from './pages/SellerActivityPage';
+import { DealsPage } from './pages/DealsPage';
+import {
+  MyOrdersRedirect,
+  SellActivityRedirect,
+  SellMyLotsRedirect,
+} from './pages/LegacyDealsRedirects';
 import { NotificationsPage } from './pages/NotificationsPage';
 import { OrderPage } from './pages/OrderPage';
 import { SupportPage } from './pages/SupportPage';
@@ -61,12 +65,13 @@ export function App() {
             <Route path="/wallet" element={<WalletPage />} />
             <Route path="/lots/:id/checkout" element={<CheckoutPage />} />
             <Route path="/orders/:id" element={<OrderPage />} />
-            <Route path="/my/orders" element={<MyOrdersPage />} />
+            <Route path="/deals" element={<DealsPage />} />
+            <Route path="/my/orders" element={<MyOrdersRedirect />} />
             <Route path="/notifications" element={<NotificationsPage />} />
             <Route path="/sell/inventory" element={<InventoryPage />} />
             <Route path="/sell/lots/new" element={<CreateLotPage />} />
-            <Route path="/sell/my-lots" element={<Navigate to="/sell/activity?tab=lots" replace />} />
-            <Route path="/sell/activity" element={<SellerActivityPage />} />
+            <Route path="/sell/my-lots" element={<SellMyLotsRedirect />} />
+            <Route path="/sell/activity" element={<SellActivityRedirect />} />
           </Route>
         </Route>
 

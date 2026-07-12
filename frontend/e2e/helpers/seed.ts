@@ -46,7 +46,7 @@ async function setTradeUrlForUser(request: APIRequestContext, accessToken: strin
   }
 }
 
-export async function prepareSellerForListing(
+export async function prepareUserForTrading(
   request: APIRequestContext,
   accessToken: string,
   steamId = MOCK_SELLER_STEAM_ID,
@@ -54,6 +54,14 @@ export async function prepareSellerForListing(
   const userId = decodeUserIdFromToken(accessToken);
   await setTradeUrlForUser(request, accessToken);
   await linkSteamForUser(request, userId, steamId);
+}
+
+export async function prepareSellerForListing(
+  request: APIRequestContext,
+  accessToken: string,
+  steamId = MOCK_SELLER_STEAM_ID,
+) {
+  await prepareUserForTrading(request, accessToken, steamId);
 }
 
 export async function prepareBuyerForPurchase(

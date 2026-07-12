@@ -1986,6 +1986,108 @@ p {
   gap: var(--space-2);
 }
 
+.account-onboarding {
+  display: grid;
+  gap: var(--space-3);
+}
+
+.account-onboarding-ready {
+  padding: var(--space-4);
+}
+
+.account-onboarding-ready-text {
+  margin: 0;
+  font-size: var(--font-size-sm);
+}
+
+.account-onboarding-title {
+  margin: 0;
+  font-size: var(--font-size-base);
+}
+
+.account-onboarding-lead {
+  margin: 0;
+}
+
+.account-onboarding-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: var(--space-3);
+}
+
+.account-onboarding-step {
+  display: grid;
+  gap: var(--space-2);
+  padding: var(--space-3);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-bg-subtle);
+}
+
+.account-onboarding-step-ok {
+  border-color: color-mix(in srgb, var(--color-success) 35%, var(--color-border));
+}
+
+.account-onboarding-step-head {
+  display: flex;
+  gap: var(--space-3);
+  align-items: flex-start;
+}
+
+.account-onboarding-mark {
+  flex: 0 0 auto;
+  width: 1.5rem;
+  height: 1.5rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+  background: color-mix(in srgb, var(--color-danger) 12%, transparent);
+  color: var(--color-danger);
+}
+
+.account-onboarding-mark-ok {
+  background: color-mix(in srgb, var(--color-success) 15%, transparent);
+  color: var(--color-success);
+}
+
+.account-onboarding-mark-optional {
+  background: color-mix(in srgb, var(--color-text-muted) 12%, transparent);
+  color: var(--color-text-muted);
+}
+
+.account-onboarding-step-copy {
+  min-width: 0;
+  display: grid;
+  gap: var(--space-1);
+}
+
+.account-onboarding-step-label {
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+}
+
+.account-onboarding-optional {
+  font-weight: 400;
+  color: var(--color-text-muted);
+}
+
+.account-onboarding-step-hint {
+  margin: 0;
+}
+
+.account-onboarding-action {
+  justify-self: start;
+}
+
+.account-onboarding-next {
+  margin: 0;
+}
+
 .inventory-readiness-banner {
   display: grid;
   gap: var(--space-4);

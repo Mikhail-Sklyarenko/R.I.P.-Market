@@ -270,7 +270,7 @@ export function OrderPage() {
             : 'Отслеживайте покупку и статус обмена.'
         }
         actions={
-          <Link to="/my/orders" className="button secondary">
+          <Link to="/deals?tab=sales" className="button secondary">
             Мои сделки
           </Link>
         }

@@ -26,16 +26,25 @@ import {
 type MyOrdersPageProps = {
   embedded?: boolean;
   sellerOnly?: boolean;
+  buyerOnly?: boolean;
+  emptyStateMode?: 'purchases' | 'sales' | 'default';
 };
 
-export function MyOrdersPage({ embedded = false, sellerOnly = false }: MyOrdersPageProps) {
+export function MyOrdersPage({
+  embedded = false,
+  sellerOnly = false,
+  buyerOnly = false,
+  emptyStateMode = 'default',
+}: MyOrdersPageProps) {
   const { token, user } = useAuth();
   const { summary: walletSummary } = useWalletSummary();
   const [summaryOrders, setSummaryOrders] = useState<Order[]>([]);
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<unknown>(null);
-  const [roleFilter, setRoleFilter] = useState<OrderRoleFilter>(sellerOnly ? 'seller' : 'all');
+  const [roleFilter, setRoleFilter] = useState<OrderRoleFilter>(
+    sellerOnly ? 'seller' : buyerOnly ? 'buyer' : 'all',
+  );
   const [statusFilter, setStatusFilter] = useState<OrderStatusFilter>('all');
 
   const apiParams = useMemo(() => {
@@ -154,7 +163,7 @@ export function MyOrdersPage({ embedded = false, sellerOnly = false }: MyOrdersP
       {!loading && orders.length > 0 ? (
         <div className="card deals-filters" data-testid="my-orders-filters">
           <div className="catalog-filters-row">
-            {!sellerOnly ? (
+            {!sellerOnly && !buyerOnly ? (
               <label className="field catalog-filter-field">
                 <span className="field-label">Роль</span>
                 <select
@@ -192,12 +201,34 @@ export function MyOrdersPage({ embedded = false, sellerOnly = false }: MyOrdersP
 
       {!loading && orders.length === 0 ? (
         <EmptyState
-          title="Сделок пока нет"
-          message="Купите лот в каталоге или выставьте предмет на продажу."
+          title={
+            emptyStateMode === 'purchases'
+              ? 'Покупок пока нет'
+              : emptyStateMode === 'sales'
+                ? 'Продаж пока нет'
+                : 'Сделок пока нет'
+          }
+          message={
+            emptyStateMode === 'purchases'
+              ? 'Выберите лот в каталоге и оформите первую покупку.'
+              : emptyStateMode === 'sales'
+                ? 'Выставьте предмет из инвентаря, чтобы начать продавать.'
+                : 'Купите лот в каталоге или выставьте предмет на продажу.'
+          }
           action={
-            <Link to="/catalog" className="button primary">
-              В каталог
-            </Link>
+            emptyStateMode === 'purchases' ? (
+              <Link to="/catalog" className="button primary">
+                В каталог
+              </Link>
+            ) : emptyStateMode === 'sales' ? (
+              <Link to="/sell/inventory" className="button primary">
+                В инвентарь
+              </Link>
+            ) : (
+              <Link to="/catalog" className="button primary">
+                В каталог
+              </Link>
+            )
           }
         />
       ) : null}

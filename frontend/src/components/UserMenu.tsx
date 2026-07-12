@@ -31,8 +31,7 @@ export function UserMenu() {
   }
 
   const isAdmin = user.role === 'ADMIN';
-  const isSeller = user.role === 'SELLER';
-  const canSell = isSeller || hasLinkedSteamId(user.steamId);
+  const canSell = hasLinkedSteamId(user.steamId);
   const steamLinked = hasLinkedSteamId(user.steamId);
   const avatarUrl = getUserAvatarUrl(user);
   const initials = getUserInitials(user);
@@ -111,34 +110,22 @@ export function UserMenu() {
           >
             Транзакции
           </Link>
+          <Link
+            to="/deals"
+            className="user-menu-item"
+            data-testid="user-menu-deals"
+            onClick={() => setOpen(false)}
+          >
+            Сделки
+          </Link>
           {canSell ? (
-            <>
-              <Link
-                to="/sell/inventory"
-                className="user-menu-item"
-                data-testid="user-menu-inventory"
-                onClick={() => setOpen(false)}
-              >
-                Инвентарь
-              </Link>
-              <Link
-                to="/sell/activity"
-                className="user-menu-item"
-                data-testid="user-menu-seller-activity"
-                onClick={() => setOpen(false)}
-              >
-                Мои продажи
-              </Link>
-            </>
-          ) : null}
-          {!isSeller ? (
             <Link
-              to="/my/orders"
+              to="/sell/inventory"
               className="user-menu-item"
-              data-testid="user-menu-orders"
+              data-testid="user-menu-inventory"
               onClick={() => setOpen(false)}
             >
-              Мои сделки
+              Инвентарь
             </Link>
           ) : null}
           {isAdmin ? (

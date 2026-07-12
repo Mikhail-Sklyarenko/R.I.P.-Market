@@ -22,8 +22,8 @@ test.describe('Main navigation', () => {
     await page.getByTestId('user-menu-trigger').click();
     await expect(page.getByTestId('user-menu-panel')).toBeVisible();
 
-    await page.getByTestId('user-menu-orders').click();
-    await expect(page).toHaveURL(/\/my\/orders$/);
+    await page.getByTestId('user-menu-deals').click();
+    await expect(page).toHaveURL(/\/deals/);
 
     await page.getByTestId('user-menu-trigger').click();
     await page.getByTestId('user-menu-transactions').click();

@@ -12,7 +12,7 @@ test.describe('Seller order visibility', () => {
     const { orderId } = await seedOpenOrder(request);
 
     await loginAsSeller(page);
-    await page.goto('/my/orders');
+    await page.goto('/deals?tab=sales');
 
     await expect(page.getByTestId('my-orders-table')).toContainText('WAITING_TRADE');
     await expect(page.getByTestId('my-orders-table')).toContainText('Продавец');

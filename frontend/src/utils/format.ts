@@ -125,9 +125,6 @@ export const BUYER_CANCELABLE_STATUSES = new Set([
 ]);
 
 export function getHomePathForRole(role: string): string {
-  if (role === 'SELLER') {
-    return '/sell/inventory';
-  }
   if (role === 'ADMIN') {
     return '/admin/orders';
   }

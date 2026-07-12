@@ -129,7 +129,7 @@ export function InventoryAssetCard({
             asset.status === 'LISTED' ? (
               <Link
                 className={statusBadgeClass(asset.status)}
-                to="/sell/my-lots"
+                to="/deals?tab=listings"
                 data-testid={`view-lot-${asset.id}`}
                 onClick={(event) => event.stopPropagation()}
               >

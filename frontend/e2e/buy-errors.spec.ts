@@ -37,14 +37,19 @@ test.describe('Buy error handling', () => {
     await page.goto(`/lots/${lotId}/checkout`);
   });
 
-  test('seller account cannot buy listings', async ({ page }) => {
-    const { lotId } = await seedActiveLot(page.request);
-
+  test('cannot buy own listing', async ({ page }) => {
     await loginAsSeller(page);
-    await page.goto(`/lots/${lotId}`);
 
-    await expect(page.getByTestId('seller-cannot-buy-message')).toBeVisible();
-    await expect(page.getByTestId('buy-lot-button')).toHaveCount(0);
+    const listButton = page.locator('[data-testid^="list-asset-"]').first();
+    await listButton.click();
+    await page.getByTestId('price-input').fill('500');
+    await page.getByTestId('submit-listing').click();
+    await expect(page).toHaveURL(/\/deals/);
+
+    const lotLink = page.locator('[data-testid^="view-catalog-lot-"]').first();
+    await lotLink.click();
+    await expect(page.getByTestId('own-lot-message')).toBeVisible();
+    await expect(page.getByTestId('buy-lot-button')).toBeDisabled();
   });
 
   test('reserved listing shows unavailable message', async ({ page, request }) => {

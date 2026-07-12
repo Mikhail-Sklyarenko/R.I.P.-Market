@@ -262,7 +262,7 @@ export function MyLotsPage({ embedded = false }: MyLotsPageProps) {
                               Открыть сделку
                             </Link>
                           ) : lot.status === 'RESERVED' || lot.status === 'SOLD' ? (
-                            <Link to="/my/orders">Мои сделки</Link>
+                            <Link to="/deals?tab=sales">Мои сделки</Link>
                           ) : null}
                         </td>
                       </tr>

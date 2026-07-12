@@ -34,11 +34,10 @@ export function LotPage() {
   const [requiresSteamLink, setRequiresSteamLink] = useState(false);
 
   const isOwnLot = Boolean(lot && user && lot.sellerId === user.id);
-  const isSellerRole = user?.role === 'SELLER';
   const isUnavailable = lot?.status !== 'ACTIVE';
   const steamPurchaseBlocked = isPurchaseBlocked(user, requiresSteamLink, Boolean(token));
   const canProceed =
-    lot?.status === 'ACTIVE' && !isOwnLot && !isSellerRole && !steamPurchaseBlocked;
+    lot?.status === 'ACTIVE' && !isOwnLot && !steamPurchaseBlocked;
 
   useEffect(() => {
     getAuthConfig()
@@ -187,7 +186,7 @@ export function LotPage() {
 
                 <ErrorAlert error={error} />
 
-                {token && !isSellerRole && !isOwnLot && !isUnavailable ? (
+                {token && !isOwnLot && !isUnavailable ? (
                   <PurchaseReadinessAlerts
                     user={user}
                     requiresSteamLink={requiresSteamLink}
@@ -207,24 +206,16 @@ export function LotPage() {
                   </p>
                 ) : null}
 
-                {isSellerRole ? (
-                  <p className="muted" data-testid="seller-cannot-buy-message">
-                    Войдите как покупатель, чтобы оформить покупку.
-                  </p>
-                ) : (
-                  <>
-                    <button
-                      type="button"
-                      className="button primary lot-purchase-button"
-                      disabled={!canProceed}
-                      data-testid="buy-lot-button"
-                      onClick={handleProceedToCheckout}
-                    >
-                      {!token ? 'Войти для покупки' : 'Купить сейчас'}
-                    </button>
-                    {canProceed ? <EscrowNotice /> : null}
-                  </>
-                )}
+                <button
+                  type="button"
+                  className="button primary lot-purchase-button"
+                  disabled={!canProceed}
+                  data-testid="buy-lot-button"
+                  onClick={handleProceedToCheckout}
+                >
+                  {!token ? 'Войти для покупки' : 'Купить сейчас'}
+                </button>
+                {canProceed ? <EscrowNotice /> : null}
               </div>
             </aside>
           </div>

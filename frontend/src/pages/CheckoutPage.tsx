@@ -40,7 +40,6 @@ export function CheckoutPage() {
   const canConfirm =
     lot?.status === 'ACTIVE' &&
     !insufficient &&
-    user?.role !== 'SELLER' &&
     !isOwnLot &&
     !purchaseBlocked &&
     !confirming;
@@ -179,12 +178,6 @@ export function CheckoutPage() {
               {isOwnLot ? (
                 <p className="muted small" data-testid="own-lot-message">
                   Вы не можете купить свой лот.
-                </p>
-              ) : null}
-
-              {user?.role === 'SELLER' ? (
-                <p className="muted small" data-testid="seller-cannot-buy-message">
-                  Войдите как покупатель, чтобы оформить покупку.
                 </p>
               ) : null}
 

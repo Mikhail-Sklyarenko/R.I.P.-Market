@@ -74,7 +74,7 @@ export function CreateLotPage() {
         return;
       }
       await createLot(token, assetId, priceMinor);
-      navigate('/sell/my-lots');
+      navigate('/deals?tab=listings');
     } catch (err) {
       setError(err);
     } finally {

@@ -1,6 +1,6 @@
 import { Page, expect } from '@playwright/test';
 import { fundWallet } from './crypto-payments';
-import { prepareBuyerForPurchase, prepareSellerForListing } from './seed';
+import { prepareBuyerForPurchase, prepareUserForTrading } from './seed';
 
 const API_BASE = process.env.PLAYWRIGHT_API_BASE_URL ?? 'http://localhost:3001/api/v1';
 
@@ -19,26 +19,35 @@ async function readPageToken(page: Page): Promise<string> {
   return token;
 }
 
-export async function loginAsSeller(page: Page) {
+async function loginAsMockRole(
+  page: Page,
+  role: 'SELLER' | 'BUYER',
+  options?: { steamId?: string; gotoInventory?: boolean },
+) {
   await page.goto('/login');
-  await page.getByRole('button', { name: 'Seller', exact: true }).click();
-  await page.getByTestId('login-seller').click();
-  await expect(page).toHaveURL(/\/sell\/inventory$/);
+  await page.getByRole('button', { name: role === 'SELLER' ? 'Seller' : 'Buyer', exact: true }).click();
+  await page.getByTestId(`login-${role.toLowerCase()}`).click();
+  await expect(page).toHaveURL(/\/catalog$/);
   const token = await readPageToken(page);
-  await prepareSellerForListing(page.request, token);
+  if (role === 'SELLER') {
+    await prepareUserForTrading(page.request, token, options?.steamId);
+  } else {
+    await prepareBuyerForPurchase(page.request, token);
+  }
   await page.reload();
-  await expect(page).toHaveURL(/\/sell\/inventory$/);
+  await expect(page).toHaveURL(/\/catalog$/);
+  if (options?.gotoInventory ?? role === 'SELLER') {
+    await page.goto('/sell/inventory');
+    await expect(page).toHaveURL(/\/sell\/inventory$/);
+  }
+}
+
+export async function loginAsSeller(page: Page) {
+  await loginAsMockRole(page, 'SELLER');
 }
 
 export async function loginAsBuyer(page: Page) {
-  await page.goto('/login');
-  await page.getByRole('button', { name: 'Buyer', exact: true }).click();
-  await page.getByTestId('login-buyer').click();
-  await expect(page).toHaveURL(/\/catalog$/);
-  const token = await readPageToken(page);
-  await prepareBuyerForPurchase(page.request, token);
-  await page.reload();
-  await expect(page).toHaveURL(/\/catalog$/);
+  await loginAsMockRole(page, 'BUYER', { gotoInventory: false });
 }
 
 export async function loginAsAdmin(page: Page) {
