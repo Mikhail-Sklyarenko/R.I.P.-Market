@@ -4,6 +4,7 @@ import { listCatalogItems, listPopularCatalogItems } from '../api/marketplace';
 import type { CatalogItem } from '../api/types';
 import { useAuth } from '../auth/AuthContext';
 import { CatalogCategoryBar } from '../components/CatalogCategoryBar';
+import { CatalogFloatRangeFilter } from '../components/CatalogFloatRangeFilter';
 import { CatalogItemCard } from '../components/CatalogItemCard';
 import { CatalogPriceRangeFilter } from '../components/CatalogPriceRangeFilter';
 import { ErrorAlert } from '../components/ErrorAlert';
@@ -330,33 +331,12 @@ export function CatalogPage() {
               </div>
             </fieldset>
 
-            <fieldset className="catalog-sidebar-section">
-              <legend className="field-label">Float</legend>
-              <div className="catalog-sidebar-price-fields">
-                <label className="field catalog-filter-field">
-                  <span className="field-label">От</span>
-                  <input
-                    type="text"
-                    inputMode="decimal"
-                    value={floatMin}
-                    onChange={(event) => setFloatMin(event.target.value)}
-                    placeholder="0.00"
-                    data-testid="catalog-float-min"
-                  />
-                </label>
-                <label className="field catalog-filter-field">
-                  <span className="field-label">До</span>
-                  <input
-                    type="text"
-                    inputMode="decimal"
-                    value={floatMax}
-                    onChange={(event) => setFloatMax(event.target.value)}
-                    placeholder="1.00"
-                    data-testid="catalog-float-max"
-                  />
-                </label>
-              </div>
-            </fieldset>
+            <CatalogFloatRangeFilter
+              floatMin={floatMin}
+              floatMax={floatMax}
+              onFloatMinChange={setFloatMin}
+              onFloatMaxChange={setFloatMax}
+            />
 
             <fieldset className="catalog-sidebar-section">
               <legend className="field-label">Износ</legend>
