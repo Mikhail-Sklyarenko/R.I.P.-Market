@@ -98,12 +98,13 @@ export class LotsService {
         HttpStatus.BAD_REQUEST,
       );
     }
+    const sellerSteamId = seller.steamId;
 
     const lot = await this.prisma.$transaction(async (tx) =>
       this.listAssetInTransaction(
         tx,
         sellerId,
-        seller.steamId,
+        sellerSteamId,
         asset,
         dto.priceMinor,
       ),
@@ -165,19 +166,29 @@ export class LotsService {
         HttpStatus.BAD_REQUEST,
       );
     }
+    const sellerSteamId = seller.steamId;
 
     const lots = await this.prisma.$transaction(async (tx) => {
-      const createdLots = [];
+      const createdLots: NonNullable<
+        Awaited<ReturnType<LotsService['listAssetInTransaction']>>
+      >[] = [];
       for (const asset of assets) {
-        createdLots.push(
-          await this.listAssetInTransaction(
-            tx,
-            sellerId,
-            seller.steamId,
-            asset,
-            dto.priceMinor,
-          ),
+        const lot = await this.listAssetInTransaction(
+          tx,
+          sellerId,
+          sellerSteamId,
+          asset,
+          dto.priceMinor,
         );
+        if (!lot) {
+          throw new AppException(
+            ErrorCode.INTERNAL_ERROR,
+            'Failed to create lot listing',
+            HttpStatus.INTERNAL_SERVER_ERROR,
+            { inventoryAssetId: asset.id },
+          );
+        }
+        createdLots.push(lot);
       }
       return createdLots;
     });

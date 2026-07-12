@@ -11,14 +11,14 @@ export const MAX_BULK_LISTING_COUNT = 50;
 export type BulkListingAsset = ListingEligibilityAsset & {
   id: string;
   status: string;
-  floatValue?: number | null;
+  floatValue?: number | string | { toString(): string } | null;
   paintSeed?: number | null;
   wear?: string | null;
-  stickers?: unknown[] | null;
+  stickers?: unknown | null;
 };
 
 export function hasInventoryFloatValue(
-  floatValue: number | string | null | undefined,
+  floatValue: number | string | { toString(): string } | null | undefined,
 ): boolean {
   if (floatValue == null || floatValue === '') {
     return false;
@@ -26,15 +26,15 @@ export function hasInventoryFloatValue(
   if (typeof floatValue === 'number') {
     return Number.isFinite(floatValue);
   }
-  const parsed = Number.parseFloat(floatValue);
+  const parsed = Number.parseFloat(String(floatValue));
   return Number.isFinite(parsed);
 }
 
 export function isFungibleInventoryAsset(asset: {
-  floatValue?: number | string | null;
+  floatValue?: number | string | { toString(): string } | null;
   paintSeed?: number | null;
   wear?: string | null;
-  stickers?: unknown[] | null;
+  stickers?: unknown | null;
 }): boolean {
   if (hasInventoryFloatValue(asset.floatValue)) {
     return false;
