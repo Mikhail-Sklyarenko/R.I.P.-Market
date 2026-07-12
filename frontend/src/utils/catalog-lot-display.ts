@@ -41,7 +41,7 @@ export function getWearBadgeStyle(wear?: string | null): {
   }
 
   return {
-    label: option.value,
+    label: option.label,
     color: lisWearColors[option.value] ?? option.color,
   };
 }

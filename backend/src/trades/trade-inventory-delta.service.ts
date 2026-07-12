@@ -15,6 +15,8 @@ export type InventoryDeltaVerifyOptions = {
   force?: boolean;
   expectedFloatValue?: number | null;
   expectedPaintSeed?: number | null;
+  /** Used for fungible items (cases, keys) where asset id changes after trade. */
+  orderCreatedAt?: Date;
 };
 
 @Injectable()
@@ -76,6 +78,7 @@ export class TradeInventoryDeltaService {
       marketHashName,
       options?.expectedFloatValue,
       options?.expectedPaintSeed,
+      options?.orderCreatedAt,
     );
     if (buyerByHashName && !sellerLiveHolds) {
       return 'confirmed';
@@ -93,13 +96,19 @@ export class TradeInventoryDeltaService {
     marketHashName: string,
     expectedFloatValue?: number | null,
     expectedPaintSeed?: number | null,
+    orderCreatedAt?: Date,
   ) {
+    const hasUniqueMatchHints =
+      (expectedFloatValue != null && Number.isFinite(expectedFloatValue)) ||
+      (expectedPaintSeed != null && Number.isFinite(expectedPaintSeed));
+
     const where: {
       ownerId: string;
       status: InventoryAssetStatus;
       itemDefinition: { marketHashName: string };
       floatValue?: number;
       paintSeed?: number;
+      createdAt?: { gte: Date };
     } = {
       ownerId: buyerId,
       status: InventoryAssetStatus.AVAILABLE,
@@ -111,6 +120,9 @@ export class TradeInventoryDeltaService {
     }
     if (expectedPaintSeed != null && Number.isFinite(expectedPaintSeed)) {
       where.paintSeed = expectedPaintSeed;
+    }
+    if (!hasUniqueMatchHints && orderCreatedAt) {
+      where.createdAt = { gte: orderCreatedAt };
     }
 
     return this.prisma.inventoryAsset.findFirst({ where });

@@ -4,7 +4,7 @@ import {
   formatPaintSeed,
   getItemCategory,
 } from '../utils/item-image';
-import { getRarityStyle } from '../utils/rarity-colors';
+import { getRarityDisplayLabel, getRarityStyle } from '../utils/rarity-colors';
 import { getWearDisplayLabel } from '../utils/wear-filters';
 
 type LotSpecTableProps = {
@@ -14,6 +14,7 @@ type LotSpecTableProps = {
 export function LotSpecTable({ item }: LotSpecTableProps) {
   const category = getItemCategory(item);
   const rarity = item.itemDefinition.rarity?.trim() || null;
+  const rarityLabel = getRarityDisplayLabel(rarity);
   const rarityStyle = getRarityStyle(rarity);
   const wearLabel = getWearDisplayLabel(item.wear);
   const floatText = formatFloatValue(item.floatValue);
@@ -27,7 +28,7 @@ export function LotSpecTable({ item }: LotSpecTableProps) {
           <dd data-testid="lot-attr-category">{category}</dd>
         </div>
       ) : null}
-      {rarity ? (
+      {rarityLabel ? (
         <div className="lot-spec-row">
           <dt>Редкость</dt>
           <dd data-testid="lot-attr-rarity">
@@ -36,7 +37,7 @@ export function LotSpecTable({ item }: LotSpecTableProps) {
               style={{ backgroundColor: rarityStyle.color }}
               aria-hidden="true"
             />
-            {rarity}
+            {rarityLabel}
           </dd>
         </div>
       ) : null}
@@ -48,7 +49,7 @@ export function LotSpecTable({ item }: LotSpecTableProps) {
       ) : null}
       {floatText ? (
         <div className="lot-spec-row">
-          <dt>Float</dt>
+          <dt>Флоат</dt>
           <dd data-testid="lot-attr-float">{floatText}</dd>
         </div>
       ) : null}

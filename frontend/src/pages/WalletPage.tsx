@@ -265,7 +265,7 @@ export function WalletPage() {
     <div className="page">
       <PageHeader
         title="Кошелёк"
-        subtitle="Средства на маркетплейсе: доступно, в резерве и заморожено."
+        subtitle="Пополнение, вывод и история операций — переключайтесь вкладками ниже."
         actions={
           wallet || loading ? (
             <div className="wallet-header-balance" data-testid="wallet-header-available">

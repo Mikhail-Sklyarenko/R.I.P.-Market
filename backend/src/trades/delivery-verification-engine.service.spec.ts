@@ -2,6 +2,11 @@ import { DeliveryVerificationEngineService } from './delivery-verification-engin
 import { SteamTradeRateLimitError } from '../providers/trade/steam-trade.provider';
 
 describe('DeliveryVerificationEngineService', () => {
+  const prisma = {
+    tradeAcknowledgment: {
+      findFirst: jest.fn().mockResolvedValue(null),
+    },
+  };
   const tradesService = {
     verifyOffer: jest.fn(),
   };
@@ -9,6 +14,7 @@ describe('DeliveryVerificationEngineService', () => {
     verify: jest.fn(),
   };
   const service = new DeliveryVerificationEngineService(
+    prisma as never,
     tradesService as never,
     inventoryDelta as never,
   );
@@ -58,7 +64,10 @@ describe('DeliveryVerificationEngineService', () => {
       'buyer-steam',
       'asset-1',
       'AK-47 | Redline (Field-Tested)',
-      expect.objectContaining({ force: true }),
+      expect.objectContaining({
+        force: true,
+        orderCreatedAt: operation.order.createdAt,
+      }),
     );
   });
 

@@ -7,7 +7,21 @@ type PriceStackProps = {
   csfloatPriceMinor?: number | null;
   testIdPrefix: string;
   loading?: boolean;
+  requireSteamPrice?: boolean;
 };
+
+function PriceStackSkeleton({ testIdPrefix }: { testIdPrefix: string }) {
+  return (
+    <div
+      className="inventory-price-stack inventory-price-stack-loading"
+      data-testid={`${testIdPrefix}-prices`}
+      aria-busy="true"
+    >
+      <span className="inventory-price-primary-skeleton" aria-hidden="true" />
+      <span className="inventory-price-secondary-skeleton" aria-hidden="true" />
+    </div>
+  );
+}
 
 export function InventoryPriceStack({
   steamPriceMinor,
@@ -16,18 +30,10 @@ export function InventoryPriceStack({
   csfloatPriceMinor,
   testIdPrefix,
   loading = false,
+  requireSteamPrice = false,
 }: PriceStackProps) {
-  if (loading) {
-    return (
-      <div
-        className="inventory-price-stack inventory-price-stack-loading"
-        data-testid={`${testIdPrefix}-prices`}
-        aria-busy="true"
-      >
-        <span className="inventory-price-primary-skeleton" aria-hidden="true" />
-        <span className="inventory-price-secondary-skeleton" aria-hidden="true" />
-      </div>
-    );
+  if (loading || (requireSteamPrice && !steamPriceMinor)) {
+    return <PriceStackSkeleton testIdPrefix={testIdPrefix} />;
   }
 
   const hasMarket = Boolean(marketplacePriceMinor);
@@ -43,7 +49,7 @@ export function InventoryPriceStack({
         <p className="inventory-price-secondary muted small">
           Steam{' '}
           <span data-testid={`${testIdPrefix}-steam-price`}>
-            {hasSteam ? <MoneyDisplay minor={steamPriceMinor!} /> : 'н/д'}
+            <MoneyDisplay minor={steamPriceMinor!} />
           </span>
         </p>
         {hasReference ? (
@@ -76,7 +82,14 @@ export function InventoryPriceStack({
           <MoneyDisplay minor={steamPriceMinor!} strong />
         </p>
         <p className="inventory-price-secondary muted small">
-          Маркет <span data-testid={`${testIdPrefix}-market-price`}>—</span>
+          Steam{' '}
+          <span data-testid={`${testIdPrefix}-steam-price`}>
+            <MoneyDisplay minor={steamPriceMinor!} />
+          </span>
+        </p>
+        <p className="inventory-price-secondary muted small">
+          Маркет{' '}
+          <span data-testid={`${testIdPrefix}-market-price`}>нет лотов</span>
         </p>
         {hasReference ? (
           <p className="inventory-price-reference muted small">
@@ -96,6 +109,10 @@ export function InventoryPriceStack({
         ) : null}
       </div>
     );
+  }
+
+  if (requireSteamPrice) {
+    return <PriceStackSkeleton testIdPrefix={testIdPrefix} />;
   }
 
   return (

@@ -182,6 +182,22 @@ export function createLot(token: string, inventoryAssetId: string, priceMinor: n
   });
 }
 
+export function createLotsBulk(
+  token: string,
+  inventoryAssetIds: string[],
+  priceMinor: number,
+) {
+  return apiRequest<{
+    lots: Lot[];
+    createdCount: number;
+    marketHashName: string;
+  }>('/lots/bulk', {
+    method: 'POST',
+    token,
+    body: { inventoryAssetIds, priceMinor },
+  });
+}
+
 export function getWallet(token: string) {
   return apiRequest<Wallet>('/wallet', { token });
 }

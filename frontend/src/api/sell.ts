@@ -3,6 +3,7 @@ export {
   checkInventoryAsset,
   createIdempotencyKey,
   createLot,
+  createLotsBulk,
   getAuthConfig,
   getAuthMe,
   getInventory,

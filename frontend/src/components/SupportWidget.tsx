@@ -19,7 +19,8 @@ export function SupportWidget({ open, onOpenChange }: SupportWidgetProps) {
   const widgetRef = useRef<HTMLDivElement>(null);
   const filteredArticles = filterSupportWidgetFaq(search);
   const greetingName = user?.steamPersonaName?.trim() || user?.username || 'гость';
-  const onFaqPage = location.pathname === '/support';
+  const onFaqPage = location.pathname === '/faq';
+  const onSupportPage = location.pathname === '/support';
 
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
@@ -45,7 +46,7 @@ export function SupportWidget({ open, onOpenChange }: SupportWidgetProps) {
       {open ? (
         <div className="support-widget-panel" data-testid="support-widget-panel">
           <div className="support-widget-panel-header">
-            <h2 className="support-widget-title">Поддержка</h2>
+            <h2 className="support-widget-title">Быстрая помощь</h2>
             <button
               type="button"
               className="support-widget-close"
@@ -61,12 +62,12 @@ export function SupportWidget({ open, onOpenChange }: SupportWidgetProps) {
           </p>
 
           <label className="field support-widget-search">
-            <span className="sr-only">Поиск по статьям</span>
+            <span className="sr-only">Поиск по частым вопросам</span>
             <input
               type="search"
               value={search}
               onChange={(event) => setSearch(event.target.value)}
-              placeholder="Поиск по статьям…"
+              placeholder="Поиск по частым вопросам…"
               data-testid="support-widget-search"
             />
           </label>
@@ -105,9 +106,11 @@ export function SupportWidget({ open, onOpenChange }: SupportWidgetProps) {
           </div>
 
           <p className="muted small support-widget-hint">
-            {onFaqPage
-              ? 'Нужна помощь с конкретной сделкой? Опишите проблему в тикете ниже.'
-              : 'Подробные инструкции — в полном разделе FAQ.'}
+            {onSupportPage
+              ? 'Нужна помощь с конкретной сделкой? Заполните форму тикета на странице.'
+              : onFaqPage
+                ? 'Подробные инструкции — в статьях FAQ на этой странице.'
+                : 'Краткие подсказки здесь. Полная база знаний — в разделе FAQ.'}
           </p>
 
           <div className="support-widget-actions">
@@ -116,26 +119,45 @@ export function SupportWidget({ open, onOpenChange }: SupportWidgetProps) {
               className="button primary sm"
               data-testid="support-widget-write"
             >
-              Отправить сообщение
+              Написать на email
             </a>
-            {onFaqPage ? (
+            {onSupportPage ? (
               <a
                 href="#support-tickets"
                 className="button secondary sm"
                 data-testid="support-widget-ticket-link"
                 onClick={() => onOpenChange(false)}
               >
-                Создать тикет
+                К форме тикета
               </a>
-            ) : (
+            ) : onFaqPage ? (
               <Link
                 to="/support"
                 className="button secondary sm"
-                data-testid="support-widget-page-link"
+                data-testid="support-widget-ticket-link"
                 onClick={() => onOpenChange(false)}
               >
-                Все вопросы
+                Создать тикет
               </Link>
+            ) : (
+              <>
+                <Link
+                  to="/faq"
+                  className="button secondary sm"
+                  data-testid="support-widget-page-link"
+                  onClick={() => onOpenChange(false)}
+                >
+                  Открыть FAQ
+                </Link>
+                <Link
+                  to="/support"
+                  className="button secondary sm"
+                  data-testid="support-widget-ticket-link"
+                  onClick={() => onOpenChange(false)}
+                >
+                  Создать тикет
+                </Link>
+              </>
             )}
           </div>
         </div>

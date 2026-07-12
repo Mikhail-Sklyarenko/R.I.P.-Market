@@ -14,7 +14,14 @@ describe('ExtensionTradeAckService', () => {
     },
   };
 
-  const service = new ExtensionTradeAckService(prisma as never);
+  const tradeStatusPoller = {
+    pollOrderById: jest.fn().mockResolvedValue(false),
+  };
+
+  const service = new ExtensionTradeAckService(
+    prisma as never,
+    tradeStatusPoller as never,
+  );
 
   beforeEach(() => {
     jest.clearAllMocks();
@@ -230,5 +237,39 @@ describe('ExtensionTradeAckService', () => {
 
     expect(result.idempotent).toBe(true);
     expect(prisma.tradeAcknowledgment.create).not.toHaveBeenCalled();
+    expect(tradeStatusPoller.pollOrderById).not.toHaveBeenCalled();
+  });
+
+  it('triggers immediate trade poll after buyer received ack', async () => {
+    prisma.tradeAcknowledgment.findUnique.mockResolvedValue(null);
+    prisma.order.findUnique.mockResolvedValue({
+      id: 'order-1',
+      buyerId: 'buyer-1',
+      sellerId: 'seller-1',
+      status: OrderStatus.WAITING_TRADE,
+      lot: {
+        listingSnapshot: null,
+        inventoryAsset: {
+          assetExternalId: 'asset-1',
+          floatValue: null,
+          wear: null,
+          itemDefinition: { marketHashName: 'Revolution Case' },
+        },
+      },
+      tradeOperation: { externalOfferId: '1234567890' },
+      buyer: { id: 'buyer-1', steamId: 'buyer-steam' },
+      seller: { id: 'seller-1', steamId: 'seller-steam' },
+    });
+    prisma.tradeAcknowledgment.create.mockResolvedValue({ id: 'ack-2' });
+
+    const result = await service.acknowledge({
+      userId: 'buyer-1',
+      orderId: 'order-1',
+      type: 'BUYER_ACK_RECEIVED',
+      idempotencyKey: 'ack:order-1:BUYER_ACK_RECEIVED',
+    });
+
+    expect(result.idempotent).toBe(false);
+    expect(tradeStatusPoller.pollOrderById).toHaveBeenCalledWith('order-1');
   });
 });

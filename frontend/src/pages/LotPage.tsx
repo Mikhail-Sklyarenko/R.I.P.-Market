@@ -21,6 +21,7 @@ import { SimilarLots } from '../components/SimilarLots';
 import { StatusBadge } from '../components/StatusBadge';
 import { WearBar } from '../components/WearBar';
 import { formatDataTimestamp, resolveLotDisplayItem } from '../utils/lot-display';
+import { getRarityDisplayLabel } from '../utils/rarity-colors';
 
 export function LotPage() {
   const { id } = useParams();
@@ -97,7 +98,7 @@ export function LotPage() {
           <LotBreadcrumbs
             marketHashName={displayItem.itemDefinition.marketHashName}
             weapon={displayItem.itemDefinition.weapon}
-            categoryLabel={displayItem.itemDefinition.rarity}
+            categoryLabel={getRarityDisplayLabel(displayItem.itemDefinition.rarity)}
           />
 
           {isUnavailable ? (
@@ -136,18 +137,20 @@ export function LotPage() {
                       className="lot-inspect-link"
                       data-testid="lot-inspect-link"
                     >
-                      Inspect в игре
+                      Осмотр в игре
                     </a>
                   ) : null}
-                  <a
-                    href={`https://steamcommunity.com/market/listings/730/${encodeURIComponent(displayItem.itemDefinition.marketHashName)}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="lot-inspect-link lot-market-link"
-                    data-testid="lot-steam-market-link"
-                  >
-                    Steam Market
-                  </a>
+                  {lot.steamMarketUrl ? (
+                    <a
+                      href={lot.steamMarketUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="lot-inspect-link lot-market-link"
+                      data-testid="lot-steam-market-link"
+                    >
+                      Steam Маркет
+                    </a>
+                  ) : null}
                 </p>
               </div>
             </div>

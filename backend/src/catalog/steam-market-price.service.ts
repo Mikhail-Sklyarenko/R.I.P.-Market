@@ -6,7 +6,22 @@ type CacheEntry = {
   expiresAt: number;
 };
 
-const CACHE_TTL_MS = 20 * 60 * 1000;
+export type SteamPriceFetchOptions = {
+  forceRefresh?: boolean;
+  cacheTtlMs?: number;
+  failureCacheTtlMs?: number;
+};
+
+export type SteamPriceMeta = {
+  priceMinor: number | null;
+  fetchedAt: string | null;
+};
+
+const DEFAULT_CACHE_TTL_MS = 20 * 60 * 1000;
+const DEFAULT_FAILURE_CACHE_TTL_MS = 30 * 1000;
+const FETCH_BATCH_SIZE = 4;
+const MAX_FETCH_ATTEMPTS = 3;
+const RETRY_DELAY_MS = 400;
 
 @Injectable()
 export class SteamMarketPriceService {
@@ -24,8 +39,9 @@ export class SteamMarketPriceService {
 
   async getPriceMeta(
     marketHashName: string,
-  ): Promise<{ priceMinor: number | null; fetchedAt: string | null }> {
-    const result = await this.getPricesWithMeta([marketHashName]);
+    options?: SteamPriceFetchOptions,
+  ): Promise<SteamPriceMeta> {
+    const result = await this.getPricesWithMeta([marketHashName], options);
     const entry = result[marketHashName];
     return {
       priceMinor: entry?.priceMinor ?? null,
@@ -35,26 +51,25 @@ export class SteamMarketPriceService {
 
   async getPricesWithMeta(
     marketHashNames: string[],
-  ): Promise<
-    Record<string, { priceMinor: number | null; fetchedAt: string | null }>
-  > {
+    options?: SteamPriceFetchOptions,
+  ): Promise<Record<string, SteamPriceMeta>> {
     if (!this.isEnabled()) {
-      return Object.fromEntries(
-        marketHashNames.map((name) => [
-          name,
-          { priceMinor: null, fetchedAt: null },
-        ]),
-      );
+      return this.getDevMockPricesWithMeta(marketHashNames);
     }
 
     const unique = [...new Set(marketHashNames.filter(Boolean))];
-    const result: Record<
-      string,
-      { priceMinor: number | null; fetchedAt: string | null }
-    > = {};
+    const result: Record<string, SteamPriceMeta> = {};
     const pending: string[] = [];
+    const cacheTtlMs = options?.cacheTtlMs ?? DEFAULT_CACHE_TTL_MS;
+    const failureCacheTtlMs =
+      options?.failureCacheTtlMs ?? DEFAULT_FAILURE_CACHE_TTL_MS;
 
     for (const name of unique) {
+      if (options?.forceRefresh) {
+        pending.push(name);
+        continue;
+      }
+
       const cached = this.cache.get(name);
       if (cached && cached.expiresAt > Date.now()) {
         result[name] = {
@@ -66,32 +81,84 @@ export class SteamMarketPriceService {
       }
     }
 
-    await Promise.all(
-      pending.map(async (name) => {
-        const fetchedAt = Date.now();
-        const priceMinor = await this.fetchPriceMinor(name);
-        this.cache.set(name, {
-          priceMinor,
-          fetchedAt,
-          expiresAt: fetchedAt + CACHE_TTL_MS,
-        });
-        result[name] = {
-          priceMinor,
-          fetchedAt: new Date(fetchedAt).toISOString(),
-        };
-      }),
-    );
+    await this.fetchAndCacheBatch(pending, result, cacheTtlMs, failureCacheTtlMs);
 
     return result;
   }
 
   async getPricesMinor(
     marketHashNames: string[],
+    options?: SteamPriceFetchOptions,
   ): Promise<Record<string, number | null>> {
-    const withMeta = await this.getPricesWithMeta(marketHashNames);
+    const withMeta = await this.getPricesWithMeta(marketHashNames, options);
     return Object.fromEntries(
       Object.entries(withMeta).map(([name, entry]) => [name, entry.priceMinor]),
     );
+  }
+
+  private async fetchAndCacheBatch(
+    pending: string[],
+    result: Record<string, SteamPriceMeta>,
+    cacheTtlMs: number,
+    failureCacheTtlMs: number,
+  ): Promise<void> {
+    for (let index = 0; index < pending.length; index += FETCH_BATCH_SIZE) {
+      const batch = pending.slice(index, index + FETCH_BATCH_SIZE);
+      await Promise.all(
+        batch.map(async (name) => {
+          const fetchedAt = Date.now();
+          const priceMinor = await this.fetchPriceMinorWithRetry(name);
+          const ttl = priceMinor !== null ? cacheTtlMs : failureCacheTtlMs;
+          this.cache.set(name, {
+            priceMinor,
+            fetchedAt,
+            expiresAt: fetchedAt + ttl,
+          });
+          result[name] = {
+            priceMinor,
+            fetchedAt: new Date(fetchedAt).toISOString(),
+          };
+        }),
+      );
+    }
+  }
+
+  private async fetchPriceMinorWithRetry(
+    marketHashName: string,
+  ): Promise<number | null> {
+    for (let attempt = 1; attempt <= MAX_FETCH_ATTEMPTS; attempt++) {
+      const priceMinor = await this.fetchPriceMinor(marketHashName);
+      if (priceMinor !== null) {
+        return priceMinor;
+      }
+      if (attempt < MAX_FETCH_ATTEMPTS) {
+        await sleep(RETRY_DELAY_MS * attempt);
+      }
+    }
+    return null;
+  }
+
+  private getDevMockPricesWithMeta(
+    marketHashNames: string[],
+  ): Record<string, SteamPriceMeta> {
+    const fetchedAt = new Date().toISOString();
+    return Object.fromEntries(
+      marketHashNames.map((name) => [
+        name,
+        {
+          priceMinor: this.getDevMockPriceMinor(name),
+          fetchedAt,
+        },
+      ]),
+    );
+  }
+
+  private getDevMockPriceMinor(marketHashName: string): number {
+    let hash = 0;
+    for (let index = 0; index < marketHashName.length; index++) {
+      hash = (hash * 31 + marketHashName.charCodeAt(index)) >>> 0;
+    }
+    return 500 + (hash % 20_000);
   }
 
   private async fetchPriceMinor(
@@ -105,7 +172,10 @@ export class SteamMarketPriceService {
 
     try {
       const response = await fetch(url, {
-        headers: { Accept: 'application/json' },
+        headers: {
+          Accept: 'application/json',
+          'User-Agent': 'RIP-Market/1.0',
+        },
         signal: AbortSignal.timeout(8_000),
       });
       if (!response.ok) {
@@ -144,4 +214,10 @@ export class SteamMarketPriceService {
     }
     return Math.round(amount * 100);
   }
+}
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => {
+    setTimeout(resolve, ms);
+  });
 }

@@ -11,6 +11,7 @@ import { toJsonSafe } from '../common/json-safe.util';
 import { InventoryService } from '../inventory/inventory.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateLotDto } from './dto/create-lot.dto';
+import { CreateBulkLotsDto } from './dto/create-bulk-lots.dto';
 import { ListLotsQueryDto } from './dto/list-lots-query.dto';
 import { DEFAULT_LOTS_PAGE_LIMIT } from './lots-list.util';
 import {
@@ -23,11 +24,16 @@ import { SteamVacService } from '../users/steam-vac.service';
 import { SteamMarketPriceService } from '../catalog/steam-market-price.service';
 import { ReferencePriceService } from '../catalog/reference-price.service';
 import { assertListingEligible } from './listing-eligibility.util';
+import { assertBulkListingAssets } from './bulk-listing.util';
 import { buildLotListingSnapshotData } from './lot-listing-snapshot.util';
 import {
   buildFallbackInspectLink,
   resolveInspectLink,
 } from './inspect-link.util';
+import {
+  buildSteamMarketListingUrl,
+  resolveSteamMarketHashName,
+} from './steam-market-link.util';
 import { pickSimilarLots } from './similar-lots.util';
 
 @Injectable()
@@ -46,31 +52,7 @@ export class LotsService {
   }
 
   async create(sellerId: string, dto: CreateLotDto) {
-    const seller = await this.prisma.user.findUnique({
-      where: { id: sellerId },
-    });
-    if (!seller) {
-      throw new AppException(
-        ErrorCode.NOT_FOUND,
-        'Seller not found',
-        HttpStatus.NOT_FOUND,
-      );
-    }
-    if (seller.status !== UserStatus.ACTIVE) {
-      throw new AppException(
-        ErrorCode.SELLER_NOT_ACTIVE,
-        'Your seller account is not active',
-        HttpStatus.BAD_REQUEST,
-      );
-    }
-    if (!hasValidTradeUrl(seller.tradeUrl)) {
-      throw new AppException(
-        ErrorCode.TRADE_URL_REQUIRED,
-        'Add your Steam Trade URL in account settings before listing items',
-        HttpStatus.BAD_REQUEST,
-      );
-    }
-    await this.steamVacService.assertCanTrade(seller);
+    const seller = await this.assertSellerCanList(sellerId);
 
     await this.inventoryService.syncForListing(sellerId, seller.steamId);
 
@@ -117,11 +99,151 @@ export class LotsService {
       );
     }
 
-    const snapshotData = buildLotListingSnapshotData(asset, seller.steamId);
+    const lot = await this.prisma.$transaction(async (tx) =>
+      this.listAssetInTransaction(
+        tx,
+        sellerId,
+        seller.steamId,
+        asset,
+        dto.priceMinor,
+      ),
+    );
 
-    const commissionMinor = calculateCommissionMinor(dto.priceMinor);
-    const sellerReceiveMinor = dto.priceMinor - commissionMinor;
-    const reusableLot = await this.prisma.lot.findFirst({
+    return toJsonSafe(lot);
+  }
+
+  async createBulk(sellerId: string, dto: CreateBulkLotsDto) {
+    const seller = await this.assertSellerCanList(sellerId);
+    await this.inventoryService.syncForListing(sellerId, seller.steamId);
+
+    const uniqueIds = [...new Set(dto.inventoryAssetIds)];
+    const assets = await this.prisma.inventoryAsset.findMany({
+      where: { id: { in: uniqueIds } },
+      include: { itemDefinition: true },
+    });
+
+    if (assets.length !== uniqueIds.length) {
+      throw new AppException(
+        ErrorCode.INVENTORY_ASSET_NOT_FOUND,
+        'One or more inventory items were not found',
+        HttpStatus.NOT_FOUND,
+      );
+    }
+
+    for (const asset of assets) {
+      if (asset.ownerId !== sellerId) {
+        throw new AppException(
+          ErrorCode.INVENTORY_ASSET_NOT_FOUND,
+          'Inventory item not found',
+          HttpStatus.NOT_FOUND,
+          { inventoryAssetId: asset.id },
+        );
+      }
+
+      const existingLot = await this.prisma.lot.findFirst({
+        where: {
+          inventoryAssetId: asset.id,
+          status: { in: [LotStatus.ACTIVE, LotStatus.RESERVED] },
+        },
+      });
+      if (existingLot) {
+        throw new AppException(
+          ErrorCode.LOT_ALREADY_EXISTS_FOR_ASSET,
+          'This item already has an active listing',
+          HttpStatus.BAD_REQUEST,
+          { lotId: existingLot.id, inventoryAssetId: asset.id },
+        );
+      }
+    }
+
+    assertBulkListingAssets(assets);
+
+    if (!seller.steamId) {
+      throw new AppException(
+        ErrorCode.TRADE_URL_REQUIRED,
+        'Link your Steam account before listing items',
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+
+    const lots = await this.prisma.$transaction(async (tx) => {
+      const createdLots = [];
+      for (const asset of assets) {
+        createdLots.push(
+          await this.listAssetInTransaction(
+            tx,
+            sellerId,
+            seller.steamId,
+            asset,
+            dto.priceMinor,
+          ),
+        );
+      }
+      return createdLots;
+    });
+
+    return toJsonSafe({
+      lots,
+      createdCount: lots.length,
+      marketHashName: assets[0]!.itemDefinition.marketHashName,
+    });
+  }
+
+  private async assertSellerCanList(sellerId: string) {
+    const seller = await this.prisma.user.findUnique({
+      where: { id: sellerId },
+    });
+    if (!seller) {
+      throw new AppException(
+        ErrorCode.NOT_FOUND,
+        'Seller not found',
+        HttpStatus.NOT_FOUND,
+      );
+    }
+    if (seller.status !== UserStatus.ACTIVE) {
+      throw new AppException(
+        ErrorCode.SELLER_NOT_ACTIVE,
+        'Your seller account is not active',
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+    if (!hasValidTradeUrl(seller.tradeUrl)) {
+      throw new AppException(
+        ErrorCode.TRADE_URL_REQUIRED,
+        'Add your Steam Trade URL in account settings before listing items',
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+    await this.steamVacService.assertCanTrade(seller);
+    return seller;
+  }
+
+  private async listAssetInTransaction(
+    tx: Prisma.TransactionClient,
+    sellerId: string,
+    sellerSteamId: string,
+    asset: {
+      id: string;
+      status: string;
+      tradable: boolean;
+      marketable: boolean;
+      tradeLockUntil: Date | null;
+      itemDefinition: { marketHashName: string };
+    } & Parameters<typeof buildLotListingSnapshotData>[0],
+    priceMinor: number,
+  ) {
+    assertListingEligible({
+      status: asset.status,
+      tradable: asset.tradable,
+      marketable: asset.marketable,
+      tradeLockUntil: asset.tradeLockUntil,
+      itemDefinition: asset.itemDefinition,
+    });
+
+    const snapshotData = buildLotListingSnapshotData(asset, sellerSteamId);
+    const commissionMinor = calculateCommissionMinor(priceMinor);
+    const sellerReceiveMinor = priceMinor - commissionMinor;
+    const reusableLot = await tx.lot.findFirst({
       where: { inventoryAssetId: asset.id },
       orderBy: { createdAt: 'desc' },
       include: {
@@ -129,78 +251,74 @@ export class LotsService {
       },
     });
 
-    const lot = await this.prisma.$transaction(async (tx) => {
-      const created =
-        reusableLot &&
-        reusableLot.status !== LotStatus.ACTIVE &&
-        reusableLot.status !== LotStatus.RESERVED
-          ? await tx.lot.update({
-              where: { id: reusableLot.id },
-              data: {
-                status: LotStatus.ACTIVE,
-                priceMinor: BigInt(dto.priceMinor),
-                commissionMinor: BigInt(commissionMinor),
-                sellerReceiveMinor: BigInt(sellerReceiveMinor),
-                reservedByUserId: null,
-              },
-              include: {
-                inventoryAsset: { include: { itemDefinition: true } },
-                listingSnapshot: true,
-              },
-            })
-          : await tx.lot.create({
-              data: {
-                sellerId,
-                inventoryAssetId: asset.id,
-                status: LotStatus.ACTIVE,
-                priceMinor: BigInt(dto.priceMinor),
-                commissionMinor: BigInt(commissionMinor),
-                sellerReceiveMinor: BigInt(sellerReceiveMinor),
-              },
-              include: {
-                inventoryAsset: { include: { itemDefinition: true } },
-                listingSnapshot: true,
-              },
-            });
+    const created =
+      reusableLot &&
+      reusableLot.status !== LotStatus.ACTIVE &&
+      reusableLot.status !== LotStatus.RESERVED
+        ? await tx.lot.update({
+            where: { id: reusableLot.id },
+            data: {
+              status: LotStatus.ACTIVE,
+              priceMinor: BigInt(priceMinor),
+              commissionMinor: BigInt(commissionMinor),
+              sellerReceiveMinor: BigInt(sellerReceiveMinor),
+              reservedByUserId: null,
+            },
+            include: {
+              inventoryAsset: { include: { itemDefinition: true } },
+              listingSnapshot: true,
+            },
+          })
+        : await tx.lot.create({
+            data: {
+              sellerId,
+              inventoryAssetId: asset.id,
+              status: LotStatus.ACTIVE,
+              priceMinor: BigInt(priceMinor),
+              commissionMinor: BigInt(commissionMinor),
+              sellerReceiveMinor: BigInt(sellerReceiveMinor),
+            },
+            include: {
+              inventoryAsset: { include: { itemDefinition: true } },
+              listingSnapshot: true,
+            },
+          });
 
-      await tx.lotListingSnapshot.upsert({
-        where: { lotId: created.id },
-        create: {
-          lotId: created.id,
-          ...snapshotData,
-        },
-        update: snapshotData,
-      });
-
-      if (reusableLot && reusableLot.id === created.id) {
-        await tx.lotStatusEvent.create({
-          data: {
-            lotId: created.id,
-            fromStatus: reusableLot.status,
-            toStatus: LotStatus.ACTIVE,
-            actorUserId: sellerId,
-            reason: 'relisted',
-          },
-        });
-      } else {
-        await this.lotStateService.recordListed(tx, created.id, sellerId);
-      }
-
-      await tx.inventoryAsset.update({
-        where: { id: asset.id },
-        data: { status: InventoryAssetStatus.LISTED },
-      });
-
-      return tx.lot.findUnique({
-        where: { id: created.id },
-        include: {
-          inventoryAsset: { include: { itemDefinition: true } },
-          listingSnapshot: true,
-        },
-      });
+    await tx.lotListingSnapshot.upsert({
+      where: { lotId: created.id },
+      create: {
+        lotId: created.id,
+        ...snapshotData,
+      },
+      update: snapshotData,
     });
 
-    return toJsonSafe(lot);
+    if (reusableLot && reusableLot.id === created.id) {
+      await tx.lotStatusEvent.create({
+        data: {
+          lotId: created.id,
+          fromStatus: reusableLot.status,
+          toStatus: LotStatus.ACTIVE,
+          actorUserId: sellerId,
+          reason: 'relisted',
+        },
+      });
+    } else {
+      await this.lotStateService.recordListed(tx, created.id, sellerId);
+    }
+
+    await tx.inventoryAsset.update({
+      where: { id: asset.id },
+      data: { status: InventoryAssetStatus.LISTED },
+    });
+
+    return tx.lot.findUnique({
+      where: { id: created.id },
+      include: {
+        inventoryAsset: { include: { itemDefinition: true } },
+        listingSnapshot: true,
+      },
+    });
   }
 
   async listActive() {
@@ -495,9 +613,15 @@ export class LotsService {
     const marketHashName =
       lot.listingSnapshot?.marketHashName ??
       lot.inventoryAsset.itemDefinition.marketHashName;
+    const wear =
+      lot.listingSnapshot?.wear ?? lot.inventoryAsset.wear ?? null;
+    const steamMarketHashName = resolveSteamMarketHashName(
+      marketHashName,
+      wear,
+    );
     const [steamPriceMeta, referencePriceMeta] = await Promise.all([
-      this.steamMarketPrice.getPriceMeta(marketHashName),
-      this.referencePrice.getPricesWithMeta([marketHashName]),
+      this.steamMarketPrice.getPriceMeta(steamMarketHashName),
+      this.referencePrice.getPricesWithMeta([steamMarketHashName]),
     ]);
     const inspectLink =
       lot.listingSnapshot?.inspectLink ??
@@ -518,14 +642,16 @@ export class LotsService {
     return toJsonSafe({
       ...lot,
       inspectLink,
+      steamMarketHashName,
+      steamMarketUrl: buildSteamMarketListingUrl(marketHashName, wear),
       steamPriceMinor: steamPriceMeta.priceMinor,
       steamPriceFetchedAt: steamPriceMeta.fetchedAt,
       buffPriceMinor:
-        referencePriceMeta[marketHashName]?.buffPriceMinor ?? null,
+        referencePriceMeta[steamMarketHashName]?.buffPriceMinor ?? null,
       csfloatPriceMinor:
-        referencePriceMeta[marketHashName]?.csfloatPriceMinor ?? null,
+        referencePriceMeta[steamMarketHashName]?.csfloatPriceMinor ?? null,
       referencePriceFetchedAt:
-        referencePriceMeta[marketHashName]?.fetchedAt ?? null,
+        referencePriceMeta[steamMarketHashName]?.fetchedAt ?? null,
       marketplacePriceMinor: lot.priceMinor.toString(),
     });
   }

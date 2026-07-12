@@ -6,6 +6,10 @@ import { parseFloatValue } from '../lots/float-tier.util';
 import { ReferencePriceService } from './reference-price.service';
 import { SteamMarketPriceService } from './steam-market-price.service';
 import type { ListCatalogItemsQueryDto } from './dto/list-catalog-items-query.dto';
+import {
+  lotWearMatchesMarketHashName,
+  resolveSteamMarketHashName,
+} from '../lots/steam-market-link.util';
 
 const POPULAR_WINDOW_MS = 30 * 24 * 60 * 60 * 1000;
 
@@ -62,7 +66,7 @@ export class CatalogService {
       }),
       this.loadActiveLotStats(itemWhere),
       this.loadPopularStats(),
-      this.loadFeaturedLots(itemWhere),
+      this.loadFeaturedLots(itemWhere, query),
     ]);
 
     const [steamPrices, referencePrices] = await Promise.all([
@@ -146,9 +150,7 @@ export class CatalogService {
     query: ListCatalogItemsQueryDto,
   ): Prisma.ItemDefinitionWhereInput {
     const where: Prisma.ItemDefinitionWhereInput = { game: 'CS2' };
-    if (query.q) {
-      where.marketHashName = { contains: query.q, mode: 'insensitive' };
-    }
+    this.applyMarketHashNameQuery(where, query.q);
     if (query.weapon) {
       where.weapon = { equals: query.weapon, mode: 'insensitive' };
     }
@@ -156,6 +158,28 @@ export class CatalogService {
       where.rarity = { equals: query.rarity, mode: 'insensitive' };
     }
     return where;
+  }
+
+  private applyMarketHashNameQuery(
+    where: Prisma.ItemDefinitionWhereInput,
+    q?: string,
+  ): void {
+    if (!q?.trim()) {
+      return;
+    }
+
+    const terms = q
+      .split('|')
+      .map((term) => term.trim())
+      .filter(Boolean);
+    if (terms.length > 1) {
+      where.OR = terms.map((term) => ({
+        marketHashName: { contains: term, mode: 'insensitive' },
+      }));
+      return;
+    }
+
+    where.marketHashName = { contains: terms[0], mode: 'insensitive' };
   }
 
   private async loadActiveLotStats(
@@ -217,6 +241,7 @@ export class CatalogService {
 
   private async loadFeaturedLots(
     itemWhere: Prisma.ItemDefinitionWhereInput,
+    query: ListCatalogItemsQueryDto,
   ): Promise<Map<string, string>> {
     const lots = await this.prisma.lot.findMany({
       where: {
@@ -226,16 +251,48 @@ export class CatalogService {
       orderBy: { priceMinor: 'asc' },
       select: {
         id: true,
-        inventoryAsset: { select: { itemDefinitionId: true } },
+        inventoryAsset: {
+          select: {
+            itemDefinitionId: true,
+            wear: true,
+            itemDefinition: { select: { marketHashName: true } },
+          },
+        },
+        listingSnapshot: {
+          select: {
+            wear: true,
+            marketHashName: true,
+          },
+        },
       },
     });
 
     const map = new Map<string, string>();
     for (const lot of lots) {
       const itemDefinitionId = lot.inventoryAsset.itemDefinitionId;
-      if (!map.has(itemDefinitionId)) {
-        map.set(itemDefinitionId, lot.id);
+      if (map.has(itemDefinitionId)) {
+        continue;
       }
+
+      const wear = lot.listingSnapshot?.wear ?? lot.inventoryAsset.wear;
+      if (query.wear && wear?.toUpperCase() !== query.wear.toUpperCase()) {
+        continue;
+      }
+
+      const marketHashName =
+        lot.listingSnapshot?.marketHashName ??
+        lot.inventoryAsset.itemDefinition.marketHashName;
+      const itemDefinitionName = lot.inventoryAsset.itemDefinition.marketHashName;
+
+      if (
+        !lotWearMatchesMarketHashName(itemDefinitionName, wear) ||
+        resolveSteamMarketHashName(marketHashName, wear) !==
+          resolveSteamMarketHashName(itemDefinitionName, wear)
+      ) {
+        continue;
+      }
+
+      map.set(itemDefinitionId, lot.id);
     }
     return map;
   }

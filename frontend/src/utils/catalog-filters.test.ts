@@ -4,6 +4,9 @@ import {
   getCategoryOptionsForTab,
   hasActiveCatalogFilters,
   resolveCatalogFilter,
+  WEAPON_CATEGORY_TABS,
+  findTabForWeapon,
+  CATALOG_PAGE_LIMIT,
 } from './catalog-filters.ts';
 
 describe('catalog-filters utils', () => {
@@ -20,6 +23,37 @@ describe('catalog-filters utils', () => {
     const rifleOptions = getCategoryOptionsForTab('rifles');
     assert.ok(rifleOptions.some((option) => option.value === 'AK-47'));
     assert.ok(rifleOptions.every((option) => option.tabId === 'rifles'));
+  });
+
+  it('returns other-tab subcategories for stickers, charms, and more', () => {
+    const otherOptions = getCategoryOptionsForTab('other');
+    assert.ok(otherOptions.some((option) => option.value === 'other-sticker'));
+    assert.ok(otherOptions.some((option) => option.value === 'other-charm'));
+    assert.ok(otherOptions.some((option) => option.value === 'other-case'));
+    assert.equal(otherOptions.find((option) => option.value === 'other-sticker')?.label, 'Наклейки');
+  });
+
+  it('resolves other subcategory filters by market hash query', () => {
+    assert.deepEqual(resolveCatalogFilter('other', 'other-charm'), { q: 'Charm' });
+    assert.deepEqual(resolveCatalogFilter('other', ''), {
+      q: 'Sticker|Charm|Patch|Graffiti|Agent|Music Kit| Case|Collectible|Pin',
+    });
+  });
+
+  it('maps other category values to the other tab', () => {
+    assert.equal(findTabForWeapon('other-sticker'), 'other');
+    assert.equal(findTabForWeapon('other-charm'), 'other');
+  });
+
+  it('uses a fixed catalog page size', () => {
+    assert.equal(CATALOG_PAGE_LIMIT, 24);
+  });
+
+  it('places gloves immediately after knives in the category bar', () => {
+    const tabIds = WEAPON_CATEGORY_TABS.map((tab) => tab.id);
+    const knivesIndex = tabIds.indexOf('knives');
+    const glovesIndex = tabIds.indexOf('gloves');
+    assert.equal(glovesIndex, knivesIndex + 1);
   });
 
   it('detects active filters', () => {

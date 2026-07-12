@@ -18,15 +18,33 @@ const RARITY_STYLES: Record<string, RarityStyle> = {
   Covert: { color: '#eb4b4b', glow: 'rgba(235, 75, 75, 0.5)' },
   Contraband: { color: '#e4ae39', glow: 'rgba(228, 174, 57, 0.55)' },
   Extraordinary: { color: '#e4ae39', glow: 'rgba(228, 174, 57, 0.55)' },
+  'Exceedingly Rare': { color: '#e4ae39', glow: 'rgba(228, 174, 57, 0.55)' },
+  'Base Grade': { color: '#b0c3d9', glow: 'rgba(176, 195, 217, 0.35)' },
+};
+
+export const RARITY_DISPLAY_LABELS: Record<string, string> = {
+  'Consumer Grade': 'Ширпотреб',
+  'Industrial Grade': 'Промышленное качество',
+  'Mil-Spec Grade': 'Армейское качество',
+  'Mil-Spec': 'Армейское качество',
+  Restricted: 'Запрещённое',
+  Classified: 'Засекречённое',
+  Covert: 'Тайное',
+  Extraordinary: 'Скрытое',
+  'Exceedingly Rare': 'Скрытое',
+  Contraband: 'Контрабанда',
+  'Base Grade': 'Базовый тип',
 };
 
 export const CATALOG_RARITY_FILTERS = [
-  { value: 'Covert', label: 'Covert' },
-  { value: 'Classified', label: 'Classified' },
-  { value: 'Restricted', label: 'Restricted' },
-  { value: 'Mil-Spec Grade', label: 'Mil-Spec' },
-  { value: 'Contraband', label: 'Contraband' },
-  { value: 'Extraordinary', label: 'Extraordinary' },
+  { value: 'Covert', label: 'Тайное' },
+  { value: 'Classified', label: 'Засекречённое' },
+  { value: 'Restricted', label: 'Запрещённое' },
+  { value: 'Mil-Spec Grade', label: 'Армейское качество' },
+  { value: 'Industrial Grade', label: 'Промышленное качество' },
+  { value: 'Consumer Grade', label: 'Ширпотреб' },
+  { value: 'Contraband', label: 'Контрабанда' },
+  { value: 'Extraordinary', label: 'Скрытое' },
 ] as const;
 
 function normalizeRarity(rarity: string): string {
@@ -34,6 +52,14 @@ function normalizeRarity(rarity: string): string {
     return 'Mil-Spec Grade';
   }
   return rarity;
+}
+
+export function getRarityDisplayLabel(rarity?: string | null): string | null {
+  if (!rarity?.trim()) {
+    return null;
+  }
+  const normalized = normalizeRarity(rarity.trim());
+  return RARITY_DISPLAY_LABELS[normalized] ?? normalized;
 }
 
 export function getRarityStyle(rarity?: string | null): RarityStyle {

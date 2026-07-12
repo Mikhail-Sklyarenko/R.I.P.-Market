@@ -25,6 +25,7 @@ import {
 import { LedgerService } from '../wallet/ledger.service';
 import { ExtensionRolloutService } from '../extension/extension-rollout.service';
 import { TradeReferenceReconcileService } from '../trades/trade-reference-reconcile.service';
+import { TradeStatusPollerService } from '../trades/trade-status-poller.service';
 import { CreateOrderDto } from './dto/create-order.dto';
 import { ListMyOrdersQueryDto } from './dto/list-my-orders-query.dto';
 import { UpdateTradeReferenceDto } from './dto/update-trade-reference.dto';
@@ -51,6 +52,7 @@ export class OrdersService {
     private readonly orderStateService: OrderStateService,
     private readonly tradeOperationStateService: TradeOperationStateService,
     private readonly tradeReferenceReconcileService: TradeReferenceReconcileService,
+    private readonly tradeStatusPoller: TradeStatusPollerService,
     private readonly extensionFlowMetrics: ExtensionFlowMetricsService,
     private readonly extensionRolloutService: ExtensionRolloutService,
     private readonly steamVacService: SteamVacService,
@@ -410,6 +412,48 @@ export class OrdersService {
   }
 
   async getById(orderId: string, requesterId?: string) {
+    const preflight = await this.prisma.order.findUnique({
+      where: { id: orderId },
+      select: {
+        id: true,
+        buyerId: true,
+        sellerId: true,
+        status: true,
+        tradeOperation: { select: { status: true } },
+      },
+    });
+
+    if (!preflight) {
+      throw new AppException(
+        ErrorCode.ORDER_NOT_FOUND,
+        'Order not found',
+        HttpStatus.NOT_FOUND,
+      );
+    }
+
+    if (
+      requesterId &&
+      preflight.buyerId !== requesterId &&
+      preflight.sellerId !== requesterId
+    ) {
+      throw new AppException(
+        ErrorCode.ORDER_NOT_FOUND,
+        'Order not found',
+        HttpStatus.NOT_FOUND,
+      );
+    }
+
+    if (
+      preflight.status === OrderStatus.WAITING_TRADE &&
+      preflight.tradeOperation?.status === TradeOperationStatus.WAITING
+    ) {
+      try {
+        await this.tradeStatusPoller.pollOrderById(orderId);
+      } catch {
+        // Best-effort refresh; order details are still returned below.
+      }
+    }
+
     const order = await this.prisma.order.findUnique({
       where: { id: orderId },
       include: {
@@ -448,18 +492,6 @@ export class OrdersService {
     });
 
     if (!order) {
-      throw new AppException(
-        ErrorCode.ORDER_NOT_FOUND,
-        'Order not found',
-        HttpStatus.NOT_FOUND,
-      );
-    }
-
-    if (
-      requesterId &&
-      order.buyerId !== requesterId &&
-      order.sellerId !== requesterId
-    ) {
       throw new AppException(
         ErrorCode.ORDER_NOT_FOUND,
         'Order not found',

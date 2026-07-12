@@ -93,6 +93,38 @@ describe('TradeInventoryDeltaService', () => {
     );
   });
 
+  it('confirms when buyer received fungible item synced after order creation', async () => {
+    const orderCreatedAt = new Date('2026-07-12T10:00:00.000Z');
+
+    prisma.inventoryAsset.findFirst
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce({
+        ownerId: 'buyer-1',
+        status: InventoryAssetStatus.AVAILABLE,
+        createdAt: new Date('2026-07-12T10:05:00.000Z'),
+      });
+
+    const result = await service.verify(
+      'seller-1',
+      'buyer-1',
+      'seller-steam',
+      'buyer-steam',
+      'old-case-asset-id',
+      'Revolution Case',
+      { orderCreatedAt },
+    );
+
+    expect(result).toBe('confirmed');
+    expect(prisma.inventoryAsset.findFirst).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          createdAt: { gte: orderCreatedAt },
+        }),
+      }),
+    );
+  });
+
   it('returns unknown when steam ids are missing', async () => {
     const result = await service.verify(
       'seller-1',

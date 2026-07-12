@@ -19,13 +19,33 @@ export function resolveInspectLink(
   ownerSteamId: string | null | undefined,
   assetExternalId: string | null | undefined,
 ): string | null {
-  if (!template || !ownerSteamId || !assetExternalId) {
+  if (!template?.trim() || !ownerSteamId || !assetExternalId) {
     return null;
   }
 
-  const resolved = template
+  const normalizedTemplate = template.trim();
+  const hasPlaceholders = /%owner_steamid%|%assetid%|%contextid%/i.test(
+    normalizedTemplate,
+  );
+
+  if (!hasPlaceholders) {
+    if (
+      normalizedTemplate.startsWith('steam://') &&
+      normalizedTemplate.includes('csgo_econ_action_preview')
+    ) {
+      return normalizedTemplate;
+    }
+    return null;
+  }
+
+  const resolved = normalizedTemplate
     .replace(/%owner_steamid%/gi, ownerSteamId)
-    .replace(/%assetid%/gi, assetExternalId);
+    .replace(/%assetid%/gi, assetExternalId)
+    .replace(/%contextid%/gi, '2');
+
+  if (/%owner_steamid%|%assetid%|%contextid%/i.test(resolved)) {
+    return null;
+  }
 
   if (
     !resolved.startsWith('steam://') ||
@@ -45,7 +65,7 @@ export function buildFallbackInspectLink(params: {
 }): string {
   const descriptor =
     params.classId && params.instanceId
-      ? `${params.classId}${params.instanceId}`
+      ? `${params.classId}A${params.instanceId}`
       : '0';
   const encoded = encodeURIComponent(
     `S${params.ownerSteamId}A${params.assetExternalId}D${descriptor}`,

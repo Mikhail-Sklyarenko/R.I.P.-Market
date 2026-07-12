@@ -316,7 +316,7 @@ export function OrderPage() {
                     ) : null}
                     {floatText ? (
                       <div>
-                        <dt>Float</dt>
+                        <dt>Флоат</dt>
                         <dd>{floatText}</dd>
                       </div>
                     ) : null}

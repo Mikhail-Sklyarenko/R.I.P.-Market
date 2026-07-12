@@ -3,6 +3,7 @@ import {
   buildFallbackInspectLink,
   resolveInspectLink,
 } from './inspect-link.util';
+import { resolveSteamMarketHashName } from './steam-market-link.util';
 
 type SnapshotSource = InventoryAsset & {
   itemDefinition: ItemDefinition;
@@ -25,9 +26,14 @@ export function buildLotListingSnapshotData(
       instanceId: asset.instanceExternalId,
     });
 
+  const marketHashName = resolveSteamMarketHashName(
+    asset.itemDefinition.marketHashName,
+    asset.wear,
+  );
+
   return {
     assetExternalId: asset.assetExternalId,
-    marketHashName: asset.itemDefinition.marketHashName,
+    marketHashName,
     weapon: asset.itemDefinition.weapon,
     rarity: asset.itemDefinition.rarity,
     iconUrl: asset.itemDefinition.iconUrl,

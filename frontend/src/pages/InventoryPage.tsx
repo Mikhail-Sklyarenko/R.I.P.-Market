@@ -2,6 +2,7 @@ import { type FormEvent, useCallback, useEffect, useMemo, useState } from 'react
 import { Link, useNavigate } from 'react-router-dom';
 import {
   createLot,
+  createLotsBulk,
   getAuthConfig,
   getInventory,
   getInventoryPriceHints,
@@ -30,7 +31,9 @@ import { hasLinkedSteamId } from '../utils/steam-id';
 import {
   canListAsset,
   filterInventoryAssets,
+  getBulkListableSiblings,
   INVENTORY_STATUS_FILTERS,
+  sortInventoryAssetsBySteamPriceDesc,
   type InventoryStatusFilter,
 } from '../utils/seller-flow';
 import { profileToAuthUser } from '../utils/user-profile';
@@ -52,6 +55,7 @@ export function InventoryPage() {
   const [statusFilter, setStatusFilter] = useState<InventoryStatusFilter>('all');
   const [showUnavailable, setShowUnavailable] = useState(false);
   const [selectedAssetId, setSelectedAssetId] = useState<string | null>(null);
+  const [bulkListAll, setBulkListAll] = useState(false);
   const [priceInput, setPriceInput] = useState('10.00');
   const [preview, setPreview] = useState<PricingPreview | null>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -59,6 +63,7 @@ export function InventoryPage() {
   const [priceHints, setPriceHints] = useState<Record<string, InventoryPriceHint>>({});
   const [steamPriceFetchedAt, setSteamPriceFetchedAt] = useState<string | null>(null);
   const [pricesLoading, setPricesLoading] = useState(false);
+  const [pricesError, setPricesError] = useState<unknown>(null);
 
   const inventoryProvider = config?.inventoryProvider ?? 'mock';
   const requiresSteamLink = inventoryProvider === 'steam';
@@ -72,6 +77,20 @@ export function InventoryPage() {
     [assets, selectedAssetId],
   );
 
+  const bulkListTargets = useMemo(() => {
+    if (!selectedAsset) {
+      return [];
+    }
+    return getBulkListableSiblings(assets, selectedAsset);
+  }, [assets, selectedAsset]);
+
+  const bulkHighlightIds = useMemo(() => {
+    if (!selectedAsset || !bulkListAll || bulkListTargets.length < 2) {
+      return new Set<string>();
+    }
+    return new Set(bulkListTargets.map((asset) => asset.id));
+  }, [selectedAsset, bulkListAll, bulkListTargets]);
+
   const priceMinor = useMemo(() => parseUsdToMinor(priceInput), [priceInput]);
   const selectedListable = selectedAsset ? canListAsset(selectedAsset) : false;
 
@@ -81,6 +100,7 @@ export function InventoryPage() {
         setPriceHints({});
         setSteamPriceFetchedAt(null);
         setPricesLoading(false);
+        setPricesError(null);
         return;
       }
 
@@ -88,13 +108,15 @@ export function InventoryPage() {
         ...new Set(inventoryAssets.map((asset) => asset.itemDefinition.marketHashName)),
       ];
       setPricesLoading(true);
+      setPricesError(null);
       try {
         const response = await getInventoryPriceHints(token, marketHashNames);
         setPriceHints(response.hints);
         setSteamPriceFetchedAt(response.steamPriceFetchedAt ?? null);
-      } catch {
+      } catch (err: unknown) {
         setPriceHints({});
         setSteamPriceFetchedAt(null);
+        setPricesError(err);
       } finally {
         setPricesLoading(false);
       }
@@ -119,7 +141,7 @@ export function InventoryPage() {
         const response = await getInventory(token, { forceRefresh });
         setAssets(response.assets);
         setSync(response.sync);
-        void loadPriceHints(response.assets);
+        await loadPriceHints(response.assets);
       } catch (err: unknown) {
         setError(err);
       } finally {
@@ -161,7 +183,7 @@ export function InventoryPage() {
         }
         setAssets(response.assets);
         setSync(response.sync);
-        void loadPriceHints(response.assets);
+        await loadPriceHints(response.assets);
       })
       .catch((err: unknown) => {
         if (!cancelled) {
@@ -205,8 +227,12 @@ export function InventoryPage() {
     sync?.stale || (sync ? new Date(sync.expiresAt) <= new Date() : false);
 
   const filteredAssets = useMemo(
-    () => filterInventoryAssets(assets, search, statusFilter, showUnavailable),
-    [assets, search, statusFilter, showUnavailable],
+    () =>
+      sortInventoryAssetsBySteamPriceDesc(
+        filterInventoryAssets(assets, search, statusFilter, showUnavailable),
+        priceHints,
+      ),
+    [assets, search, statusFilter, showUnavailable, priceHints],
   );
 
   const visibleCount = useMemo(
@@ -219,6 +245,7 @@ export function InventoryPage() {
       return;
     }
     setSelectedAssetId(asset.id);
+    setBulkListAll(false);
     setSellError(null);
   }
 
@@ -229,17 +256,47 @@ export function InventoryPage() {
       return;
     }
 
+    const useBulk =
+      bulkListAll && bulkListTargets.length >= 2 && selectedAssetId != null;
+    const targetIds = useBulk
+      ? bulkListTargets.map((asset) => asset.id)
+      : [selectedAssetId];
+
     setSubmitting(true);
     setSellError(null);
     try {
       const freshAssets = await getInventory(token);
-      const freshAsset = freshAssets.assets.find((asset) => asset.id === selectedAssetId);
-      if (!freshAsset || !canListAsset(freshAsset)) {
-        setSellError(new Error('This item cannot be listed right now'));
+      const freshTargets = targetIds
+        .map((id) => freshAssets.assets.find((asset) => asset.id === id))
+        .filter((asset): asset is InventoryAsset => Boolean(asset));
+
+      if (freshTargets.length !== targetIds.length) {
+        setSellError(new Error('Some selected items are no longer in inventory'));
         return;
       }
-      await createLot(token, selectedAssetId, priceMinor);
+
+      if (useBulk) {
+        const refreshedSiblings = getBulkListableSiblings(freshAssets.assets, freshTargets[0]!);
+        if (refreshedSiblings.length !== targetIds.length) {
+          setSellError(new Error('Bulk listing set changed — refresh and try again'));
+          return;
+        }
+        await createLotsBulk(
+          token,
+          refreshedSiblings.map((asset) => asset.id),
+          priceMinor,
+        );
+      } else {
+        const freshAsset = freshTargets[0];
+        if (!freshAsset || !canListAsset(freshAsset)) {
+          setSellError(new Error('This item cannot be listed right now'));
+          return;
+        }
+        await createLot(token, freshAsset.id, priceMinor);
+      }
+
       setSelectedAssetId(null);
+      setBulkListAll(false);
       navigate('/deals?tab=listings');
     } catch (err: unknown) {
       setSellError(err);
@@ -250,6 +307,7 @@ export function InventoryPage() {
 
   function clearSelection() {
     setSelectedAssetId(null);
+    setBulkListAll(false);
     setSellError(null);
   }
 
@@ -356,6 +414,24 @@ export function InventoryPage() {
 
       {loading ? <LoadingState message="Загрузка инвентаря…" /> : null}
 
+      {!loading && pricesLoading ? (
+        <LoadingState message="Загрузка актуальных цен Steam…" />
+      ) : null}
+
+      {!loading && !pricesLoading && pricesError ? (
+        <div className="card inventory-price-error" data-testid="inventory-prices-error">
+          <ErrorAlert error={pricesError} />
+          <button
+            type="button"
+            className="button secondary"
+            data-testid="inventory-prices-retry"
+            onClick={() => void loadPriceHints(assets)}
+          >
+            Повторить загрузку цен
+          </button>
+        </div>
+      ) : null}
+
       {steamLinked && tradeUrlReady && !loading && assets.length === 0 ? (
         <EmptyState
           title="Инвентарь пуст"
@@ -363,8 +439,26 @@ export function InventoryPage() {
         />
       ) : null}
 
-      {steamLinked && tradeUrlReady && !loading && assets.length > 0 ? (
-        <div className="inventory-workspace">
+      {steamLinked &&
+      tradeUrlReady &&
+      !loading &&
+      !pricesLoading &&
+      !pricesError &&
+      assets.length > 0 ? (
+        <div
+          className={`inventory-workspace${
+            selectedAsset && selectedListable ? ' inventory-workspace-panel-open' : ''
+          }`}
+        >
+          {selectedAsset && selectedListable ? (
+            <button
+              type="button"
+              className="inventory-sell-backdrop"
+              aria-label="Закрыть панель продажи"
+              data-testid="inventory-sell-backdrop"
+              onClick={clearSelection}
+            />
+          ) : null}
           <div className="inventory-main">
             <div className="inventory-toolbar" data-testid="inventory-filters">
               <div className="inventory-toolbar-fields">
@@ -421,8 +515,10 @@ export function InventoryPage() {
                     key={asset.id}
                     asset={asset}
                     isSelected={selectedAssetId === asset.id}
+                    isBulkHighlighted={bulkHighlightIds.has(asset.id)}
                     priceHint={priceHints[asset.itemDefinition.marketHashName]}
                     pricesLoading={pricesLoading}
+                    requireSteamPrice
                     onSelect={selectAsset}
                   />
                 ))}
@@ -445,6 +541,9 @@ export function InventoryPage() {
                 sellError={sellError}
                 submitting={submitting}
                 priceMinor={priceMinor}
+                bulkListableCount={bulkListTargets.length}
+                bulkListAll={bulkListAll}
+                onBulkListAllChange={setBulkListAll}
                 onPriceChange={setPriceInput}
                 onSubmit={(event) => void handleSubmitListing(event)}
                 onClose={clearSelection}

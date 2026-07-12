@@ -100,6 +100,30 @@ export function filterInventoryAssets<
   });
 }
 
+type InventoryPriceHintLike = {
+  steamPriceMinor?: number | null;
+};
+
+export function sortInventoryAssetsBySteamPriceDesc<
+  T extends { itemDefinition: { marketHashName: string } },
+>(assets: T[], priceHints: Record<string, InventoryPriceHintLike>): T[] {
+  return [...assets].sort((left, right) => {
+    const leftPrice =
+      priceHints[left.itemDefinition.marketHashName]?.steamPriceMinor ?? 0;
+    const rightPrice =
+      priceHints[right.itemDefinition.marketHashName]?.steamPriceMinor ?? 0;
+
+    if (rightPrice !== leftPrice) {
+      return rightPrice - leftPrice;
+    }
+
+    return left.itemDefinition.marketHashName.localeCompare(
+      right.itemDefinition.marketHashName,
+      'ru',
+    );
+  });
+}
+
 export function filterSellerLots<
   T extends { status: string; inventoryAsset: { itemDefinition: { marketHashName: string } } },
 >(lots: T[], search: string, statusFilter: LotStatusFilter): T[] {
@@ -113,6 +137,67 @@ export function filterSellerLots<
     }
     return lot.inventoryAsset.itemDefinition.marketHashName.toLowerCase().includes(query);
   });
+}
+
+export function hasInventoryFloatValue(
+  floatValue: string | number | null | undefined,
+): boolean {
+  if (floatValue == null || floatValue === '') {
+    return false;
+  }
+  if (typeof floatValue === 'number') {
+    return Number.isFinite(floatValue);
+  }
+  const parsed = Number.parseFloat(floatValue);
+  return Number.isFinite(parsed);
+}
+
+export function isFungibleInventoryAsset(asset: {
+  floatValue?: string | null;
+  paintSeed?: number | null;
+  wear?: string | null;
+  stickers?: unknown[] | null;
+}): boolean {
+  if (hasInventoryFloatValue(asset.floatValue)) {
+    return false;
+  }
+  if (asset.paintSeed != null && Number.isFinite(asset.paintSeed)) {
+    return false;
+  }
+  if (asset.wear) {
+    return false;
+  }
+  if (Array.isArray(asset.stickers) && asset.stickers.length > 0) {
+    return false;
+  }
+  return true;
+}
+
+export function getBulkListableSiblings<
+  T extends {
+    id: string;
+    status: string;
+    tradable: boolean;
+    marketable?: boolean;
+    tradeLockUntil?: string | null;
+    floatValue?: string | null;
+    paintSeed?: number | null;
+    wear?: string | null;
+    stickers?: unknown[] | null;
+    itemDefinition: { marketHashName: string };
+  },
+>(assets: T[], anchor: T): T[] {
+  if (!isFungibleInventoryAsset(anchor)) {
+    return canListAsset(anchor) ? [anchor] : [];
+  }
+
+  const marketHashName = anchor.itemDefinition.marketHashName;
+  return assets.filter(
+    (asset) =>
+      canListAsset(asset) &&
+      isFungibleInventoryAsset(asset) &&
+      asset.itemDefinition.marketHashName === marketHashName,
+  );
 }
 
 export const SELLER_SALE_STEPS = [

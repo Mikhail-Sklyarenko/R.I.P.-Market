@@ -2,7 +2,7 @@ export const STEAM_ITEM_IMAGE_CDN =
   'https://community.cloudflare.steamstatic.com/economy/image';
 
 export const ITEM_IMAGE_PLACEHOLDER_DATA =
-  "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='256' height='192' viewBox='0 0 256 192'%3E%3Crect width='256' height='192' fill='%23111827'/%3E%3Ctext x='50%25' y='50%25' dominant-baseline='middle' text-anchor='middle' fill='%2394a3b8' font-family='system-ui' font-size='14'%3ECS2 Item%3C/text%3E%3C/svg%3E";
+  "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='256' height='192' viewBox='0 0 256 192'%3E%3Crect width='256' height='192' fill='%23111827'/%3E%3Ctext x='50%25' y='50%25' dominant-baseline='middle' text-anchor='middle' fill='%2394a3b8' font-family='system-ui' font-size='14'%3EПредмет CS2%3C/text%3E%3C/svg%3E";
 
 export function getSteamItemImageUrl(iconUrl?: string | null): string {
   if (!iconUrl) {
@@ -46,6 +46,11 @@ export type ItemDisplaySource = {
   };
 };
 
+import { getRarityDisplayLabel } from './rarity-colors';
+
 export function getItemCategory(item: ItemDisplaySource): string | null {
-  return item.itemDefinition.weapon ?? item.itemDefinition.rarity ?? null;
+  if (item.itemDefinition.weapon?.trim()) {
+    return item.itemDefinition.weapon.trim();
+  }
+  return getRarityDisplayLabel(item.itemDefinition.rarity);
 }

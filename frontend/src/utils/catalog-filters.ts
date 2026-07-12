@@ -30,21 +30,35 @@ export type CatalogCategoryOption = {
   modelIcon?: string;
   weapon?: string;
   rarity?: string;
+  q?: string;
 };
 
-export const CATALOG_PAGE_LIMITS = [20, 24] as const;
-export type CatalogPageLimit = (typeof CATALOG_PAGE_LIMITS)[number];
+export const OTHER_CATALOG_SEARCH_TERMS = [
+  'Sticker',
+  'Charm',
+  'Patch',
+  'Graffiti',
+  'Agent',
+  'Music Kit',
+  ' Case',
+  'Collectible',
+  'Pin',
+] as const;
+
+export const OTHER_CATALOG_ALL_Q = OTHER_CATALOG_SEARCH_TERMS.join('|');
+
+export const CATALOG_PAGE_LIMIT = 24;
 
 export const WEAPON_CATEGORY_TABS: readonly WeaponCategoryTab[] = [
   { id: 'all', label: 'Все', icon: 'all', filter: {} },
-  { id: 'knives', label: 'Нож', icon: 'knife', filter: { q: 'Knife' } },
-  { id: 'pistols', label: 'Пистолет', icon: 'pistol', filter: { q: 'Glock-18' } },
-  { id: 'rifles', label: 'Винтовка', icon: 'rifle', filter: { weapon: 'AK-47' } },
-  { id: 'snipers', label: 'Снайперская', icon: 'sniper', filter: { weapon: 'AWP' } },
-  { id: 'smg', label: 'SMG', icon: 'smg', filter: { q: 'MP9' } },
-  { id: 'shotguns', label: 'Дробовики', icon: 'shotgun', filter: { q: 'Nova' } },
+  { id: 'knives', label: 'Ножи', icon: 'knife', filter: { q: 'Knife' } },
   { id: 'gloves', label: 'Перчатки', icon: 'gloves', filter: { q: 'Gloves' } },
-  { id: 'other', label: 'Другое', icon: 'other', filter: { q: 'Sticker' } },
+  { id: 'pistols', label: 'Пистолеты', icon: 'pistol', filter: { q: 'Glock-18' } },
+  { id: 'rifles', label: 'Винтовки', icon: 'rifle', filter: { weapon: 'AK-47' } },
+  { id: 'snipers', label: 'Снайперские винтовки', icon: 'sniper', filter: { weapon: 'AWP' } },
+  { id: 'smg', label: 'ПП', icon: 'smg', filter: { q: 'MP9' } },
+  { id: 'shotguns', label: 'Дробовики', icon: 'shotgun', filter: { q: 'Nova' } },
+  { id: 'other', label: 'Другое', icon: 'other', filter: { q: OTHER_CATALOG_ALL_Q } },
 ];
 
 export const CATALOG_CATEGORY_OPTIONS: readonly CatalogCategoryOption[] = [
@@ -185,6 +199,69 @@ export const CATALOG_CATEGORY_OPTIONS: readonly CatalogCategoryOption[] = [
     icon: 'gloves',
     modelIcon: 'gloves-extraordinary',
   },
+  {
+    value: 'other-sticker',
+    label: 'Наклейки',
+    tabId: 'other',
+    icon: 'other',
+    q: 'Sticker',
+  },
+  {
+    value: 'other-charm',
+    label: 'Брелки',
+    tabId: 'other',
+    icon: 'other',
+    q: 'Charm',
+  },
+  {
+    value: 'other-patch',
+    label: 'Нашивки',
+    tabId: 'other',
+    icon: 'other',
+    q: 'Patch',
+  },
+  {
+    value: 'other-graffiti',
+    label: 'Графити',
+    tabId: 'other',
+    icon: 'other',
+    q: 'Graffiti',
+  },
+  {
+    value: 'other-agent',
+    label: 'Агенты',
+    tabId: 'other',
+    icon: 'other',
+    q: 'Agent',
+  },
+  {
+    value: 'other-music-kit',
+    label: 'Музыкальные наборы',
+    tabId: 'other',
+    icon: 'other',
+    q: 'Music Kit',
+  },
+  {
+    value: 'other-case',
+    label: 'Кейсы',
+    tabId: 'other',
+    icon: 'other',
+    q: ' Case',
+  },
+  {
+    value: 'other-collectible',
+    label: 'Коллекционные',
+    tabId: 'other',
+    icon: 'other',
+    q: 'Collectible',
+  },
+  {
+    value: 'other-pin',
+    label: 'Значки',
+    tabId: 'other',
+    icon: 'other',
+    q: 'Pin',
+  },
 ];
 
 export function getCategoryOptionsForTab(tabId: string): CatalogCategoryOption[] {
@@ -198,8 +275,12 @@ export function findCategoryOption(value: string): CatalogCategoryOption | undef
 }
 
 export function findTabForWeapon(weapon: string): string {
-  const option = CATALOG_CATEGORY_OPTIONS.find((entry) => entry.weapon === weapon);
-  return option?.tabId ?? 'all';
+  const option = findCategoryOption(weapon);
+  if (option) {
+    return option.tabId;
+  }
+  const byWeapon = CATALOG_CATEGORY_OPTIONS.find((entry) => entry.weapon === weapon);
+  return byWeapon?.tabId ?? 'all';
 }
 
 export function resolveCatalogFilter(
@@ -210,6 +291,7 @@ export function resolveCatalogFilter(
     const option = findCategoryOption(categoryValue);
     if (option) {
       return {
+        ...(option.q ? { q: option.q } : {}),
         ...(option.weapon ? { weapon: option.weapon } : {}),
         ...(option.rarity ? { rarity: option.rarity } : {}),
       };

@@ -31,7 +31,6 @@ export function UserMenu() {
   }
 
   const isAdmin = user.role === 'ADMIN';
-  const canSell = hasLinkedSteamId(user.steamId);
   const steamLinked = hasLinkedSteamId(user.steamId);
   const avatarUrl = getUserAvatarUrl(user);
   const initials = getUserInitials(user);
@@ -79,36 +78,12 @@ export function UserMenu() {
             </Link>
           )}
           <Link
-            to="/wallet?tab=deposit"
-            className="user-menu-item"
-            data-testid="user-menu-deposit"
-            onClick={() => setOpen(false)}
-          >
-            Пополнить баланс
-          </Link>
-          <Link
-            to="/wallet?tab=withdraw"
-            className="user-menu-item"
-            data-testid="user-menu-withdraw"
-            onClick={() => setOpen(false)}
-          >
-            Вывести средства
-          </Link>
-          <Link
             to="/account"
             className="user-menu-item"
             data-testid="user-menu-account"
             onClick={() => setOpen(false)}
           >
             Личный кабинет
-          </Link>
-          <Link
-            to="/wallet?tab=transactions"
-            className="user-menu-item"
-            data-testid="user-menu-transactions"
-            onClick={() => setOpen(false)}
-          >
-            Транзакции
           </Link>
           <Link
             to="/deals"
@@ -118,16 +93,6 @@ export function UserMenu() {
           >
             Сделки
           </Link>
-          {canSell ? (
-            <Link
-              to="/sell/inventory"
-              className="user-menu-item"
-              data-testid="user-menu-inventory"
-              onClick={() => setOpen(false)}
-            >
-              Инвентарь
-            </Link>
-          ) : null}
           {isAdmin ? (
             <Link
               to="/admin/orders"

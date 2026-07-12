@@ -13,6 +13,7 @@ import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { CurrentUser } from '../common/current-user.decorator';
 import type { AuthUser } from '../common/auth-user.interface';
 import { CreateLotDto } from './dto/create-lot.dto';
+import { CreateBulkLotsDto } from './dto/create-bulk-lots.dto';
 import { ListLotsQueryDto } from './dto/list-lots-query.dto';
 import { hasLotsListFilters } from './lots-list.util';
 import { LotsService } from './lots.service';
@@ -27,6 +28,14 @@ export class LotsController {
   @Post()
   async create(@CurrentUser() user: AuthUser, @Body() body: CreateLotDto) {
     return this.lotsService.create(user.sub, body);
+  }
+
+  @Post('bulk')
+  async createBulk(
+    @CurrentUser() user: AuthUser,
+    @Body() body: CreateBulkLotsDto,
+  ) {
+    return this.lotsService.createBulk(user.sub, body);
   }
 
   @ApiQuery({ name: 'priceMinor', required: true, type: Number })

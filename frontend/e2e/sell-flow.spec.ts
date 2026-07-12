@@ -54,4 +54,22 @@ test.describe('Seller flow', () => {
     await expect(page.getByText('Enter a valid price greater than zero.')).toBeVisible();
     await expect(page.getByTestId('submit-listing')).toBeDisabled();
   });
+
+  test('sell panel anchors to bottom on mobile', async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await loginAsSeller(page);
+
+    await page.locator('[data-testid^="list-asset-"]').first().click();
+    await expect(page.getByTestId('inventory-sell-panel')).toBeVisible();
+    await expect(page.getByTestId('inventory-sell-backdrop')).toBeVisible();
+
+    const panelBox = await page.getByTestId('inventory-sell-panel').boundingBox();
+    expect(panelBox).not.toBeNull();
+    if (panelBox) {
+      expect(panelBox.y + panelBox.height).toBeGreaterThan(844 * 0.55);
+    }
+
+    await page.getByTestId('inventory-sell-backdrop').click();
+    await expect(page.getByTestId('inventory-sell-panel')).toHaveCount(0);
+  });
 });

@@ -13,12 +13,11 @@ import { LoadingState } from '../components/LoadingState';
 import { PageHeader } from '../components/PageHeader';
 import { TrustBanner } from '../components/TrustBanner';
 import {
-  CATALOG_PAGE_LIMITS,
+  CATALOG_PAGE_LIMIT,
   findCategoryOption,
   findTabForWeapon,
   hasActiveCatalogFilters,
   resolveCatalogFilter,
-  type CatalogPageLimit,
 } from '../utils/catalog-filters';
 import { parseUsdToMinor } from '../utils/format';
 import {
@@ -76,7 +75,6 @@ export function CatalogPage() {
   const [floatMin, setFloatMin] = useState('');
   const [floatMax, setFloatMax] = useState('');
   const [page, setPage] = useState(1);
-  const [pageLimit, setPageLimit] = useState<CatalogPageLimit>(24);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [activeTabId, setActiveTabId] = useState(
     weaponParam ? findTabForWeapon(weaponParam) : 'all',
@@ -111,9 +109,9 @@ export function CatalogPage() {
           : undefined,
       sort: toCatalogSort(sort),
       page,
-      limit: pageLimit,
+      limit: CATALOG_PAGE_LIMIT,
     };
-  }, [search, sort, minPrice, maxPrice, rarityFilter, wearFilter, floatMin, floatMax, page, pageLimit, categoryFilter]);
+  }, [search, sort, minPrice, maxPrice, rarityFilter, wearFilter, floatMin, floatMax, page, categoryFilter]);
 
   const showResetFilters = hasActiveCatalogFilters({
     search,
@@ -148,7 +146,7 @@ export function CatalogPage() {
 
   useEffect(() => {
     setPage(1);
-  }, [search, sort, minPrice, maxPrice, rarityFilter, wearFilter, floatMin, floatMax, activeTabId, categoryValue, pageLimit]);
+  }, [search, sort, minPrice, maxPrice, rarityFilter, wearFilter, floatMin, floatMax, activeTabId, categoryValue]);
 
   useEffect(() => {
     if (!weaponParam) {
@@ -159,7 +157,7 @@ export function CatalogPage() {
     setActiveTabId(findTabForWeapon(weaponParam));
   }, [weaponParam]);
 
-  const totalPages = Math.max(1, Math.ceil(total / pageLimit));
+  const totalPages = Math.max(1, Math.ceil(total / CATALOG_PAGE_LIMIT));
   const currentPage = Math.min(page, totalPages);
 
   function handleCategoryChange(value: string) {
@@ -172,9 +170,9 @@ export function CatalogPage() {
     }
 
     const nextParams = new URLSearchParams(searchParams);
-    const weapon = option?.weapon;
-    if (weapon) {
-      nextParams.set('weapon', weapon);
+    const paramValue = option?.weapon ?? (option?.value && option.tabId !== 'all' ? option.value : undefined);
+    if (paramValue) {
+      nextParams.set('weapon', paramValue);
     } else {
       nextParams.delete('weapon');
     }
@@ -201,7 +199,6 @@ export function CatalogPage() {
     setActiveTabId('all');
     setCategoryValue('');
     setPage(1);
-    setPageLimit(24);
     setSearchParams({}, { replace: true });
   }
 
@@ -237,20 +234,6 @@ export function CatalogPage() {
               <option value="newest">Сначала новые</option>
               <option value="price-asc">Цена ↑</option>
               <option value="price-desc">Цена ↓</option>
-            </select>
-          </label>
-          <label className="field catalog-filter-field">
-            <span className="field-label">На странице</span>
-            <select
-              value={pageLimit}
-              onChange={(event) => setPageLimit(Number(event.target.value) as CatalogPageLimit)}
-              data-testid="catalog-page-limit"
-            >
-              {CATALOG_PAGE_LIMITS.map((limit) => (
-                <option key={limit} value={limit}>
-                  {limit}
-                </option>
-              ))}
             </select>
           </label>
         </div>
@@ -414,7 +397,7 @@ export function CatalogPage() {
             </div>
           ) : null}
 
-          {!loading && total > pageLimit ? (
+          {!loading && total > CATALOG_PAGE_LIMIT ? (
             <div className="catalog-pagination" data-testid="catalog-pagination">
               <button
                 type="button"

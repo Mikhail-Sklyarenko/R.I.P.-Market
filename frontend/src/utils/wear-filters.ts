@@ -1,9 +1,9 @@
 export const CATALOG_WEAR_FILTERS = [
-  { value: 'FN', label: 'Factory New', color: '#5cb85c' },
-  { value: 'MW', label: 'Minimal Wear', color: '#8bc34a' },
-  { value: 'FT', label: 'Field-Tested', color: '#f0ad4e' },
-  { value: 'WW', label: 'Well-Worn', color: '#ff7043' },
-  { value: 'BS', label: 'Battle-Scarred', color: '#d9534f' },
+  { value: 'FN', label: 'Прямо с завода', color: '#5cb85c' },
+  { value: 'MW', label: 'Немного поношенное', color: '#8bc34a' },
+  { value: 'FT', label: 'После полевых испытаний', color: '#f0ad4e' },
+  { value: 'WW', label: 'Поношённое', color: '#ff7043' },
+  { value: 'BS', label: 'Закалённое в боях', color: '#d9534f' },
 ] as const;
 
 export type CatalogWearFilterValue = (typeof CATALOG_WEAR_FILTERS)[number]['value'];

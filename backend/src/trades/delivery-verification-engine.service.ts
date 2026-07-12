@@ -1,6 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { SteamTradeRateLimitError } from '../providers/trade/steam-trade.provider';
 import type { TradeVerificationResult } from '../providers/trade/trade-provider.interface';
+import { PrismaService } from '../prisma/prisma.service';
 import {
   computeRateLimitBackoffMs,
   getTradeFailMode,
@@ -56,6 +57,7 @@ export class DeliveryVerificationEngineService {
   private readonly rateLimitHits = new Map<string, number>();
 
   constructor(
+    private readonly prisma: PrismaService,
     private readonly tradesService: TradesService,
     private readonly inventoryDelta: TradeInventoryDeltaService,
   ) {}
@@ -97,12 +99,15 @@ export class DeliveryVerificationEngineService {
     const timedOut =
       Date.now() >= operation.order.createdAt.getTime() + getTradeTimeoutMs();
 
+    const buyerAckReceived = await this.hasBuyerAckReceived(operation.orderId);
+
     const signals: DeliveryVerificationSignals = {
       engineEnabled: isDeliveryVerificationEngineEnabled(),
       shadowMode: operation.verificationMode === 'SHADOW',
       hasOfferId: Boolean(operation.externalOfferId),
       offerStatus: null,
       inventoryDelta: null,
+      buyerAckReceived,
       timedOut,
       rateLimited: false,
       checkCount: operation.checkCount,
@@ -145,6 +150,7 @@ export class DeliveryVerificationEngineService {
             expectedFloatValue:
               snapshot?.floatValue ?? asset.floatValue ?? null,
             expectedPaintSeed: snapshot?.paintSeed ?? asset.paintSeed ?? null,
+            orderCreatedAt: operation.order.createdAt,
           },
         );
       }
@@ -162,6 +168,14 @@ export class DeliveryVerificationEngineService {
       }
       throw error;
     }
+  }
+
+  private async hasBuyerAckReceived(orderId: string): Promise<boolean> {
+    const ack = await this.prisma.tradeAcknowledgment.findFirst({
+      where: { orderId, type: 'BUYER_ACK_RECEIVED' },
+      select: { id: true },
+    });
+    return ack !== null;
   }
 
   toEvidence(

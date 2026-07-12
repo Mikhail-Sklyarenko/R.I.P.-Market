@@ -187,7 +187,7 @@ export function CheckoutPage() {
                 authenticated={Boolean(token && user)}
                 insufficientBalance={insufficient}
                 neededMinor={priceMinor}
-                walletDepositHref={`/wallet?returnUrl=${encodeURIComponent(checkoutPath)}&needed=${priceMinor}`}
+                walletDepositHref={`/wallet?tab=deposit&returnUrl=${encodeURIComponent(checkoutPath)}&needed=${priceMinor}`}
                 showDepositAction={false}
                 showTradeHint={false}
                 compactTradeUrlWarning
@@ -205,7 +205,7 @@ export function CheckoutPage() {
               <div className="checkout-actions">
                 {insufficient ? (
                   <Link
-                    to={`/wallet?returnUrl=${encodeURIComponent(checkoutPath)}&needed=${priceMinor}`}
+                    to={`/wallet?tab=deposit&returnUrl=${encodeURIComponent(checkoutPath)}&needed=${priceMinor}`}
                     className="button primary"
                     data-testid="checkout-deposit-link"
                   >

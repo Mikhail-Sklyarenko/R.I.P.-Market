@@ -27,6 +27,7 @@ import {
 } from './pages/LegacyDealsRedirects';
 import { NotificationsPage } from './pages/NotificationsPage';
 import { OrderPage } from './pages/OrderPage';
+import { FaqPage } from './pages/FaqPage';
 import { SupportPage } from './pages/SupportPage';
 import { WalletPage } from './pages/WalletPage';
 import { getHomePathForRole } from './utils/format';
@@ -57,6 +58,7 @@ export function App() {
         <Route element={<Layout />}>
           <Route path="/catalog" element={<CatalogPage />} />
           <Route path="/lots/:id" element={<LotPage />} />
+          <Route path="/faq" element={<FaqPage />} />
           <Route path="/support" element={<SupportPage />} />
 
           <Route element={<ProtectedRoute />}>

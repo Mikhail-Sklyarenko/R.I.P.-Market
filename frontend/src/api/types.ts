@@ -230,6 +230,8 @@ export type Lot = {
   csfloatPriceMinor?: number | null;
   referencePriceFetchedAt?: string | null;
   inspectLink?: string | null;
+  steamMarketHashName?: string | null;
+  steamMarketUrl?: string | null;
   marketplacePriceMinor?: string | null;
 };
 

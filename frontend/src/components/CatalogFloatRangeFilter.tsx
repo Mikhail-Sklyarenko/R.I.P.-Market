@@ -73,7 +73,7 @@ export function CatalogFloatRangeFilter({
 
   return (
     <CatalogCollapsibleFilter
-      title="Float"
+      title="Флоат"
       open={open}
       onToggle={() => setOpen((current) => !current)}
       onReset={handleReset}
@@ -101,7 +101,7 @@ export function CatalogFloatRangeFilter({
             max={FLOAT_BOUND_MAX}
             step={FLOAT_STEP}
             value={minValue}
-            aria-label="Float от"
+            aria-label="Флоат от"
             data-testid="catalog-float-slider-min"
             onChange={(event) => handleMinSliderChange(Number(event.target.value))}
           />
@@ -112,7 +112,7 @@ export function CatalogFloatRangeFilter({
             max={FLOAT_BOUND_MAX}
             step={FLOAT_STEP}
             value={maxValue}
-            aria-label="Float до"
+            aria-label="Флоат до"
             data-testid="catalog-float-slider-max"
             onChange={(event) => handleMaxSliderChange(Number(event.target.value))}
           />
@@ -120,7 +120,7 @@ export function CatalogFloatRangeFilter({
 
         <div className="catalog-range-field-row catalog-float-range-row">
           <CatalogRangeFieldCell
-            label="Float от"
+            label="Флоат от"
             value={floatMin}
             onChange={onFloatMinChange}
             testId="catalog-float-min"
@@ -128,7 +128,7 @@ export function CatalogFloatRangeFilter({
           />
           <div className="catalog-range-field-divider" aria-hidden="true" />
           <CatalogRangeFieldCell
-            label="Float до"
+            label="Флоат до"
             value={floatMax}
             onChange={onFloatMaxChange}
             testId="catalog-float-max"

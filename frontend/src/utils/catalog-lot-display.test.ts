@@ -12,7 +12,7 @@ describe('catalog-lot-display utils', () => {
 
   it('returns wear badge color for known wear codes', () => {
     assert.deepEqual(getWearBadgeStyle('WW'), {
-      label: 'WW',
+      label: 'Поношённое',
       color: '#ffb454',
     });
   });

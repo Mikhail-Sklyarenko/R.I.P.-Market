@@ -5,6 +5,8 @@ import {
   filterSellerLots,
   formatLotStatus,
   computeSellerPendingReceiveMinor,
+  getBulkListableSiblings,
+  sortInventoryAssetsBySteamPriceDesc,
 } from './seller-flow.ts';
 
 describe('seller-flow utils', () => {
@@ -44,6 +46,42 @@ describe('seller-flow utils', () => {
     assert.equal(filterInventoryAssets(assets, '', 'all', true).length, 3);
   });
 
+  it('sorts inventory assets by Steam price descending', () => {
+    const assets = [
+      {
+        status: 'AVAILABLE',
+        tradable: true,
+        itemDefinition: { marketHashName: 'AK-47 | Redline (Field-Tested)' },
+      },
+      {
+        status: 'AVAILABLE',
+        tradable: true,
+        itemDefinition: { marketHashName: 'AWP | Asiimov (Field-Tested)' },
+      },
+      {
+        status: 'AVAILABLE',
+        tradable: true,
+        itemDefinition: { marketHashName: 'Glock-18 | Water Elemental (Field-Tested)' },
+      },
+    ];
+    const priceHints = {
+      'AK-47 | Redline (Field-Tested)': { steamPriceMinor: 2500 },
+      'AWP | Asiimov (Field-Tested)': { steamPriceMinor: 9900 },
+      'Glock-18 | Water Elemental (Field-Tested)': { steamPriceMinor: 450 },
+    };
+
+    const sorted = sortInventoryAssetsBySteamPriceDesc(assets, priceHints);
+
+    assert.deepEqual(
+      sorted.map((asset) => asset.itemDefinition.marketHashName),
+      [
+        'AWP | Asiimov (Field-Tested)',
+        'AK-47 | Redline (Field-Tested)',
+        'Glock-18 | Water Elemental (Field-Tested)',
+      ],
+    );
+  });
+
   it('filters seller lots by status and search', () => {
     const lots = [
       {
@@ -78,5 +116,40 @@ describe('seller-flow utils', () => {
     );
 
     assert.equal(total, 500);
+  });
+
+  it('finds bulk-listable siblings for identical cases only', () => {
+    const caseA = {
+      id: 'case-1',
+      status: 'AVAILABLE',
+      tradable: true,
+      floatValue: null,
+      paintSeed: null,
+      wear: null,
+      stickers: null,
+      itemDefinition: { marketHashName: 'Revolution Case' },
+    };
+    const caseB = {
+      ...caseA,
+      id: 'case-2',
+    };
+    const skin = {
+      id: 'skin-1',
+      status: 'AVAILABLE',
+      tradable: true,
+      floatValue: '0.12',
+      paintSeed: 42,
+      wear: 'FT',
+      stickers: null,
+      itemDefinition: { marketHashName: 'AK-47 | Redline (Field-Tested)' },
+    };
+
+    assert.deepEqual(
+      getBulkListableSiblings([caseA, caseB, skin], caseA).map((asset) => asset.id),
+      ['case-1', 'case-2'],
+    );
+    assert.deepEqual(getBulkListableSiblings([skin], skin).map((asset) => asset.id), [
+      'skin-1',
+    ]);
   });
 });

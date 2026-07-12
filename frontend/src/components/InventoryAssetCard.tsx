@@ -17,8 +17,10 @@ import { InventoryPriceStack } from './InventoryPriceStack';
 type InventoryAssetCardProps = {
   asset: InventoryAsset;
   isSelected: boolean;
+  isBulkHighlighted?: boolean;
   priceHint?: InventoryPriceHint | null;
   pricesLoading?: boolean;
+  requireSteamPrice?: boolean;
   onSelect: (asset: InventoryAsset) => void;
 };
 
@@ -38,8 +40,10 @@ function statusBadgeClass(status: string): string {
 export function InventoryAssetCard({
   asset,
   isSelected,
+  isBulkHighlighted = false,
   priceHint,
   pricesLoading = false,
+  requireSteamPrice = false,
   onSelect,
 }: InventoryAssetCardProps) {
   const listable = canListAsset(asset);
@@ -77,6 +81,7 @@ export function InventoryAssetCard({
     'inventory-asset-card',
     listable ? 'inventory-asset-card-listable' : 'inventory-asset-card-locked',
     isSelected ? 'inventory-asset-card-selected' : '',
+    isBulkHighlighted && !isSelected ? 'inventory-asset-card-bulk-highlight' : '',
   ]
     .filter(Boolean)
     .join(' ');
@@ -166,6 +171,7 @@ export function InventoryAssetCard({
           marketplacePriceMinor={priceHint?.minMarketplacePriceMinor}
           testIdPrefix={`inventory-asset-${asset.id}`}
           loading={pricesLoading}
+          requireSteamPrice={requireSteamPrice}
         />
       </div>
     </article>

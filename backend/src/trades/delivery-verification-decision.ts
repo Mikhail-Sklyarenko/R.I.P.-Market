@@ -218,11 +218,16 @@ function decideDualSignal(
         'CONFIRMED',
       );
     }
-    if (signals.checkCount >= getAcceptedInventoryPendingMaxChecks()) {
+    if (
+      signals.buyerAckReceived ||
+      signals.checkCount >= getAcceptedInventoryPendingMaxChecks()
+    ) {
       return decision(
         'CONFIRM',
         'OFFER_ACCEPTED_INVENTORY_LAG',
-        'OFFER_ACCEPTED_INVENTORY_LAG',
+        signals.buyerAckReceived
+          ? 'BUYER_ACK_OFFER_ACCEPTED'
+          : 'OFFER_ACCEPTED_INVENTORY_LAG',
         offer,
         inventory,
         'CONFIRMED',
@@ -238,6 +243,16 @@ function decideDualSignal(
   }
 
   if (offer === 'pending' && inventory === 'confirmed') {
+    if (signals.buyerAckReceived) {
+      return decision(
+        'CONFIRM',
+        'INVENTORY_CONFIRMED_OFFER_UNKNOWN',
+        'BUYER_ACK_INVENTORY_CONFIRMED',
+        offer,
+        inventory,
+        'CONFIRMED',
+      );
+    }
     return decision(
       'DISPUTE',
       'DELIVERY_SIGNAL_CONFLICT',

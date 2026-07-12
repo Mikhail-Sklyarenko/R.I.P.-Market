@@ -147,13 +147,44 @@ export class InventoryService {
 
   async getPriceHints(marketHashNames: string[]) {
     const uniqueNames = [...new Set(marketHashNames.filter(Boolean))];
-    const [steamPrices, referencePrices, marketplacePrices] = await Promise.all(
-      [
-        this.steamMarketPrice.getPricesWithMeta(uniqueNames),
-        this.referencePrice.getPricesWithMeta(uniqueNames),
-        this.loadMinMarketplacePrices(uniqueNames),
-      ],
+    const sellPriceOptions = {
+      forceRefresh: true,
+      cacheTtlMs: 3 * 60 * 1000,
+      failureCacheTtlMs: 15 * 1000,
+    } as const;
+
+    let steamPrices = await this.steamMarketPrice.getPricesWithMeta(
+      uniqueNames,
+      sellPriceOptions,
     );
+
+    const missingAfterFirstPass = uniqueNames.filter(
+      (name) => !steamPrices[name]?.priceMinor,
+    );
+    if (missingAfterFirstPass.length > 0) {
+      const retried = await this.steamMarketPrice.getPricesWithMeta(
+        missingAfterFirstPass,
+        { ...sellPriceOptions, cacheTtlMs: 0 },
+      );
+      steamPrices = { ...steamPrices, ...retried };
+    }
+
+    const stillMissing = uniqueNames.filter(
+      (name) => !steamPrices[name]?.priceMinor,
+    );
+    if (stillMissing.length > 0 && this.steamMarketPrice.isEnabled()) {
+      throw new AppException(
+        ErrorCode.STEAM_PRICE_UNAVAILABLE,
+        'Не удалось получить актуальные цены Steam для всех предметов инвентаря',
+        HttpStatus.SERVICE_UNAVAILABLE,
+        { marketHashNames: stillMissing },
+      );
+    }
+
+    const [referencePrices, marketplacePrices] = await Promise.all([
+      this.referencePrice.getPricesWithMeta(uniqueNames),
+      this.loadMinMarketplacePrices(uniqueNames),
+    ]);
 
     const hints: Record<string, InventoryPriceHint> = {};
     for (const name of uniqueNames) {

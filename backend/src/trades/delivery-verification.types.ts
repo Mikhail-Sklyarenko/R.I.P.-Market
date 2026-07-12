@@ -44,6 +44,7 @@ export type DeliveryVerificationSignals = {
   hasOfferId: boolean;
   offerStatus: TradeVerificationResult['status'] | null;
   inventoryDelta: InventoryDeltaResult | null;
+  buyerAckReceived: boolean;
   timedOut: boolean;
   rateLimited: boolean;
   checkCount: number;

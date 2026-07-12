@@ -50,7 +50,17 @@ describe('CatalogService', () => {
         return Promise.resolve([
           {
             id: 'lot-1',
-            inventoryAsset: { itemDefinitionId: 'item-listed' },
+            inventoryAsset: {
+              itemDefinitionId: 'item-listed',
+              wear: 'FT',
+              itemDefinition: {
+                marketHashName: 'AK-47 | Redline (Field-Tested)',
+              },
+            },
+            listingSnapshot: {
+              wear: 'FT',
+              marketHashName: 'AK-47 | Redline (Field-Tested)',
+            },
           },
         ]);
       }
@@ -114,5 +124,33 @@ describe('CatalogService', () => {
       steamPriceFetchedAt: null,
       referencePriceFetchedAt: null,
     });
+  });
+
+  it('matches any other-tab item type when q contains pipe-separated terms', async () => {
+    prisma.lot.findMany.mockResolvedValue([]);
+
+    await service.listItems({
+      page: 1,
+      limit: 24,
+      q: 'Sticker|Charm|Patch',
+    });
+
+    expect(prisma.lot.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          status: LotStatus.ACTIVE,
+          inventoryAsset: {
+            itemDefinition: expect.objectContaining({
+              game: 'CS2',
+              OR: [
+                { marketHashName: { contains: 'Sticker', mode: 'insensitive' } },
+                { marketHashName: { contains: 'Charm', mode: 'insensitive' } },
+                { marketHashName: { contains: 'Patch', mode: 'insensitive' } },
+              ],
+            }),
+          },
+        }),
+      }),
+    );
   });
 });

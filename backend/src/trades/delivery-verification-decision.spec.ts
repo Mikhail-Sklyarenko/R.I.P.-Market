@@ -10,6 +10,7 @@ function baseSignals(
     hasOfferId: true,
     offerStatus: 'pending',
     inventoryDelta: 'pending',
+    buyerAckReceived: false,
     timedOut: false,
     rateLimited: false,
     checkCount: 1,
@@ -113,6 +114,31 @@ describe('decideDeliveryVerification', () => {
       baseSignals({ timedOut: true }),
     );
     expect(decision.action).toBe('TIMEOUT');
+  });
+
+  it('confirms when buyer ack received and inventory confirmed while offer pending', () => {
+    const decision = decideDeliveryVerification(
+      baseSignals({
+        offerStatus: 'pending',
+        inventoryDelta: 'confirmed',
+        buyerAckReceived: true,
+      }),
+    );
+    expect(decision.action).toBe('CONFIRM');
+    expect(decision.reasonCode).toBe('BUYER_ACK_INVENTORY_CONFIRMED');
+  });
+
+  it('confirms when buyer ack received and offer accepted but inventory still pending', () => {
+    const decision = decideDeliveryVerification(
+      baseSignals({
+        offerStatus: 'accepted',
+        inventoryDelta: 'pending',
+        buyerAckReceived: true,
+        checkCount: 1,
+      }),
+    );
+    expect(decision.action).toBe('CONFIRM');
+    expect(decision.reasonCode).toBe('BUYER_ACK_OFFER_ACCEPTED');
   });
 
   it('keeps legacy offer-accepted confirm when engine disabled', () => {

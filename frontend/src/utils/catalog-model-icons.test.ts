@@ -5,9 +5,15 @@ import {
   getCategoryOptionsForTab,
 } from './catalog-filters.ts';
 
+function weaponCatalogOptions() {
+  return CATALOG_CATEGORY_OPTIONS.filter(
+    (option) => option.value && option.tabId !== 'other',
+  );
+}
+
 describe('catalog model icons', () => {
-  it('defines modelIcon slug for each catalog option with value', () => {
-    const options = CATALOG_CATEGORY_OPTIONS.filter((option) => option.value);
+  it('defines modelIcon slug for each weapon catalog option with value', () => {
+    const options = weaponCatalogOptions();
     assert.ok(options.length >= 14);
     for (const option of options) {
       assert.ok(option.modelIcon, `missing modelIcon for ${option.value}`);
@@ -15,10 +21,8 @@ describe('catalog model icons', () => {
     }
   });
 
-  it('keeps model icons unique per option value', () => {
-    const slugs = CATALOG_CATEGORY_OPTIONS.filter((option) => option.value).map(
-      (option) => option.modelIcon,
-    );
+  it('keeps model icons unique per weapon option value', () => {
+    const slugs = weaponCatalogOptions().map((option) => option.modelIcon);
     assert.equal(new Set(slugs).size, slugs.length);
   });
 

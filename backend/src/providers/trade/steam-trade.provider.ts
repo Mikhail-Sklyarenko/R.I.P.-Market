@@ -26,7 +26,8 @@ type SteamTradeOfferResponse = {
 const STATE_MAP: Record<number, TradeVerificationResult['status']> = {
   2: 'pending',
   9: 'pending',
-  11: 'pending',
+  // 11 = In Escrow: buyer accepted; item may already be in buyer inventory.
+  11: 'accepted',
   3: 'accepted',
   7: 'declined',
   5: 'expired',

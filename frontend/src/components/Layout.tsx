@@ -34,39 +34,34 @@ export function Layout() {
             <NavLink to="/sell/inventory" className={navLinkClass} data-testid="nav-sell">
               Продать
             </NavLink>
-            <NavLink to="/support" className={navLinkClass} data-testid="nav-faq">
+            <NavLink to="/faq" className={navLinkClass} data-testid="nav-faq">
               FAQ
             </NavLink>
+            {isAuthenticated ? (
+              <NavLink
+                to="/wallet"
+                className={({ isActive }) =>
+                  isActive ? 'app-nav-link app-nav-wallet active' : 'app-nav-link app-nav-wallet'
+                }
+                data-testid="nav-wallet"
+                title="Кошелёк — пополнение, вывод и транзакции"
+              >
+                <span>Кошелёк</span>
+                {walletLoading && !walletSummary ? (
+                  <span className="app-nav-wallet-balance muted small">…</span>
+                ) : (
+                  <MoneyDisplay
+                    minor={walletSummary?.availableMinor ?? '0'}
+                    className="app-nav-wallet-balance"
+                    strong
+                  />
+                )}
+              </NavLink>
+            ) : null}
           </nav>
         </div>
 
         <div className="app-header-actions">
-          {isAuthenticated ? (
-            <>
-              <Link
-                to="/wallet"
-                className="header-wallet-balance"
-                data-testid="header-wallet-balance"
-                title="Доступный баланс"
-              >
-                {walletLoading && !walletSummary ? (
-                  <span className="muted small">…</span>
-                ) : (
-                  <MoneyDisplay minor={walletSummary?.availableMinor ?? '0'} strong />
-                )}
-              </Link>
-              <Link
-                to="/wallet?tab=deposit"
-                className="header-wallet-deposit"
-                data-testid="header-wallet-deposit"
-                title="Пополнить баланс"
-                aria-label="Пополнить баланс"
-              >
-                +
-              </Link>
-            </>
-          ) : null}
-
           <UserMenu />
         </div>
       </header>

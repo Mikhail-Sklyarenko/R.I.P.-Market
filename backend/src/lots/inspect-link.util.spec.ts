@@ -39,5 +39,18 @@ describe('inspect-link.util', () => {
 
     expect(link).toContain('76561198000000000');
     expect(link).toContain('csgo_econ_action_preview');
+    expect(decodeURIComponent(link)).toContain('D310776A302028390');
+  });
+
+  it('returns prebuilt inspect links without placeholders as-is', () => {
+    const template =
+      'steam://rungame/730/76561202255233023/+csgo_econ_action_preview%20A00183C20B803280538';
+    const resolved = resolveInspectLink(
+      template,
+      '76561198000000000',
+      '1234567890',
+    );
+
+    expect(resolved).toBe(template);
   });
 });

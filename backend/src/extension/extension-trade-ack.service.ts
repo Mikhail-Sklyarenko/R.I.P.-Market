@@ -1,9 +1,10 @@
-import { HttpStatus, Injectable } from '@nestjs/common';
+import { HttpStatus, Inject, Injectable, Logger, forwardRef } from '@nestjs/common';
 import { OrderStatus } from '@prisma/client';
 import { AppException } from '../common/errors/app.exception';
 import { ErrorCode } from '../common/errors/error-codes';
 import { PrismaService } from '../prisma/prisma.service';
 import { isValidSteamOfferId } from '../providers/trade/trade-offer.util';
+import { TradeStatusPollerService } from '../trades/trade-status-poller.service';
 import { floatsMatch } from '../lots/float-match.util';
 import { resolveLotTradeExpectations } from '../lots/lot-trade-expectations.util';
 import {
@@ -42,7 +43,13 @@ type OrderWithRelations = NonNullable<
 
 @Injectable()
 export class ExtensionTradeAckService {
-  constructor(private readonly prisma: PrismaService) {}
+  private readonly logger = new Logger(ExtensionTradeAckService.name);
+
+  constructor(
+    private readonly prisma: PrismaService,
+    @Inject(forwardRef(() => TradeStatusPollerService))
+    private readonly tradeStatusPoller: TradeStatusPollerService,
+  ) {}
 
   ensureEnabled(): void {
     if (!isExtensionTradeAcknowledgmentEnabled()) {
@@ -234,6 +241,16 @@ export class ExtensionTradeAckService {
         idempotencyKey: params.idempotencyKey,
       },
     });
+
+    if (type === 'BUYER_ACK_RECEIVED') {
+      void this.tradeStatusPoller.pollOrderById(order.id).catch((error) => {
+        this.logger.warn(
+          `Immediate trade poll failed after buyer ack for order ${order.id}: ${
+            error instanceof Error ? error.message : 'unknown'
+          }`,
+        );
+      });
+    }
 
     return { ok: true, type, idempotent: false };
   }

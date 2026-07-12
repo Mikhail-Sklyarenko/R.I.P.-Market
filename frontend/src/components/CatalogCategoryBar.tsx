@@ -64,7 +64,7 @@ export function CatalogCategoryBar({
       className="catalog-category-bar"
       ref={barRef}
       role="tablist"
-      aria-label="Категории оружия"
+      aria-label="Категории"
       data-testid="catalog-category-bar"
     >
       {WEAPON_CATEGORY_TABS.map((tab) => {

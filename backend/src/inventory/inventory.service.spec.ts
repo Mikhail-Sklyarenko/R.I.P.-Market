@@ -11,6 +11,7 @@ describe('InventoryService', () => {
   const steamMarketPrice = {
     getPricesMinor: jest.fn(),
     getPricesWithMeta: jest.fn(),
+    isEnabled: jest.fn().mockReturnValue(true),
   };
 
   const inventoryProvider = {
@@ -39,11 +40,10 @@ describe('InventoryService', () => {
         priceMinor: 1250,
         fetchedAt: '2026-07-11T12:00:00.000Z',
       },
-      'Fever Case': { priceMinor: null, fetchedAt: null },
-    });
-    steamMarketPrice.getPricesMinor.mockResolvedValue({
-      'AK-47 | Redline (Field-Tested)': 1250,
-      'Fever Case': null,
+      'Fever Case': {
+        priceMinor: 980,
+        fetchedAt: '2026-07-11T12:00:00.000Z',
+      },
     });
     prisma.lot.findMany.mockResolvedValue([
       {
@@ -65,10 +65,10 @@ describe('InventoryService', () => {
       'Fever Case',
     ]);
 
-    expect(steamMarketPrice.getPricesWithMeta).toHaveBeenCalledWith([
-      'AK-47 | Redline (Field-Tested)',
-      'Fever Case',
-    ]);
+    expect(steamMarketPrice.getPricesWithMeta).toHaveBeenCalledWith(
+      ['AK-47 | Redline (Field-Tested)', 'Fever Case'],
+      expect.objectContaining({ forceRefresh: true }),
+    );
     expect(prisma.lot.findMany).toHaveBeenCalledWith(
       expect.objectContaining({
         where: expect.objectContaining({
@@ -83,11 +83,26 @@ describe('InventoryService', () => {
       minMarketplacePriceMinor: '900',
     });
     expect(result.hints['Fever Case']).toEqual({
-      steamPriceMinor: null,
+      steamPriceMinor: 980,
       buffPriceMinor: null,
       csfloatPriceMinor: null,
       minMarketplacePriceMinor: null,
     });
     expect(result.steamPriceFetchedAt).toBe('2026-07-11T12:00:00.000Z');
+  });
+
+  it('throws when Steam prices are unavailable for any requested item', async () => {
+    steamMarketPrice.isEnabled.mockReturnValue(true);
+    steamMarketPrice.getPricesWithMeta
+      .mockResolvedValueOnce({
+        'Fever Case': { priceMinor: null, fetchedAt: null },
+      })
+      .mockResolvedValueOnce({
+        'Fever Case': { priceMinor: null, fetchedAt: null },
+      });
+
+    await expect(service.getPriceHints(['Fever Case'])).rejects.toMatchObject({
+      code: 'STEAM_PRICE_UNAVAILABLE',
+    });
   });
 });

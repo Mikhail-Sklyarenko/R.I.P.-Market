@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import {
   CATALOG_RARITY_FILTERS,
+  getRarityDisplayLabel,
   getRarityStyle,
 } from './rarity-colors.ts';
 
@@ -29,5 +30,16 @@ describe('rarity-colors utils', () => {
   it('exposes catalog rarity filter options', () => {
     assert.ok(CATALOG_RARITY_FILTERS.some((option) => option.value === 'Covert'));
     assert.ok(CATALOG_RARITY_FILTERS.some((option) => option.value === 'Extraordinary'));
+    assert.equal(
+      CATALOG_RARITY_FILTERS.find((option) => option.value === 'Covert')?.label,
+      'Тайное',
+    );
+  });
+
+  it('maps rarity values to Russian display labels', () => {
+    assert.equal(getRarityDisplayLabel('Covert'), 'Тайное');
+    assert.equal(getRarityDisplayLabel('Mil-Spec Grade'), 'Армейское качество');
+    assert.equal(getRarityDisplayLabel('Extraordinary'), 'Скрытое');
+    assert.equal(getRarityDisplayLabel('Consumer Grade'), 'Ширпотреб');
   });
 });
