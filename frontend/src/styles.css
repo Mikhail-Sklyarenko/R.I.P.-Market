@@ -2924,6 +2924,156 @@ p {
   gap: var(--space-3);
 }
 
+.catalog-price-filter {
+  border: 1px solid color-mix(in srgb, var(--color-border) 85%, transparent);
+  border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--color-bg-subtle) 55%, transparent);
+  overflow: hidden;
+}
+
+.catalog-price-filter-header {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  border: none;
+  background: transparent;
+  color: var(--color-text);
+  font-size: var(--font-size-base);
+  font-weight: var(--font-weight-medium);
+  cursor: pointer;
+}
+
+.catalog-price-filter-chevron {
+  width: 0.55rem;
+  height: 0.55rem;
+  border-right: 1.5px solid var(--color-text-muted);
+  border-bottom: 1.5px solid var(--color-text-muted);
+  transform: rotate(225deg);
+  transition: transform 0.15s ease;
+}
+
+.catalog-price-filter-header[aria-expanded='false'] .catalog-price-filter-chevron {
+  transform: rotate(45deg);
+}
+
+.catalog-price-filter-panel {
+  border-top: 1px solid color-mix(in srgb, var(--color-border) 85%, transparent);
+}
+
+.catalog-price-range-row {
+  display: flex;
+  align-items: stretch;
+  min-height: 3.5rem;
+}
+
+.catalog-price-range-cell {
+  position: relative;
+  flex: 1 1 50%;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: stretch;
+  padding: var(--space-3) var(--space-4);
+  cursor: text;
+}
+
+.catalog-price-range-cell:focus-within {
+  background: color-mix(in srgb, var(--color-bg) 35%, transparent);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--color-text) 18%, transparent);
+}
+
+.catalog-price-range-label {
+  color: var(--color-text-muted);
+  font-size: var(--font-size-base);
+  line-height: 1.2;
+  transition:
+    transform 0.15s ease,
+    font-size 0.15s ease,
+    color 0.15s ease;
+  pointer-events: none;
+}
+
+.catalog-price-range-input-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  min-height: 0;
+  max-height: 0;
+  opacity: 0;
+  overflow: hidden;
+  transition:
+    max-height 0.15s ease,
+    opacity 0.15s ease,
+    margin 0.15s ease;
+}
+
+.catalog-price-range-prefix,
+.catalog-price-range-input {
+  color: var(--color-text);
+  font-size: var(--font-size-lg);
+  line-height: 1.2;
+}
+
+.catalog-price-range-prefix {
+  font-weight: var(--font-weight-medium);
+}
+
+.catalog-price-range-input {
+  width: 100%;
+  min-width: 0;
+  padding: 0;
+  border: none;
+  background: transparent;
+  outline: none;
+}
+
+.catalog-price-range-cell:focus-within,
+.catalog-price-range-cell.has-value {
+  justify-content: flex-start;
+  padding-top: var(--space-2);
+  padding-bottom: var(--space-2);
+}
+
+.catalog-price-range-cell:focus-within .catalog-price-range-label,
+.catalog-price-range-cell.has-value .catalog-price-range-label {
+  font-size: var(--font-size-xs);
+  color: color-mix(in srgb, var(--color-text-muted) 88%, var(--color-text));
+  margin-bottom: var(--space-1);
+}
+
+.catalog-price-range-cell:focus-within .catalog-price-range-input-row,
+.catalog-price-range-cell.has-value .catalog-price-range-input-row {
+  max-height: 2rem;
+  opacity: 1;
+  margin-top: var(--space-1);
+}
+
+.catalog-price-range-cell:not(:focus-within):not(.has-value) .catalog-price-range-label {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+}
+
+.catalog-price-range-cell:not(:focus-within):not(.has-value) .catalog-price-range-input-row {
+  position: absolute;
+  inset: 0;
+  max-height: none;
+  opacity: 0;
+}
+
+.catalog-price-range-divider {
+  flex: 0 0 1px;
+  align-self: stretch;
+  background: color-mix(in srgb, var(--color-border) 85%, transparent);
+}
+
 .catalog-rarity-filters {
   display: grid;
   gap: var(--space-2);

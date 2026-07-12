@@ -5,6 +5,7 @@ import type { CatalogItem } from '../api/types';
 import { useAuth } from '../auth/AuthContext';
 import { CatalogCategoryBar } from '../components/CatalogCategoryBar';
 import { CatalogItemCard } from '../components/CatalogItemCard';
+import { CatalogPriceRangeFilter } from '../components/CatalogPriceRangeFilter';
 import { ErrorAlert } from '../components/ErrorAlert';
 import { EmptyState } from '../components/EmptyState';
 import { LoadingState } from '../components/LoadingState';
@@ -289,29 +290,12 @@ export function CatalogPage() {
           </button>
 
           <div className="catalog-sidebar-body">
-            <fieldset className="catalog-sidebar-section">
-              <legend className="field-label">Цена ($)</legend>
-              <div className="catalog-sidebar-price-fields">
-                <label className="field catalog-filter-field">
-                  <span className="field-label">От</span>
-                  <input
-                    type="text"
-                    value={minPrice}
-                    onChange={(event) => setMinPrice(event.target.value)}
-                    data-testid="catalog-min-price"
-                  />
-                </label>
-                <label className="field catalog-filter-field">
-                  <span className="field-label">До</span>
-                  <input
-                    type="text"
-                    value={maxPrice}
-                    onChange={(event) => setMaxPrice(event.target.value)}
-                    data-testid="catalog-max-price"
-                  />
-                </label>
-              </div>
-            </fieldset>
+            <CatalogPriceRangeFilter
+              minPrice={minPrice}
+              maxPrice={maxPrice}
+              onMinPriceChange={setMinPrice}
+              onMaxPriceChange={setMaxPrice}
+            />
 
             <fieldset className="catalog-sidebar-section">
               <legend className="field-label">Редкость</legend>
