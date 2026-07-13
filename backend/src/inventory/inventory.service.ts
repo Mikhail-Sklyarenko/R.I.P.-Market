@@ -172,14 +172,6 @@ export class InventoryService {
     const stillMissing = uniqueNames.filter(
       (name) => !steamPrices[name]?.priceMinor,
     );
-    if (stillMissing.length > 0 && this.steamMarketPrice.isEnabled()) {
-      throw new AppException(
-        ErrorCode.STEAM_PRICE_UNAVAILABLE,
-        'Не удалось получить актуальные цены Steam для всех предметов инвентаря',
-        HttpStatus.SERVICE_UNAVAILABLE,
-        { marketHashNames: stillMissing },
-      );
-    }
 
     const [referencePrices, marketplacePrices] = await Promise.all([
       this.referencePrice.getPricesWithMeta(uniqueNames),
@@ -209,7 +201,15 @@ export class InventoryService {
         .sort()
         .at(-1) ?? null;
 
-    return toJsonSafe({ hints, steamPriceFetchedAt, referencePriceFetchedAt });
+    return toJsonSafe({
+      hints,
+      steamPriceFetchedAt,
+      referencePriceFetchedAt,
+      steamPriceMissing:
+        stillMissing.length > 0 && this.steamMarketPrice.isEnabled()
+          ? stillMissing
+          : [],
+    });
   }
 
   private async loadMinMarketplacePrices(

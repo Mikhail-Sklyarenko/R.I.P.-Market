@@ -194,6 +194,7 @@ export type InventoryPriceHintsResponse = {
   hints: Record<string, InventoryPriceHint>;
   steamPriceFetchedAt?: string | null;
   referencePriceFetchedAt?: string | null;
+  steamPriceMissing?: string[];
 };
 
 export type LotListingSnapshot = {

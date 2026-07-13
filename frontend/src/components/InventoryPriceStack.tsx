@@ -32,7 +32,7 @@ export function InventoryPriceStack({
   loading = false,
   requireSteamPrice = false,
 }: PriceStackProps) {
-  if (loading || (requireSteamPrice && !steamPriceMinor)) {
+  if (loading) {
     return <PriceStackSkeleton testIdPrefix={testIdPrefix} />;
   }
 
@@ -112,7 +112,16 @@ export function InventoryPriceStack({
   }
 
   if (requireSteamPrice) {
-    return <PriceStackSkeleton testIdPrefix={testIdPrefix} />;
+    return (
+      <div className="inventory-price-stack" data-testid={`${testIdPrefix}-prices`}>
+        <p className="inventory-price-primary" data-testid={`${testIdPrefix}-primary-price`}>
+          —
+        </p>
+        <p className="inventory-price-secondary muted small" data-testid={`${testIdPrefix}-steam-price`}>
+          Steam н/д · Маркет <span data-testid={`${testIdPrefix}-market-price`}>—</span>
+        </p>
+      </div>
+    );
   }
 
   return (

@@ -62,6 +62,7 @@ export function InventoryPage() {
   const [priceError, setPriceError] = useState<string | null>(null);
   const [priceHints, setPriceHints] = useState<Record<string, InventoryPriceHint>>({});
   const [steamPriceFetchedAt, setSteamPriceFetchedAt] = useState<string | null>(null);
+  const [steamPriceMissing, setSteamPriceMissing] = useState<string[]>([]);
   const [pricesLoading, setPricesLoading] = useState(false);
   const [pricesError, setPricesError] = useState<unknown>(null);
 
@@ -91,6 +92,14 @@ export function InventoryPage() {
     return new Set(bulkListTargets.map((asset) => asset.id));
   }, [selectedAsset, bulkListAll, bulkListTargets]);
 
+  const selectedPriceHint = selectedAsset
+    ? priceHints[selectedAsset.itemDefinition.marketHashName]
+    : null;
+  const selectedSteamPriceMissing =
+    Boolean(selectedAsset) &&
+    !pricesLoading &&
+    steamPriceMissing.includes(selectedAsset!.itemDefinition.marketHashName);
+
   const priceMinor = useMemo(() => parseUsdToMinor(priceInput), [priceInput]);
   const selectedListable = selectedAsset ? canListAsset(selectedAsset) : false;
 
@@ -99,6 +108,7 @@ export function InventoryPage() {
       if (!token || inventoryAssets.length === 0) {
         setPriceHints({});
         setSteamPriceFetchedAt(null);
+        setSteamPriceMissing([]);
         setPricesLoading(false);
         setPricesError(null);
         return;
@@ -113,9 +123,11 @@ export function InventoryPage() {
         const response = await getInventoryPriceHints(token, marketHashNames);
         setPriceHints(response.hints);
         setSteamPriceFetchedAt(response.steamPriceFetchedAt ?? null);
+        setSteamPriceMissing(response.steamPriceMissing ?? []);
       } catch (err: unknown) {
         setPriceHints({});
         setSteamPriceFetchedAt(null);
+        setSteamPriceMissing([]);
         setPricesError(err);
       } finally {
         setPricesLoading(false);
@@ -415,7 +427,9 @@ export function InventoryPage() {
       {loading ? <LoadingState message="Загрузка инвентаря…" /> : null}
 
       {!loading && pricesLoading ? (
-        <LoadingState message="Загрузка актуальных цен Steam…" />
+        <p className="muted small" data-testid="inventory-prices-loading">
+          Загрузка актуальных цен Steam…
+        </p>
       ) : null}
 
       {!loading && !pricesLoading && pricesError ? (
@@ -425,6 +439,24 @@ export function InventoryPage() {
             type="button"
             className="button secondary"
             data-testid="inventory-prices-retry"
+            onClick={() => void loadPriceHints(assets)}
+          >
+            Повторить загрузку цен
+          </button>
+        </div>
+      ) : null}
+
+      {!loading && !pricesLoading && !pricesError && steamPriceMissing.length > 0 ? (
+        <div className="card inventory-price-warning" data-testid="inventory-prices-partial">
+          <p>
+            Не удалось загрузить цены Steam для {steamPriceMissing.length}{' '}
+            {steamPriceMissing.length === 1 ? 'предмета' : 'предметов'}. Инвентарь доступен;
+            выставить на продажу можно только предметы с актуальной ценой Steam.
+          </p>
+          <button
+            type="button"
+            className="button secondary"
+            data-testid="inventory-prices-retry-partial"
             onClick={() => void loadPriceHints(assets)}
           >
             Повторить загрузку цен
@@ -442,8 +474,6 @@ export function InventoryPage() {
       {steamLinked &&
       tradeUrlReady &&
       !loading &&
-      !pricesLoading &&
-      !pricesError &&
       assets.length > 0 ? (
         <div
           className={`inventory-workspace${
@@ -534,7 +564,8 @@ export function InventoryPage() {
             {selectedAsset && selectedListable ? (
               <InventorySellPanel
                 asset={selectedAsset}
-                priceHint={priceHints[selectedAsset.itemDefinition.marketHashName]}
+                priceHint={selectedPriceHint}
+                steamPriceMissing={selectedSteamPriceMissing}
                 priceInput={priceInput}
                 priceError={priceError}
                 preview={preview}

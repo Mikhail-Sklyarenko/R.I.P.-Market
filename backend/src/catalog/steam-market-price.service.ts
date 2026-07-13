@@ -19,7 +19,8 @@ export type SteamPriceMeta = {
 
 const DEFAULT_CACHE_TTL_MS = 20 * 60 * 1000;
 const DEFAULT_FAILURE_CACHE_TTL_MS = 30 * 1000;
-const FETCH_BATCH_SIZE = 4;
+const FETCH_BATCH_SIZE = 2;
+const BATCH_DELAY_MS = 350;
 const MAX_FETCH_ATTEMPTS = 3;
 const RETRY_DELAY_MS = 400;
 
@@ -104,22 +105,23 @@ export class SteamMarketPriceService {
   ): Promise<void> {
     for (let index = 0; index < pending.length; index += FETCH_BATCH_SIZE) {
       const batch = pending.slice(index, index + FETCH_BATCH_SIZE);
-      await Promise.all(
-        batch.map(async (name) => {
-          const fetchedAt = Date.now();
-          const priceMinor = await this.fetchPriceMinorWithRetry(name);
-          const ttl = priceMinor !== null ? cacheTtlMs : failureCacheTtlMs;
-          this.cache.set(name, {
-            priceMinor,
-            fetchedAt,
-            expiresAt: fetchedAt + ttl,
-          });
-          result[name] = {
-            priceMinor,
-            fetchedAt: new Date(fetchedAt).toISOString(),
-          };
-        }),
-      );
+      for (const name of batch) {
+        const fetchedAt = Date.now();
+        const priceMinor = await this.fetchPriceMinorWithRetry(name);
+        const ttl = priceMinor !== null ? cacheTtlMs : failureCacheTtlMs;
+        this.cache.set(name, {
+          priceMinor,
+          fetchedAt,
+          expiresAt: fetchedAt + ttl,
+        });
+        result[name] = {
+          priceMinor,
+          fetchedAt: new Date(fetchedAt).toISOString(),
+        };
+      }
+      if (index + FETCH_BATCH_SIZE < pending.length) {
+        await sleep(BATCH_DELAY_MS);
+      }
     }
   }
 
@@ -173,8 +175,10 @@ export class SteamMarketPriceService {
     try {
       const response = await fetch(url, {
         headers: {
-          Accept: 'application/json',
-          'User-Agent': 'RIP-Market/1.0',
+          Accept: 'application/json, text/javascript, */*; q=0.01',
+          'Accept-Language': 'en-US,en;q=0.9',
+          'User-Agent':
+            'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
         },
         signal: AbortSignal.timeout(8_000),
       });

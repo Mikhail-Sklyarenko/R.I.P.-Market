@@ -91,7 +91,7 @@ describe('InventoryService', () => {
     expect(result.steamPriceFetchedAt).toBe('2026-07-11T12:00:00.000Z');
   });
 
-  it('throws when Steam prices are unavailable for any requested item', async () => {
+  it('returns partial hints when Steam prices are unavailable for some items', async () => {
     steamMarketPrice.isEnabled.mockReturnValue(true);
     steamMarketPrice.getPricesWithMeta
       .mockResolvedValueOnce({
@@ -100,9 +100,16 @@ describe('InventoryService', () => {
       .mockResolvedValueOnce({
         'Fever Case': { priceMinor: null, fetchedAt: null },
       });
+    prisma.lot.findMany.mockResolvedValue([]);
 
-    await expect(service.getPriceHints(['Fever Case'])).rejects.toMatchObject({
-      code: 'STEAM_PRICE_UNAVAILABLE',
+    const result = await service.getPriceHints(['Fever Case']);
+
+    expect(result.hints['Fever Case']).toEqual({
+      steamPriceMinor: null,
+      buffPriceMinor: null,
+      csfloatPriceMinor: null,
+      minMarketplacePriceMinor: null,
     });
+    expect(result.steamPriceMissing).toEqual(['Fever Case']);
   });
 });

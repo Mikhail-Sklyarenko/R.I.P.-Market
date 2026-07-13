@@ -15,6 +15,7 @@ import { WearBar } from './WearBar';
 type InventorySellPanelProps = {
   asset: InventoryAsset;
   priceHint?: InventoryPriceHint | null;
+  steamPriceMissing?: boolean;
   priceInput: string;
   priceError: string | null;
   preview: PricingPreview | null;
@@ -33,6 +34,7 @@ type InventorySellPanelProps = {
 export function InventorySellPanel({
   asset,
   priceHint,
+  steamPriceMissing = false,
   priceInput,
   priceError,
   preview,
@@ -102,6 +104,10 @@ export function InventorySellPanel({
             data-testid="inventory-sell-steam-price"
           >
             Цена Steam: <MoneyDisplay minor={priceHint.steamPriceMinor} strong />
+          </p>
+        ) : steamPriceMissing ? (
+          <p className="field-error small" data-testid="inventory-sell-steam-price-missing">
+            Цена Steam недоступна — выставление лота временно заблокировано.
           </p>
         ) : null}
 
@@ -203,7 +209,7 @@ export function InventorySellPanel({
         <button
           type="submit"
           className="button primary inventory-sell-panel-submit"
-          disabled={submitting || !priceMinor || !!priceError}
+          disabled={submitting || !priceMinor || !!priceError || steamPriceMissing}
           data-testid="submit-listing"
         >
           {submitting
