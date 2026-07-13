@@ -1,5 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import * as https from 'node:https';
+import { PrismaService } from '../prisma/prisma.service';
 
 type CacheEntry = {
   priceMinor: number | null;
@@ -25,7 +26,7 @@ type SteamPriceOverviewResponse = {
   median_price?: string;
 };
 
-const DEFAULT_CACHE_TTL_MS = 20 * 60 * 1000;
+export const STEAM_PRICE_CACHE_TTL_MS = 20 * 60 * 1000;
 const DEFAULT_FAILURE_CACHE_TTL_MS = 60 * 1000;
 const STEAM_REQUEST_GAP_MS = 90;
 const MAX_FETCH_ATTEMPTS = 3;
@@ -45,8 +46,10 @@ class SteamRateLimitError extends Error {
 @Injectable()
 export class SteamMarketPriceService {
   private readonly logger = new Logger(SteamMarketPriceService.name);
-  private readonly cache = new Map<string, CacheEntry>();
+  private readonly memoryCache = new Map<string, CacheEntry>();
   private readonly inflight = new Map<string, Promise<number | null>>();
+
+  constructor(private readonly prisma: PrismaService) {}
 
   isEnabled(): boolean {
     return process.env.STEAM_MARKET_PRICE_ENABLED !== 'false';
@@ -80,32 +83,50 @@ export class SteamMarketPriceService {
     const unique = [...new Set(marketHashNames.filter(Boolean))];
     const result: Record<string, SteamPriceMeta> = {};
     const pending: string[] = [];
-    const cacheTtlMs = options?.cacheTtlMs ?? DEFAULT_CACHE_TTL_MS;
+    const cacheTtlMs = options?.cacheTtlMs ?? STEAM_PRICE_CACHE_TTL_MS;
     const failureCacheTtlMs =
       options?.failureCacheTtlMs ?? DEFAULT_FAILURE_CACHE_TTL_MS;
 
+    const dbRows = await this.loadFromDatabase(unique);
+
     for (const name of unique) {
+      const dbEntry = dbRows.get(name);
+      if (dbEntry) {
+        this.syncMemoryFromDatabase(name, dbEntry, cacheTtlMs, failureCacheTtlMs);
+      }
+
       if (options?.forceRefresh) {
         pending.push(name);
         continue;
       }
 
-      const cached = this.cache.get(name);
-      if (cached && cached.expiresAt > Date.now()) {
-        result[name] = {
-          priceMinor: cached.priceMinor,
-          fetchedAt: new Date(cached.fetchedAt).toISOString(),
-        };
-      } else if (options?.cacheOnly) {
-        result[name] = {
-          priceMinor: cached?.priceMinor ?? null,
-          fetchedAt: cached
-            ? new Date(cached.fetchedAt).toISOString()
-            : null,
-        };
-      } else {
-        pending.push(name);
+      const memoryEntry = this.memoryCache.get(name);
+      if (options?.cacheOnly) {
+        result[name] = this.toMetaFromDatabase(dbEntry);
+        continue;
       }
+
+      if (
+        memoryEntry &&
+        memoryEntry.expiresAt > Date.now() &&
+        memoryEntry.priceMinor != null
+      ) {
+        result[name] = {
+          priceMinor: memoryEntry.priceMinor,
+          fetchedAt: new Date(memoryEntry.fetchedAt).toISOString(),
+        };
+        continue;
+      }
+
+      if (
+        dbEntry?.priceMinor != null &&
+        this.isDatabaseEntryFresh(dbEntry, cacheTtlMs)
+      ) {
+        result[name] = this.toMetaFromDatabase(dbEntry);
+        continue;
+      }
+
+      pending.push(name);
     }
 
     await this.fetchAndCacheBatch(pending, result, cacheTtlMs, failureCacheTtlMs);
@@ -123,6 +144,78 @@ export class SteamMarketPriceService {
     );
   }
 
+  private async loadFromDatabase(marketHashNames: string[]) {
+    if (marketHashNames.length === 0) {
+      return new Map<
+        string,
+        { marketHashName: string; priceMinor: number | null; fetchedAt: Date }
+      >();
+    }
+
+    const rows = await this.prisma.steamPriceCache.findMany({
+      where: { marketHashName: { in: marketHashNames } },
+    });
+    return new Map(rows.map((row) => [row.marketHashName, row]));
+  }
+
+  private syncMemoryFromDatabase(
+    name: string,
+    dbEntry: { priceMinor: number | null; fetchedAt: Date },
+    cacheTtlMs: number,
+    failureCacheTtlMs: number,
+  ): void {
+    const fetchedAt = dbEntry.fetchedAt.getTime();
+    const ttl =
+      dbEntry.priceMinor != null ? cacheTtlMs : failureCacheTtlMs;
+    this.memoryCache.set(name, {
+      priceMinor: dbEntry.priceMinor,
+      fetchedAt,
+      expiresAt: fetchedAt + ttl,
+    });
+  }
+
+  private isDatabaseEntryFresh(
+    dbEntry: { fetchedAt: Date },
+    cacheTtlMs: number,
+  ): boolean {
+    return dbEntry.fetchedAt.getTime() + cacheTtlMs > Date.now();
+  }
+
+  private toMetaFromDatabase(
+    dbEntry?: {
+      priceMinor: number | null;
+      fetchedAt: Date;
+    } | null,
+  ): SteamPriceMeta {
+    if (!dbEntry) {
+      return { priceMinor: null, fetchedAt: null };
+    }
+    return {
+      priceMinor: dbEntry.priceMinor,
+      fetchedAt: dbEntry.fetchedAt.toISOString(),
+    };
+  }
+
+  private async persistToDatabase(
+    marketHashName: string,
+    priceMinor: number | null,
+    fetchedAt: number,
+  ): Promise<void> {
+    const fetchedAtDate = new Date(fetchedAt);
+    await this.prisma.steamPriceCache.upsert({
+      where: { marketHashName },
+      create: {
+        marketHashName,
+        priceMinor,
+        fetchedAt: fetchedAtDate,
+      },
+      update: {
+        priceMinor,
+        fetchedAt: fetchedAtDate,
+      },
+    });
+  }
+
   private async fetchAndCacheBatch(
     pending: string[],
     result: Record<string, SteamPriceMeta>,
@@ -131,7 +224,7 @@ export class SteamMarketPriceService {
   ): Promise<void> {
     for (let index = 0; index < pending.length; index++) {
       const name = pending[index];
-      const previous = this.cache.get(name);
+      const previous = this.memoryCache.get(name);
       const fetchedAt = Date.now();
       let priceMinor = await this.fetchPriceMinorWithRetry(name);
 
@@ -140,14 +233,14 @@ export class SteamMarketPriceService {
           priceMinor: previous.priceMinor,
           fetchedAt: new Date(previous.fetchedAt).toISOString(),
         };
-        this.cache.set(name, {
+        this.memoryCache.set(name, {
           priceMinor: previous.priceMinor,
           fetchedAt: previous.fetchedAt,
           expiresAt: fetchedAt + failureCacheTtlMs,
         });
       } else {
         const ttl = priceMinor !== null ? cacheTtlMs : failureCacheTtlMs;
-        this.cache.set(name, {
+        this.memoryCache.set(name, {
           priceMinor,
           fetchedAt,
           expiresAt: fetchedAt + ttl,
@@ -156,6 +249,7 @@ export class SteamMarketPriceService {
           priceMinor,
           fetchedAt: new Date(fetchedAt).toISOString(),
         };
+        await this.persistToDatabase(name, priceMinor, fetchedAt);
       }
 
       if (index < pending.length - 1) {

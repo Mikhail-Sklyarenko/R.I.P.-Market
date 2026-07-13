@@ -133,7 +133,7 @@ describe('CatalogService', () => {
     });
   });
 
-  it('does not block catalog list on Steam price fetches', async () => {
+  it('hydrates catalog list from cached Steam prices without live fetch', async () => {
     prisma.lot.findMany.mockResolvedValue([]);
     prisma.itemDefinition.findMany.mockResolvedValue([
       {
@@ -145,12 +145,21 @@ describe('CatalogService', () => {
       },
     ]);
     prisma.itemDefinition.count = jest.fn().mockResolvedValue(1);
+    steamMarketPrice.getPricesWithMeta.mockResolvedValue({
+      'AK-47 | Redline (Field-Tested)': {
+        priceMinor: 1250,
+        fetchedAt: '2026-07-11T12:00:00.000Z',
+      },
+    });
 
     const result = await service.listItems({ page: 1, limit: 24 });
 
     expect(result.items).toHaveLength(1);
-    expect(result.items[0]?.steamPriceMinor).toBeNull();
-    expect(steamMarketPrice.getPricesWithMeta).not.toHaveBeenCalled();
+    expect(result.items[0]?.steamPriceMinor).toBe(1250);
+    expect(steamMarketPrice.getPricesWithMeta).toHaveBeenCalledWith(
+      ['AK-47 | Redline (Field-Tested)'],
+      { cacheOnly: true },
+    );
   });
 
   it('returns unlisted items when weapon filter matches but no lots exist', async () => {

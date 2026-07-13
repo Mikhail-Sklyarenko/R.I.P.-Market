@@ -1,5 +1,18 @@
 import { SteamMarketPriceService } from './steam-market-price.service';
 
+function createService() {
+  const prisma = {
+    steamPriceCache: {
+      findMany: jest.fn().mockResolvedValue([]),
+      upsert: jest.fn().mockResolvedValue({}),
+    },
+  };
+  return {
+    service: new SteamMarketPriceService(prisma as never),
+    prisma,
+  };
+}
+
 describe('SteamMarketPriceService', () => {
   const originalEnabled = process.env.STEAM_MARKET_PRICE_ENABLED;
 
@@ -10,7 +23,7 @@ describe('SteamMarketPriceService', () => {
 
   it('returns deterministic mock prices when Steam market pricing is disabled', async () => {
     process.env.STEAM_MARKET_PRICE_ENABLED = 'false';
-    const service = new SteamMarketPriceService();
+    const { service } = createService();
 
     const result = await service.getPricesWithMeta([
       'AK-47 | Redline (Field-Tested)',
@@ -26,7 +39,7 @@ describe('SteamMarketPriceService', () => {
 
   it('retries Steam market fetch before returning null', async () => {
     process.env.STEAM_MARKET_PRICE_ENABLED = 'true';
-    const service = new SteamMarketPriceService();
+    const { service, prisma } = createService();
     const requestMock = jest
       .spyOn(service as never, 'requestSteamPriceOverview' as never)
       .mockResolvedValueOnce(null)
@@ -41,21 +54,22 @@ describe('SteamMarketPriceService', () => {
 
     expect(requestMock).toHaveBeenCalledTimes(2);
     expect(result['AK-47 | Redline (Field-Tested)']?.priceMinor).toBe(1234);
+    expect(prisma.steamPriceCache.upsert).toHaveBeenCalled();
   });
 
   it('reuses stale cached price when refresh fails', async () => {
     process.env.STEAM_MARKET_PRICE_ENABLED = 'true';
-    const service = new SteamMarketPriceService();
-    const cache = (
+    const { service } = createService();
+    const memoryCache = (
       service as unknown as {
-        cache: Map<
+        memoryCache: Map<
           string,
           { priceMinor: number | null; fetchedAt: number; expiresAt: number }
         >;
       }
-    ).cache;
+    ).memoryCache;
 
-    cache.set('AK-47 | Redline (Field-Tested)', {
+    memoryCache.set('AK-47 | Redline (Field-Tested)', {
       priceMinor: 2500,
       fetchedAt: Date.now() - 60_000,
       expiresAt: Date.now() - 1,
@@ -68,5 +82,28 @@ describe('SteamMarketPriceService', () => {
     const result = await service.getPricesWithMeta(['AK-47 | Redline (Field-Tested)']);
 
     expect(result['AK-47 | Redline (Field-Tested)']?.priceMinor).toBe(2500);
+  });
+
+  it('reads prices from database cache without calling Steam when cacheOnly', async () => {
+    process.env.STEAM_MARKET_PRICE_ENABLED = 'true';
+    const { service, prisma } = createService();
+    prisma.steamPriceCache.findMany.mockResolvedValue([
+      {
+        marketHashName: 'AK-47 | Redline (Field-Tested)',
+        priceMinor: 4140,
+        fetchedAt: new Date('2026-07-13T12:00:00.000Z'),
+      },
+    ]);
+    const requestMock = jest.spyOn(
+      service as never,
+      'requestSteamPriceOverview' as never,
+    );
+
+    const result = await service.getPricesWithMeta(['AK-47 | Redline (Field-Tested)'], {
+      cacheOnly: true,
+    });
+
+    expect(result['AK-47 | Redline (Field-Tested)']?.priceMinor).toBe(4140);
+    expect(requestMock).not.toHaveBeenCalled();
   });
 });

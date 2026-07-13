@@ -56,6 +56,7 @@ function getInitialCategoryValue(weaponParam: string | null): string {
 }
 
 const STEAM_PRICE_CHUNK_SIZE = 8;
+const STEAM_PRICE_STALE_MS = 15 * 60 * 1000;
 
 function chunkArray<T>(items: T[], size: number): T[][] {
   const chunks: T[][] = [];
@@ -63,6 +64,29 @@ function chunkArray<T>(items: T[], size: number): T[][] {
     chunks.push(items.slice(index, index + size));
   }
   return chunks;
+}
+
+function isSteamPriceFresh(item: CatalogItem): boolean {
+  if (item.steamPriceMinor == null || !item.steamPriceFetchedAt) {
+    return false;
+  }
+  return Date.now() - new Date(item.steamPriceFetchedAt).getTime() <= STEAM_PRICE_STALE_MS;
+}
+
+function buildPriceStateFromItems(items: CatalogItem[]) {
+  const steamPrices: Record<string, number | null> = {};
+  const pending = new Set<string>();
+
+  for (const item of items) {
+    if (item.steamPriceMinor != null) {
+      steamPrices[item.marketHashName] = item.steamPriceMinor;
+    }
+    if (!isSteamPriceFresh(item)) {
+      pending.add(item.marketHashName);
+    }
+  }
+
+  return { steamPrices, pending };
 }
 
 function mergeSteamPrices(
@@ -158,9 +182,10 @@ export function CatalogPage() {
       .then((response) => {
         setItems(response.items);
         setTotal(response.total);
-        setSteamPriceFetchedAt(null);
-        setSteamPrices({});
-        setPendingPriceNames(new Set());
+        const seeded = buildPriceStateFromItems(response.items);
+        setSteamPrices(seeded.steamPrices);
+        setPendingPriceNames(seeded.pending);
+        setSteamPriceFetchedAt(response.steamPriceFetchedAt ?? null);
       })
       .catch((err: unknown) => setError(err))
       .finally(() => setLoading(false));
@@ -198,76 +223,70 @@ export function CatalogPage() {
   }, [filtersActive]);
 
   useEffect(() => {
+    const allItems = [...items, ...popularItems];
     const marketHashNames = [
-      ...new Set(
-        [...items, ...popularItems].map((item) => item.marketHashName).filter(Boolean),
-      ),
+      ...new Set(allItems.map((item) => item.marketHashName).filter(Boolean)),
     ];
     if (marketHashNames.length === 0) {
       setPendingPriceNames(new Set());
       return;
     }
 
+    const seeded: Record<string, number | null> = {};
+    const toRefresh: string[] = [];
+    for (const name of marketHashNames) {
+      const item = allItems.find((entry) => entry.marketHashName === name);
+      if (item?.steamPriceMinor != null) {
+        seeded[name] = item.steamPriceMinor;
+      }
+      if (!item || !isSteamPriceFresh(item)) {
+        toRefresh.push(name);
+      }
+    }
+
+    setSteamPrices((prev) => ({ ...prev, ...seeded }));
+    setPendingPriceNames(new Set(toRefresh));
+
+    if (toRefresh.length === 0) {
+      return;
+    }
+
     let cancelled = false;
 
-    async function loadSteamPrices() {
-      try {
-        const cached = await getCatalogSteamPrices(marketHashNames, {
-          cacheOnly: true,
-        });
+    async function refreshSteamPrices() {
+      for (const chunk of chunkArray(toRefresh, STEAM_PRICE_CHUNK_SIZE)) {
         if (cancelled) {
           return;
         }
 
-        const cachedPrices = mergeSteamPrices(cached, marketHashNames);
-        setSteamPrices((prev) => ({ ...prev, ...cachedPrices }));
-        if (cached.steamPriceFetchedAt) {
-          setSteamPriceFetchedAt(cached.steamPriceFetchedAt);
-        }
-
-        const missing = marketHashNames.filter(
-          (name) => cachedPrices[name] == null,
-        );
-        setPendingPriceNames(new Set(missing));
-
-        for (const chunk of chunkArray(missing, STEAM_PRICE_CHUNK_SIZE)) {
+        try {
+          const response = await getCatalogSteamPrices(chunk);
           if (cancelled) {
             return;
           }
 
-          try {
-            const response = await getCatalogSteamPrices(chunk);
-            if (cancelled) {
-              return;
-            }
-
-            const chunkPrices = mergeSteamPrices(response, chunk);
-            setSteamPrices((prev) => ({ ...prev, ...chunkPrices }));
-            if (response.steamPriceFetchedAt) {
-              setSteamPriceFetchedAt(response.steamPriceFetchedAt);
-            }
-          } catch {
-            // Keep loading other chunks even if one batch fails.
-          } finally {
-            if (!cancelled) {
-              setPendingPriceNames((prev) => {
-                const next = new Set(prev);
-                for (const name of chunk) {
-                  next.delete(name);
-                }
-                return next;
-              });
-            }
+          const chunkPrices = mergeSteamPrices(response, chunk);
+          setSteamPrices((prev) => ({ ...prev, ...chunkPrices }));
+          if (response.steamPriceFetchedAt) {
+            setSteamPriceFetchedAt(response.steamPriceFetchedAt);
           }
-        }
-      } catch {
-        if (!cancelled) {
-          setPendingPriceNames(new Set());
+        } catch {
+          // Keep loading other chunks even if one batch fails.
+        } finally {
+          if (!cancelled) {
+            setPendingPriceNames((prev) => {
+              const next = new Set(prev);
+              for (const name of chunk) {
+                next.delete(name);
+              }
+              return next;
+            });
+          }
         }
       }
     }
 
-    void loadSteamPrices();
+    void refreshSteamPrices();
 
     return () => {
       cancelled = true;

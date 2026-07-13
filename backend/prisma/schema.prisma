@@ -721,3 +721,10 @@ model UserCryptoDeposit {
   walletIndex    Int      @unique
   createdAt      DateTime @default(now())
 }
+
+model SteamPriceCache {
+  marketHashName String   @id
+  priceMinor     Int?
+  fetchedAt      DateTime
+  updatedAt      DateTime @updatedAt
+}

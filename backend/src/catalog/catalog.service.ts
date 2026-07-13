@@ -25,6 +25,7 @@ export type CatalogItemRow = {
   activeLotCount: number;
   orderCount30d: number;
   steamPriceMinor: number | null;
+  steamPriceFetchedAt?: string | null;
   buffPriceMinor: number | null;
   csfloatPriceMinor: number | null;
   featuredLotId: string | null;
@@ -68,20 +69,24 @@ export class CatalogService {
         }),
       ]);
 
-      return this.buildListResponse(
-        definitions.map((item) =>
-          this.buildCatalogItemRow(
-            item,
-            lotStats,
-            popularStats,
-            featuredLots,
-            {},
-            {},
-          ),
+      const rows = definitions.map((item) =>
+        this.buildCatalogItemRow(
+          item,
+          lotStats,
+          popularStats,
+          featuredLots,
+          {},
+          {},
         ),
+      );
+      const hydrated = await this.hydrateRowsWithCachedSteamPrices(rows);
+
+      return this.buildListResponse(
+        hydrated.rows,
         total,
         page,
         limit,
+        hydrated.steamPriceFetchedAt,
       );
     }
 
@@ -112,8 +117,15 @@ export class CatalogService {
     const filtered = this.filterByPrice(sorted, query);
     const total = filtered.length;
     const pageRows = filtered.slice(skip, skip + limit);
+    const hydrated = await this.hydrateRowsWithCachedSteamPrices(pageRows);
 
-    return this.buildListResponse(pageRows, total, page, limit);
+    return this.buildListResponse(
+      hydrated.rows,
+      total,
+      page,
+      limit,
+      hydrated.steamPriceFetchedAt,
+    );
   }
 
   async getItem(itemId: string) {
@@ -134,9 +146,10 @@ export class CatalogService {
       this.loadPopularStats(),
       this.loadFeaturedLots(where, {}),
     ]);
-    const steamPrices = await this.steamMarketPrice.getPricesWithMeta([
-      item.marketHashName,
-    ]);
+    const steamPrices = await this.steamMarketPrice.getPricesWithMeta(
+      [item.marketHashName],
+      { cacheOnly: true },
+    );
 
     return toJsonSafe(
       this.buildCatalogItemRow(
@@ -191,7 +204,9 @@ export class CatalogService {
       })
       .slice(0, capped);
 
-    return toJsonSafe(rows);
+    const hydrated = await this.hydrateRowsWithCachedSteamPrices(rows);
+
+    return toJsonSafe(hydrated.rows);
   }
 
   async getSteamPrices(
@@ -216,15 +231,47 @@ export class CatalogService {
     total: number,
     page: number,
     limit: number,
+    steamPriceFetchedAt: string | null = null,
   ) {
     return toJsonSafe({
       items,
       total,
       page,
       limit,
-      steamPriceFetchedAt: null,
+      steamPriceFetchedAt,
       referencePriceFetchedAt: null,
     });
+  }
+
+  private async hydrateRowsWithCachedSteamPrices(
+    rows: CatalogItemRow[],
+  ): Promise<{ rows: CatalogItemRow[]; steamPriceFetchedAt: string | null }> {
+    if (rows.length === 0) {
+      return { rows, steamPriceFetchedAt: null };
+    }
+
+    const steamPrices = await this.steamMarketPrice.getPricesWithMeta(
+      rows.map((row) => row.marketHashName),
+      { cacheOnly: true },
+    );
+
+    const hydratedRows = rows.map((row) => ({
+      ...row,
+      steamPriceMinor: steamPrices[row.marketHashName]?.priceMinor ?? null,
+      steamPriceFetchedAt: steamPrices[row.marketHashName]?.fetchedAt ?? null,
+    }));
+
+    const latestSteamPriceFetch =
+      Object.values(steamPrices)
+        .map((entry) => entry.fetchedAt)
+        .filter((value): value is string => Boolean(value))
+        .sort()
+        .at(-1) ?? null;
+
+    return {
+      rows: hydratedRows,
+      steamPriceFetchedAt: latestSteamPriceFetch,
+    };
   }
 
   private canPaginateInDatabase(query: ListCatalogItemsQueryDto): boolean {
@@ -294,6 +341,7 @@ export class CatalogService {
       activeLotCount: stats?.count ?? 0,
       orderCount30d: popularStats.get(item.id) ?? 0,
       steamPriceMinor: steamPrices[item.marketHashName]?.priceMinor ?? null,
+      steamPriceFetchedAt: steamPrices[item.marketHashName]?.fetchedAt ?? null,
       buffPriceMinor:
         referencePrices[item.marketHashName]?.buffPriceMinor ?? null,
       csfloatPriceMinor:
