@@ -440,7 +440,7 @@ export function CatalogPage() {
 
       <TrustBanner />
 
-      <div className="card catalog-toolbar" data-testid="catalog-filters">
+      <div className="catalog-search-toolbar card" data-testid="catalog-search-toolbar">
         <div className="catalog-filters-row">
           <label className="field catalog-filter-field">
             <span className="field-label">Поиск</span>
@@ -467,13 +467,6 @@ export function CatalogPage() {
           </label>
         </div>
 
-        <CatalogCategoryBar
-          activeTabId={activeTabId}
-          categoryValue={categoryValue}
-          onTabChange={handleTabChange}
-          onCategoryChange={handleCategoryChange}
-        />
-
         {showResetFilters ? (
           <div className="catalog-filters-actions">
             <button
@@ -486,6 +479,15 @@ export function CatalogPage() {
             </button>
           </div>
         ) : null}
+      </div>
+
+      <div className="catalog-category-strip card" data-testid="catalog-category-strip">
+        <CatalogCategoryBar
+          activeTabId={activeTabId}
+          categoryValue={categoryValue}
+          onTabChange={handleTabChange}
+          onCategoryChange={handleCategoryChange}
+        />
       </div>
 
       <div className="catalog-layout">

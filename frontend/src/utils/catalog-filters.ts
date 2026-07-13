@@ -52,12 +52,12 @@ export const CATALOG_PAGE_LIMIT = 24;
 export const WEAPON_CATEGORY_TABS: readonly WeaponCategoryTab[] = [
   { id: 'all', label: 'Все', icon: 'all', filter: {} },
   { id: 'knives', label: 'Ножи', icon: 'knife', filter: { q: 'Knife' } },
-  { id: 'gloves', label: 'Перчатки', icon: 'gloves', filter: { q: 'Gloves' } },
   { id: 'pistols', label: 'Пистолеты', icon: 'pistol', filter: { q: 'Glock-18' } },
   { id: 'rifles', label: 'Винтовки', icon: 'rifle', filter: { weapon: 'AK-47' } },
-  { id: 'snipers', label: 'Снайперские винтовки', icon: 'sniper', filter: { weapon: 'AWP' } },
+  { id: 'snipers', label: 'Снайперские', icon: 'sniper', filter: { weapon: 'AWP' } },
   { id: 'smg', label: 'ПП', icon: 'smg', filter: { q: 'MP9' } },
   { id: 'shotguns', label: 'Дробовики', icon: 'shotgun', filter: { q: 'Nova' } },
+  { id: 'gloves', label: 'Перчатки', icon: 'gloves', filter: { q: 'Gloves' } },
   { id: 'other', label: 'Другое', icon: 'other', filter: { q: OTHER_CATALOG_ALL_Q } },
 ];
 

@@ -49,11 +49,12 @@ describe('catalog-filters utils', () => {
     assert.equal(CATALOG_PAGE_LIMIT, 24);
   });
 
-  it('places gloves immediately after knives in the category bar', () => {
+  it('places other last and gloves before other in the category bar', () => {
     const tabIds = WEAPON_CATEGORY_TABS.map((tab) => tab.id);
-    const knivesIndex = tabIds.indexOf('knives');
     const glovesIndex = tabIds.indexOf('gloves');
-    assert.equal(glovesIndex, knivesIndex + 1);
+    const otherIndex = tabIds.indexOf('other');
+    assert.equal(otherIndex, tabIds.length - 1);
+    assert.equal(glovesIndex, otherIndex - 1);
   });
 
   it('detects active filters', () => {
