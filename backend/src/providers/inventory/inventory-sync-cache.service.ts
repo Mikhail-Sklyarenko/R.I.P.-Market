@@ -12,6 +12,14 @@ export function getInventorySyncMinIntervalMs(): number {
   return Number.isFinite(ms) && ms > 0 ? ms : 60_000;
 }
 
+export function getInventoryStaleGraceMs(): number {
+  const configured = Number(process.env.INVENTORY_STALE_GRACE_SECONDS ?? 0);
+  if (Number.isFinite(configured) && configured > 0) {
+    return configured * 1000;
+  }
+  return Math.max(getInventorySyncTtlMs() * 6, 30 * 60 * 1000);
+}
+
 @Injectable()
 export class InventorySyncCacheService {
   constructor(private readonly prisma: PrismaService) {}

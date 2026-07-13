@@ -104,7 +104,7 @@ export function InventoryPage() {
   const selectedListable = selectedAsset ? canListAsset(selectedAsset) : false;
 
   const loadPriceHints = useCallback(
-    async (inventoryAssets: InventoryAsset[]) => {
+    async (inventoryAssets: InventoryAsset[], forceRefresh = false) => {
       if (!token || inventoryAssets.length === 0) {
         setPriceHints({});
         setSteamPriceFetchedAt(null);
@@ -120,7 +120,9 @@ export function InventoryPage() {
       setPricesLoading(true);
       setPricesError(null);
       try {
-        const response = await getInventoryPriceHints(token, marketHashNames);
+        const response = await getInventoryPriceHints(token, marketHashNames, {
+          forceRefresh,
+        });
         setPriceHints(response.hints);
         setSteamPriceFetchedAt(response.steamPriceFetchedAt ?? null);
         setSteamPriceMissing(response.steamPriceMissing ?? []);
@@ -235,8 +237,7 @@ export function InventoryPage() {
     }
   }, [assets, selectedAssetId]);
 
-  const showStaleBadge =
-    sync?.stale || (sync ? new Date(sync.expiresAt) <= new Date() : false);
+  const showStaleBadge = Boolean(sync?.stale);
 
   const filteredAssets = useMemo(
     () =>
@@ -439,7 +440,7 @@ export function InventoryPage() {
             type="button"
             className="button secondary"
             data-testid="inventory-prices-retry"
-            onClick={() => void loadPriceHints(assets)}
+            onClick={() => void loadPriceHints(assets, true)}
           >
             Повторить загрузку цен
           </button>
@@ -457,7 +458,7 @@ export function InventoryPage() {
             type="button"
             className="button secondary"
             data-testid="inventory-prices-retry-partial"
-            onClick={() => void loadPriceHints(assets)}
+            onClick={() => void loadPriceHints(assets, true)}
           >
             Повторить загрузку цен
           </button>

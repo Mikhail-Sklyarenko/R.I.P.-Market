@@ -63,13 +63,30 @@ export class CatalogService {
       this.loadFeaturedLots(where, query),
     ]);
 
+    const rows: CatalogItemRow[] = allItems
+      .map((item) =>
+        this.buildCatalogItemRow(
+          item,
+          lotStats,
+          popularStats,
+          featuredLots,
+          {},
+          {},
+        ),
+      )
+      .filter((row) => this.matchesCatalogVisibility(row, query));
+
+    const sorted = this.sortItems(rows, query.sort);
+    const filtered = this.filterByPrice(sorted, query);
+    const total = filtered.length;
+    const pageRows = filtered.slice(skip, skip + limit);
+    const pageNames = [
+      ...new Set(pageRows.map((row) => row.marketHashName)),
+    ];
+
     const [steamPrices, referencePrices] = await Promise.all([
-      this.steamMarketPrice.getPricesWithMeta(
-        allItems.map((item) => item.marketHashName),
-      ),
-      this.referencePrice.getPricesWithMeta(
-        allItems.map((item) => item.marketHashName),
-      ),
+      this.steamMarketPrice.getPricesWithMeta(pageNames),
+      this.referencePrice.getPricesWithMeta(pageNames),
     ]);
     const latestSteamPriceFetch =
       Object.values(steamPrices)
@@ -84,23 +101,14 @@ export class CatalogService {
         .sort()
         .at(-1) ?? null;
 
-    const rows: CatalogItemRow[] = allItems
-      .map((item) =>
-        this.buildCatalogItemRow(
-          item,
-          lotStats,
-          popularStats,
-          featuredLots,
-          steamPrices,
-          referencePrices,
-        ),
-      )
-      .filter((row) => this.matchesCatalogVisibility(row, query));
-
-    const sorted = this.sortItems(rows, query.sort);
-    const filtered = this.filterByPrice(sorted, query);
-    const total = filtered.length;
-    const items = filtered.slice(skip, skip + limit);
+    const items = pageRows.map((row) => ({
+      ...row,
+      steamPriceMinor: steamPrices[row.marketHashName]?.priceMinor ?? null,
+      buffPriceMinor:
+        referencePrices[row.marketHashName]?.buffPriceMinor ?? null,
+      csfloatPriceMinor:
+        referencePrices[row.marketHashName]?.csfloatPriceMinor ?? null,
+    }));
 
     return toJsonSafe({
       items,
@@ -153,12 +161,62 @@ export class CatalogService {
   }
 
   async listPopular(limit = 12) {
-    const response = await this.listItems({
-      sort: 'popular',
-      page: 1,
-      limit,
+    const capped = Math.min(Math.max(limit, 1), 24);
+    const itemWhere: Prisma.ItemDefinitionWhereInput = { game: 'CS2' };
+    const [popularStats, lotStats, featuredLots] = await Promise.all([
+      this.loadPopularStats(),
+      this.loadActiveLotStats(itemWhere, {}),
+      this.loadFeaturedLots(itemWhere, {}),
+    ]);
+
+    const candidateIds = new Set<string>();
+    for (const itemDefinitionId of lotStats.keys()) {
+      candidateIds.add(itemDefinitionId);
+    }
+    for (const [itemDefinitionId, orderCount] of popularStats) {
+      if (orderCount > 0) {
+        candidateIds.add(itemDefinitionId);
+      }
+    }
+
+    if (candidateIds.size === 0) {
+      return [];
+    }
+
+    const definitions = await this.prisma.itemDefinition.findMany({
+      where: { id: { in: [...candidateIds] } },
     });
-    return response.items;
+    const rows = definitions
+      .map((item) =>
+        this.buildCatalogItemRow(item, lotStats, popularStats, featuredLots, {}, {}),
+      )
+      .sort((a, b) => {
+        if (b.orderCount30d !== a.orderCount30d) {
+          return b.orderCount30d - a.orderCount30d;
+        }
+        if (b.activeLotCount !== a.activeLotCount) {
+          return b.activeLotCount - a.activeLotCount;
+        }
+        return a.marketHashName.localeCompare(b.marketHashName);
+      })
+      .slice(0, capped);
+
+    const pageNames = [...new Set(rows.map((row) => row.marketHashName))];
+    const [steamPrices, referencePrices] = await Promise.all([
+      this.steamMarketPrice.getPricesWithMeta(pageNames),
+      this.referencePrice.getPricesWithMeta(pageNames),
+    ]);
+
+    return toJsonSafe(
+      rows.map((row) => ({
+        ...row,
+        steamPriceMinor: steamPrices[row.marketHashName]?.priceMinor ?? null,
+        buffPriceMinor:
+          referencePrices[row.marketHashName]?.buffPriceMinor ?? null,
+        csfloatPriceMinor:
+          referencePrices[row.marketHashName]?.csfloatPriceMinor ?? null,
+      })),
+    );
   }
 
   async getSteamPrices(marketHashNames: string[]) {

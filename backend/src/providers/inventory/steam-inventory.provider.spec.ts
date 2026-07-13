@@ -165,6 +165,26 @@ describe('SteamInventoryProvider', () => {
     expect(result.warning).toContain('Steam timeout');
   });
 
+  it('serves cached inventory without stale flag during rate-limit grace window', async () => {
+    const cachedRun = {
+      status: InventorySyncStatus.SUCCESS,
+      itemCount: 3,
+      fetchedAt: new Date(Date.now() - 2 * 60 * 1000),
+      expiresAt: new Date(Date.now() - 60 * 1000),
+      errorCode: null,
+      steamId: '76561198000000000',
+    };
+    syncCache.getLatestRun.mockResolvedValue(cachedRun as never);
+    syncCache.isCacheValid.mockReturnValue(false);
+    syncCache.isWithinRateLimit.mockReturnValue(true);
+
+    const result = await provider.syncInventory('user-1', '76561198000000000');
+
+    expect(steamClient.fetchAllSteamInventoryPages).not.toHaveBeenCalled();
+    expect(result.stale).toBe(false);
+    expect(result.warning).toBeNull();
+  });
+
   it('marks service medals as non-marketable during sync', async () => {
     jest.spyOn(steamClient, 'fetchAllSteamInventoryPages').mockResolvedValue({
       success: 1,

@@ -67,7 +67,7 @@ describe('InventoryService', () => {
 
     expect(steamMarketPrice.getPricesWithMeta).toHaveBeenCalledWith(
       ['AK-47 | Redline (Field-Tested)', 'Fever Case'],
-      expect.objectContaining({ forceRefresh: true }),
+      expect.objectContaining({ forceRefresh: false }),
     );
     expect(prisma.lot.findMany).toHaveBeenCalledWith(
       expect.objectContaining({

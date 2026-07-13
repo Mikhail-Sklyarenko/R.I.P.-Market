@@ -183,11 +183,18 @@ export function getInventory(token: string, options?: { forceRefresh?: boolean }
   return apiRequest<InventoryResponse>(`/inventory${query}`, { token });
 }
 
-export function getInventoryPriceHints(token: string, marketHashNames: string[]) {
+export function getInventoryPriceHints(
+  token: string,
+  marketHashNames: string[],
+  options?: { forceRefresh?: boolean },
+) {
   return apiRequest<import('./types').InventoryPriceHintsResponse>('/inventory/price-hints', {
     method: 'POST',
     token,
-    body: { marketHashNames },
+    body: {
+      marketHashNames,
+      ...(options?.forceRefresh ? { forceRefresh: true } : {}),
+    },
   });
 }
 

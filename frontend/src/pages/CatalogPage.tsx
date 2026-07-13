@@ -62,6 +62,7 @@ export function CatalogPage() {
 
   const [items, setItems] = useState<CatalogItem[]>([]);
   const [popularItems, setPopularItems] = useState<CatalogItem[]>([]);
+  const [popularLoading, setPopularLoading] = useState(false);
   const [steamPriceFetchedAt, setSteamPriceFetchedAt] = useState<string | null>(null);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -130,19 +131,46 @@ export function CatalogPage() {
   useEffect(() => {
     setLoading(true);
     setError(null);
-    Promise.all([
-      listCatalogItems(query),
-      filtersActive ? Promise.resolve([] as CatalogItem[]) : listPopularCatalogItems(12),
-    ])
-      .then(([response, popular]) => {
+    listCatalogItems(query)
+      .then((response) => {
         setItems(response.items);
         setTotal(response.total);
-        setPopularItems(popular);
         setSteamPriceFetchedAt(response.steamPriceFetchedAt ?? null);
       })
       .catch((err: unknown) => setError(err))
       .finally(() => setLoading(false));
-  }, [query, filtersActive]);
+  }, [query]);
+
+  useEffect(() => {
+    if (filtersActive) {
+      setPopularItems([]);
+      setPopularLoading(false);
+      return;
+    }
+
+    let cancelled = false;
+    setPopularLoading(true);
+    listPopularCatalogItems(12)
+      .then((popular) => {
+        if (!cancelled) {
+          setPopularItems(popular);
+        }
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setPopularItems([]);
+        }
+      })
+      .finally(() => {
+        if (!cancelled) {
+          setPopularLoading(false);
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [filtersActive]);
 
   useEffect(() => {
     setPage(1);
@@ -371,7 +399,13 @@ export function CatalogPage() {
             </>
           ) : null}
 
-          {!loading && popularItems.length > 0 ? (
+          {!loading && popularLoading ? (
+            <p className="muted small" data-testid="catalog-popular-loading">
+              Загрузка популярных предметов…
+            </p>
+          ) : null}
+
+          {!loading && !popularLoading && popularItems.length > 0 ? (
             <section className="catalog-popular-section" data-testid="catalog-popular-section">
               <h2 className="catalog-section-title">Популярные и покупаемые</h2>
               <div className="catalog-grid catalog-grid-compact">

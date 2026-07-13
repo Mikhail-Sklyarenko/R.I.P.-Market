@@ -145,12 +145,12 @@ export class InventoryService {
     return toJsonSafe(asset);
   }
 
-  async getPriceHints(marketHashNames: string[]) {
+  async getPriceHints(marketHashNames: string[], forceRefresh = false) {
     const uniqueNames = [...new Set(marketHashNames.filter(Boolean))];
     const sellPriceOptions = {
-      forceRefresh: true,
+      forceRefresh,
       cacheTtlMs: 3 * 60 * 1000,
-      failureCacheTtlMs: 15 * 1000,
+      failureCacheTtlMs: 30 * 1000,
     } as const;
 
     let steamPrices = await this.steamMarketPrice.getPricesWithMeta(
@@ -164,7 +164,7 @@ export class InventoryService {
     if (missingAfterFirstPass.length > 0) {
       const retried = await this.steamMarketPrice.getPricesWithMeta(
         missingAfterFirstPass,
-        { ...sellPriceOptions, cacheTtlMs: 0 },
+        { ...sellPriceOptions, forceRefresh: true, cacheTtlMs: 0 },
       );
       steamPrices = { ...steamPrices, ...retried };
     }

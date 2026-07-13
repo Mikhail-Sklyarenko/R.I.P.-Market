@@ -135,6 +135,42 @@ describe('CatalogService', () => {
     });
   });
 
+  it('fetches Steam prices only for the current catalog page', async () => {
+    prisma.lot.findMany.mockResolvedValue([]);
+    prisma.itemDefinition.findMany.mockResolvedValue([
+      {
+        id: 'item-a',
+        marketHashName: 'AK-47 | Redline (Field-Tested)',
+        weapon: 'Rifle',
+        rarity: 'Classified',
+        iconUrl: null,
+      },
+      {
+        id: 'item-b',
+        marketHashName: 'Revolution Case',
+        weapon: null,
+        rarity: 'Base Grade',
+        iconUrl: null,
+      },
+    ]);
+    steamMarketPrice.getPricesWithMeta.mockResolvedValue({
+      'AK-47 | Redline (Field-Tested)': {
+        priceMinor: 1250,
+        fetchedAt: '2026-07-11T12:00:00.000Z',
+      },
+    });
+
+    const result = await service.listItems({ page: 1, limit: 1 });
+
+    expect(result.items).toHaveLength(1);
+    expect(steamMarketPrice.getPricesWithMeta).toHaveBeenCalledWith([
+      'AK-47 | Redline (Field-Tested)',
+    ]);
+    expect(referencePrice.getPricesWithMeta).toHaveBeenCalledWith([
+      'AK-47 | Redline (Field-Tested)',
+    ]);
+  });
+
   it('returns unlisted items when weapon filter matches but no lots exist', async () => {
     prisma.lot.findMany.mockResolvedValue([]);
     prisma.itemDefinition.findMany.mockResolvedValue([

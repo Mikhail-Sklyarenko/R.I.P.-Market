@@ -39,6 +39,10 @@ type CsgotraderPricesResponse = {
 export class ReferencePriceService {
   private readonly logger = new Logger(ReferencePriceService.name);
   private readonly cache = new Map<string, CacheEntry>();
+  private buffSnapshot: {
+    items: CsgotraderPricesResponse['items'] | null;
+    expiresAt: number;
+  } = { items: null, expiresAt: 0 };
 
   isEnabled(): boolean {
     return isReferencePriceEnabled();
@@ -76,8 +80,9 @@ export class ReferencePriceService {
     await Promise.all(
       pending.map(async (name) => {
         const fetchedAt = Date.now();
+        const buffItems = await this.loadBuffPriceSnapshot();
         const [buffPriceMinor, csfloatPriceMinor] = await Promise.all([
-          this.fetchBuffPriceMinor(name),
+          Promise.resolve(this.readBuffPriceMinor(name, buffItems)),
           this.fetchCsfloatPriceMinor(name),
         ]);
 
@@ -136,11 +141,30 @@ export class ReferencePriceService {
     }
   }
 
-  private async fetchBuffPriceMinor(
+  private readBuffPriceMinor(
     marketHashName: string,
-  ): Promise<number | null> {
+    items: CsgotraderPricesResponse['items'] | null,
+  ): number | null {
+    if (!items) {
+      return null;
+    }
+    const item = items[marketHashName];
+    const buffUsd =
+      item?.buff?.starting_at?.price ?? item?.buff?.price ?? null;
+    if (buffUsd === null || buffUsd === undefined) {
+      return null;
+    }
+    return Math.round(Number(buffUsd) * 100);
+  }
+
+  private async loadBuffPriceSnapshot(): Promise<
+    CsgotraderPricesResponse['items'] | null
+  > {
     if (!isBuffReferenceEnabled()) {
       return null;
+    }
+    if (this.buffSnapshot.items && this.buffSnapshot.expiresAt > Date.now()) {
+      return this.buffSnapshot.items;
     }
 
     try {
@@ -148,24 +172,22 @@ export class ReferencePriceService {
         'https://prices.csgotrader.app/latest/prices.json',
       );
       if (!response.ok) {
-        return null;
+        return this.buffSnapshot.items;
       }
 
       const body = (await response.json()) as CsgotraderPricesResponse;
-      const item = body.items?.[marketHashName];
-      const buffUsd =
-        item?.buff?.starting_at?.price ?? item?.buff?.price ?? null;
-      if (buffUsd === null || buffUsd === undefined) {
-        return null;
-      }
-      return Math.round(Number(buffUsd) * 100);
+      this.buffSnapshot = {
+        items: body.items ?? null,
+        expiresAt: Date.now() + getReferencePriceCacheTtlMs(),
+      };
+      return this.buffSnapshot.items;
     } catch (error) {
       this.logger.debug(
-        `Buff reference price failed for ${marketHashName}: ${
+        `Buff reference snapshot failed: ${
           error instanceof Error ? error.message : 'unknown'
         }`,
       );
-      return null;
+      return this.buffSnapshot.items;
     }
   }
 }

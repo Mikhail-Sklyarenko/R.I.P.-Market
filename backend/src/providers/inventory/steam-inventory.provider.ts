@@ -6,7 +6,7 @@ import { isRealSteamId } from '../../common/steam-id.util';
 import { isListableMarketHashName } from '../../lots/listing-eligibility.util';
 import { PrismaService } from '../../prisma/prisma.service';
 import { InventoryMetricsService } from './inventory-metrics.service';
-import { InventorySyncCacheService } from './inventory-sync-cache.service';
+import { InventorySyncCacheService, getInventoryStaleGraceMs } from './inventory-sync-cache.service';
 import {
   InventoryProvider,
   SyncInventoryOptions,
@@ -94,14 +94,21 @@ export class SteamInventoryProvider implements InventoryProvider {
       latestAfterSteamChange &&
       this.syncCache.isWithinRateLimit(latestAfterSteamChange, now)
     ) {
+      const ageMs = now.getTime() - latestAfterSteamChange.fetchedAt.getTime();
+      const withinGrace =
+        latestAfterSteamChange.status === InventorySyncStatus.SUCCESS &&
+        ageMs < getInventoryStaleGraceMs();
       const stale =
-        latestAfterSteamChange.status !== InventorySyncStatus.SUCCESS ||
-        latestAfterSteamChange.expiresAt <= now;
+        !withinGrace &&
+        (latestAfterSteamChange.status !== InventorySyncStatus.SUCCESS ||
+          latestAfterSteamChange.expiresAt <= now);
       const result = this.toSyncResult(
         latestAfterSteamChange,
         true,
         stale,
-        stale ? 'Steam sync rate-limited; serving cached inventory' : null,
+        stale
+          ? 'Не удалось обновить инвентарь из Steam — показана последняя копия'
+          : null,
       );
       this.recordMetrics(
         'CACHE_HIT',
