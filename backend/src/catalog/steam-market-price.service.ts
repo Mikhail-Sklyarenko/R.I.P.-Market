@@ -249,7 +249,9 @@ export class SteamMarketPriceService {
           priceMinor,
           fetchedAt: new Date(fetchedAt).toISOString(),
         };
-        await this.persistToDatabase(name, priceMinor, fetchedAt);
+        if (priceMinor !== null) {
+          await this.persistToDatabase(name, priceMinor, fetchedAt);
+        }
       }
 
       if (index < pending.length - 1) {

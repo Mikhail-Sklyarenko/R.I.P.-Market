@@ -27,6 +27,9 @@ export class SteamPriceWarmerService implements OnModuleInit {
       return;
     }
     this.startupWarmupScheduled = true;
+    void this.prisma.steamPriceCache
+      .deleteMany({ where: { priceMinor: null } })
+      .catch(() => undefined);
     setTimeout(() => {
       void this.warmPriorityItems('startup');
     }, WARMUP_STARTUP_DELAY_MS);

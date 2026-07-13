@@ -36,6 +36,7 @@ export function CatalogItemCard({
         ? `/lots/${item.featuredLotId}`
         : null;
   const hasOffers = item.activeLotCount > 0;
+  const resolvedSteamPrice = steamPriceMinor ?? item.steamPriceMinor;
   const rarityStyle = getRarityStyle(item.rarity);
   const cardStyle = {
     '--lot-rarity-color': rarityStyle.color,
@@ -100,10 +101,10 @@ export function CatalogItemCard({
         <div className="catalog-lot-card-bottom">
           <div className="catalog-lot-card-price-row">
             <InventoryPriceStack
-              steamPriceMinor={steamPriceMinor ?? item.steamPriceMinor}
+              steamPriceMinor={resolvedSteamPrice}
               marketplacePriceMinor={item.minMarketplacePriceMinor}
               testIdPrefix={`catalog-item-${item.id}`}
-              loading={pricesLoading && steamPriceMinor === undefined}
+              loading={pricesLoading && resolvedSteamPrice == null}
             />
           </div>
 

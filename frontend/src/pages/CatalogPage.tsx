@@ -57,6 +57,7 @@ function getInitialCategoryValue(weaponParam: string | null): string {
 
 const STEAM_PRICE_CHUNK_SIZE = 8;
 const STEAM_PRICE_STALE_MS = 15 * 60 * 1000;
+const STEAM_PRICE_SINGLE_REQUEST_LIMIT = 24;
 
 function chunkArray<T>(items: T[], size: number): T[][] {
   const chunks: T[][] = [];
@@ -236,13 +237,22 @@ export function CatalogPage() {
     const toRefresh: string[] = [];
     for (const name of marketHashNames) {
       const item = allItems.find((entry) => entry.marketHashName === name);
-      if (item?.steamPriceMinor != null) {
-        seeded[name] = item.steamPriceMinor;
+      const resolvedPrice = item?.steamPriceMinor ?? steamPrices[name] ?? null;
+      if (resolvedPrice != null) {
+        seeded[name] = resolvedPrice;
       }
       if (!item || !isSteamPriceFresh(item)) {
         toRefresh.push(name);
       }
     }
+
+    toRefresh.sort((left, right) => {
+      const leftItem = allItems.find((entry) => entry.marketHashName === left);
+      const rightItem = allItems.find((entry) => entry.marketHashName === right);
+      const leftMissing = leftItem?.steamPriceMinor == null ? 0 : 1;
+      const rightMissing = rightItem?.steamPriceMinor == null ? 0 : 1;
+      return leftMissing - rightMissing;
+    });
 
     setSteamPrices((prev) => ({ ...prev, ...seeded }));
     setPendingPriceNames(new Set(toRefresh));
@@ -252,36 +262,87 @@ export function CatalogPage() {
     }
 
     let cancelled = false;
+    const loadedPrices: Record<string, number | null> = { ...seeded };
+
+    async function refreshChunk(chunk: string[]) {
+      const response = await getCatalogSteamPrices(chunk);
+      if (cancelled) {
+        return {};
+      }
+
+      const chunkPrices = mergeSteamPrices(response, chunk);
+      Object.assign(loadedPrices, chunkPrices);
+      setSteamPrices((prev) => ({ ...prev, ...chunkPrices }));
+      if (response.steamPriceFetchedAt) {
+        setSteamPriceFetchedAt(response.steamPriceFetchedAt);
+      }
+      return chunkPrices;
+    }
 
     async function refreshSteamPrices() {
-      for (const chunk of chunkArray(toRefresh, STEAM_PRICE_CHUNK_SIZE)) {
+      const batches =
+        toRefresh.length <= STEAM_PRICE_SINGLE_REQUEST_LIMIT
+          ? [toRefresh]
+          : chunkArray(toRefresh, STEAM_PRICE_CHUNK_SIZE);
+
+      for (const chunk of batches) {
         if (cancelled) {
           return;
         }
 
         try {
-          const response = await getCatalogSteamPrices(chunk);
-          if (cancelled) {
-            return;
-          }
-
-          const chunkPrices = mergeSteamPrices(response, chunk);
-          setSteamPrices((prev) => ({ ...prev, ...chunkPrices }));
-          if (response.steamPriceFetchedAt) {
-            setSteamPriceFetchedAt(response.steamPriceFetchedAt);
-          }
-        } catch {
-          // Keep loading other chunks even if one batch fails.
-        } finally {
+          const chunkPrices = await refreshChunk(chunk);
           if (!cancelled) {
             setPendingPriceNames((prev) => {
               const next = new Set(prev);
               for (const name of chunk) {
-                next.delete(name);
+                if (chunkPrices[name] != null) {
+                  next.delete(name);
+                }
               }
               return next;
             });
           }
+        } catch {
+          // Try the next batch even if one request fails.
+        }
+      }
+
+      if (cancelled) {
+        return;
+      }
+
+      await new Promise((resolve) => {
+        setTimeout(resolve, 2_000);
+      });
+
+      if (cancelled) {
+        return;
+      }
+
+      const retryNames = toRefresh.filter((name) => loadedPrices[name] == null);
+
+      if (retryNames.length === 0) {
+        setPendingPriceNames(new Set());
+        return;
+      }
+
+      try {
+        const retryPrices = await refreshChunk(retryNames);
+        if (!cancelled) {
+          setPendingPriceNames((prev) => {
+            const next = new Set(prev);
+            for (const name of retryNames) {
+              if (retryPrices[name] != null) {
+                next.delete(name);
+              }
+            }
+            return next;
+          });
+        }
+      } catch {
+        if (!cancelled) {
+          setPendingPriceNames(new Set());
         }
       }
     }

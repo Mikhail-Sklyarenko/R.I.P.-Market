@@ -80,6 +80,7 @@ export class CatalogService {
         ),
       );
       const hydrated = await this.hydrateRowsWithCachedSteamPrices(rows);
+      this.scheduleMissingSteamPriceRefresh(hydrated.rows);
 
       return this.buildListResponse(
         hydrated.rows,
@@ -118,6 +119,7 @@ export class CatalogService {
     const total = filtered.length;
     const pageRows = filtered.slice(skip, skip + limit);
     const hydrated = await this.hydrateRowsWithCachedSteamPrices(pageRows);
+    this.scheduleMissingSteamPriceRefresh(hydrated.rows);
 
     return this.buildListResponse(
       hydrated.rows,
@@ -205,6 +207,7 @@ export class CatalogService {
       .slice(0, capped);
 
     const hydrated = await this.hydrateRowsWithCachedSteamPrices(rows);
+    this.scheduleMissingSteamPriceRefresh(hydrated.rows);
 
     return toJsonSafe(hydrated.rows);
   }
@@ -272,6 +275,16 @@ export class CatalogService {
       rows: hydratedRows,
       steamPriceFetchedAt: latestSteamPriceFetch,
     };
+  }
+
+  private scheduleMissingSteamPriceRefresh(rows: CatalogItemRow[]): void {
+    const missing = rows
+      .filter((row) => row.steamPriceMinor == null)
+      .map((row) => row.marketHashName);
+    if (missing.length === 0) {
+      return;
+    }
+    void this.steamMarketPrice.getPricesWithMeta(missing);
   }
 
   private canPaginateInDatabase(query: ListCatalogItemsQueryDto): boolean {
