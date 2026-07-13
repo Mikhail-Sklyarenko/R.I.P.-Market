@@ -19,6 +19,7 @@ import { MoneyDisplay } from '../components/MoneyDisplay';
 import { getRarityDisplayLabel } from '../utils/rarity-colors';
 import { parseUsdToMinor } from '../utils/format';
 import { parseWearCodeFromMarketHashName } from '../utils/catalog-lot-display';
+import { resolveLotDisplayItem } from '../utils/lot-display';
 
 export function ItemPage() {
   const { id } = useParams();
@@ -118,17 +119,27 @@ export function ItemPage() {
     return null;
   }
 
-  const displayItem = item
-    ? {
-        wear: parseWearCodeFromMarketHashName(item.marketHashName),
-        itemDefinition: {
-          marketHashName: item.marketHashName,
-          weapon: item.weapon,
-          rarity: item.rarity,
-          iconUrl: item.iconUrl,
-        },
-      }
-    : null;
+  const displayItem = useMemo(() => {
+    if (!item) {
+      return null;
+    }
+
+    const featuredLot = lots.find((lot) => lot.id === item.featuredLotId) ?? lots[0];
+    const lotDisplay = featuredLot ? resolveLotDisplayItem(featuredLot) : null;
+
+    return {
+      wear:
+        lotDisplay?.wear ??
+        parseWearCodeFromMarketHashName(item.marketHashName),
+      floatValue: lotDisplay?.floatValue ?? null,
+      itemDefinition: {
+        marketHashName: item.marketHashName,
+        weapon: item.weapon,
+        rarity: item.rarity,
+        iconUrl: item.iconUrl,
+      },
+    };
+  }, [item, lots]);
 
   return (
     <div className="page item-page" data-testid="item-page">

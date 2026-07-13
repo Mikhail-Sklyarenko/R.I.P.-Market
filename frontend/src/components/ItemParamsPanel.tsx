@@ -1,10 +1,6 @@
 import { useState } from 'react';
 import type { ItemDisplaySource } from '../utils/item-image';
-import {
-  formatFloatValue,
-  formatPaintSeed,
-  getItemCategory,
-} from '../utils/item-image';
+import { formatFloatValue, getItemCategory } from '../utils/item-image';
 import { parseWearCodeFromMarketHashName } from '../utils/catalog-lot-display';
 import { getRarityDisplayLabel, getRarityStyle } from '../utils/rarity-colors';
 import { getWearDisplayLabel } from '../utils/wear-filters';
@@ -38,8 +34,6 @@ export function ItemParamsPanel({
     item.floatValue !== null &&
     item.floatValue !== undefined &&
     item.floatValue !== '';
-  const patternText = formatPaintSeed(item.paintSeed);
-
   async function copyName() {
     try {
       await navigator.clipboard.writeText(marketHashName);
@@ -70,18 +64,16 @@ export function ItemParamsPanel({
       ) : null}
 
       <dl className="item-params-table">
-        {hasFloatGraphic || floatText ? (
-          <div className="item-params-row">
-            <dt>Float</dt>
-            <dd data-testid={`${testId}-float`}>
-              {hasFloatGraphic ? (
-                <FloatSpectrum floatValue={item.floatValue!} variant="inline" />
-              ) : (
-                <span data-testid="lot-attr-float">{floatText}</span>
-              )}
-            </dd>
-          </div>
-        ) : null}
+        <div className="item-params-row">
+          <dt>Float</dt>
+          <dd data-testid={`${testId}-float`}>
+            {hasFloatGraphic ? (
+              <FloatSpectrum floatValue={item.floatValue!} variant="inline" />
+            ) : (
+              <span data-testid="lot-attr-float">{floatText ?? '—'}</span>
+            )}
+          </dd>
+        </div>
 
         {category ? (
           <div className="item-params-row">
@@ -110,11 +102,6 @@ export function ItemParamsPanel({
             <dd data-testid="lot-attr-wear">{wearLabel}</dd>
           </div>
         ) : null}
-
-        <div className="item-params-row">
-          <dt>Паттерн</dt>
-          <dd data-testid="lot-attr-pattern">{patternText ?? '—'}</dd>
-        </div>
       </dl>
     </section>
   );

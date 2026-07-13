@@ -16,7 +16,6 @@ test.describe('Lot page', () => {
     await expect(page.getByTestId('lot-item-hero')).toBeVisible();
     await expect(page.getByTestId('float-spectrum')).toBeVisible();
     await expect(page.getByTestId('float-spectrum-value')).toBeVisible();
-    await expect(page.getByTestId('lot-attr-pattern')).toHaveText('100');
     await expect(page.getByTestId('lot-attr-wear')).toBeVisible();
     await expect(page.getByTestId('lot-attr-rarity')).toBeVisible();
     await expect(page.getByTestId('buy-lot-button')).toBeVisible();
