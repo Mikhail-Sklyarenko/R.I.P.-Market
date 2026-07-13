@@ -1,5 +1,23 @@
 import { CATALOG_WEAR_FILTERS } from './wear-filters.ts';
 
+const WEAR_SUFFIX_TO_CODE: Record<string, string> = {
+  'factory new': 'FN',
+  'minimal wear': 'MW',
+  'field-tested': 'FT',
+  'well-worn': 'WW',
+  'battle-scarred': 'BS',
+};
+
+export function parseWearCodeFromMarketHashName(
+  marketHashName: string,
+): string | null {
+  const match = marketHashName.trim().match(/\(([^)]+)\)\s*$/);
+  if (!match?.[1]) {
+    return null;
+  }
+  return WEAR_SUFFIX_TO_CODE[match[1].toLowerCase()] ?? null;
+}
+
 export function parseCatalogLotName(marketHashName: string): {
   weapon: string;
   skin: string;
@@ -41,7 +59,7 @@ export function getWearBadgeStyle(wear?: string | null): {
   }
 
   return {
-    label: option.label,
+    label: option.value,
     color: lisWearColors[option.value] ?? option.color,
   };
 }

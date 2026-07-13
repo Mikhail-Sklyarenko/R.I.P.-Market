@@ -108,23 +108,27 @@ export function CatalogLotCard({ lot, isLoggedIn }: CatalogLotCardProps) {
       aria-label={`Открыть лот ${name}`}
     >
       <div className="catalog-lot-card-top">
-        <span className="catalog-lot-card-top-slot">
-          <CatalogLotRocketIcon />
-        </span>
-        {wearBadge ? (
-          <span
-            className="catalog-lot-card-wear"
-            style={{ color: wearBadge.color }}
-            data-testid={`catalog-lot-wear-${lot.id}`}
-          >
-            {wearBadge.label}
+        <div className="catalog-lot-card-top-start">
+          {wearBadge ? (
+            <span
+              className="catalog-lot-card-wear"
+              style={{ color: wearBadge.color }}
+              data-testid={`catalog-lot-wear-${lot.id}`}
+            >
+              {wearBadge.label}
+            </span>
+          ) : (
+            <span className="catalog-lot-card-wear catalog-lot-card-wear-empty" aria-hidden="true" />
+          )}
+        </div>
+        <div className="catalog-lot-card-top-end">
+          <span className="catalog-lot-card-top-slot">
+            <CatalogLotRocketIcon />
           </span>
-        ) : (
-          <span className="catalog-lot-card-wear catalog-lot-card-wear-empty" aria-hidden="true" />
-        )}
-        <span className="catalog-lot-card-top-slot catalog-lot-card-top-slot-end">
-          <CatalogLotHeartIcon />
-        </span>
+          <span className="catalog-lot-card-top-slot catalog-lot-card-top-slot-end">
+            <CatalogLotHeartIcon />
+          </span>
+        </div>
       </div>
 
       <div className="catalog-lot-card-image-wrap">

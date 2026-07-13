@@ -1,7 +1,11 @@
 import type { CSSProperties, KeyboardEvent } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import type { CatalogItem } from '../api/types';
-import { parseCatalogLotName } from '../utils/catalog-lot-display';
+import {
+  getWearBadgeStyle,
+  parseCatalogLotName,
+  parseWearCodeFromMarketHashName,
+} from '../utils/catalog-lot-display';
 import { getSteamItemImageUrl } from '../utils/item-image';
 import { getRarityStyle } from '../utils/rarity-colors';
 import { InventoryPriceStack } from './InventoryPriceStack';
@@ -22,6 +26,7 @@ export function CatalogItemCard({
   const navigate = useNavigate();
   const name = item.marketHashName;
   const { weapon, skin } = parseCatalogLotName(name);
+  const wearBadge = getWearBadgeStyle(parseWearCodeFromMarketHashName(name));
   const imageUrl = getSteamItemImageUrl(item.iconUrl);
   const itemPath = `/catalog/items/${item.id}`;
   const buyPath =
@@ -60,11 +65,24 @@ export function CatalogItemCard({
       aria-label={hasOffers ? `Открыть ${name}` : `${name} — нет предложений`}
     >
       <div className="catalog-lot-card-top">
-        {item.orderCount30d > 0 ? (
-          <span className="catalog-lot-card-badge muted small">Популярный</span>
-        ) : (
-          <span className="catalog-lot-card-top-slot" aria-hidden="true" />
-        )}
+        <div className="catalog-lot-card-top-start">
+          {wearBadge ? (
+            <span
+              className="catalog-lot-card-wear"
+              style={{ color: wearBadge.color }}
+              data-testid={`catalog-item-wear-${item.id}`}
+            >
+              {wearBadge.label}
+            </span>
+          ) : (
+            <span className="catalog-lot-card-wear catalog-lot-card-wear-empty" aria-hidden="true" />
+          )}
+        </div>
+        <div className="catalog-lot-card-top-end">
+          {item.orderCount30d > 0 ? (
+            <span className="catalog-lot-card-badge muted small">Популярный</span>
+          ) : null}
+        </div>
       </div>
 
       <div className="catalog-lot-card-image-wrap">
