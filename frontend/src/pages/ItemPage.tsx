@@ -15,7 +15,6 @@ import { LoadingState } from '../components/LoadingState';
 import { LotBreadcrumbs } from '../components/LotBreadcrumbs';
 import { LotItemHero } from '../components/LotItemHero';
 import { MoneyDisplay } from '../components/MoneyDisplay';
-import { ReferencePriceHints } from '../components/ReferencePriceHints';
 import { getRarityDisplayLabel } from '../utils/rarity-colors';
 import { parseUsdToMinor } from '../utils/format';
 
@@ -195,17 +194,9 @@ export function ItemPage() {
                   <InventoryPriceStack
                     steamPriceMinor={item.steamPriceMinor}
                     marketplacePriceMinor={item.minMarketplacePriceMinor}
-                    buffPriceMinor={item.buffPriceMinor}
-                    csfloatPriceMinor={item.csfloatPriceMinor}
                     testIdPrefix="item"
                   />
                 </div>
-
-                <ReferencePriceHints
-                  buffPriceMinor={item.buffPriceMinor}
-                  csfloatPriceMinor={item.csfloatPriceMinor}
-                  testIdPrefix="item"
-                />
 
                 {hasOffers && item.featuredLotId ? (
                   <Link

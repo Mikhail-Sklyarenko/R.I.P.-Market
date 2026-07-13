@@ -1,5 +1,5 @@
 export function isReferencePriceEnabled(): boolean {
-  return process.env.REFERENCE_PRICE_ENABLED !== 'false';
+  return process.env.REFERENCE_PRICE_ENABLED === 'true';
 }
 
 export function isCsfloatReferenceEnabled(): boolean {

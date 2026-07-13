@@ -6,6 +6,7 @@ describe('CatalogService', () => {
     itemDefinition: {
       findMany: jest.fn(),
       findUnique: jest.fn(),
+      count: jest.fn(),
     },
     lot: {
       findMany: jest.fn(),
@@ -20,26 +21,22 @@ describe('CatalogService', () => {
     getPricesWithMeta: jest.fn(),
   };
 
-  const referencePrice = {
-    getPricesWithMeta: jest.fn(),
-  };
-
   const service = new CatalogService(
     prisma as never,
     steamMarketPrice as never,
-    referencePrice as never,
   );
 
   beforeEach(() => {
     jest.clearAllMocks();
     prisma.order.findMany.mockResolvedValue([]);
+    prisma.itemDefinition.count.mockResolvedValue(0);
     steamMarketPrice.getPricesMinor.mockResolvedValue({});
     steamMarketPrice.getPricesWithMeta.mockResolvedValue({});
-    referencePrice.getPricesWithMeta.mockResolvedValue({});
   });
 
   it('returns item definitions without active lots in catalog', async () => {
     prisma.lot.findMany.mockResolvedValue([]);
+    prisma.itemDefinition.count.mockResolvedValue(2);
     prisma.itemDefinition.findMany.mockResolvedValue([
       {
         id: 'item-unlisted',
@@ -123,6 +120,7 @@ describe('CatalogService', () => {
         iconUrl: null,
       },
     ]);
+    prisma.itemDefinition.count.mockResolvedValue(1);
 
     const result = await service.listItems({ page: 1, limit: 24 });
 
@@ -135,7 +133,7 @@ describe('CatalogService', () => {
     });
   });
 
-  it('fetches Steam prices only for the current catalog page', async () => {
+  it('does not block catalog list on Steam price fetches', async () => {
     prisma.lot.findMany.mockResolvedValue([]);
     prisma.itemDefinition.findMany.mockResolvedValue([
       {
@@ -145,34 +143,19 @@ describe('CatalogService', () => {
         rarity: 'Classified',
         iconUrl: null,
       },
-      {
-        id: 'item-b',
-        marketHashName: 'Revolution Case',
-        weapon: null,
-        rarity: 'Base Grade',
-        iconUrl: null,
-      },
     ]);
-    steamMarketPrice.getPricesWithMeta.mockResolvedValue({
-      'AK-47 | Redline (Field-Tested)': {
-        priceMinor: 1250,
-        fetchedAt: '2026-07-11T12:00:00.000Z',
-      },
-    });
+    prisma.itemDefinition.count = jest.fn().mockResolvedValue(1);
 
-    const result = await service.listItems({ page: 1, limit: 1 });
+    const result = await service.listItems({ page: 1, limit: 24 });
 
     expect(result.items).toHaveLength(1);
-    expect(steamMarketPrice.getPricesWithMeta).toHaveBeenCalledWith([
-      'AK-47 | Redline (Field-Tested)',
-    ]);
-    expect(referencePrice.getPricesWithMeta).toHaveBeenCalledWith([
-      'AK-47 | Redline (Field-Tested)',
-    ]);
+    expect(result.items[0]?.steamPriceMinor).toBeNull();
+    expect(steamMarketPrice.getPricesWithMeta).not.toHaveBeenCalled();
   });
 
   it('returns unlisted items when weapon filter matches but no lots exist', async () => {
     prisma.lot.findMany.mockResolvedValue([]);
+    prisma.itemDefinition.count.mockResolvedValue(1);
     prisma.itemDefinition.findMany.mockResolvedValue([
       {
         id: 'item-knife',

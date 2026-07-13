@@ -18,20 +18,14 @@ describe('InventoryService', () => {
     syncInventory: jest.fn(),
   };
 
-  const referencePrice = {
-    getPricesWithMeta: jest.fn(),
-  };
-
   const service = new InventoryService(
     prisma as never,
     inventoryProvider as never,
     steamMarketPrice as never,
-    referencePrice as never,
   );
 
   beforeEach(() => {
     jest.clearAllMocks();
-    referencePrice.getPricesWithMeta.mockResolvedValue({});
   });
 
   it('returns steam and marketplace price hints keyed by market hash name', async () => {

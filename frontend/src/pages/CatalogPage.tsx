@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { listCatalogItems, listPopularCatalogItems } from '../api/marketplace';
+import { listCatalogItems, listPopularCatalogItems, getCatalogSteamPrices } from '../api/marketplace';
 import type { CatalogItem } from '../api/types';
 import { useAuth } from '../auth/AuthContext';
 import { CatalogCategoryBar } from '../components/CatalogCategoryBar';
@@ -64,6 +64,8 @@ export function CatalogPage() {
   const [popularItems, setPopularItems] = useState<CatalogItem[]>([]);
   const [popularLoading, setPopularLoading] = useState(false);
   const [steamPriceFetchedAt, setSteamPriceFetchedAt] = useState<string | null>(null);
+  const [steamPrices, setSteamPrices] = useState<Record<string, number | null>>({});
+  const [pricesLoading, setPricesLoading] = useState(false);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<unknown>(null);
@@ -135,7 +137,8 @@ export function CatalogPage() {
       .then((response) => {
         setItems(response.items);
         setTotal(response.total);
-        setSteamPriceFetchedAt(response.steamPriceFetchedAt ?? null);
+        setSteamPriceFetchedAt(null);
+        setSteamPrices({});
       })
       .catch((err: unknown) => setError(err))
       .finally(() => setLoading(false));
@@ -171,6 +174,47 @@ export function CatalogPage() {
       cancelled = true;
     };
   }, [filtersActive]);
+
+  useEffect(() => {
+    const marketHashNames = [
+      ...new Set(
+        [...items, ...popularItems].map((item) => item.marketHashName).filter(Boolean),
+      ),
+    ];
+    if (marketHashNames.length === 0) {
+      setPricesLoading(false);
+      return;
+    }
+
+    let cancelled = false;
+    setPricesLoading(true);
+    getCatalogSteamPrices(marketHashNames)
+      .then((response) => {
+        if (cancelled) {
+          return;
+        }
+        const nextPrices: Record<string, number | null> = {};
+        for (const name of marketHashNames) {
+          nextPrices[name] = response.prices[name]?.priceMinor ?? null;
+        }
+        setSteamPrices(nextPrices);
+        setSteamPriceFetchedAt(response.steamPriceFetchedAt ?? null);
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setSteamPrices({});
+        }
+      })
+      .finally(() => {
+        if (!cancelled) {
+          setPricesLoading(false);
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [items, popularItems]);
 
   useEffect(() => {
     setPage(1);
@@ -410,7 +454,13 @@ export function CatalogPage() {
               <h2 className="catalog-section-title">Популярные и покупаемые</h2>
               <div className="catalog-grid catalog-grid-compact">
                 {popularItems.map((item) => (
-                  <CatalogItemCard key={`popular-${item.id}`} item={item} isLoggedIn={Boolean(token)} />
+                  <CatalogItemCard
+                    key={`popular-${item.id}`}
+                    item={item}
+                    isLoggedIn={Boolean(token)}
+                    steamPriceMinor={steamPrices[item.marketHashName]}
+                    pricesLoading={pricesLoading}
+                  />
                 ))}
               </div>
             </section>
@@ -426,7 +476,13 @@ export function CatalogPage() {
           {!loading && items.length > 0 ? (
             <div className="catalog-grid" data-testid="catalog-grid">
               {items.map((item) => (
-                <CatalogItemCard key={item.id} item={item} isLoggedIn={Boolean(token)} />
+                <CatalogItemCard
+                  key={item.id}
+                  item={item}
+                  isLoggedIn={Boolean(token)}
+                  steamPriceMinor={steamPrices[item.marketHashName]}
+                  pricesLoading={pricesLoading}
+                />
               ))}
             </div>
           ) : null}

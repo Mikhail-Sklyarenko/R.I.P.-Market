@@ -16,12 +16,11 @@ import {
   isPurchaseBlocked,
   PurchaseReadinessAlerts,
 } from '../components/PurchaseReadinessAlerts';
-import { ReferencePriceHints } from '../components/ReferencePriceHints';
+import { getRarityDisplayLabel } from '../utils/rarity-colors';
 import { SimilarLots } from '../components/SimilarLots';
 import { StatusBadge } from '../components/StatusBadge';
 import { WearBar } from '../components/WearBar';
 import { formatDataTimestamp, resolveLotDisplayItem } from '../utils/lot-display';
-import { getRarityDisplayLabel } from '../utils/rarity-colors';
 
 export function LotPage() {
   const { id } = useParams();
@@ -165,11 +164,11 @@ export function LotPage() {
                   <MoneyDisplay minor={lot.priceMinor} strong />
                 </p>
 
-                <ReferencePriceHints
-                  buffPriceMinor={lot.buffPriceMinor}
-                  csfloatPriceMinor={lot.csfloatPriceMinor}
-                  testIdPrefix="lot"
-                />
+                {lot.steamPriceMinor ? (
+                  <p className="muted small" data-testid="lot-steam-reference-price">
+                    Цена Steam: <MoneyDisplay minor={lot.steamPriceMinor} />
+                  </p>
+                ) : null}
 
                 <details className="lot-pricing-details">
                   <summary className="lot-pricing-details-summary">

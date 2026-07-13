@@ -3,8 +3,6 @@ import { MoneyDisplay } from './MoneyDisplay';
 type PriceStackProps = {
   steamPriceMinor?: number | null;
   marketplacePriceMinor?: string | null;
-  buffPriceMinor?: number | null;
-  csfloatPriceMinor?: number | null;
   testIdPrefix: string;
   loading?: boolean;
   requireSteamPrice?: boolean;
@@ -26,8 +24,6 @@ function PriceStackSkeleton({ testIdPrefix }: { testIdPrefix: string }) {
 export function InventoryPriceStack({
   steamPriceMinor,
   marketplacePriceMinor,
-  buffPriceMinor,
-  csfloatPriceMinor,
   testIdPrefix,
   loading = false,
   requireSteamPrice = false,
@@ -38,7 +34,6 @@ export function InventoryPriceStack({
 
   const hasMarket = Boolean(marketplacePriceMinor);
   const hasSteam = Boolean(steamPriceMinor);
-  const hasReference = Boolean(buffPriceMinor || csfloatPriceMinor);
 
   if (hasMarket) {
     return (
@@ -49,25 +44,9 @@ export function InventoryPriceStack({
         <p className="inventory-price-secondary muted small">
           Steam{' '}
           <span data-testid={`${testIdPrefix}-steam-price`}>
-            <MoneyDisplay minor={steamPriceMinor!} />
+            {hasSteam ? <MoneyDisplay minor={steamPriceMinor!} /> : 'н/д'}
           </span>
         </p>
-        {hasReference ? (
-          <p className="inventory-price-reference muted small">
-            <span className="inventory-price-reference-label">Справка:</span>{' '}
-            {buffPriceMinor ? (
-              <span data-testid={`${testIdPrefix}-buff-price`}>
-                Buff <MoneyDisplay minor={buffPriceMinor} />
-              </span>
-            ) : null}
-            {buffPriceMinor && csfloatPriceMinor ? ' · ' : null}
-            {csfloatPriceMinor ? (
-              <span data-testid={`${testIdPrefix}-csfloat-price`}>
-                CSFloat <MoneyDisplay minor={csfloatPriceMinor} />
-              </span>
-            ) : null}
-          </p>
-        ) : null}
         <span className="sr-only" data-testid={`${testIdPrefix}-market-price`}>
           {marketplacePriceMinor}
         </span>
@@ -91,22 +70,6 @@ export function InventoryPriceStack({
           Маркет{' '}
           <span data-testid={`${testIdPrefix}-market-price`}>нет лотов</span>
         </p>
-        {hasReference ? (
-          <p className="inventory-price-reference muted small">
-            <span className="inventory-price-reference-label">Справка:</span>{' '}
-            {buffPriceMinor ? (
-              <span data-testid={`${testIdPrefix}-buff-price`}>
-                Buff <MoneyDisplay minor={buffPriceMinor} />
-              </span>
-            ) : null}
-            {buffPriceMinor && csfloatPriceMinor ? ' · ' : null}
-            {csfloatPriceMinor ? (
-              <span data-testid={`${testIdPrefix}-csfloat-price`}>
-                CSFloat <MoneyDisplay minor={csfloatPriceMinor} />
-              </span>
-            ) : null}
-          </p>
-        ) : null}
       </div>
     );
   }

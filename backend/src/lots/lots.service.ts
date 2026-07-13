@@ -22,7 +22,6 @@ import { LotStateService } from './lot-state.service';
 import { hasValidTradeUrl } from '../users/trade-url.util';
 import { SteamVacService } from '../users/steam-vac.service';
 import { SteamMarketPriceService } from '../catalog/steam-market-price.service';
-import { ReferencePriceService } from '../catalog/reference-price.service';
 import { assertListingEligible } from './listing-eligibility.util';
 import { assertBulkListingAssets } from './bulk-listing.util';
 import { buildLotListingSnapshotData } from './lot-listing-snapshot.util';
@@ -45,7 +44,6 @@ export class LotsService {
     private readonly inventoryService: InventoryService,
     private readonly steamVacService: SteamVacService,
     private readonly steamMarketPrice: SteamMarketPriceService,
-    private readonly referencePrice: ReferencePriceService,
     private readonly buyRequestMatching: BuyRequestMatchingService,
   ) {}
 
@@ -369,32 +367,14 @@ export class LotsService {
       }),
     ]);
 
-    const [steamPrices, referencePrices] = await Promise.all([
-      this.steamMarketPrice.getPricesWithMeta(
-        lots.map((lot) => {
-          const snapshotName = lot.listingSnapshot?.marketHashName;
-          return (
-            snapshotName ?? lot.inventoryAsset.itemDefinition.marketHashName
-          );
-        }),
-      ),
-      this.referencePrice.getPricesWithMeta(
-        lots.map((lot) => {
-          const snapshotName = lot.listingSnapshot?.marketHashName;
-          return (
-            snapshotName ?? lot.inventoryAsset.itemDefinition.marketHashName
-          );
-        }),
-      ),
-    ]);
+    const marketHashNames = lots.map((lot) => {
+      const snapshotName = lot.listingSnapshot?.marketHashName;
+      return snapshotName ?? lot.inventoryAsset.itemDefinition.marketHashName;
+    });
+    const steamPrices =
+      await this.steamMarketPrice.getPricesWithMeta(marketHashNames);
     const latestSteamPriceFetch =
       Object.values(steamPrices)
-        .map((entry) => entry.fetchedAt)
-        .filter((value): value is string => Boolean(value))
-        .sort()
-        .at(-1) ?? null;
-    const latestReferencePriceFetch =
-      Object.values(referencePrices)
         .map((entry) => entry.fetchedAt)
         .filter((value): value is string => Boolean(value))
         .sort()
@@ -408,9 +388,8 @@ export class LotsService {
         ...lot,
         steamPriceMinor: steamPrices[marketHashName]?.priceMinor ?? null,
         steamPriceFetchedAt: steamPrices[marketHashName]?.fetchedAt ?? null,
-        buffPriceMinor: referencePrices[marketHashName]?.buffPriceMinor ?? null,
-        csfloatPriceMinor:
-          referencePrices[marketHashName]?.csfloatPriceMinor ?? null,
+        buffPriceMinor: null,
+        csfloatPriceMinor: null,
         marketplacePriceMinor: lot.priceMinor.toString(),
       };
     });
@@ -421,7 +400,7 @@ export class LotsService {
       limit,
       total,
       steamPriceFetchedAt: latestSteamPriceFetch,
-      referencePriceFetchedAt: latestReferencePriceFetch,
+      referencePriceFetchedAt: null,
     });
   }
 
@@ -643,10 +622,8 @@ export class LotsService {
       marketHashName,
       wear,
     );
-    const [steamPriceMeta, referencePriceMeta] = await Promise.all([
-      this.steamMarketPrice.getPriceMeta(steamMarketHashName),
-      this.referencePrice.getPricesWithMeta([steamMarketHashName]),
-    ]);
+    const steamPriceMeta =
+      await this.steamMarketPrice.getPriceMeta(steamMarketHashName);
     const inspectLink =
       lot.listingSnapshot?.inspectLink ??
       (lot.seller.steamId
@@ -670,12 +647,9 @@ export class LotsService {
       steamMarketUrl: buildSteamMarketListingUrl(marketHashName, wear),
       steamPriceMinor: steamPriceMeta.priceMinor,
       steamPriceFetchedAt: steamPriceMeta.fetchedAt,
-      buffPriceMinor:
-        referencePriceMeta[steamMarketHashName]?.buffPriceMinor ?? null,
-      csfloatPriceMinor:
-        referencePriceMeta[steamMarketHashName]?.csfloatPriceMinor ?? null,
-      referencePriceFetchedAt:
-        referencePriceMeta[steamMarketHashName]?.fetchedAt ?? null,
+      buffPriceMinor: null,
+      csfloatPriceMinor: null,
+      referencePriceFetchedAt: null,
       marketplacePriceMinor: lot.priceMinor.toString(),
     });
   }

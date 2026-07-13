@@ -154,8 +154,6 @@ export function CatalogLotCard({ lot, isLoggedIn }: CatalogLotCardProps) {
             <InventoryPriceStack
               steamPriceMinor={lot.steamPriceMinor}
               marketplacePriceMinor={lot.marketplacePriceMinor ?? lot.priceMinor}
-              buffPriceMinor={lot.buffPriceMinor}
-              csfloatPriceMinor={lot.csfloatPriceMinor}
               testIdPrefix={`catalog-lot-${lot.id}`}
             />
           </div>

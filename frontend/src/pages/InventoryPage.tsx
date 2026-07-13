@@ -155,7 +155,7 @@ export function InventoryPage() {
         const response = await getInventory(token, { forceRefresh });
         setAssets(response.assets);
         setSync(response.sync);
-        await loadPriceHints(response.assets);
+        void loadPriceHints(response.assets);
       } catch (err: unknown) {
         setError(err);
       } finally {
@@ -197,7 +197,7 @@ export function InventoryPage() {
         }
         setAssets(response.assets);
         setSync(response.sync);
-        await loadPriceHints(response.assets);
+        void loadPriceHints(response.assets);
       })
       .catch((err: unknown) => {
         if (!cancelled) {

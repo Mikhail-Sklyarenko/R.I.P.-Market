@@ -19,6 +19,7 @@ import { getPaymentConfig } from '../providers/payment/payment.config';
 import { isRealSettlementEnabled } from '../settlement/settlement.config';
 import { isLiveVerificationMode } from '../trades/trade-verification.config';
 import { getExtensionPublicConfig } from '../extension/extension-public.config';
+import { isReferencePriceEnabled } from '../catalog/reference-price.config';
 import { extractOpenIdParams } from '../providers/auth/steam-openid.util';
 import { MockLoginDto } from './dto/mock-login.dto';
 import { SteamLinkDto } from './dto/steam-link.dto';
@@ -62,7 +63,7 @@ export class AuthController {
       ),
       extension: getExtensionPublicConfig(),
       steamPriceEnabled: process.env.STEAM_MARKET_PRICE_ENABLED !== 'false',
-      referencePriceEnabled: process.env.REFERENCE_PRICE_ENABLED !== 'false',
+      referencePriceEnabled: isReferencePriceEnabled(),
     };
   }
 

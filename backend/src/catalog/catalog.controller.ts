@@ -51,17 +51,4 @@ export class CatalogController {
     return this.catalogService.getSteamPrices(names);
   }
 
-  @Post('reference-prices')
-  getReferencePrices(@Body() body: { marketHashNames?: string[] }) {
-    const names = body.marketHashNames ?? [];
-    if (!Array.isArray(names) || names.length === 0) {
-      throw new BadRequestException(
-        'marketHashNames must be a non-empty array',
-      );
-    }
-    if (names.length > 40) {
-      throw new BadRequestException('marketHashNames max length is 40');
-    }
-    return this.catalogService.getReferencePrices(names);
-  }
 }

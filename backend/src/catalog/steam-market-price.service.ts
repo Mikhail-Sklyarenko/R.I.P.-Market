@@ -8,6 +8,7 @@ type CacheEntry = {
 
 export type SteamPriceFetchOptions = {
   forceRefresh?: boolean;
+  cacheOnly?: boolean;
   cacheTtlMs?: number;
   failureCacheTtlMs?: number;
 };
@@ -19,15 +20,17 @@ export type SteamPriceMeta = {
 
 const DEFAULT_CACHE_TTL_MS = 20 * 60 * 1000;
 const DEFAULT_FAILURE_CACHE_TTL_MS = 30 * 1000;
-const FETCH_BATCH_SIZE = 2;
-const BATCH_DELAY_MS = 350;
-const MAX_FETCH_ATTEMPTS = 3;
-const RETRY_DELAY_MS = 400;
+const FETCH_BATCH_SIZE = 6;
+const BATCH_DELAY_MS = 120;
+const MAX_FETCH_ATTEMPTS = 2;
+const RETRY_DELAY_MS = 250;
+const FETCH_TIMEOUT_MS = 5_000;
 
 @Injectable()
 export class SteamMarketPriceService {
   private readonly logger = new Logger(SteamMarketPriceService.name);
   private readonly cache = new Map<string, CacheEntry>();
+  private readonly inflight = new Map<string, Promise<number | null>>();
 
   isEnabled(): boolean {
     return process.env.STEAM_MARKET_PRICE_ENABLED !== 'false';
@@ -77,6 +80,13 @@ export class SteamMarketPriceService {
           priceMinor: cached.priceMinor,
           fetchedAt: new Date(cached.fetchedAt).toISOString(),
         };
+      } else if (options?.cacheOnly) {
+        result[name] = {
+          priceMinor: cached?.priceMinor ?? null,
+          fetchedAt: cached
+            ? new Date(cached.fetchedAt).toISOString()
+            : null,
+        };
       } else {
         pending.push(name);
       }
@@ -105,20 +115,22 @@ export class SteamMarketPriceService {
   ): Promise<void> {
     for (let index = 0; index < pending.length; index += FETCH_BATCH_SIZE) {
       const batch = pending.slice(index, index + FETCH_BATCH_SIZE);
-      for (const name of batch) {
-        const fetchedAt = Date.now();
-        const priceMinor = await this.fetchPriceMinorWithRetry(name);
-        const ttl = priceMinor !== null ? cacheTtlMs : failureCacheTtlMs;
-        this.cache.set(name, {
-          priceMinor,
-          fetchedAt,
-          expiresAt: fetchedAt + ttl,
-        });
-        result[name] = {
-          priceMinor,
-          fetchedAt: new Date(fetchedAt).toISOString(),
-        };
-      }
+      await Promise.all(
+        batch.map(async (name) => {
+          const fetchedAt = Date.now();
+          const priceMinor = await this.fetchPriceMinorWithRetry(name);
+          const ttl = priceMinor !== null ? cacheTtlMs : failureCacheTtlMs;
+          this.cache.set(name, {
+            priceMinor,
+            fetchedAt,
+            expiresAt: fetchedAt + ttl,
+          });
+          result[name] = {
+            priceMinor,
+            fetchedAt: new Date(fetchedAt).toISOString(),
+          };
+        }),
+      );
       if (index + FETCH_BATCH_SIZE < pending.length) {
         await sleep(BATCH_DELAY_MS);
       }
@@ -126,6 +138,23 @@ export class SteamMarketPriceService {
   }
 
   private async fetchPriceMinorWithRetry(
+    marketHashName: string,
+  ): Promise<number | null> {
+    const inflight = this.inflight.get(marketHashName);
+    if (inflight) {
+      return inflight;
+    }
+
+    const promise = this.fetchPriceMinorWithRetryInner(marketHashName).finally(
+      () => {
+        this.inflight.delete(marketHashName);
+      },
+    );
+    this.inflight.set(marketHashName, promise);
+    return promise;
+  }
+
+  private async fetchPriceMinorWithRetryInner(
     marketHashName: string,
   ): Promise<number | null> {
     for (let attempt = 1; attempt <= MAX_FETCH_ATTEMPTS; attempt++) {
@@ -180,7 +209,7 @@ export class SteamMarketPriceService {
           'User-Agent':
             'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
         },
-        signal: AbortSignal.timeout(8_000),
+        signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
       });
       if (!response.ok) {
         return null;

@@ -170,6 +170,16 @@ export function listPopularCatalogItems(limit = 12) {
   return apiRequest<CatalogItem[]>(`/catalog/popular?limit=${limit}`);
 }
 
+export function getCatalogSteamPrices(marketHashNames: string[]) {
+  return apiRequest<{
+    prices: Record<string, { priceMinor: number | null; fetchedAt?: string | null }>;
+    steamPriceFetchedAt?: string | null;
+  }>('/catalog/steam-prices', {
+    method: 'POST',
+    body: { marketHashNames },
+  });
+}
+
 export function listSimilarLots(lotId: string, limit = 6) {
   return apiRequest<Lot[]>(`/lots?similarTo=${encodeURIComponent(lotId)}&limit=${limit}`);
 }

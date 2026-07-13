@@ -9,9 +9,16 @@ import { InventoryPriceStack } from './InventoryPriceStack';
 type CatalogItemCardProps = {
   item: CatalogItem;
   isLoggedIn: boolean;
+  steamPriceMinor?: number | null;
+  pricesLoading?: boolean;
 };
 
-export function CatalogItemCard({ item, isLoggedIn }: CatalogItemCardProps) {
+export function CatalogItemCard({
+  item,
+  isLoggedIn,
+  steamPriceMinor,
+  pricesLoading = false,
+}: CatalogItemCardProps) {
   const navigate = useNavigate();
   const name = item.marketHashName;
   const { weapon, skin } = parseCatalogLotName(name);
@@ -75,11 +82,10 @@ export function CatalogItemCard({ item, isLoggedIn }: CatalogItemCardProps) {
         <div className="catalog-lot-card-bottom">
           <div className="catalog-lot-card-price-row">
             <InventoryPriceStack
-              steamPriceMinor={item.steamPriceMinor}
+              steamPriceMinor={steamPriceMinor ?? item.steamPriceMinor}
               marketplacePriceMinor={item.minMarketplacePriceMinor}
-              buffPriceMinor={item.buffPriceMinor}
-              csfloatPriceMinor={item.csfloatPriceMinor}
               testIdPrefix={`catalog-item-${item.id}`}
+              loading={pricesLoading && steamPriceMinor === undefined}
             />
           </div>
 
