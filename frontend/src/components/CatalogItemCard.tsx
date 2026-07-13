@@ -16,11 +16,14 @@ export function CatalogItemCard({ item, isLoggedIn }: CatalogItemCardProps) {
   const name = item.marketHashName;
   const { weapon, skin } = parseCatalogLotName(name);
   const imageUrl = getSteamItemImageUrl(item.iconUrl);
-  const lotPath = item.featuredLotId ? `/lots/${item.featuredLotId}` : null;
+  const itemPath = `/catalog/items/${item.id}`;
   const buyPath =
     item.featuredLotId && isLoggedIn
       ? `/lots/${item.featuredLotId}/checkout`
-      : lotPath;
+      : item.featuredLotId
+        ? `/lots/${item.featuredLotId}`
+        : null;
+  const hasOffers = item.activeLotCount > 0;
   const rarityStyle = getRarityStyle(item.rarity);
   const cardStyle = {
     '--lot-rarity-color': rarityStyle.color,
@@ -28,15 +31,10 @@ export function CatalogItemCard({ item, isLoggedIn }: CatalogItemCardProps) {
   } as CSSProperties;
 
   function openItem() {
-    if (lotPath) {
-      navigate(lotPath);
-    }
+    navigate(itemPath);
   }
 
   function handleCardKeyDown(event: KeyboardEvent<HTMLElement>) {
-    if (!lotPath) {
-      return;
-    }
     if (event.key === 'Enter' || event.key === ' ') {
       event.preventDefault();
       openItem();
@@ -45,14 +43,14 @@ export function CatalogItemCard({ item, isLoggedIn }: CatalogItemCardProps) {
 
   return (
     <article
-      className={`catalog-lot-card${lotPath ? '' : ' catalog-lot-card-unlisted'}`}
+      className={`catalog-lot-card${hasOffers ? '' : ' catalog-lot-card-unlisted'}`}
       style={cardStyle}
-      data-testid={lotPath ? 'catalog-open-lot' : `catalog-item-${item.id}`}
-      onClick={lotPath ? openItem : undefined}
+      data-testid={hasOffers ? 'catalog-open-lot' : `catalog-item-${item.id}`}
+      onClick={openItem}
       onKeyDown={handleCardKeyDown}
-      role={lotPath ? 'link' : undefined}
-      tabIndex={lotPath ? 0 : undefined}
-      aria-label={lotPath ? `Открыть ${name}` : `${name} — нет предложений`}
+      role="link"
+      tabIndex={0}
+      aria-label={hasOffers ? `Открыть ${name}` : `${name} — нет предложений`}
     >
       <div className="catalog-lot-card-top">
         {item.orderCount30d > 0 ? (
@@ -87,16 +85,14 @@ export function CatalogItemCard({ item, isLoggedIn }: CatalogItemCardProps) {
 
           <div className="catalog-lot-card-actions">
             {buyPath ? (
-              <>
-                <Link
-                  to={buyPath}
-                  className="catalog-lot-buy-btn"
-                  data-testid={`catalog-item-buy-${item.id}`}
-                  onClick={(event) => event.stopPropagation()}
-                >
-                  Купить сейчас
-                </Link>
-              </>
+              <Link
+                to={buyPath}
+                className="catalog-lot-buy-btn"
+                data-testid={`catalog-item-buy-${item.id}`}
+                onClick={(event) => event.stopPropagation()}
+              >
+                Купить сейчас
+              </Link>
             ) : (
               <span className="catalog-lot-unlisted muted small" data-testid={`catalog-item-empty-${item.id}`}>
                 Нет предложений

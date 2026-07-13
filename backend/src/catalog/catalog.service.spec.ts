@@ -1,10 +1,11 @@
-import { LotStatus } from '@prisma/client';
 import { CatalogService } from './catalog.service';
+import { LotStatus } from '@prisma/client';
 
 describe('CatalogService', () => {
   const prisma = {
     itemDefinition: {
       findMany: jest.fn(),
+      findUnique: jest.fn(),
     },
     lot: {
       findMany: jest.fn(),
@@ -33,42 +34,85 @@ describe('CatalogService', () => {
     jest.clearAllMocks();
     prisma.order.findMany.mockResolvedValue([]);
     steamMarketPrice.getPricesMinor.mockResolvedValue({});
+    steamMarketPrice.getPricesWithMeta.mockResolvedValue({});
     referencePrice.getPricesWithMeta.mockResolvedValue({});
   });
 
-  it('returns only item definitions with active lots', async () => {
-    prisma.lot.findMany.mockImplementation((args: { select?: unknown }) => {
-      if (args.select && 'priceMinor' in args.select) {
-        return Promise.resolve([
-          {
-            priceMinor: 1000n,
-            inventoryAsset: { itemDefinitionId: 'item-listed' },
-          },
-        ]);
-      }
-      if (args.select && 'id' in args.select) {
+  it('returns item definitions without active lots in catalog', async () => {
+    prisma.lot.findMany.mockResolvedValue([]);
+    prisma.itemDefinition.findMany.mockResolvedValue([
+      {
+        id: 'item-unlisted',
+        marketHashName: 'Revolution Case',
+        weapon: null,
+        rarity: 'Base Grade',
+        iconUrl: null,
+      },
+      {
+        id: 'item-listed',
+        marketHashName: 'AK-47 | Redline (Field-Tested)',
+        weapon: 'Rifle',
+        rarity: 'Classified',
+        iconUrl: null,
+      },
+    ]);
+    steamMarketPrice.getPricesWithMeta.mockResolvedValue({
+      'Revolution Case': { priceMinor: 350, fetchedAt: '2026-07-11T12:00:00.000Z' },
+      'AK-47 | Redline (Field-Tested)': {
+        priceMinor: 1250,
+        fetchedAt: '2026-07-11T12:00:00.000Z',
+      },
+    });
+
+    const result = await service.listItems({ page: 1, limit: 24 });
+
+    expect(result.items).toHaveLength(2);
+    expect(result.items.find((item) => item.id === 'item-unlisted')).toMatchObject({
+      activeLotCount: 0,
+      minMarketplacePriceMinor: null,
+      featuredLotId: null,
+    });
+  });
+
+  it('includes listed items with lot stats and featured lot', async () => {
+    prisma.lot.findMany.mockImplementation((args: { select?: unknown; orderBy?: unknown }) => {
+      if (args.orderBy) {
         return Promise.resolve([
           {
             id: 'lot-1',
             inventoryAsset: {
               itemDefinitionId: 'item-listed',
               wear: 'FT',
+              floatValue: null,
               itemDefinition: {
                 marketHashName: 'AK-47 | Redline (Field-Tested)',
               },
             },
             listingSnapshot: {
               wear: 'FT',
+              floatValue: null,
               marketHashName: 'AK-47 | Redline (Field-Tested)',
             },
           },
         ]);
       }
-      return Promise.resolve([
-        {
-          inventoryAsset: { itemDefinitionId: 'item-listed' },
-        },
-      ]);
+      if (args.select && typeof args.select === 'object' && args.select !== null && 'priceMinor' in args.select) {
+        return Promise.resolve([
+          {
+            priceMinor: 1000n,
+            inventoryAsset: {
+              itemDefinitionId: 'item-listed',
+              wear: 'FT',
+              floatValue: null,
+            },
+            listingSnapshot: {
+              wear: 'FT',
+              floatValue: null,
+            },
+          },
+        ]);
+      }
+      return Promise.resolve([]);
     });
     prisma.itemDefinition.findMany.mockResolvedValue([
       {
@@ -79,35 +123,29 @@ describe('CatalogService', () => {
         iconUrl: null,
       },
     ]);
-    steamMarketPrice.getPricesWithMeta.mockResolvedValue({
-      'AK-47 | Redline (Field-Tested)': {
-        priceMinor: 1250,
-        fetchedAt: '2026-07-11T12:00:00.000Z',
-      },
-    });
-    steamMarketPrice.getPricesMinor.mockResolvedValue({
-      'AK-47 | Redline (Field-Tested)': 1250,
-    });
 
     const result = await service.listItems({ page: 1, limit: 24 });
 
-    expect(prisma.lot.findMany).toHaveBeenCalledWith(
-      expect.objectContaining({
-        where: expect.objectContaining({
-          status: LotStatus.ACTIVE,
-        }),
-      }),
-    );
     expect(result.items).toHaveLength(1);
     expect(result.items[0]).toMatchObject({
       id: 'item-listed',
       activeLotCount: 1,
       featuredLotId: 'lot-1',
+      minMarketplacePriceMinor: '1000',
     });
   });
 
-  it('returns empty catalog when no active lots match filters', async () => {
+  it('returns unlisted items when weapon filter matches but no lots exist', async () => {
     prisma.lot.findMany.mockResolvedValue([]);
+    prisma.itemDefinition.findMany.mockResolvedValue([
+      {
+        id: 'item-knife',
+        marketHashName: '★ Karambit | Doppler (Factory New)',
+        weapon: 'Knife',
+        rarity: 'Covert',
+        iconUrl: null,
+      },
+    ]);
 
     const result = await service.listItems({
       page: 1,
@@ -115,19 +153,14 @@ describe('CatalogService', () => {
       weapon: 'Knife',
     });
 
-    expect(prisma.itemDefinition.findMany).not.toHaveBeenCalled();
-    expect(result).toEqual({
-      items: [],
-      total: 0,
-      page: 1,
-      limit: 24,
-      steamPriceFetchedAt: null,
-      referencePriceFetchedAt: null,
-    });
+    expect(prisma.itemDefinition.findMany).toHaveBeenCalled();
+    expect(result.items).toHaveLength(1);
+    expect(result.items[0]?.activeLotCount).toBe(0);
   });
 
   it('matches any other-tab item type when q contains pipe-separated terms', async () => {
     prisma.lot.findMany.mockResolvedValue([]);
+    prisma.itemDefinition.findMany.mockResolvedValue([]);
 
     await service.listItems({
       page: 1,
@@ -135,20 +168,15 @@ describe('CatalogService', () => {
       q: 'Sticker|Charm|Patch',
     });
 
-    expect(prisma.lot.findMany).toHaveBeenCalledWith(
+    expect(prisma.itemDefinition.findMany).toHaveBeenCalledWith(
       expect.objectContaining({
         where: expect.objectContaining({
-          status: LotStatus.ACTIVE,
-          inventoryAsset: {
-            itemDefinition: expect.objectContaining({
-              game: 'CS2',
-              OR: [
-                { marketHashName: { contains: 'Sticker', mode: 'insensitive' } },
-                { marketHashName: { contains: 'Charm', mode: 'insensitive' } },
-                { marketHashName: { contains: 'Patch', mode: 'insensitive' } },
-              ],
-            }),
-          },
+          game: 'CS2',
+          OR: [
+            { marketHashName: { contains: 'Sticker', mode: 'insensitive' } },
+            { marketHashName: { contains: 'Charm', mode: 'insensitive' } },
+            { marketHashName: { contains: 'Patch', mode: 'insensitive' } },
+          ],
         }),
       }),
     );

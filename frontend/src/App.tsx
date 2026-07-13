@@ -13,6 +13,7 @@ import { AdminOutboxPage } from './pages/admin/AdminOutboxPage';
 import { AdminUsersPage } from './pages/admin/AdminUsersPage';
 import { AccountPage } from './pages/AccountPage';
 import { CatalogPage } from './pages/CatalogPage';
+import { ItemPage } from './pages/ItemPage';
 import { CheckoutPage } from './pages/CheckoutPage';
 import { CreateLotPage } from './pages/CreateLotPage';
 import { InventoryPage } from './pages/InventoryPage';
@@ -57,6 +58,7 @@ export function App() {
 
         <Route element={<Layout />}>
           <Route path="/catalog" element={<CatalogPage />} />
+          <Route path="/catalog/items/:id" element={<ItemPage />} />
           <Route path="/lots/:id" element={<LotPage />} />
           <Route path="/faq" element={<FaqPage />} />
           <Route path="/support" element={<SupportPage />} />

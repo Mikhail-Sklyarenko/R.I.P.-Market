@@ -20,6 +20,7 @@ import { ObservabilityModule } from './common/observability/observability.module
 import { RequestIdMiddleware } from './common/observability/request-id.middleware';
 import { TestModule } from './test/test.module';
 import { ExtensionModule } from './extension/extension.module';
+import { BuyRequestsModule } from './buy-requests/buy-requests.module';
 import { CatalogModule } from './catalog/catalog.module';
 import { SupportModule } from './support/support.module';
 
@@ -43,6 +44,7 @@ import { SupportModule } from './support/support.module';
     PaymentsModule,
     SupportModule,
     CatalogModule,
+    BuyRequestsModule,
     ...(process.env.ENABLE_EXTENSION_CHANNEL === 'true'
       ? [ExtensionModule]
       : []),

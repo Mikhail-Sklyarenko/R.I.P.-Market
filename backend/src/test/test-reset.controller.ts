@@ -54,6 +54,7 @@ export class TestResetController {
         "ExtensionNonce",
         "ExtensionSession",
         "SupportTicket",
+        "BuyRequest",
         "ExtensionDevice",
         "TradeTaskStatusEvent",
         "TradeTask",

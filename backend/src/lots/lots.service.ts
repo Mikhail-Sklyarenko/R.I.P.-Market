@@ -35,6 +35,7 @@ import {
   resolveSteamMarketHashName,
 } from './steam-market-link.util';
 import { pickSimilarLots } from './similar-lots.util';
+import { BuyRequestMatchingService } from '../buy-requests/buy-request-matching.service';
 
 @Injectable()
 export class LotsService {
@@ -45,6 +46,7 @@ export class LotsService {
     private readonly steamVacService: SteamVacService,
     private readonly steamMarketPrice: SteamMarketPriceService,
     private readonly referencePrice: ReferencePriceService,
+    private readonly buyRequestMatching: BuyRequestMatchingService,
   ) {}
 
   getPricingPreview(priceMinor: number) {
@@ -109,6 +111,10 @@ export class LotsService {
         dto.priceMinor,
       ),
     );
+
+    if (lot?.id) {
+      void this.buyRequestMatching.matchLotActivated(lot.id).catch(() => undefined);
+    }
 
     return toJsonSafe(lot);
   }
@@ -192,6 +198,10 @@ export class LotsService {
       }
       return createdLots;
     });
+
+    for (const lot of lots) {
+      void this.buyRequestMatching.matchLotActivated(lot.id).catch(() => undefined);
+    }
 
     return toJsonSafe({
       lots,
@@ -523,6 +533,9 @@ export class LotsService {
     }
 
     const inventoryAssetFilter: Prisma.InventoryAssetWhereInput = {};
+    if (query.itemDefinitionId) {
+      inventoryAssetFilter.itemDefinitionId = query.itemDefinitionId;
+    }
     if (Object.keys(itemDefinitionFilter).length > 0) {
       inventoryAssetFilter.itemDefinition = itemDefinitionFilter;
     }

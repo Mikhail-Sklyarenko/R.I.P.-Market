@@ -69,6 +69,32 @@ export class NotificationsService {
     return { success: true };
   }
 
+  async notifyBuyRequestMatched(input: {
+    userId: string;
+    buyRequestId: string;
+    lotId: string;
+    itemDefinitionId: string;
+    marketHashName: string;
+    priceMinor: string;
+  }): Promise<void> {
+    const priceLabel = `$${(Number(input.priceMinor) / 100).toFixed(2)}`;
+    await this.prisma.notification.create({
+      data: {
+        userId: input.userId,
+        eventType: 'BUY_REQUEST_MATCHED',
+        title: 'Появилось предложение',
+        message: `По вашей заявке на ${input.marketHashName} выставлен лот за ${priceLabel}. Успейте купить — предложение может забрать другой.`,
+        payload: {
+          buyRequestId: input.buyRequestId,
+          lotId: input.lotId,
+          itemDefinitionId: input.itemDefinitionId,
+          marketHashName: input.marketHashName,
+          priceMinor: input.priceMinor,
+        },
+      },
+    });
+  }
+
   async createFromOutboxEvent(
     eventType: string,
     aggregateType: string,

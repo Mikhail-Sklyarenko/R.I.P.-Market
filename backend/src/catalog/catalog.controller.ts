@@ -3,6 +3,7 @@ import {
   Body,
   Controller,
   Get,
+  Param,
   Post,
   Query,
 } from '@nestjs/common';
@@ -18,6 +19,11 @@ export class CatalogController {
   @Get('items')
   listItems(@Query() query: ListCatalogItemsQueryDto) {
     return this.catalogService.listItems(query);
+  }
+
+  @Get('items/:id')
+  getItem(@Param('id') itemId: string) {
+    return this.catalogService.getItem(itemId);
   }
 
   @Get('popular')

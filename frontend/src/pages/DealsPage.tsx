@@ -1,12 +1,13 @@
 import { Link, useSearchParams } from 'react-router-dom';
 import { PageHeader } from '../components/PageHeader';
+import { MyBuyRequestsPage } from './MyBuyRequestsPage';
 import { MyLotsPage } from './MyLotsPage';
 import { MyOrdersPage } from './MyOrdersPage';
 
-export type DealsTab = 'purchases' | 'sales' | 'listings';
+export type DealsTab = 'purchases' | 'sales' | 'listings' | 'requests';
 
 function parseDealsTab(value: string | null): DealsTab {
-  if (value === 'sales' || value === 'listings') {
+  if (value === 'sales' || value === 'listings' || value === 'requests') {
     return value;
   }
   return 'purchases';
@@ -24,7 +25,7 @@ export function DealsPage() {
     <div className="page seller-activity-page" data-testid="deals-page">
       <PageHeader
         title="Сделки"
-        subtitle="Покупки, продажи и ваши лоты в одном разделе."
+        subtitle="Покупки, продажи, заявки на покупку и ваши лоты в одном разделе."
         actions={
           <Link to="/sell/inventory" className="button secondary">
             Новый лот
@@ -56,6 +57,16 @@ export function DealsPage() {
         <button
           type="button"
           role="tab"
+          className={`seller-activity-tab${tab === 'requests' ? ' active' : ''}`}
+          aria-selected={tab === 'requests'}
+          data-testid="deals-tab-requests"
+          onClick={() => selectTab('requests')}
+        >
+          Заявки
+        </button>
+        <button
+          type="button"
+          role="tab"
           className={`seller-activity-tab${tab === 'listings' ? ' active' : ''}`}
           aria-selected={tab === 'listings'}
           data-testid="deals-tab-listings"
@@ -71,6 +82,7 @@ export function DealsPage() {
       {tab === 'sales' ? (
         <MyOrdersPage embedded sellerOnly emptyStateMode="sales" />
       ) : null}
+      {tab === 'requests' ? <MyBuyRequestsPage embedded /> : null}
       {tab === 'listings' ? <MyLotsPage embedded /> : null}
     </div>
   );

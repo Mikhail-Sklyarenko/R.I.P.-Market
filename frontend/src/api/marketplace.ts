@@ -9,6 +9,7 @@ import type {
   LotsPage,
   CatalogItem,
   CatalogItemsPage,
+  BuyRequest,
   Notification,
   NotificationCategory,
   Order,
@@ -88,6 +89,7 @@ export function listActiveLots() {
 
 export function listLots(params: ListLotsParams) {
   const query = buildQueryString({
+    itemDefinitionId: params.itemDefinitionId,
     q: params.q,
     minPriceMinor: params.minPriceMinor,
     maxPriceMinor: params.maxPriceMinor,
@@ -132,6 +134,36 @@ export function listCatalogItems(params: ListCatalogItemsParams) {
     limit: params.limit,
   });
   return apiRequest<CatalogItemsPage>(`/catalog/items${query}`);
+}
+
+export function getCatalogItem(itemId: string) {
+  return apiRequest<CatalogItem>(`/catalog/items/${itemId}`);
+}
+
+export function createBuyRequest(
+  token: string,
+  itemDefinitionId: string,
+  options?: { maxPriceMinor?: number },
+) {
+  return apiRequest<BuyRequest>(`/buy-requests/items/${itemDefinitionId}`, {
+    method: 'POST',
+    token,
+    body: options?.maxPriceMinor ? { maxPriceMinor: options.maxPriceMinor } : {},
+  });
+}
+
+export function listMyBuyRequests(token: string, itemDefinitionId?: string) {
+  const query = itemDefinitionId
+    ? `?itemDefinitionId=${encodeURIComponent(itemDefinitionId)}`
+    : '';
+  return apiRequest<BuyRequest[]>(`/buy-requests/mine${query}`, { token });
+}
+
+export function cancelBuyRequest(token: string, buyRequestId: string) {
+  return apiRequest<BuyRequest>(`/buy-requests/${buyRequestId}`, {
+    method: 'DELETE',
+    token,
+  });
 }
 
 export function listPopularCatalogItems(limit = 12) {

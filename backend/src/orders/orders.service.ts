@@ -32,6 +32,7 @@ import { UpdateTradeReferenceDto } from './dto/update-trade-reference.dto';
 import { OrderStateService } from './order-state.service';
 import { hasValidTradeUrl } from '../users/trade-url.util';
 import { SteamVacService } from '../users/steam-vac.service';
+import { BuyRequestMatchingService } from '../buy-requests/buy-request-matching.service';
 
 type LockedLotRow = {
   id: string;
@@ -56,6 +57,7 @@ export class OrdersService {
     private readonly extensionFlowMetrics: ExtensionFlowMetricsService,
     private readonly extensionRolloutService: ExtensionRolloutService,
     private readonly steamVacService: SteamVacService,
+    private readonly buyRequestMatching: BuyRequestMatchingService,
   ) {}
 
   async create(buyerId: string, dto: CreateOrderDto, idempotencyKey: string) {
@@ -391,6 +393,14 @@ export class OrdersService {
         sellerId: order.sellerId,
         buyerId: order.buyerId,
       });
+
+      const itemDefinitionId =
+        order.lot?.inventoryAsset?.itemDefinitionId ?? null;
+      if (itemDefinitionId) {
+        void this.buyRequestMatching
+          .fulfillForPurchase(buyerId, itemDefinitionId)
+          .catch(() => undefined);
+      }
 
       return toJsonSafe(order);
     } catch (error) {

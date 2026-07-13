@@ -1,4 +1,5 @@
 import { Module, forwardRef } from '@nestjs/common';
+import { BuyRequestsModule } from '../buy-requests/buy-requests.module';
 import { ExtensionRolloutModule } from '../extension/extension-rollout.module';
 import { LotsModule } from '../lots/lots.module';
 import { UsersModule } from '../users/users.module';
@@ -15,6 +16,7 @@ import { OrdersService } from './orders.service';
   imports: [
     WalletModule,
     LotsModule,
+    BuyRequestsModule,
     ExtensionRolloutModule,
     UsersModule,
     forwardRef(() => TradesModule),

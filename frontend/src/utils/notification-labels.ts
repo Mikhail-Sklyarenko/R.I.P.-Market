@@ -31,6 +31,10 @@ export const NOTIFICATION_EVENT_LABELS: Record<
     title: 'Открыт спор',
     message: 'Откройте сделку и следуйте инструкциям поддержки.',
   },
+  BUY_REQUEST_MATCHED: {
+    title: 'Появилось предложение',
+    message: 'По вашей заявке выставлен новый лот. Успейте купить — предложение может забрать другой.',
+  },
   SALE_SETTLED: {
     title: 'Выплата за продажу',
     message: 'Средства за продажу зачислены на кошелёк.',
@@ -167,6 +171,13 @@ export function getNotificationOrderId(notification: Notification): string | nul
 }
 
 export function getNotificationTargetPath(notification: Notification): string | null {
+  if (notification.eventType === 'BUY_REQUEST_MATCHED') {
+    const lotId = notification.payload?.lotId;
+    if (typeof lotId === 'string' && lotId.length > 0) {
+      return `/lots/${lotId}`;
+    }
+  }
+
   const orderId = getNotificationOrderId(notification);
   if (orderId) {
     return `/orders/${orderId}`;

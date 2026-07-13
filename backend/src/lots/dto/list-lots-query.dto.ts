@@ -73,5 +73,9 @@ export class ListLotsQueryDto {
 
   @IsOptional()
   @IsUUID()
+  itemDefinitionId?: string;
+
+  @IsOptional()
+  @IsUUID()
   similarTo?: string;
 }

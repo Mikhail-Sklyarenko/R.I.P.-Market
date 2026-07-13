@@ -3367,16 +3367,84 @@ p {
 }
 
 .catalog-lot-card-unlisted {
-  cursor: default;
-}
-
-.catalog-lot-card-unlisted:hover {
-  transform: none;
+  cursor: pointer;
 }
 
 .catalog-lot-unlisted {
   display: block;
   padding: 8px 0;
+}
+
+.item-offers-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.item-offers-header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+.item-offers-header h2 {
+  margin: 0;
+  font-size: var(--font-size-lg);
+}
+
+.item-offers-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.item-offers-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: var(--space-3);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+}
+
+.item-offers-actions {
+  display: flex;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+}
+
+.item-purchase-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.item-purchase-label {
+  margin: 0;
+}
+
+.item-buy-request-panel h3 {
+  margin: 0 0 var(--space-2);
+  font-size: var(--font-size-md);
+}
+
+.item-buy-request-panel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding-top: var(--space-3);
+  border-top: 1px solid var(--color-border);
+}
+
+.item-buy-request-active {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
 }
 
 .inventory-show-unavailable {

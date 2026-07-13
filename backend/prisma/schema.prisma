@@ -153,8 +153,34 @@ model User {
   extensionSessions ExtensionSession[]
   supportTickets   SupportTicket[]
   tradeAcknowledgments TradeAcknowledgment[]
+  buyRequests      BuyRequest[]
 
   @@index([role, status])
+}
+
+enum BuyRequestStatus {
+  OPEN
+  CANCELED
+  FULFILLED
+  EXPIRED
+}
+
+model BuyRequest {
+  id                      String           @id @default(uuid())
+  buyerId                 String
+  itemDefinitionId        String
+  maxPriceMinor           BigInt?
+  status                  BuyRequestStatus @default(OPEN)
+  lastNotifiedLotId       String?
+  lastNotifiedPriceMinor  BigInt?
+  createdAt               DateTime         @default(now())
+  updatedAt               DateTime         @updatedAt
+  buyer            User             @relation(fields: [buyerId], references: [id], onDelete: Cascade)
+  itemDefinition   ItemDefinition   @relation(fields: [itemDefinitionId], references: [id], onDelete: Cascade)
+
+  @@unique([buyerId, itemDefinitionId, status])
+  @@index([buyerId, status])
+  @@index([itemDefinitionId, status])
 }
 
 enum SupportTicketStatus {
@@ -246,6 +272,7 @@ model ItemDefinition {
   createdAt      DateTime         @default(now())
   updatedAt      DateTime         @updatedAt
   assets         InventoryAsset[]
+  buyRequests    BuyRequest[]
 }
 
 model InventoryAsset {

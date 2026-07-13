@@ -259,6 +259,22 @@ export type CatalogItemsPage = {
   referencePriceFetchedAt?: string | null;
 };
 
+export type BuyRequest = {
+  id: string;
+  buyerId: string;
+  itemDefinitionId: string;
+  maxPriceMinor: string | null;
+  status: 'OPEN' | 'CANCELED' | 'FULFILLED' | 'EXPIRED';
+  lastNotifiedLotId?: string | null;
+  lastNotifiedPriceMinor?: string | null;
+  createdAt: string;
+  updatedAt: string;
+  itemDefinition?: Pick<
+    CatalogItem,
+    'id' | 'marketHashName' | 'weapon' | 'rarity' | 'iconUrl'
+  >;
+};
+
 export type PricingPreview = {
   priceMinor: number;
   commissionMinor: number;
@@ -366,6 +382,7 @@ export type LotsPage = {
 };
 
 export type ListLotsParams = {
+  itemDefinitionId?: string;
   q?: string;
   minPriceMinor?: number;
   maxPriceMinor?: number;
