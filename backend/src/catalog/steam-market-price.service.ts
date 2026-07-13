@@ -172,13 +172,6 @@ export class SteamMarketPriceService {
     });
   }
 
-  private isDatabaseEntryFresh(
-    dbEntry: { fetchedAt: Date },
-    cacheTtlMs: number,
-  ): boolean {
-    return dbEntry.fetchedAt.getTime() + cacheTtlMs > Date.now();
-  }
-
   private toMetaFromDatabase(
     dbEntry?: {
       priceMinor: number | null;
