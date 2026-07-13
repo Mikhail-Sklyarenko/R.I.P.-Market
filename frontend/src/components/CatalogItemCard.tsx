@@ -8,6 +8,7 @@ import {
 } from '../utils/catalog-lot-display';
 import { getSteamItemImageUrl } from '../utils/item-image';
 import { getRarityStyle } from '../utils/rarity-colors';
+import { getCatalogBuyPath, getCatalogItemPath } from '../utils/catalog-navigation';
 import { InventoryPriceStack } from './InventoryPriceStack';
 
 type CatalogItemCardProps = {
@@ -19,7 +20,7 @@ type CatalogItemCardProps = {
 
 export function CatalogItemCard({
   item,
-  isLoggedIn,
+  isLoggedIn: _isLoggedIn,
   steamPriceMinor,
   pricesLoading = false,
 }: CatalogItemCardProps) {
@@ -28,13 +29,8 @@ export function CatalogItemCard({
   const { weapon, skin } = parseCatalogLotName(name);
   const wearBadge = getWearBadgeStyle(parseWearCodeFromMarketHashName(name));
   const imageUrl = getSteamItemImageUrl(item.iconUrl);
-  const itemPath = `/catalog/items/${item.id}`;
-  const buyPath =
-    item.featuredLotId && isLoggedIn
-      ? `/lots/${item.featuredLotId}/checkout`
-      : item.featuredLotId
-        ? `/lots/${item.featuredLotId}`
-        : null;
+  const itemPath = getCatalogItemPath(item);
+  const buyPath = getCatalogBuyPath(item);
   const hasOffers = item.activeLotCount > 0;
   const resolvedSteamPrice = steamPriceMinor ?? item.steamPriceMinor;
   const rarityStyle = getRarityStyle(item.rarity);

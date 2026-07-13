@@ -11,15 +11,17 @@ import type { BuyRequest, CatalogItem, Lot } from '../api/types';
 import { useAuth } from '../auth/AuthContext';
 import { ErrorAlert } from '../components/ErrorAlert';
 import { InventoryPriceStack } from '../components/InventoryPriceStack';
+import { ItemCompareHeader } from '../components/ItemCompareHeader';
+import { ItemOffersTable } from '../components/ItemOffersTable';
 import { LoadingState } from '../components/LoadingState';
 import { LotBreadcrumbs } from '../components/LotBreadcrumbs';
-import { LotItemHero } from '../components/LotItemHero';
-import { ItemParamsPanel } from '../components/ItemParamsPanel';
 import { MoneyDisplay } from '../components/MoneyDisplay';
+import {
+  resolveSingleLotId,
+  shouldRedirectItemPageToLot,
+} from '../utils/catalog-navigation';
 import { getRarityDisplayLabel } from '../utils/rarity-colors';
 import { parseUsdToMinor } from '../utils/format';
-import { parseWearCodeFromMarketHashName } from '../utils/catalog-lot-display';
-import { resolveLotDisplayItem } from '../utils/lot-display';
 
 export function ItemPage() {
   const { id } = useParams();
@@ -37,7 +39,9 @@ export function ItemPage() {
 
   const maxPriceMinor = useMemo(() => parseUsdToMinor(maxPriceInput), [maxPriceInput]);
   const hasOffers = (item?.activeLotCount ?? 0) > 0;
+  const isComparisonPage = hasOffers && (item?.activeLotCount ?? 0) > 1;
   const openBuyRequest = buyRequest?.status === 'OPEN' ? buyRequest : null;
+  const cheapestLot = lots[0] ?? null;
 
   useEffect(() => {
     if (!id) {
@@ -73,6 +77,19 @@ export function ItemPage() {
       })
       .catch(() => setBuyRequest(null));
   }, [token, id]);
+
+  useEffect(() => {
+    if (!item || lotsLoading) {
+      return;
+    }
+    if (!shouldRedirectItemPageToLot(item, lots.length)) {
+      return;
+    }
+    const lotId = resolveSingleLotId(item, lots);
+    if (lotId) {
+      navigate(`/lots/${lotId}`, { replace: true });
+    }
+  }, [item, lots, lotsLoading, navigate]);
 
   async function handleCreateBuyRequest() {
     if (!token || !id) {
@@ -119,34 +136,22 @@ export function ItemPage() {
     return null;
   }
 
-  const displayItem = useMemo(() => {
-    if (!item) {
-      return null;
-    }
+  const redirectingToSingleLot =
+    item &&
+    !lotsLoading &&
+    shouldRedirectItemPageToLot(item, lots.length) &&
+    Boolean(resolveSingleLotId(item, lots));
 
-    const featuredLot = lots.find((lot) => lot.id === item.featuredLotId) ?? lots[0];
-    const lotDisplay = featuredLot ? resolveLotDisplayItem(featuredLot) : null;
-
-    return {
-      wear:
-        lotDisplay?.wear ??
-        parseWearCodeFromMarketHashName(item.marketHashName),
-      floatValue: lotDisplay?.floatValue ?? null,
-      itemDefinition: {
-        marketHashName: item.marketHashName,
-        weapon: item.weapon,
-        rarity: item.rarity,
-        iconUrl: item.iconUrl,
-      },
-    };
-  }, [item, lots]);
+  if (redirectingToSingleLot) {
+    return <LoadingState message="Открываем предложение…" />;
+  }
 
   return (
     <div className="page item-page" data-testid="item-page">
       {loading ? <LoadingState message="Загрузка предмета…" /> : null}
       <ErrorAlert error={error} />
 
-      {item && displayItem ? (
+      {item ? (
         <>
           <LotBreadcrumbs
             marketHashName={item.marketHashName}
@@ -154,141 +159,105 @@ export function ItemPage() {
             categoryLabel={getRarityDisplayLabel(item.rarity)}
           />
 
-          <div className="lot-page-grid">
-            <div className="lot-page-main">
-              <div className="card lot-preview-card">
-                <LotItemHero item={displayItem} />
-                <ItemParamsPanel item={displayItem} testId="item-params" />
-              </div>
+          <div className={`item-compare-layout${isComparisonPage ? '' : ' item-compare-layout-single'}`}>
+            <div className="item-compare-main">
+              <ItemCompareHeader item={item} />
 
-              <section className="card item-offers-card" data-testid="item-offers-section">
-                <div className="item-offers-header">
-                  <h2>Предложения продавцов</h2>
-                  <span className="muted small">
-                    {hasOffers ? `${item.activeLotCount} на маркетплейсе` : 'Сейчас нет активных лотов'}
-                  </span>
-                </div>
+              {isComparisonPage ? <ItemOffersTable lots={lots} loading={lotsLoading} /> : null}
 
-                {lotsLoading ? <LoadingState message="Загрузка предложений…" /> : null}
-
-                {!lotsLoading && lots.length === 0 ? (
-                  <p className="muted" data-testid="item-no-offers">
-                    Пока никто не продаёт этот предмет. Оставьте заявку — мы сохраним её и покажем продавцам.
+              {!hasOffers ? (
+                <section className="card item-buy-request-card" data-testid="item-buy-request-panel">
+                  <h2>Заявка на покупку</h2>
+                  <p className="muted">
+                    Пока никто не продаёт этот предмет. Оставьте заявку — мы уведомим вас, когда
+                    появится подходящий лот.
                   </p>
-                ) : null}
 
-                {!lotsLoading && lots.length > 0 ? (
-                  <ul className="item-offers-list" data-testid="item-offers-list">
-                    {lots.map((lot) => (
-                      <li key={lot.id} className="item-offers-row" data-testid={`item-offer-${lot.id}`}>
-                        <div className="item-offers-price">
-                          <MoneyDisplay minor={lot.priceMinor} strong />
-                        </div>
-                        <div className="item-offers-actions">
-                          <Link to={`/lots/${lot.id}`} className="button secondary">
-                            Подробнее
-                          </Link>
-                          <Link
-                            to={token ? `/lots/${lot.id}/checkout` : `/login?returnUrl=${encodeURIComponent(`/lots/${lot.id}/checkout`)}`}
-                            className="button primary"
-                          >
-                            Купить
-                          </Link>
-                        </div>
-                      </li>
-                    ))}
-                  </ul>
-                ) : null}
-              </section>
+                  {openBuyRequest ? (
+                    <div className="item-buy-request-active" data-testid="item-buy-request-active">
+                      <p>
+                        Заявка активна
+                        {openBuyRequest.maxPriceMinor ? (
+                          <>
+                            {' '}
+                            до <MoneyDisplay minor={openBuyRequest.maxPriceMinor} strong />
+                          </>
+                        ) : (
+                          ' без ограничения цены'
+                        )}
+                        .
+                      </p>
+                      <button
+                        type="button"
+                        className="button secondary"
+                        disabled={submitting}
+                        data-testid="item-buy-request-cancel"
+                        onClick={handleCancelBuyRequest}
+                      >
+                        Отменить заявку
+                      </button>
+                    </div>
+                  ) : (
+                    <>
+                      <label className="form-field">
+                        <span>Максимальная цена, USD (необязательно)</span>
+                        <input
+                          type="text"
+                          inputMode="decimal"
+                          placeholder="Например, 25.00"
+                          value={maxPriceInput}
+                          onChange={(event) => setMaxPriceInput(event.target.value)}
+                          data-testid="item-buy-request-max-price"
+                        />
+                      </label>
+                      <ErrorAlert error={requestError} />
+                      <button
+                        type="button"
+                        className="button primary lot-purchase-button"
+                        disabled={submitting}
+                        data-testid="item-buy-request-submit"
+                        onClick={handleCreateBuyRequest}
+                      >
+                        {token ? 'Оставить заявку на покупку' : 'Войти и оставить заявку'}
+                      </button>
+                      <p className="muted small">
+                        Активные заявки — во вкладке{' '}
+                        <Link to="/deals?tab=requests">Сделки → Заявки</Link>.
+                      </p>
+                    </>
+                  )}
+                </section>
+              ) : null}
             </div>
 
-            <aside className="lot-page-sidebar">
-              <div className="card lot-purchase-card item-purchase-card">
-                <p className="item-purchase-label muted small">Цена на маркетплейсе</p>
-                <div data-testid="item-market-price">
-                  <InventoryPriceStack
-                    steamPriceMinor={item.steamPriceMinor}
-                    marketplacePriceMinor={item.minMarketplacePriceMinor}
-                    testIdPrefix="item"
-                  />
-                </div>
-
-                {hasOffers && item.featuredLotId ? (
-                  <Link
-                    to={token ? `/lots/${item.featuredLotId}/checkout` : `/login?returnUrl=${encodeURIComponent(`/lots/${item.featuredLotId}/checkout`)}`}
-                    className="button primary lot-purchase-button"
-                    data-testid="item-buy-cheapest"
-                  >
-                    {token ? 'Купить самое дешёвое предложение' : 'Войти для покупки'}
-                  </Link>
-                ) : null}
-
-                {!hasOffers ? (
-                  <div className="item-buy-request-panel" data-testid="item-buy-request-panel">
-                    <h3>Заявка на покупку</h3>
-                    <p className="muted small">
-                      Мы уведомим вас в приложении, когда появится подходящий лот. Покупка не
-                      гарантирована — действуйте быстро, предложение может забрать другой.
-                    </p>
-
-                    {openBuyRequest ? (
-                      <div className="item-buy-request-active" data-testid="item-buy-request-active">
-                        <p>
-                          Заявка активна
-                          {openBuyRequest.maxPriceMinor ? (
-                            <>
-                              {' '}
-                              до{' '}
-                              <MoneyDisplay minor={openBuyRequest.maxPriceMinor} strong />
-                            </>
-                          ) : (
-                            ' без ограничения цены'
-                          )}
-                          .
-                        </p>
-                        <button
-                          type="button"
-                          className="button secondary"
-                          disabled={submitting}
-                          data-testid="item-buy-request-cancel"
-                          onClick={handleCancelBuyRequest}
-                        >
-                          Отменить заявку
-                        </button>
-                      </div>
-                    ) : (
-                      <>
-                        <label className="form-field">
-                          <span>Максимальная цена, USD (необязательно)</span>
-                          <input
-                            type="text"
-                            inputMode="decimal"
-                            placeholder="Например, 25.00"
-                            value={maxPriceInput}
-                            onChange={(event) => setMaxPriceInput(event.target.value)}
-                            data-testid="item-buy-request-max-price"
-                          />
-                        </label>
-                        <ErrorAlert error={requestError} />
-                        <button
-                          type="button"
-                          className="button primary lot-purchase-button"
-                          disabled={submitting}
-                          data-testid="item-buy-request-submit"
-                          onClick={handleCreateBuyRequest}
-                        >
-                          {token ? 'Оставить заявку на покупку' : 'Войти и оставить заявку'}
-                        </button>
-                        <p className="muted small">
-                          Активные заявки — во вкладке{' '}
-                          <Link to="/deals?tab=requests">Сделки → Заявки</Link>.
-                        </p>
-                      </>
-                    )}
+            {isComparisonPage ? (
+              <aside className="item-compare-sidebar">
+                <div className="card lot-purchase-card item-purchase-card">
+                  <p className="item-purchase-label muted small">Лучшее предложение</p>
+                  <div data-testid="item-market-price">
+                    <InventoryPriceStack
+                      steamPriceMinor={item.steamPriceMinor}
+                      marketplacePriceMinor={cheapestLot?.priceMinor ?? item.minMarketplacePriceMinor}
+                      testIdPrefix="item"
+                    />
                   </div>
-                ) : null}
-              </div>
-            </aside>
+
+                  {cheapestLot ? (
+                    <Link
+                      to={`/lots/${cheapestLot.id}`}
+                      className="button primary lot-purchase-button"
+                      data-testid="item-open-cheapest"
+                    >
+                      Открыть лучшее предложение
+                    </Link>
+                  ) : null}
+
+                  <p className="muted small">
+                    Float, стикеры и inspect доступны на странице конкретного лота.
+                  </p>
+                </div>
+              </aside>
+            ) : null}
           </div>
         </>
       ) : null}

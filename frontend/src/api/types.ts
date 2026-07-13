@@ -143,6 +143,7 @@ export type SupportTicket = {
 };
 
 export type ItemDefinition = {
+  id?: string;
   marketHashName: string;
   weapon?: string;
   rarity?: string;
@@ -172,6 +173,7 @@ export type ListingSticker = {
 
 export type InventoryAsset = {
   id: string;
+  itemDefinitionId?: string;
   status: string;
   tradable: boolean;
   marketable?: boolean;

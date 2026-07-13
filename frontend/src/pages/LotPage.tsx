@@ -1,11 +1,12 @@
 import { useEffect, useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
-import { getAuthConfig, getLot, listSimilarLots } from '../api/marketplace';
+import { Link, useNavigate, useParams } from 'react-router-dom';
+import { getAuthConfig, getCatalogItem, getLot, listSimilarLots } from '../api/marketplace';
 import type { Lot } from '../api/types';
 import { useAuth } from '../auth/AuthContext';
 import { DealFlowSteps } from '../components/DealFlowSteps';
 import { ErrorAlert } from '../components/ErrorAlert';
 import { EscrowNotice } from '../components/EscrowNotice';
+import { InventoryPriceStack } from '../components/InventoryPriceStack';
 import { LotItemHero } from '../components/LotItemHero';
 import { ItemParamsPanel } from '../components/ItemParamsPanel';
 import { LotStickers } from '../components/LotStickers';
@@ -31,6 +32,7 @@ export function LotPage() {
   const [similarLoading, setSimilarLoading] = useState(true);
   const [error, setError] = useState<unknown>(null);
   const [requiresSteamLink, setRequiresSteamLink] = useState(false);
+  const [siblingOfferCount, setSiblingOfferCount] = useState<number | null>(null);
 
   const isOwnLot = Boolean(lot && user && lot.sellerId === user.id);
   const isUnavailable = lot?.status !== 'ACTIVE';
@@ -66,6 +68,19 @@ export function LotPage() {
       .catch(() => setSimilarLots([]))
       .finally(() => setSimilarLoading(false));
   }, [id, lot]);
+
+  const itemDefinitionId =
+    lot?.inventoryAsset.itemDefinitionId ?? lot?.inventoryAsset.itemDefinition.id ?? null;
+
+  useEffect(() => {
+    if (!itemDefinitionId) {
+      setSiblingOfferCount(null);
+      return;
+    }
+    getCatalogItem(itemDefinitionId)
+      .then((item) => setSiblingOfferCount(item.activeLotCount))
+      .catch(() => setSiblingOfferCount(null));
+  }, [itemDefinitionId]);
 
   function handleProceedToCheckout() {
     if (!id) {
@@ -155,14 +170,22 @@ export function LotPage() {
                   <StatusBadge status={lot.status} />
                 </div>
 
-                <p className="lot-purchase-price" data-testid="lot-purchase-price">
-                  <MoneyDisplay minor={lot.priceMinor} strong />
-                </p>
+                <div className="lot-purchase-price" data-testid="lot-purchase-price">
+                  <InventoryPriceStack
+                    steamPriceMinor={lot.steamPriceMinor}
+                    marketplacePriceMinor={lot.marketplacePriceMinor ?? lot.priceMinor}
+                    testIdPrefix="lot"
+                  />
+                </div>
 
-                {lot.steamPriceMinor ? (
-                  <p className="muted small" data-testid="lot-steam-reference-price">
-                    Цена Steam: <MoneyDisplay minor={lot.steamPriceMinor} />
-                  </p>
+                {siblingOfferCount && siblingOfferCount > 1 && itemDefinitionId ? (
+                  <Link
+                    to={`/catalog/items/${itemDefinitionId}`}
+                    className="lot-compare-offers-link muted small"
+                    data-testid="lot-compare-offers-link"
+                  >
+                    Все предложения ({siblingOfferCount})
+                  </Link>
                 ) : null}
 
                 <details className="lot-pricing-details">

@@ -69,7 +69,7 @@ function CatalogLotCartIcon() {
   );
 }
 
-export function CatalogLotCard({ lot, isLoggedIn }: CatalogLotCardProps) {
+export function CatalogLotCard({ lot, isLoggedIn: _isLoggedIn }: CatalogLotCardProps) {
   const navigate = useNavigate();
   const { inventoryAsset } = lot;
   const name = inventoryAsset.itemDefinition.marketHashName;
@@ -78,7 +78,7 @@ export function CatalogLotCard({ lot, isLoggedIn }: CatalogLotCardProps) {
   const patternText = formatPaintSeed(inventoryAsset.paintSeed);
   const imageUrl = getSteamItemImageUrl(inventoryAsset.itemDefinition.iconUrl);
   const lotPath = `/lots/${lot.id}`;
-  const buyPath = isLoggedIn ? `/lots/${lot.id}/checkout` : lotPath;
+  const buyPath = lotPath;
   const rarityStyle = getRarityStyle(inventoryAsset.itemDefinition.rarity);
   const cardStyle = {
     '--lot-rarity-color': rarityStyle.color,
