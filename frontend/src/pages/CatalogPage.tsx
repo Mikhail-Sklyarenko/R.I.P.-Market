@@ -55,9 +55,9 @@ function getInitialCategoryValue(weaponParam: string | null): string {
   return option?.value ?? weaponParam;
 }
 
-const STEAM_PRICE_CHUNK_SIZE = 8;
-const STEAM_PRICE_STALE_MS = 15 * 60 * 1000;
-const STEAM_PRICE_SINGLE_REQUEST_LIMIT = 24;
+/** Keep chunks small so the first prices appear before Steam finishes the whole page. */
+const STEAM_PRICE_CHUNK_SIZE = 4;
+const STEAM_PRICE_STALE_MS = 20 * 60 * 1000;
 
 function chunkArray<T>(items: T[], size: number): T[][] {
   const chunks: T[][] = [];
@@ -81,10 +81,9 @@ function buildPriceStateFromItems(items: CatalogItem[]) {
   for (const item of items) {
     if (item.steamPriceMinor != null) {
       steamPrices[item.marketHashName] = item.steamPriceMinor;
+      continue;
     }
-    if (!isSteamPriceFresh(item)) {
-      pending.add(item.marketHashName);
-    }
+    pending.add(item.marketHashName);
   }
 
   return { steamPrices, pending };
@@ -234,35 +233,32 @@ export function CatalogPage() {
     }
 
     const seeded: Record<string, number | null> = {};
-    const toRefresh: string[] = [];
+    const missing: string[] = [];
+    const softRefresh: string[] = [];
+
     for (const name of marketHashNames) {
       const item = allItems.find((entry) => entry.marketHashName === name);
       const resolvedPrice = item?.steamPriceMinor ?? steamPrices[name] ?? null;
       if (resolvedPrice != null) {
         seeded[name] = resolvedPrice;
-      }
-      if (!item || !isSteamPriceFresh(item)) {
-        toRefresh.push(name);
+        if (!item || !isSteamPriceFresh(item)) {
+          softRefresh.push(name);
+        }
+      } else {
+        missing.push(name);
       }
     }
 
-    toRefresh.sort((left, right) => {
-      const leftItem = allItems.find((entry) => entry.marketHashName === left);
-      const rightItem = allItems.find((entry) => entry.marketHashName === right);
-      const leftMissing = leftItem?.steamPriceMinor == null ? 0 : 1;
-      const rightMissing = rightItem?.steamPriceMinor == null ? 0 : 1;
-      return leftMissing - rightMissing;
-    });
-
     setSteamPrices((prev) => ({ ...prev, ...seeded }));
-    setPendingPriceNames(new Set(toRefresh));
+    setPendingPriceNames(new Set(missing));
 
-    if (toRefresh.length === 0) {
+    if (missing.length === 0 && softRefresh.length === 0) {
       return;
     }
 
     let cancelled = false;
     const loadedPrices: Record<string, number | null> = { ...seeded };
+    const batches = chunkArray(missing, STEAM_PRICE_CHUNK_SIZE);
 
     async function refreshChunk(chunk: string[]) {
       const response = await getCatalogSteamPrices(chunk);
@@ -280,70 +276,84 @@ export function CatalogPage() {
     }
 
     async function refreshSteamPrices() {
-      const batches =
-        toRefresh.length <= STEAM_PRICE_SINGLE_REQUEST_LIMIT
-          ? [toRefresh]
-          : chunkArray(toRefresh, STEAM_PRICE_CHUNK_SIZE);
-
       for (const chunk of batches) {
         if (cancelled) {
           return;
         }
 
         try {
-          const chunkPrices = await refreshChunk(chunk);
-          if (!cancelled) {
-            setPendingPriceNames((prev) => {
-              const next = new Set(prev);
-              for (const name of chunk) {
-                if (chunkPrices[name] != null) {
-                  next.delete(name);
-                }
-              }
-              return next;
-            });
-          }
+          await refreshChunk(chunk);
         } catch {
           // Try the next batch even if one request fails.
         }
-      }
 
-      if (cancelled) {
-        return;
-      }
-
-      await new Promise((resolve) => {
-        setTimeout(resolve, 2_000);
-      });
-
-      if (cancelled) {
-        return;
-      }
-
-      const retryNames = toRefresh.filter((name) => loadedPrices[name] == null);
-
-      if (retryNames.length === 0) {
-        setPendingPriceNames(new Set());
-        return;
-      }
-
-      try {
-        const retryPrices = await refreshChunk(retryNames);
         if (!cancelled) {
           setPendingPriceNames((prev) => {
             const next = new Set(prev);
-            for (const name of retryNames) {
-              if (retryPrices[name] != null) {
-                next.delete(name);
-              }
+            for (const name of chunk) {
+              next.delete(name);
             }
             return next;
           });
         }
-      } catch {
-        if (!cancelled) {
-          setPendingPriceNames(new Set());
+      }
+
+      if (cancelled) {
+        return;
+      }
+
+      const retryNames = missing.filter((name) => loadedPrices[name] == null);
+      if (retryNames.length > 0) {
+        await new Promise((resolve) => {
+          setTimeout(resolve, 1_500);
+        });
+        if (cancelled) {
+          return;
         }
+
+        for (const chunk of chunkArray(retryNames, STEAM_PRICE_CHUNK_SIZE)) {
+          if (cancelled) {
+            return;
+          }
+          setPendingPriceNames((prev) => {
+            const next = new Set(prev);
+            for (const name of chunk) {
+              next.add(name);
+            }
+            return next;
+          });
+          try {
+            await refreshChunk(chunk);
+          } catch {
+            // Continue remaining retries.
+          }
+          if (!cancelled) {
+            setPendingPriceNames((prev) => {
+              const next = new Set(prev);
+              for (const name of chunk) {
+                next.delete(name);
+              }
+              return next;
+            });
+          }
+        }
+      }
+
+      if (!cancelled && softRefresh.length > 0) {
+        for (const chunk of chunkArray(softRefresh, STEAM_PRICE_CHUNK_SIZE)) {
+          if (cancelled) {
+            return;
+          }
+          try {
+            await refreshChunk(chunk);
+          } catch {
+            // Soft refresh failures are non-blocking.
+          }
+        }
+      }
+
+      if (!cancelled) {
+        setPendingPriceNames(new Set());
       }
     }
 
@@ -352,6 +362,8 @@ export function CatalogPage() {
     return () => {
       cancelled = true;
     };
+    // Intentionally omit steamPrices: seeding uses a snapshot of state when items change.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [items, popularItems]);
 
   useEffect(() => {

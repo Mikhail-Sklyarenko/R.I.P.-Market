@@ -118,10 +118,8 @@ export class SteamMarketPriceService {
         continue;
       }
 
-      if (
-        dbEntry?.priceMinor != null &&
-        this.isDatabaseEntryFresh(dbEntry, cacheTtlMs)
-      ) {
+      // Serve any stored Steam price immediately; refresh only hard misses.
+      if (dbEntry?.priceMinor != null) {
         result[name] = this.toMetaFromDatabase(dbEntry);
         continue;
       }

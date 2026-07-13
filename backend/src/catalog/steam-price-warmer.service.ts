@@ -10,12 +10,15 @@ import { SteamMarketPriceService } from './steam-market-price.service';
 
 const POPULAR_WINDOW_MS = 30 * 24 * 60 * 60 * 1000;
 const WARMUP_STARTUP_DELAY_MS = 15_000;
-const WARMUP_MAX_NAMES = 80;
+const WARMUP_PRIORITY_MAX = 40;
+const WARMUP_CATALOG_BATCH = 36;
+const WARMUP_TOTAL_MAX = 60;
 
 @Injectable()
 export class SteamPriceWarmerService implements OnModuleInit {
   private readonly logger = new Logger(SteamPriceWarmerService.name);
   private startupWarmupScheduled = false;
+  private catalogWarmOffset = 0;
 
   constructor(
     private readonly prisma: PrismaService,
@@ -63,7 +66,7 @@ export class SteamPriceWarmerService implements OnModuleInit {
 
   private async collectPriorityMarketHashNames(): Promise<string[]> {
     const since = new Date(Date.now() - POPULAR_WINDOW_MS);
-    const [activeLots, recentOrders] = await Promise.all([
+    const [activeLots, recentOrders, catalogBatch] = await Promise.all([
       this.prisma.lot.findMany({
         where: { status: LotStatus.ACTIVE },
         select: {
@@ -75,7 +78,7 @@ export class SteamPriceWarmerService implements OnModuleInit {
             },
           },
         },
-        take: WARMUP_MAX_NAMES,
+        take: WARMUP_PRIORITY_MAX,
       }),
       this.prisma.order.findMany({
         where: {
@@ -101,24 +104,43 @@ export class SteamPriceWarmerService implements OnModuleInit {
             },
           },
         },
-        take: WARMUP_MAX_NAMES,
+        take: WARMUP_PRIORITY_MAX,
+      }),
+      this.prisma.itemDefinition.findMany({
+        select: { marketHashName: true },
+        orderBy: { marketHashName: 'asc' },
+        skip: this.catalogWarmOffset,
+        take: WARMUP_CATALOG_BATCH,
       }),
     ]);
 
-    const names = new Set<string>();
-    for (const lot of activeLots) {
-      const name = lot.inventoryAsset.itemDefinition.marketHashName;
-      if (name) {
-        names.add(name);
-      }
-    }
-    for (const order of recentOrders) {
-      const name = order.lot.inventoryAsset.itemDefinition.marketHashName;
-      if (name) {
-        names.add(name);
-      }
+    if (catalogBatch.length < WARMUP_CATALOG_BATCH) {
+      this.catalogWarmOffset = 0;
+    } else {
+      this.catalogWarmOffset += catalogBatch.length;
     }
 
-    return [...names].slice(0, WARMUP_MAX_NAMES);
+    const names: string[] = [];
+    const seen = new Set<string>();
+
+    const pushName = (name: string | null | undefined) => {
+      if (!name || seen.has(name)) {
+        return;
+      }
+      seen.add(name);
+      names.push(name);
+    };
+
+    for (const lot of activeLots) {
+      pushName(lot.inventoryAsset.itemDefinition.marketHashName);
+    }
+    for (const order of recentOrders) {
+      pushName(order.lot.inventoryAsset.itemDefinition.marketHashName);
+    }
+    for (const item of catalogBatch) {
+      pushName(item.marketHashName);
+    }
+
+    return names.slice(0, WARMUP_TOTAL_MAX);
   }
 }
