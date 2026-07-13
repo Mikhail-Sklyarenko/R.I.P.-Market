@@ -147,9 +147,6 @@ export function CatalogCategoryBar({
     }
 
     setOpenTabId((current) => (current === tabId ? null : tabId));
-    if (activeTabId !== tabId) {
-      onTabChange(tabId);
-    }
   }
 
   function handleModelSelect(value: string) {

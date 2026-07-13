@@ -2973,6 +2973,11 @@ p {
   line-height: 1;
 }
 
+.catalog-category-bar-tab[aria-expanded='true']:not(.active) {
+  border-color: rgba(125, 211, 252, 0.35);
+  background: rgba(37, 99, 235, 0.08);
+}
+
 .weapon-icon-shell {
   display: inline-flex;
   align-items: center;

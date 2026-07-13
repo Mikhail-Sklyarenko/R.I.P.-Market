@@ -15,12 +15,23 @@ test.describe('Catalog filters', () => {
     await expect(page.getByTestId('catalog-grid').locator('article')).toHaveCount(2);
 
     await page.getByTestId('catalog-category-tab-rifles').click();
+    await expect(page.getByTestId('catalog-category-dropdown-rifles')).toBeVisible();
+    await expect(page.getByTestId('catalog-total')).toHaveText('Найдено скинов: 2');
+    await page
+      .getByTestId('catalog-category-dropdown-rifles')
+      .getByRole('menuitem', { name: 'Все: Винтовки' })
+      .click();
     await expect(page.getByTestId('catalog-total')).toHaveText('Найдено скинов: 1', {
       timeout: 15_000,
     });
     await expect(page.getByTestId('catalog-grid').locator('article')).toHaveCount(1);
 
     await page.getByTestId('catalog-category-tab-snipers').click();
+    await expect(page.getByTestId('catalog-category-dropdown-snipers')).toBeVisible();
+    await page
+      .getByTestId('catalog-category-dropdown-snipers')
+      .getByRole('menuitem', { name: 'Все: Снайперские' })
+      .click();
     await expect(page.getByTestId('catalog-total')).toHaveText('Найдено скинов: 1');
     await expect(page.getByTestId('catalog-grid').locator('article')).toHaveCount(1);
 
