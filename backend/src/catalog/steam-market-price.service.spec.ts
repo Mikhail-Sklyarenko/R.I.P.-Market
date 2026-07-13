@@ -98,6 +98,9 @@ describe('SteamMarketPriceService', () => {
     jest
       .spyOn(service as never, 'requestSteamPriceOverview' as never)
       .mockResolvedValue(null);
+    jest
+      .spyOn(service as never, 'lookupFallbackPriceMinor' as never)
+      .mockResolvedValue(null);
 
     const result = await service.getPricesWithMeta([
       'AK-47 | Redline (Field-Tested)',
