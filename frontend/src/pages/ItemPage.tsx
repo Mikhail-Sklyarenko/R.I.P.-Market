@@ -14,9 +14,11 @@ import { InventoryPriceStack } from '../components/InventoryPriceStack';
 import { LoadingState } from '../components/LoadingState';
 import { LotBreadcrumbs } from '../components/LotBreadcrumbs';
 import { LotItemHero } from '../components/LotItemHero';
+import { ItemParamsPanel } from '../components/ItemParamsPanel';
 import { MoneyDisplay } from '../components/MoneyDisplay';
 import { getRarityDisplayLabel } from '../utils/rarity-colors';
 import { parseUsdToMinor } from '../utils/format';
+import { parseWearCodeFromMarketHashName } from '../utils/catalog-lot-display';
 
 export function ItemPage() {
   const { id } = useParams();
@@ -118,6 +120,7 @@ export function ItemPage() {
 
   const displayItem = item
     ? {
+        wear: parseWearCodeFromMarketHashName(item.marketHashName),
         itemDefinition: {
           marketHashName: item.marketHashName,
           weapon: item.weapon,
@@ -144,6 +147,7 @@ export function ItemPage() {
             <div className="lot-page-main">
               <div className="card lot-preview-card">
                 <LotItemHero item={displayItem} />
+                <ItemParamsPanel item={displayItem} testId="item-params" />
               </div>
 
               <section className="card item-offers-card" data-testid="item-offers-section">

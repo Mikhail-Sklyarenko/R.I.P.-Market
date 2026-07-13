@@ -5,6 +5,7 @@ import { useAuth } from '../auth/AuthContext';
 import { DealFlowSteps } from '../components/DealFlowSteps';
 import { ErrorAlert } from '../components/ErrorAlert';
 import { EscrowNotice } from '../components/EscrowNotice';
+import { ItemParamsPanel } from '../components/ItemParamsPanel';
 import { ItemPreview } from '../components/ItemPreview';
 import { LoadingState } from '../components/LoadingState';
 import { MoneyDisplay } from '../components/MoneyDisplay';
@@ -13,8 +14,6 @@ import {
   isPurchaseBlocked,
   PurchaseReadinessAlerts,
 } from '../components/PurchaseReadinessAlerts';
-import { LotSpecTable } from '../components/LotSpecTable';
-import { WearBar } from '../components/WearBar';
 import { useWalletSummary } from '../hooks/useWalletSummary';
 import { formatUsdtFromMinor } from '../utils/format';
 
@@ -135,13 +134,7 @@ export function CheckoutPage() {
                 showAttrs={false}
               />
 
-              {asset.floatValue !== null &&
-              asset.floatValue !== undefined &&
-              asset.floatValue !== '' ? (
-                <WearBar floatValue={asset.floatValue} />
-              ) : null}
-
-              <LotSpecTable item={asset} />
+              <ItemParamsPanel item={asset} testId="checkout-params" />
             </div>
           </div>
 

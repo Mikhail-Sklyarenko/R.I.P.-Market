@@ -7,7 +7,7 @@ import { DealFlowSteps } from '../components/DealFlowSteps';
 import { ErrorAlert } from '../components/ErrorAlert';
 import { EscrowNotice } from '../components/EscrowNotice';
 import { LotItemHero } from '../components/LotItemHero';
-import { LotSpecTable } from '../components/LotSpecTable';
+import { ItemParamsPanel } from '../components/ItemParamsPanel';
 import { LotStickers } from '../components/LotStickers';
 import { LoadingState } from '../components/LoadingState';
 import { LotBreadcrumbs } from '../components/LotBreadcrumbs';
@@ -19,7 +19,6 @@ import {
 import { getRarityDisplayLabel } from '../utils/rarity-colors';
 import { SimilarLots } from '../components/SimilarLots';
 import { StatusBadge } from '../components/StatusBadge';
-import { WearBar } from '../components/WearBar';
 import { formatDataTimestamp, resolveLotDisplayItem } from '../utils/lot-display';
 
 export function LotPage() {
@@ -109,11 +108,7 @@ export function LotPage() {
               <div className="card lot-preview-card">
                 <LotItemHero item={displayItem} />
 
-                {displayItem.floatValue !== null && displayItem.floatValue !== undefined && displayItem.floatValue !== '' ? (
-                  <WearBar floatValue={displayItem.floatValue} />
-                ) : null}
-
-                <LotSpecTable item={displayItem} />
+                <ItemParamsPanel item={displayItem} testId="lot-spec" />
 
                 <LotStickers stickers={displayItem.stickers} testIdPrefix="lot" />
 

@@ -18,6 +18,7 @@ describe('wear-bar utils', () => {
 
   it('formats float display and percent', () => {
     assert.equal(formatWearFloatDisplay(0.529655), '0.529655');
+    assert.equal(formatWearFloatDisplay(0.06999993), '0.06999993');
     assert.equal(formatWearPercent(0.529655), '52.97%');
   });
 

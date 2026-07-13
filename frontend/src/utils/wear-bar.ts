@@ -18,7 +18,9 @@ export function parseWearFloat(value: number | string | null | undefined): numbe
 }
 
 export function formatWearFloatDisplay(value: number): string {
-  return value.toFixed(6);
+  // Keep up to 8 meaningful decimals so float identity is readable.
+  const fixed = value.toFixed(8);
+  return fixed.replace(/(\.\d*?[1-9])0+$/, '$1').replace(/\.0+$/, '.0');
 }
 
 export function formatWearPercent(value: number): string {
