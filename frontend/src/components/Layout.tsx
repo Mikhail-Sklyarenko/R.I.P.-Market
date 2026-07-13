@@ -37,31 +37,25 @@ export function Layout() {
             <NavLink to="/faq" className={navLinkClass} data-testid="nav-faq">
               FAQ
             </NavLink>
-            {isAuthenticated ? (
-              <NavLink
-                to="/wallet"
-                className={({ isActive }) =>
-                  isActive ? 'app-nav-link app-nav-wallet active' : 'app-nav-link app-nav-wallet'
-                }
-                data-testid="nav-wallet"
-                title="Кошелёк — пополнение, вывод и транзакции"
-              >
-                <span>Кошелёк</span>
-                {walletLoading && !walletSummary ? (
-                  <span className="app-nav-wallet-balance muted small">…</span>
-                ) : (
-                  <MoneyDisplay
-                    minor={walletSummary?.availableMinor ?? '0'}
-                    className="app-nav-wallet-balance"
-                    strong
-                  />
-                )}
-              </NavLink>
-            ) : null}
           </nav>
         </div>
 
         <div className="app-header-actions">
+          {isAuthenticated ? (
+            <Link
+              to="/wallet"
+              className="header-wallet-balance"
+              data-testid="header-wallet-balance"
+              title="Кошелёк"
+            >
+              {walletLoading && !walletSummary ? (
+                <span className="muted small">…</span>
+              ) : (
+                <MoneyDisplay minor={walletSummary?.availableMinor ?? '0'} strong />
+              )}
+            </Link>
+          ) : null}
+
           <UserMenu />
         </div>
       </header>

@@ -8,21 +8,21 @@ test.describe('Main navigation', () => {
     await resetDatabase(request);
   });
 
-  test('buyer sees unified wallet nav and finance tabs inside wallet page', async ({ page }) => {
+  test('buyer sees header wallet balance and finance tabs inside wallet page', async ({ page }) => {
     await loginAsBuyer(page);
 
     await expect(page.getByTestId('nav-catalog')).toBeVisible();
     await expect(page.getByTestId('nav-sell')).toBeVisible();
     await expect(page.getByTestId('nav-faq')).toBeVisible();
     await expect(page.getByTestId('nav-orders')).toHaveCount(0);
-    await expect(page.getByTestId('nav-wallet')).toBeVisible();
-    await expect(page.getByTestId('header-wallet-balance')).toHaveCount(0);
+    await expect(page.getByTestId('nav-wallet')).toHaveCount(0);
+    await expect(page.getByTestId('header-wallet-balance')).toBeVisible();
     await expect(page.getByTestId('header-wallet-deposit')).toHaveCount(0);
     await expect(page.getByTestId('user-menu-deposit')).toHaveCount(0);
     await expect(page.getByTestId('user-menu-withdraw')).toHaveCount(0);
     await expect(page.getByTestId('user-menu-transactions')).toHaveCount(0);
 
-    await page.getByTestId('nav-wallet').click();
+    await page.getByTestId('header-wallet-balance').click();
     await expect(page).toHaveURL(/\/wallet/);
     await expect(page.getByTestId('wallet-tabs')).toBeVisible();
     await expect(page.getByTestId('wallet-tab-deposit')).toBeVisible();
