@@ -32,7 +32,7 @@ const BATCH_DELAY_MS = 300;
 const MAX_FETCH_ATTEMPTS = 3;
 const RETRY_DELAY_MS = 400;
 const RATE_LIMIT_RETRY_MS = [1_500, 4_000, 8_000];
-const FETCH_TIMEOUT_MS = 5_000;
+const FETCH_TIMEOUT_MS = 10_000;
 const STEAM_USER_AGENT =
   'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36';
 
@@ -265,13 +265,10 @@ export class SteamMarketPriceService {
 
     return new Promise((resolve, reject) => {
       const request = https.get(
-        url,
+        url.toString(),
         {
           headers: {
-            Accept: 'application/json, text/javascript, */*; q=0.01',
-            'Accept-Language': 'en-US,en;q=0.9',
-            Referer: 'https://steamcommunity.com/market/',
-            Origin: 'https://steamcommunity.com',
+            Accept: 'application/json',
             'User-Agent': STEAM_USER_AGENT,
           },
           timeout: FETCH_TIMEOUT_MS,
