@@ -170,13 +170,19 @@ export function listPopularCatalogItems(limit = 12) {
   return apiRequest<CatalogItem[]>(`/catalog/popular?limit=${limit}`);
 }
 
-export function getCatalogSteamPrices(marketHashNames: string[]) {
+export function getCatalogSteamPrices(
+  marketHashNames: string[],
+  options?: { cacheOnly?: boolean },
+) {
   return apiRequest<{
     prices: Record<string, { priceMinor: number | null; fetchedAt?: string | null }>;
     steamPriceFetchedAt?: string | null;
   }>('/catalog/steam-prices', {
     method: 'POST',
-    body: { marketHashNames },
+    body: {
+      marketHashNames,
+      cacheOnly: options?.cacheOnly === true ? true : undefined,
+    },
   });
 }
 

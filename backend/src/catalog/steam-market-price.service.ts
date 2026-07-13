@@ -27,11 +27,10 @@ type SteamPriceOverviewResponse = {
 
 const DEFAULT_CACHE_TTL_MS = 20 * 60 * 1000;
 const DEFAULT_FAILURE_CACHE_TTL_MS = 60 * 1000;
-const FETCH_BATCH_SIZE = 3;
-const BATCH_DELAY_MS = 300;
+const STEAM_REQUEST_GAP_MS = 90;
 const MAX_FETCH_ATTEMPTS = 3;
-const RETRY_DELAY_MS = 400;
-const RATE_LIMIT_RETRY_MS = [1_500, 4_000, 8_000];
+const RETRY_DELAY_MS = 300;
+const RATE_LIMIT_RETRY_MS = [800, 2_000, 4_000];
 const FETCH_TIMEOUT_MS = 10_000;
 const STEAM_USER_AGENT =
   'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36';
@@ -130,41 +129,37 @@ export class SteamMarketPriceService {
     cacheTtlMs: number,
     failureCacheTtlMs: number,
   ): Promise<void> {
-    for (let index = 0; index < pending.length; index += FETCH_BATCH_SIZE) {
-      const batch = pending.slice(index, index + FETCH_BATCH_SIZE);
-      await Promise.all(
-        batch.map(async (name) => {
-          const previous = this.cache.get(name);
-          const fetchedAt = Date.now();
-          let priceMinor = await this.fetchPriceMinorWithRetry(name);
+    for (let index = 0; index < pending.length; index++) {
+      const name = pending[index];
+      const previous = this.cache.get(name);
+      const fetchedAt = Date.now();
+      let priceMinor = await this.fetchPriceMinorWithRetry(name);
 
-          if (priceMinor === null && previous?.priceMinor != null) {
-            result[name] = {
-              priceMinor: previous.priceMinor,
-              fetchedAt: new Date(previous.fetchedAt).toISOString(),
-            };
-            this.cache.set(name, {
-              priceMinor: previous.priceMinor,
-              fetchedAt: previous.fetchedAt,
-              expiresAt: fetchedAt + failureCacheTtlMs,
-            });
-            return;
-          }
+      if (priceMinor === null && previous?.priceMinor != null) {
+        result[name] = {
+          priceMinor: previous.priceMinor,
+          fetchedAt: new Date(previous.fetchedAt).toISOString(),
+        };
+        this.cache.set(name, {
+          priceMinor: previous.priceMinor,
+          fetchedAt: previous.fetchedAt,
+          expiresAt: fetchedAt + failureCacheTtlMs,
+        });
+      } else {
+        const ttl = priceMinor !== null ? cacheTtlMs : failureCacheTtlMs;
+        this.cache.set(name, {
+          priceMinor,
+          fetchedAt,
+          expiresAt: fetchedAt + ttl,
+        });
+        result[name] = {
+          priceMinor,
+          fetchedAt: new Date(fetchedAt).toISOString(),
+        };
+      }
 
-          const ttl = priceMinor !== null ? cacheTtlMs : failureCacheTtlMs;
-          this.cache.set(name, {
-            priceMinor,
-            fetchedAt,
-            expiresAt: fetchedAt + ttl,
-          });
-          result[name] = {
-            priceMinor,
-            fetchedAt: new Date(fetchedAt).toISOString(),
-          };
-        }),
-      );
-      if (index + FETCH_BATCH_SIZE < pending.length) {
-        await sleep(BATCH_DELAY_MS);
+      if (index < pending.length - 1) {
+        await sleep(STEAM_REQUEST_GAP_MS);
       }
     }
   }

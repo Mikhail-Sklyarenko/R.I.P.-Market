@@ -55,6 +55,27 @@ function getInitialCategoryValue(weaponParam: string | null): string {
   return option?.value ?? weaponParam;
 }
 
+const STEAM_PRICE_CHUNK_SIZE = 8;
+
+function chunkArray<T>(items: T[], size: number): T[][] {
+  const chunks: T[][] = [];
+  for (let index = 0; index < items.length; index += size) {
+    chunks.push(items.slice(index, index + size));
+  }
+  return chunks;
+}
+
+function mergeSteamPrices(
+  response: Awaited<ReturnType<typeof getCatalogSteamPrices>>,
+  names: string[],
+): Record<string, number | null> {
+  const next: Record<string, number | null> = {};
+  for (const name of names) {
+    next[name] = response.prices[name]?.priceMinor ?? null;
+  }
+  return next;
+}
+
 export function CatalogPage() {
   const { token } = useAuth();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -65,7 +86,7 @@ export function CatalogPage() {
   const [popularLoading, setPopularLoading] = useState(false);
   const [steamPriceFetchedAt, setSteamPriceFetchedAt] = useState<string | null>(null);
   const [steamPrices, setSteamPrices] = useState<Record<string, number | null>>({});
-  const [pricesLoading, setPricesLoading] = useState(false);
+  const [pendingPriceNames, setPendingPriceNames] = useState<Set<string>>(new Set());
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<unknown>(null);
@@ -139,6 +160,7 @@ export function CatalogPage() {
         setTotal(response.total);
         setSteamPriceFetchedAt(null);
         setSteamPrices({});
+        setPendingPriceNames(new Set());
       })
       .catch((err: unknown) => setError(err))
       .finally(() => setLoading(false));
@@ -182,34 +204,70 @@ export function CatalogPage() {
       ),
     ];
     if (marketHashNames.length === 0) {
-      setPricesLoading(false);
+      setPendingPriceNames(new Set());
       return;
     }
 
     let cancelled = false;
-    setPricesLoading(true);
-    getCatalogSteamPrices(marketHashNames)
-      .then((response) => {
+
+    async function loadSteamPrices() {
+      try {
+        const cached = await getCatalogSteamPrices(marketHashNames, {
+          cacheOnly: true,
+        });
         if (cancelled) {
           return;
         }
-        const nextPrices: Record<string, number | null> = {};
-        for (const name of marketHashNames) {
-          nextPrices[name] = response.prices[name]?.priceMinor ?? null;
+
+        const cachedPrices = mergeSteamPrices(cached, marketHashNames);
+        setSteamPrices((prev) => ({ ...prev, ...cachedPrices }));
+        if (cached.steamPriceFetchedAt) {
+          setSteamPriceFetchedAt(cached.steamPriceFetchedAt);
         }
-        setSteamPrices(nextPrices);
-        setSteamPriceFetchedAt(response.steamPriceFetchedAt ?? null);
-      })
-      .catch(() => {
+
+        const missing = marketHashNames.filter(
+          (name) => cachedPrices[name] == null,
+        );
+        setPendingPriceNames(new Set(missing));
+
+        for (const chunk of chunkArray(missing, STEAM_PRICE_CHUNK_SIZE)) {
+          if (cancelled) {
+            return;
+          }
+
+          try {
+            const response = await getCatalogSteamPrices(chunk);
+            if (cancelled) {
+              return;
+            }
+
+            const chunkPrices = mergeSteamPrices(response, chunk);
+            setSteamPrices((prev) => ({ ...prev, ...chunkPrices }));
+            if (response.steamPriceFetchedAt) {
+              setSteamPriceFetchedAt(response.steamPriceFetchedAt);
+            }
+          } catch {
+            // Keep loading other chunks even if one batch fails.
+          } finally {
+            if (!cancelled) {
+              setPendingPriceNames((prev) => {
+                const next = new Set(prev);
+                for (const name of chunk) {
+                  next.delete(name);
+                }
+                return next;
+              });
+            }
+          }
+        }
+      } catch {
         if (!cancelled) {
-          setSteamPrices({});
+          setPendingPriceNames(new Set());
         }
-      })
-      .finally(() => {
-        if (!cancelled) {
-          setPricesLoading(false);
-        }
-      });
+      }
+    }
+
+    void loadSteamPrices();
 
     return () => {
       cancelled = true;
@@ -459,7 +517,7 @@ export function CatalogPage() {
                     item={item}
                     isLoggedIn={Boolean(token)}
                     steamPriceMinor={steamPrices[item.marketHashName]}
-                    pricesLoading={pricesLoading}
+                    pricesLoading={pendingPriceNames.has(item.marketHashName)}
                   />
                 ))}
               </div>
@@ -481,7 +539,7 @@ export function CatalogPage() {
                   item={item}
                   isLoggedIn={Boolean(token)}
                   steamPriceMinor={steamPrices[item.marketHashName]}
-                  pricesLoading={pricesLoading}
+                  pricesLoading={pendingPriceNames.has(item.marketHashName)}
                 />
               ))}
             </div>

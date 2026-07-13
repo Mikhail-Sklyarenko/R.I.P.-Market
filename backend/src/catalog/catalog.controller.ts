@@ -38,7 +38,9 @@ export class CatalogController {
   }
 
   @Post('steam-prices')
-  getSteamPrices(@Body() body: { marketHashNames?: string[] }) {
+  getSteamPrices(
+    @Body() body: { marketHashNames?: string[]; cacheOnly?: boolean },
+  ) {
     const names = body.marketHashNames ?? [];
     if (!Array.isArray(names) || names.length === 0) {
       throw new BadRequestException(
@@ -48,7 +50,9 @@ export class CatalogController {
     if (names.length > 40) {
       throw new BadRequestException('marketHashNames max length is 40');
     }
-    return this.catalogService.getSteamPrices(names);
+    return this.catalogService.getSteamPrices(names, {
+      cacheOnly: body.cacheOnly === true,
+    });
   }
 
 }
