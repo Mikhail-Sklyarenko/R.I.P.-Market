@@ -5,8 +5,8 @@ import type { Lot } from '../api/types';
 import { useAuth } from '../auth/AuthContext';
 import { DealFlowSteps } from '../components/DealFlowSteps';
 import { ErrorAlert } from '../components/ErrorAlert';
-import { EscrowNotice } from '../components/EscrowNotice';
 import { InventoryPriceStack } from '../components/InventoryPriceStack';
+import { LotActionButtons } from '../components/LotActionButtons';
 import { LotItemHero } from '../components/LotItemHero';
 import { ItemParamsPanel } from '../components/ItemParamsPanel';
 import { LotStickers } from '../components/LotStickers';
@@ -100,7 +100,8 @@ export function LotPage() {
   const asset = lot?.inventoryAsset;
   const displayItem = lot ? resolveLotDisplayItem(lot) : null;
   const snapshotCapturedAt = formatDataTimestamp(displayItem?.capturedAt ?? null);
-  const steamPriceUpdatedAt = formatDataTimestamp(lot?.steamPriceFetchedAt ?? null);
+  const showPurchaseBlockers =
+    Boolean(token) && !isOwnLot && !isUnavailable && steamPurchaseBlocked;
 
   return (
     <div className="page lot-page" data-testid="lot-page">
@@ -133,34 +134,10 @@ export function LotPage() {
                   </p>
                 ) : null}
 
-                {steamPriceUpdatedAt ? (
-                  <p className="muted small" data-testid="lot-steam-price-updated-at">
-                    Цена Steam обновлена: {steamPriceUpdatedAt}
-                  </p>
-                ) : null}
-
-                <p className="lot-inspect-link-wrap">
-                  {lot.inspectLink ? (
-                    <a
-                      href={lot.inspectLink}
-                      className="lot-inspect-link"
-                      data-testid="lot-inspect-link"
-                    >
-                      Осмотр в игре
-                    </a>
-                  ) : null}
-                  {lot.steamMarketUrl ? (
-                    <a
-                      href={lot.steamMarketUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="lot-inspect-link lot-market-link"
-                      data-testid="lot-steam-market-link"
-                    >
-                      Steam Маркет
-                    </a>
-                  ) : null}
-                </p>
+                <LotActionButtons
+                  inspectLink={lot.inspectLink}
+                  steamMarketUrl={lot.steamMarketUrl}
+                />
               </div>
             </div>
 
@@ -206,11 +183,12 @@ export function LotPage() {
 
                 <ErrorAlert error={error} />
 
-                {token && !isOwnLot && !isUnavailable ? (
+                {showPurchaseBlockers ? (
                   <PurchaseReadinessAlerts
                     user={user}
                     requiresSteamLink={requiresSteamLink}
                     authenticated
+                    showTradeHint={false}
                   />
                 ) : null}
 
@@ -235,7 +213,6 @@ export function LotPage() {
                 >
                   {!token ? 'Войти для покупки' : 'Купить сейчас'}
                 </button>
-                {canProceed ? <EscrowNotice /> : null}
               </div>
             </aside>
           </div>

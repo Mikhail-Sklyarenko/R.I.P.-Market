@@ -1633,8 +1633,43 @@ p {
   box-shadow: 0 0 8px currentColor;
 }
 
-.lot-inspect-link-wrap {
+.lot-action-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
   padding: 0 var(--space-5) var(--space-5);
+}
+
+.lot-action-button {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: 42px;
+  padding: 0.65rem 1rem;
+  border-radius: 10px;
+  border: 1px solid rgba(148, 163, 184, 0.18);
+  background: rgba(30, 41, 59, 0.88);
+  color: rgba(248, 250, 252, 0.92);
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  text-decoration: none;
+  transition:
+    background 0.15s ease,
+    border-color 0.15s ease,
+    color 0.15s ease;
+}
+
+.lot-action-button:hover {
+  background: rgba(51, 65, 85, 0.95);
+  border-color: rgba(148, 163, 184, 0.32);
+  color: #fff;
+}
+
+.lot-action-button svg {
+  flex-shrink: 0;
+  opacity: 0.92;
 }
 
 .lot-preview-card > .wear-bar,
@@ -2793,16 +2828,6 @@ p {
   height: 0.65rem;
 }
 
-.lot-inspect-link-wrap {
-  margin: var(--space-3) 0 0;
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-3);
-}
-
-.lot-inspect-link {
-  font-size: var(--font-size-sm);
-}
 
 .reference-price-hints,
 .catalog-reference-prices {
