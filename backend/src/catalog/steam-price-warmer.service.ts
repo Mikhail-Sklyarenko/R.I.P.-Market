@@ -137,7 +137,14 @@ export class SteamPriceWarmerService implements OnModuleInit {
     for (const order of recentOrders) {
       pushName(order.lot.inventoryAsset.itemDefinition.marketHashName);
     }
-    for (const item of catalogBatch) {
+
+    const skinBatch = catalogBatch.filter((item) =>
+      item.marketHashName.includes(' | '),
+    );
+    const otherBatch = catalogBatch.filter(
+      (item) => !item.marketHashName.includes(' | '),
+    );
+    for (const item of [...skinBatch, ...otherBatch]) {
       pushName(item.marketHashName);
     }
 

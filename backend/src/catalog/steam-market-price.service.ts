@@ -36,7 +36,7 @@ const FETCH_TIMEOUT_MS = 10_000;
 const STEAM_USER_AGENT =
   'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36';
 
-class SteamRateLimitError extends Error {
+export class SteamRateLimitError extends Error {
   constructor() {
     super('Steam rate limited');
     this.name = 'SteamRateLimitError';
@@ -273,10 +273,9 @@ export class SteamMarketPriceService {
   ): Promise<number | null> {
     for (let attempt = 1; attempt <= MAX_FETCH_ATTEMPTS; attempt++) {
       try {
-        const priceMinor = await this.fetchPriceMinor(marketHashName);
-        if (priceMinor !== null) {
-          return priceMinor;
-        }
+        // A definite Steam response (including "no listings") must not be retried —
+        // medals/coins and empty markets would otherwise burn the whole rate budget.
+        return await this.fetchPriceMinor(marketHashName);
       } catch (error) {
         if (
           error instanceof SteamRateLimitError &&
@@ -290,10 +289,9 @@ export class SteamMarketPriceService {
             error instanceof Error ? error.message : 'unknown error'
           }`,
         );
-        return null;
-      }
-
-      if (attempt < MAX_FETCH_ATTEMPTS) {
+        if (attempt >= MAX_FETCH_ATTEMPTS) {
+          return null;
+        }
         await sleep(RETRY_DELAY_MS * attempt);
       }
     }

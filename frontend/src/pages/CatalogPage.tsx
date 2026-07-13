@@ -249,6 +249,13 @@ export function CatalogPage() {
       }
     }
 
+    // Skins first — medals/coins often have no Steam market price and burn rate limit.
+    missing.sort((left, right) => {
+      const leftSkin = left.includes(' | ') ? 0 : 1;
+      const rightSkin = right.includes(' | ') ? 0 : 1;
+      return leftSkin - rightSkin;
+    });
+
     setSteamPrices((prev) => ({ ...prev, ...seeded }));
     setPendingPriceNames(new Set(missing));
 

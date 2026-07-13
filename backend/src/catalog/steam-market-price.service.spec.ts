@@ -1,4 +1,7 @@
-import { SteamMarketPriceService } from './steam-market-price.service';
+import {
+  SteamMarketPriceService,
+  SteamRateLimitError,
+} from './steam-market-price.service';
 
 function createService() {
   const prisma = {
@@ -37,20 +40,37 @@ describe('SteamMarketPriceService', () => {
     expect(result['AK-47 | Redline (Field-Tested)']?.fetchedAt).toBeTruthy();
   });
 
-  it('retries Steam market fetch before returning null', async () => {
+  it('does not retry a definitive empty Steam response', async () => {
     process.env.STEAM_MARKET_PRICE_ENABLED = 'true';
     const { service, prisma } = createService();
     const requestMock = jest
       .spyOn(service as never, 'requestSteamPriceOverview' as never)
-      .mockResolvedValueOnce(null)
+      .mockResolvedValue({ success: false });
+
+    const result = await service.getPricesWithMeta(['10 Year Birthday Coin'], {
+      forceRefresh: true,
+    });
+
+    expect(requestMock).toHaveBeenCalledTimes(1);
+    expect(result['10 Year Birthday Coin']?.priceMinor).toBeNull();
+    expect(prisma.steamPriceCache.upsert).not.toHaveBeenCalled();
+  });
+
+  it('retries Steam fetch after a rate-limit error', async () => {
+    process.env.STEAM_MARKET_PRICE_ENABLED = 'true';
+    const { service, prisma } = createService();
+    const requestMock = jest
+      .spyOn(service as never, 'requestSteamPriceOverview' as never)
+      .mockRejectedValueOnce(new SteamRateLimitError())
       .mockResolvedValueOnce({
         success: true,
         lowest_price: '$12.34',
       });
 
-    const result = await service.getPricesWithMeta(['AK-47 | Redline (Field-Tested)'], {
-      forceRefresh: true,
-    });
+    const result = await service.getPricesWithMeta(
+      ['AK-47 | Redline (Field-Tested)'],
+      { forceRefresh: true },
+    );
 
     expect(requestMock).toHaveBeenCalledTimes(2);
     expect(result['AK-47 | Redline (Field-Tested)']?.priceMinor).toBe(1234);
@@ -79,7 +99,9 @@ describe('SteamMarketPriceService', () => {
       .spyOn(service as never, 'requestSteamPriceOverview' as never)
       .mockResolvedValue(null);
 
-    const result = await service.getPricesWithMeta(['AK-47 | Redline (Field-Tested)']);
+    const result = await service.getPricesWithMeta([
+      'AK-47 | Redline (Field-Tested)',
+    ]);
 
     expect(result['AK-47 | Redline (Field-Tested)']?.priceMinor).toBe(2500);
   });
@@ -99,9 +121,12 @@ describe('SteamMarketPriceService', () => {
       'requestSteamPriceOverview' as never,
     );
 
-    const result = await service.getPricesWithMeta(['AK-47 | Redline (Field-Tested)'], {
-      cacheOnly: true,
-    });
+    const result = await service.getPricesWithMeta(
+      ['AK-47 | Redline (Field-Tested)'],
+      {
+        cacheOnly: true,
+      },
+    );
 
     expect(result['AK-47 | Redline (Field-Tested)']?.priceMinor).toBe(4140);
     expect(requestMock).not.toHaveBeenCalled();
