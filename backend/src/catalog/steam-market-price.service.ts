@@ -33,6 +33,11 @@ const MAX_FETCH_ATTEMPTS = 3;
 const RETRY_DELAY_MS = 300;
 const RATE_LIMIT_RETRY_MS = [800, 2_000, 4_000];
 const FETCH_TIMEOUT_MS = 10_000;
+const STEAM_BLOCK_COOLDOWN_MS = 30 * 60 * 1000;
+const FALLBACK_SNAPSHOT_TTL_MS = 60 * 60 * 1000;
+const FALLBACK_PRICES_URL =
+  process.env.STEAM_PRICE_FALLBACK_URL ??
+  'https://market.csgo.com/api/v2/prices/USD.json';
 const STEAM_USER_AGENT =
   'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36';
 
@@ -43,11 +48,33 @@ export class SteamRateLimitError extends Error {
   }
 }
 
+export class SteamAccessDeniedError extends Error {
+  constructor() {
+    super('Steam access denied');
+    this.name = 'SteamAccessDeniedError';
+  }
+}
+
+type FallbackSnapshot = {
+  prices: Map<string, number>;
+  fetchedAt: number;
+  expiresAt: number;
+};
+
+type MarketCsgoPricesResponse = {
+  success?: boolean;
+  items?: Array<{ market_hash_name?: string; price?: string | number }>;
+};
+
 @Injectable()
 export class SteamMarketPriceService {
   private readonly logger = new Logger(SteamMarketPriceService.name);
   private readonly memoryCache = new Map<string, CacheEntry>();
   private readonly inflight = new Map<string, Promise<number | null>>();
+  private steamBlockedUntil = 0;
+  private fallbackSnapshot: FallbackSnapshot | null = null;
+  private fallbackSnapshotInflight: Promise<FallbackSnapshot | null> | null =
+    null;
 
   constructor(private readonly prisma: PrismaService) {}
 
@@ -213,11 +240,26 @@ export class SteamMarketPriceService {
     cacheTtlMs: number,
     failureCacheTtlMs: number,
   ): Promise<void> {
+    const steamBlocked = Date.now() < this.steamBlockedUntil;
+    if (steamBlocked) {
+      await this.resolvePendingFromFallback(
+        pending,
+        result,
+        cacheTtlMs,
+        failureCacheTtlMs,
+      );
+      return;
+    }
+
     for (let index = 0; index < pending.length; index++) {
       const name = pending[index];
       const previous = this.memoryCache.get(name);
       const fetchedAt = Date.now();
       let priceMinor = await this.fetchPriceMinorWithRetry(name);
+
+      if (priceMinor === null) {
+        priceMinor = await this.lookupFallbackPriceMinor(name);
+      }
 
       if (priceMinor === null && previous?.priceMinor != null) {
         result[name] = {
@@ -245,9 +287,133 @@ export class SteamMarketPriceService {
         }
       }
 
+      if (Date.now() < this.steamBlockedUntil) {
+        const remaining = pending.slice(index + 1);
+        if (remaining.length > 0) {
+          await this.resolvePendingFromFallback(
+            remaining,
+            result,
+            cacheTtlMs,
+            failureCacheTtlMs,
+          );
+        }
+        return;
+      }
+
       if (index < pending.length - 1) {
         await sleep(STEAM_REQUEST_GAP_MS);
       }
+    }
+  }
+
+  private async resolvePendingFromFallback(
+    pending: string[],
+    result: Record<string, SteamPriceMeta>,
+    cacheTtlMs: number,
+    failureCacheTtlMs: number,
+  ): Promise<void> {
+    await this.ensureFallbackSnapshot();
+    const fetchedAt = Date.now();
+    for (const name of pending) {
+      const previous = this.memoryCache.get(name);
+      const priceMinor =
+        this.fallbackSnapshot?.prices.get(name) ??
+        previous?.priceMinor ??
+        null;
+      const ttl = priceMinor !== null ? cacheTtlMs : failureCacheTtlMs;
+      this.memoryCache.set(name, {
+        priceMinor,
+        fetchedAt:
+          priceMinor != null && previous?.priceMinor === priceMinor
+            ? previous.fetchedAt
+            : fetchedAt,
+        expiresAt: fetchedAt + ttl,
+      });
+      result[name] = {
+        priceMinor,
+        fetchedAt: new Date(
+          priceMinor != null && previous?.priceMinor === priceMinor
+            ? previous.fetchedAt
+            : fetchedAt,
+        ).toISOString(),
+      };
+      if (priceMinor !== null && previous?.priceMinor !== priceMinor) {
+        await this.persistToDatabase(name, priceMinor, fetchedAt);
+      }
+    }
+  }
+
+  private async lookupFallbackPriceMinor(
+    marketHashName: string,
+  ): Promise<number | null> {
+    const snapshot = await this.ensureFallbackSnapshot();
+    return snapshot?.prices.get(marketHashName) ?? null;
+  }
+
+  private async ensureFallbackSnapshot(): Promise<FallbackSnapshot | null> {
+    if (
+      this.fallbackSnapshot &&
+      this.fallbackSnapshot.expiresAt > Date.now()
+    ) {
+      return this.fallbackSnapshot;
+    }
+    if (this.fallbackSnapshotInflight) {
+      return this.fallbackSnapshotInflight;
+    }
+
+    this.fallbackSnapshotInflight = this.downloadFallbackSnapshot()
+      .then((snapshot) => {
+        this.fallbackSnapshot = snapshot;
+        return snapshot;
+      })
+      .finally(() => {
+        this.fallbackSnapshotInflight = null;
+      });
+
+    return this.fallbackSnapshotInflight;
+  }
+
+  private async downloadFallbackSnapshot(): Promise<FallbackSnapshot | null> {
+    const startedAt = Date.now();
+    try {
+      const body = await this.requestJson<MarketCsgoPricesResponse>(
+        FALLBACK_PRICES_URL,
+      );
+      if (!body?.success || !Array.isArray(body.items)) {
+        this.logger.warn('Steam price fallback snapshot returned no items');
+        return this.fallbackSnapshot;
+      }
+
+      const prices = new Map<string, number>();
+      for (const item of body.items) {
+        const name = item.market_hash_name?.trim();
+        if (!name) {
+          continue;
+        }
+        const priceMinor = this.parseUsdNumberToMinor(item.price);
+        if (priceMinor != null) {
+          prices.set(name, priceMinor);
+        }
+      }
+
+      this.logger.log(
+        `Loaded Steam price fallback snapshot: ${prices.size} items in ${
+          Date.now() - startedAt
+        }ms`,
+      );
+
+      return {
+        prices,
+        fetchedAt: startedAt,
+        expiresAt: startedAt + FALLBACK_SNAPSHOT_TTL_MS,
+      };
+    } catch (error) {
+      this.logger.warn(
+        `Steam price fallback snapshot failed: ${
+          error instanceof Error ? error.message : 'unknown'
+        }`,
+      );
+      return this.fallbackSnapshot;
     }
   }
 
@@ -277,6 +443,15 @@ export class SteamMarketPriceService {
         // medals/coins and empty markets would otherwise burn the whole rate budget.
         return await this.fetchPriceMinor(marketHashName);
       } catch (error) {
+        if (error instanceof SteamAccessDeniedError) {
+          this.steamBlockedUntil = Date.now() + STEAM_BLOCK_COOLDOWN_MS;
+          this.logger.warn(
+            `Steam market blocked this IP (403). Using fallback prices for ${Math.round(
+              STEAM_BLOCK_COOLDOWN_MS / 60_000,
+            )} minutes.`,
+          );
+          return null;
+        }
         if (
           error instanceof SteamRateLimitError &&
           attempt < MAX_FETCH_ATTEMPTS
@@ -359,6 +534,11 @@ export class SteamMarketPriceService {
             reject(new SteamRateLimitError());
             return;
           }
+          if (response.statusCode === 403) {
+            response.resume();
+            reject(new SteamAccessDeniedError());
+            return;
+          }
           if (response.statusCode !== 200) {
             response.resume();
             resolve(null);
@@ -386,6 +566,70 @@ export class SteamMarketPriceService {
       });
       request.on('error', reject);
     });
+  }
+
+  private requestJson<T>(url: string): Promise<T> {
+    return new Promise((resolve, reject) => {
+      const request = https.get(
+        url,
+        {
+          headers: {
+            Accept: 'application/json',
+            'User-Agent': STEAM_USER_AGENT,
+          },
+          timeout: 30_000,
+        },
+        (response) => {
+          if (response.statusCode && response.statusCode >= 300 && response.statusCode < 400) {
+            const location = response.headers.location;
+            response.resume();
+            if (!location) {
+              reject(new Error(`Redirect without location from ${url}`));
+              return;
+            }
+            resolve(this.requestJson<T>(location));
+            return;
+          }
+          if (response.statusCode !== 200) {
+            response.resume();
+            reject(new Error(`HTTP ${response.statusCode} from ${url}`));
+            return;
+          }
+
+          let body = '';
+          response.setEncoding('utf8');
+          response.on('data', (chunk) => {
+            body += chunk;
+          });
+          response.on('end', () => {
+            try {
+              resolve(JSON.parse(body) as T);
+            } catch (error) {
+              reject(error);
+            }
+          });
+        },
+      );
+
+      request.on('timeout', () => {
+        request.destroy();
+        reject(new Error(`Request timed out: ${url}`));
+      });
+      request.on('error', reject);
+    });
+  }
+
+  private parseUsdNumberToMinor(value?: string | number): number | null {
+    if (value === undefined || value === null) {
+      return null;
+    }
+    if (typeof value === 'number') {
+      if (!Number.isFinite(value) || value <= 0) {
+        return null;
+      }
+      return Math.round(value * 100);
+    }
+    return this.parseUsdToMinor(value);
   }
 
   private parseUsdToMinor(value?: string): number | null {

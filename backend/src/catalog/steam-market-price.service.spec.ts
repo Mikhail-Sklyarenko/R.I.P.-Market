@@ -131,4 +131,39 @@ describe('SteamMarketPriceService', () => {
     expect(result['AK-47 | Redline (Field-Tested)']?.priceMinor).toBe(4140);
     expect(requestMock).not.toHaveBeenCalled();
   });
+
+  it('uses fallback snapshot prices when Steam is blocked', async () => {
+    process.env.STEAM_MARKET_PRICE_ENABLED = 'true';
+    const { service, prisma } = createService();
+    (
+      service as unknown as { steamBlockedUntil: number }
+    ).steamBlockedUntil = Date.now() + 60_000;
+    (
+      service as unknown as {
+        fallbackSnapshot: {
+          prices: Map<string, number>;
+          fetchedAt: number;
+          expiresAt: number;
+        };
+      }
+    ).fallbackSnapshot = {
+      prices: new Map([['AK-47 | Redline (Field-Tested)', 4140]]),
+      fetchedAt: Date.now(),
+      expiresAt: Date.now() + 60_000,
+    };
+
+    const requestMock = jest.spyOn(
+      service as never,
+      'requestSteamPriceOverview' as never,
+    );
+
+    const result = await service.getPricesWithMeta(
+      ['AK-47 | Redline (Field-Tested)'],
+      { forceRefresh: true },
+    );
+
+    expect(requestMock).not.toHaveBeenCalled();
+    expect(result['AK-47 | Redline (Field-Tested)']?.priceMinor).toBe(4140);
+    expect(prisma.steamPriceCache.upsert).toHaveBeenCalled();
+  });
 });
