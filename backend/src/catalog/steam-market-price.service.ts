@@ -1,4 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
+import * as https from 'node:https';
 
 type CacheEntry = {
   priceMinor: number | null;
@@ -18,13 +19,29 @@ export type SteamPriceMeta = {
   fetchedAt: string | null;
 };
 
+type SteamPriceOverviewResponse = {
+  success?: boolean;
+  lowest_price?: string;
+  median_price?: string;
+};
+
 const DEFAULT_CACHE_TTL_MS = 20 * 60 * 1000;
-const DEFAULT_FAILURE_CACHE_TTL_MS = 30 * 1000;
-const FETCH_BATCH_SIZE = 6;
-const BATCH_DELAY_MS = 120;
-const MAX_FETCH_ATTEMPTS = 2;
-const RETRY_DELAY_MS = 250;
+const DEFAULT_FAILURE_CACHE_TTL_MS = 60 * 1000;
+const FETCH_BATCH_SIZE = 3;
+const BATCH_DELAY_MS = 300;
+const MAX_FETCH_ATTEMPTS = 3;
+const RETRY_DELAY_MS = 400;
+const RATE_LIMIT_RETRY_MS = [1_500, 4_000, 8_000];
 const FETCH_TIMEOUT_MS = 5_000;
+const STEAM_USER_AGENT =
+  'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36';
+
+class SteamRateLimitError extends Error {
+  constructor() {
+    super('Steam rate limited');
+    this.name = 'SteamRateLimitError';
+  }
+}
 
 @Injectable()
 export class SteamMarketPriceService {
@@ -117,8 +134,23 @@ export class SteamMarketPriceService {
       const batch = pending.slice(index, index + FETCH_BATCH_SIZE);
       await Promise.all(
         batch.map(async (name) => {
+          const previous = this.cache.get(name);
           const fetchedAt = Date.now();
-          const priceMinor = await this.fetchPriceMinorWithRetry(name);
+          let priceMinor = await this.fetchPriceMinorWithRetry(name);
+
+          if (priceMinor === null && previous?.priceMinor != null) {
+            result[name] = {
+              priceMinor: previous.priceMinor,
+              fetchedAt: new Date(previous.fetchedAt).toISOString(),
+            };
+            this.cache.set(name, {
+              priceMinor: previous.priceMinor,
+              fetchedAt: previous.fetchedAt,
+              expiresAt: fetchedAt + failureCacheTtlMs,
+            });
+            return;
+          }
+
           const ttl = priceMinor !== null ? cacheTtlMs : failureCacheTtlMs;
           this.cache.set(name, {
             priceMinor,
@@ -158,10 +190,27 @@ export class SteamMarketPriceService {
     marketHashName: string,
   ): Promise<number | null> {
     for (let attempt = 1; attempt <= MAX_FETCH_ATTEMPTS; attempt++) {
-      const priceMinor = await this.fetchPriceMinor(marketHashName);
-      if (priceMinor !== null) {
-        return priceMinor;
+      try {
+        const priceMinor = await this.fetchPriceMinor(marketHashName);
+        if (priceMinor !== null) {
+          return priceMinor;
+        }
+      } catch (error) {
+        if (
+          error instanceof SteamRateLimitError &&
+          attempt < MAX_FETCH_ATTEMPTS
+        ) {
+          await sleep(RATE_LIMIT_RETRY_MS[attempt - 1] ?? 8_000);
+          continue;
+        }
+        this.logger.warn(
+          `Steam market price fetch failed for ${marketHashName}: ${
+            error instanceof Error ? error.message : 'unknown error'
+          }`,
+        );
+        return null;
       }
+
       if (attempt < MAX_FETCH_ATTEMPTS) {
         await sleep(RETRY_DELAY_MS * attempt);
       }
@@ -195,45 +244,71 @@ export class SteamMarketPriceService {
   private async fetchPriceMinor(
     marketHashName: string,
   ): Promise<number | null> {
+    const payload = await this.requestSteamPriceOverview(marketHashName);
+    if (!payload?.success) {
+      return null;
+    }
+    return (
+      this.parseUsdToMinor(payload.lowest_price) ??
+      this.parseUsdToMinor(payload.median_price)
+    );
+  }
+
+  private requestSteamPriceOverview(
+    marketHashName: string,
+  ): Promise<SteamPriceOverviewResponse | null> {
     const url = new URL('https://steamcommunity.com/market/priceoverview/');
     url.searchParams.set('country', 'US');
     url.searchParams.set('currency', '1');
     url.searchParams.set('appid', '730');
     url.searchParams.set('market_hash_name', marketHashName);
 
-    try {
-      const response = await fetch(url, {
-        headers: {
-          Accept: 'application/json, text/javascript, */*; q=0.01',
-          'Accept-Language': 'en-US,en;q=0.9',
-          'User-Agent':
-            'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+    return new Promise((resolve, reject) => {
+      const request = https.get(
+        url,
+        {
+          headers: {
+            Accept: 'application/json, text/javascript, */*; q=0.01',
+            'Accept-Language': 'en-US,en;q=0.9',
+            Referer: 'https://steamcommunity.com/market/',
+            Origin: 'https://steamcommunity.com',
+            'User-Agent': STEAM_USER_AGENT,
+          },
+          timeout: FETCH_TIMEOUT_MS,
         },
-        signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
+        (response) => {
+          if (response.statusCode === 429) {
+            response.resume();
+            reject(new SteamRateLimitError());
+            return;
+          }
+          if (response.statusCode !== 200) {
+            response.resume();
+            resolve(null);
+            return;
+          }
+
+          let body = '';
+          response.setEncoding('utf8');
+          response.on('data', (chunk) => {
+            body += chunk;
+          });
+          response.on('end', () => {
+            try {
+              resolve(JSON.parse(body) as SteamPriceOverviewResponse);
+            } catch (error) {
+              reject(error);
+            }
+          });
+        },
+      );
+
+      request.on('timeout', () => {
+        request.destroy();
+        reject(new Error('Steam market price request timed out'));
       });
-      if (!response.ok) {
-        return null;
-      }
-      const payload = (await response.json()) as {
-        success?: boolean;
-        lowest_price?: string;
-        median_price?: string;
-      };
-      if (!payload.success) {
-        return null;
-      }
-      return (
-        this.parseUsdToMinor(payload.lowest_price) ??
-        this.parseUsdToMinor(payload.median_price)
-      );
-    } catch (error) {
-      this.logger.warn(
-        `Steam market price fetch failed for ${marketHashName}: ${
-          error instanceof Error ? error.message : 'unknown error'
-        }`,
-      );
-      return null;
-    }
+      request.on('error', reject);
+    });
   }
 
   private parseUsdToMinor(value?: string): number | null {

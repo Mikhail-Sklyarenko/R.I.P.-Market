@@ -27,25 +27,46 @@ describe('SteamMarketPriceService', () => {
   it('retries Steam market fetch before returning null', async () => {
     process.env.STEAM_MARKET_PRICE_ENABLED = 'true';
     const service = new SteamMarketPriceService();
-    const fetchMock = jest
-      .spyOn(global, 'fetch')
+    const requestMock = jest
+      .spyOn(service as never, 'requestSteamPriceOverview' as never)
+      .mockResolvedValueOnce(null)
       .mockResolvedValueOnce({
-        ok: false,
-        status: 503,
-      } as Response)
-      .mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({
-          success: true,
-          lowest_price: '$12.34',
-        }),
-      } as Response);
+        success: true,
+        lowest_price: '$12.34',
+      });
 
     const result = await service.getPricesWithMeta(['AK-47 | Redline (Field-Tested)'], {
       forceRefresh: true,
     });
 
-    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(requestMock).toHaveBeenCalledTimes(2);
     expect(result['AK-47 | Redline (Field-Tested)']?.priceMinor).toBe(1234);
+  });
+
+  it('reuses stale cached price when refresh fails', async () => {
+    process.env.STEAM_MARKET_PRICE_ENABLED = 'true';
+    const service = new SteamMarketPriceService();
+    const cache = (
+      service as unknown as {
+        cache: Map<
+          string,
+          { priceMinor: number | null; fetchedAt: number; expiresAt: number }
+        >;
+      }
+    ).cache;
+
+    cache.set('AK-47 | Redline (Field-Tested)', {
+      priceMinor: 2500,
+      fetchedAt: Date.now() - 60_000,
+      expiresAt: Date.now() - 1,
+    });
+
+    jest
+      .spyOn(service as never, 'requestSteamPriceOverview' as never)
+      .mockResolvedValue(null);
+
+    const result = await service.getPricesWithMeta(['AK-47 | Redline (Field-Tested)']);
+
+    expect(result['AK-47 | Redline (Field-Tested)']?.priceMinor).toBe(2500);
   });
 });
