@@ -34,6 +34,23 @@ describe('steam-inventory.client', () => {
     ).rejects.toThrow('Steam inventory is private');
   });
 
+  it('throws STEAM_BLOCKED for Akamai/CDN 403 without private success flag', async () => {
+    const fetchFn = jest.fn().mockResolvedValue({
+      status: 403,
+      body: null,
+    });
+
+    await expect(
+      fetchSteamInventoryPage({
+        steamId: '76561198000000000',
+        fetchFn,
+      }),
+    ).rejects.toMatchObject({
+      message: expect.stringMatching(/blocked this server IP/i),
+      code: 'STEAM_BLOCKED',
+    });
+  });
+
   it('throws for invalid steam id responses without crashing on null body', async () => {
     const fetchFn = jest.fn().mockResolvedValue({
       status: 404,

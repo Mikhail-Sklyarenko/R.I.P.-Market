@@ -91,7 +91,10 @@ describe('steam-inventory.parser', () => {
 
   it('detects private inventory responses', () => {
     expect(isPrivateInventoryResponse({ success: 15 }, 200)).toBe(true);
-    expect(isPrivateInventoryResponse({ success: 1 }, 403)).toBe(true);
+    expect(isPrivateInventoryResponse({ success: 15 }, 403)).toBe(true);
+    // Akamai/CDN HTML 403 has no success field — not private inventory.
+    expect(isPrivateInventoryResponse(null, 403)).toBe(false);
+    expect(isPrivateInventoryResponse({ success: 1 }, 403)).toBe(false);
     expect(isPrivateInventoryResponse({ success: 1 }, 200)).toBe(false);
     expect(isPrivateInventoryResponse(null, 404)).toBe(false);
   });

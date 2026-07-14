@@ -64,6 +64,14 @@ export async function fetchSteamInventoryPage(
     throw error;
   }
 
+  if (status === 403 && !isPrivateInventoryResponse(body, status)) {
+    const error = new Error(
+      'Steam temporarily blocked this server IP (403). Inventory cache is still available; try again later.',
+    );
+    (error as Error & { code: string }).code = 'STEAM_BLOCKED';
+    throw error;
+  }
+
   if (status >= 400) {
     if (isPrivateInventoryResponse(body, status)) {
       const error = new Error('Steam inventory is private');

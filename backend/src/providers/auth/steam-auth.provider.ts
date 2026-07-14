@@ -69,7 +69,14 @@ export class SteamAuthProvider implements AuthProvider {
     openidParams: Record<string, string>,
   ): Promise<string> {
     const verified = await verifySteamOpenId(openidParams);
-    if (!verified) {
+    if (!verified.ok) {
+      if (verified.reason === 'blocked') {
+        throw new AppException(
+          ErrorCode.STEAM_AUTH_FAILED,
+          'Steam блокирует проверку входа с этого сервера (403). Войдите через Mock или попробуйте позже.',
+          HttpStatus.UNAUTHORIZED,
+        );
+      }
       throw new AppException(
         ErrorCode.STEAM_AUTH_FAILED,
         'Steam OpenID verification failed',

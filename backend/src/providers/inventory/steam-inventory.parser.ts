@@ -181,11 +181,10 @@ export function parseSteamInventoryResponse(
 
 export function isPrivateInventoryResponse(
   body: SteamInventoryResponse | null | undefined,
-  statusCode: number,
+  _statusCode: number,
 ): boolean {
-  if (statusCode === 403) {
-    return true;
-  }
+  // Steam privacy responses use success=15. Do not treat Akamai/CDN HTML 403
+  // (empty/null parsed body) as "private inventory".
   return body?.success === 15;
 }
 

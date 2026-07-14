@@ -56,13 +56,16 @@ export const ERROR_MESSAGES: Record<string, string> = {
   BUYER_NOT_ACTIVE: 'Аккаунт покупателя не активен.',
   ORDER_NOT_FOUND: 'Сделка не найдена.',
   IDEMPOTENCY_KEY_REQUIRED: 'Не удалось выполнить запрос. Обновите страницу и повторите.',
-  STEAM_AUTH_FAILED: 'Не удалось войти через Steam. Попробуйте ещё раз.',
+  STEAM_AUTH_FAILED:
+    'Не удалось войти через Steam. Если ошибка повторяется — Steam может временно блокировать сервер; используйте Mock-вход или попробуйте позже.',
   STEAM_ALREADY_LINKED:
     'Этот Steam-аккаунт уже привязан к другому пользователю. Войдите в аккаунт, где Steam уже привязан.',
   STEAM_NOT_LINKED:
     'Привяжите Steam-аккаунт на странице «Аккаунт» перед синхронизацией инвентаря.',
   STEAM_PROFILE_PRIVATE:
     'Инвентарь Steam скрыт. Откройте его в настройках приватности Steam.',
+  STEAM_BLOCKED:
+    'Steam временно блокирует запросы с сервера. Это не настройки приватности — кэш инвентаря доступен; цены и обновление могут не работать.',
   INVENTORY_STALE: 'Не удалось обновить инвентарь из Steam. Попробуйте чуть позже.',
   TRADE_URL_REQUIRED:
     'Укажите Trade URL в настройках аккаунта — без него нельзя продавать и покупать.',
@@ -142,6 +145,10 @@ export function getSteamCallbackMessage(
   errorCode: string | null,
   messageParam: string | null,
 ): string {
+  // Prefer server-provided Russian messages (e.g. IP block) over the generic map.
+  if (messageParam && /[А-Яа-яЁё]/.test(messageParam)) {
+    return messageParam;
+  }
   if (errorCode && ERROR_MESSAGES[errorCode]) {
     return ERROR_MESSAGES[errorCode];
   }

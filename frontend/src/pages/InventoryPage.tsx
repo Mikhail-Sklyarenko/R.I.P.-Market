@@ -26,7 +26,7 @@ import { InventorySellPlaceholder } from '../components/InventorySellPlaceholder
 import { LoadingState } from '../components/LoadingState';
 import { PageHeader } from '../components/PageHeader';
 import { SellerSaleInfo } from '../components/SellerSaleInfo';
-import { canShowDevPanels, parseUsdToMinor } from '../utils/format';
+import { canShowDevPanels, parseUsdToMinor, ERROR_MESSAGES } from '../utils/format';
 import { hasLinkedSteamId } from '../utils/steam-id';
 import {
   canListAsset,
@@ -396,7 +396,14 @@ export function InventoryPage() {
               Устарело
             </span>
           ) : null}
-          {sync.warning ? <span> · {sync.warning}</span> : null}
+          {sync.warning || sync.errorCode ? (
+            <span>
+              {' '}
+              ·{' '}
+              {(sync.errorCode && ERROR_MESSAGES[sync.errorCode]) ||
+                sync.warning}
+            </span>
+          ) : null}
         </p>
       ) : null}
 

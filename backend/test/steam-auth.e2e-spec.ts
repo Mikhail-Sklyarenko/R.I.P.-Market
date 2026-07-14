@@ -36,7 +36,7 @@ describe('Steam auth (e2e)', () => {
     app = await createE2eApp();
     prisma = app.get(PrismaService);
     jwt = app.get(JwtService);
-    jest.spyOn(steamOpenId, 'verifySteamOpenId').mockResolvedValue(true);
+    jest.spyOn(steamOpenId, 'verifySteamOpenId').mockResolvedValue({ ok: true });
   });
 
   beforeEach(async () => {

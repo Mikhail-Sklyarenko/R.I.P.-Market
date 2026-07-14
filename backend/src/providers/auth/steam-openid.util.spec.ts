@@ -37,34 +37,43 @@ describe('steam-openid.util', () => {
       'openid.sig': 'abc123',
     };
 
-    it('returns false when mode is not id_res', async () => {
+    it('returns invalid when mode is not id_res', async () => {
       const postFn = jest.fn();
       const result = await verifySteamOpenId(
         { ...baseParams, 'openid.mode': 'cancel' },
         postFn,
       );
-      expect(result).toBe(false);
+      expect(result).toEqual({ ok: false, reason: 'invalid' });
       expect(postFn).not.toHaveBeenCalled();
     });
 
-    it('posts check_authentication and returns true when Steam confirms', async () => {
+    it('posts check_authentication and returns ok when Steam confirms', async () => {
       const postFn = jest
         .fn()
         .mockResolvedValue(
           'ns:http://specs.openid.net/auth/2.0\nis_valid:true\n',
         );
       const result = await verifySteamOpenId(baseParams, postFn);
-      expect(result).toBe(true);
+      expect(result).toEqual({ ok: true });
       expect(postFn).toHaveBeenCalledWith(
         'https://steamcommunity.com/openid/login',
         expect.stringContaining('openid.mode=check_authentication'),
       );
     });
 
-    it('returns false when Steam rejects verification', async () => {
+    it('returns invalid when Steam rejects verification', async () => {
       const postFn = jest.fn().mockResolvedValue('is_valid:false\n');
       const result = await verifySteamOpenId(baseParams, postFn);
-      expect(result).toBe(false);
+      expect(result).toEqual({ ok: false, reason: 'invalid' });
+    });
+
+    it('returns blocked when Steam/CDN returns Access Denied', async () => {
+      const postFn = jest.fn().mockResolvedValue({
+        status: 403,
+        body: '<HTML><TITLE>Access Denied</TITLE></HTML>',
+      });
+      const result = await verifySteamOpenId(baseParams, postFn);
+      expect(result).toEqual({ ok: false, reason: 'blocked' });
     });
   });
 

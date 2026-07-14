@@ -30,4 +30,14 @@ describe('format utils', () => {
       ERROR_MESSAGES.STEAM_NOT_LINKED,
     );
   });
+
+  it('prefers Russian server message on Steam auth callback', () => {
+    assert.match(
+      getSteamCallbackMessage(
+        'STEAM_AUTH_FAILED',
+        'Steam блокирует проверку входа с этого сервера (403). Войдите через Mock или попробуйте позже.',
+      ),
+      /блок/i,
+    );
+  });
 });

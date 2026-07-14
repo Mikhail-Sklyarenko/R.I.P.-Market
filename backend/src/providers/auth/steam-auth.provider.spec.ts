@@ -31,7 +31,9 @@ describe('SteamAuthProvider', () => {
       usersService as unknown as UsersService,
       steamProfileService,
     );
-    jest.spyOn(steamOpenId, 'verifySteamOpenId').mockResolvedValue(true);
+    jest
+      .spyOn(steamOpenId, 'verifySteamOpenId')
+      .mockResolvedValue({ ok: true });
   });
 
   afterEach(() => {
@@ -96,12 +98,28 @@ describe('SteamAuthProvider', () => {
   });
 
   it('throws STEAM_AUTH_FAILED when OpenID verification fails', async () => {
-    jest.spyOn(steamOpenId, 'verifySteamOpenId').mockResolvedValue(false);
+    jest
+      .spyOn(steamOpenId, 'verifySteamOpenId')
+      .mockResolvedValue({ ok: false, reason: 'invalid' });
 
     await expect(
       provider.login({ kind: 'steam', openidParams }),
     ).rejects.toMatchObject({
       code: ErrorCode.STEAM_AUTH_FAILED,
+      status: HttpStatus.UNAUTHORIZED,
+    });
+  });
+
+  it('throws STEAM_AUTH_FAILED with block message when Steam CDN denies', async () => {
+    jest
+      .spyOn(steamOpenId, 'verifySteamOpenId')
+      .mockResolvedValue({ ok: false, reason: 'blocked' });
+
+    await expect(
+      provider.login({ kind: 'steam', openidParams }),
+    ).rejects.toMatchObject({
+      code: ErrorCode.STEAM_AUTH_FAILED,
+      message: expect.stringMatching(/блок/i),
       status: HttpStatus.UNAUTHORIZED,
     });
   });
