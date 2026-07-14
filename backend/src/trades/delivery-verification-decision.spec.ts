@@ -128,6 +128,19 @@ describe('decideDeliveryVerification', () => {
     expect(decision.reasonCode).toBe('BUYER_ACK_INVENTORY_CONFIRMED');
   });
 
+  it('legacy mode confirms buyer ack + inventory even when mock offer stays pending', () => {
+    const decision = decideDeliveryVerification(
+      baseSignals({
+        engineEnabled: false,
+        offerStatus: 'pending',
+        inventoryDelta: 'confirmed',
+        buyerAckReceived: true,
+      }),
+    );
+    expect(decision.action).toBe('CONFIRM');
+    expect(decision.reasonCode).toBe('BUYER_ACK_INVENTORY_CONFIRMED');
+  });
+
   it('confirms when buyer ack received and offer accepted but inventory still pending', () => {
     const decision = decideDeliveryVerification(
       baseSignals({

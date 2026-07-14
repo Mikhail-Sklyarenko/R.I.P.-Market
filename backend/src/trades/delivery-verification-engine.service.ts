@@ -130,8 +130,12 @@ export class DeliveryVerificationEngineService {
         offerStatus = verification.status;
       }
 
+      // Always verify inventory for extension/live Guard flows and buyer-ack recovery,
+      // even when TRADE_PROVIDER=mock only stubs offer status as pending forever.
       const shouldCheckInventory =
-        isDeliveryVerificationEngineEnabled() || !operation.externalOfferId;
+        isDeliveryVerificationEngineEnabled() ||
+        !operation.externalOfferId ||
+        buyerAckReceived;
       if (shouldCheckInventory) {
         const expected =
           operation.expectedAssetId ??

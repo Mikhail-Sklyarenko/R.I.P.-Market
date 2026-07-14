@@ -102,6 +102,22 @@ function decideLegacy(
         signals.inventoryDelta,
       );
     }
+
+    // Mock offer poll always returns pending; buyer ack + inventory still confirm.
+    if (
+      signals.buyerAckReceived &&
+      signals.inventoryDelta === 'confirmed'
+    ) {
+      return decision(
+        'CONFIRM',
+        'LEGACY_INVENTORY_CONFIRMED',
+        'BUYER_ACK_INVENTORY_CONFIRMED',
+        signals.offerStatus,
+        signals.inventoryDelta,
+        'CONFIRMED',
+      );
+    }
+
     return decision(
       'WAIT',
       'OFFER_PENDING',

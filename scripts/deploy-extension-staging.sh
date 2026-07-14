@@ -59,11 +59,15 @@ ENABLE_EXTENSION_ROLLOUT=false
 ENABLE_EXTENSION_TASK_PIPELINE=true
 ENABLE_EXTENSION_OFFER_ORCHESTRATOR=true
 ENABLE_EXTENSION_TRADE_REFERENCE=true
-ENABLE_EXTENSION_UI_TRADE_FLOW=true
+# API send path: auto-create+send offer; seller only confirms Mobile Guard.
+# UI autofill is slower and flaky on Steam Trade Protected inventories.
+ENABLE_EXTENSION_UI_TRADE_FLOW=false
 ENABLE_EXTENSION_TRADE_ACKNOWLEDGMENT=true
 ENABLE_TRADE_REFERENCE_RECONCILE=true
 ENABLE_EXTENSION_FIRST_TRADE_FLOW=false
-ENABLE_DELIVERY_VERIFICATION_ENGINE=false
+# Required for extension Guard → inventory delivery confirmation on staging
+# (TRADE_PROVIDER may stay mock for admin buttons; offers are still real Steam IDs).
+ENABLE_DELIVERY_VERIFICATION_ENGINE=true
 ENABLE_SETTLEMENT_HOLD_WINDOW=false
 ENABLE_EXTENSION_DISPUTE_BRIDGE=false
 ENABLE_EXTENSION_FLOW_OBSERVABILITY=false

@@ -14,7 +14,7 @@ import { TradeShadowComparatorService } from './trade-shadow-comparator.service'
 import { assertShadowModeConfig } from './trade-verification.config';
 import { TradesService } from './trades.service';
 
-const POLLABLE_MODES = new Set(['STEAM_POLL', 'SHADOW', 'OFF']);
+const POLLABLE_MODES = new Set(['STEAM_POLL', 'SHADOW', 'OFF', 'MOCK']);
 
 const OPERATION_INCLUDE = {
   order: {

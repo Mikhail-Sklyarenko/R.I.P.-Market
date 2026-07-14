@@ -716,6 +716,15 @@ export class OrdersService {
 
   private resolveVerificationMode(): string {
     const config = getProvidersConfig();
+    // Extension Guard flows create real Steam offers even when TRADE_PROVIDER=mock
+    // (mock is only for admin complete buttons). Delivery must still be pollable.
+    if (
+      config.trade !== 'steam' &&
+      process.env.ENABLE_EXTENSION_TASK_PIPELINE === 'true' &&
+      process.env.ENABLE_DELIVERY_VERIFICATION_ENGINE === 'true'
+    ) {
+      return resolveOrderVerificationMode();
+    }
     if (config.trade !== 'steam') {
       return 'MOCK';
     }
