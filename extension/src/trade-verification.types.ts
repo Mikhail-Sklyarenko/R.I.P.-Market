@@ -56,6 +56,7 @@ export type ActiveTradeNextAction = {
     | 'wait'
     | 'accept_in_steam'
     | 'confirm_guard'
+    | 'confirm_sent'
     | 'confirm_received'
     | 'platform_verifying'
     | 'completed'

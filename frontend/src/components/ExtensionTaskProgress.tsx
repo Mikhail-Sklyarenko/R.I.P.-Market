@@ -32,20 +32,25 @@ export function ExtensionTaskProgress({
     tradeTask.executionPhase === 'OFFER_SENT' || isConfirmPending;
   const isTerminalFailure =
     tradeTask.executionPhase === 'OFFER_FAILED' || isTaskExpired;
-  const phaseLabel = isTaskExpired
-    ? 'Время истекло'
-    : tradeTask.executionPhase
-      ? (TRADE_TASK_PHASE_LABELS[tradeTask.executionPhase] ?? tradeTask.executionPhase)
-      : tradeTask.attemptCount > 0 || tradeTask.lastErrorCode
-        ? 'Повторная попытка'
-        : 'Ожидает обработки';
+  const isDeliveryCheck =
+    tradeTask.lastErrorCode === 'ITEM_ALREADY_GONE' ||
+    (isTerminalFailure && tradeTask.lastErrorCode === 'ITEM_MISSING');
+  const phaseLabel = isDeliveryCheck
+    ? 'Проверяем доставку'
+    : isTaskExpired
+      ? 'Время истекло'
+      : tradeTask.executionPhase
+        ? (TRADE_TASK_PHASE_LABELS[tradeTask.executionPhase] ?? tradeTask.executionPhase)
+        : tradeTask.attemptCount > 0 || tradeTask.lastErrorCode
+          ? 'Повторная попытка'
+          : 'Ожидает обработки';
   const errorHint = tradeTask.lastErrorCode
     ? (OFFER_ERROR_HINTS[tradeTask.lastErrorCode] ?? tradeTask.lastErrorCode)
     : null;
   const detailMessage = tradeTask.lastErrorMessage?.trim() || null;
   const selectedItemName =
     tradeTask.selectedMarketHashName?.trim() || itemMarketHashName?.trim() || null;
-  const showRetry = !isTerminalSuccess && !isTerminalFailure;
+  const showRetry = !isTerminalSuccess && !isTerminalFailure && !isDeliveryCheck;
 
   return (
     <div
@@ -73,6 +78,12 @@ export function ExtensionTaskProgress({
       {tradeTask.executionPhase === 'OFFER_SENT' ? (
         <p className="alert alert-success">
           Обмен отправлен. Если Steam попросит — подтвердите в Guard на телефоне.
+        </p>
+      ) : null}
+      {isDeliveryCheck ? (
+        <p className="alert alert-info" data-testid="extension-task-delivery-check">
+          Похоже, предмет уже ушёл из инвентаря. Не создавайте новый offer — мы проверяем,
+          получил ли покупатель скин.
         </p>
       ) : null}
       {errorHint && !isTerminalFailure ? (

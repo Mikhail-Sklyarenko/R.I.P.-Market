@@ -257,6 +257,14 @@ export class AdminController {
     );
   }
 
+  @Post('orders/:id/check-delivery')
+  async checkDelivery(
+    @CurrentUser() actor: AuthUser,
+    @Param('id') orderId: string,
+  ) {
+    return this.adminService.checkDelivery(orderId, actor.sub);
+  }
+
   @Get('metrics/shadow')
   async getShadowMetrics() {
     return this.adminService.getShadowDashboard();

@@ -145,6 +145,7 @@ function buildPanel(trade: TradeVerificationResult): HTMLElement {
     trade.orderStatus === 'WAITING_TRADE' &&
     status !== 'mismatch' &&
     !trade.acknowledgments.buyerPreAccept &&
+    !trade.acknowledgments.buyerReceived &&
     Boolean(trade.offerId);
   const showConfirmReceived =
     trade.role === 'buyer' &&
@@ -153,10 +154,13 @@ function buildPanel(trade: TradeVerificationResult): HTMLElement {
     !trade.acknowledgments.buyerReceived &&
     (trade.orderStatus === 'WAITING_TRADE' ||
       trade.orderStatus === 'TRADE_CONFIRMED' ||
-      trade.orderStatus === 'SETTLEMENT_HOLD') &&
-    (trade.acknowledgments.buyerPreAccept ||
-      trade.orderStatus === 'TRADE_CONFIRMED' ||
       trade.orderStatus === 'SETTLEMENT_HOLD');
+  const showSellerAckSent =
+    trade.role === 'seller' &&
+    trade.orderStatus === 'WAITING_TRADE' &&
+    status !== 'mismatch' &&
+    Boolean(trade.offerId) &&
+    !trade.acknowledgments.sellerAckSent;
 
   shadow.innerHTML = `
     <style>
@@ -208,8 +212,9 @@ function buildPanel(trade: TradeVerificationResult): HTMLElement {
       }
       <ul class="checks">${renderChecks(trade)}</ul>
       <div class="actions">
-        ${showPreAccept ? '<button class="primary" data-action="pre-accept">Подтверждаю, принимаю в Steam</button>' : ''}
-        ${showConfirmReceived ? '<button class="primary" data-action="confirm-received">Подтвердил получение предмета</button>' : ''}
+        ${showSellerAckSent ? '<button class="primary" data-action="seller-sent">Я отправил обмен</button>' : ''}
+        ${showPreAccept ? '<button class="primary" data-action="pre-accept">Вижу предложение</button>' : ''}
+        ${showConfirmReceived ? '<button class="primary" data-action="confirm-received">Предмет получен</button>' : ''}
         ${
           trade.role === 'buyer' && status !== 'mismatch'
             ? `<a class="btn secondary" href="${STEAM_INCOMING_OFFERS_URL}" target="_blank" rel="noreferrer">Открыть входящие предложения</a>`
@@ -219,6 +224,12 @@ function buildPanel(trade: TradeVerificationResult): HTMLElement {
       </div>
     </div>
   `;
+
+  shadow
+    .querySelector<HTMLButtonElement>('button[data-action="seller-sent"]')
+    ?.addEventListener('click', (event) => {
+      void acknowledgeSellerSent(trade, event.currentTarget as HTMLButtonElement);
+    });
 
   shadow.querySelector<HTMLButtonElement>('button[data-action="pre-accept"]')?.addEventListener(
     'click',
@@ -236,6 +247,26 @@ function buildPanel(trade: TradeVerificationResult): HTMLElement {
   return host;
 }
 
+async function acknowledgeSellerSent(
+  trade: TradeVerificationResult,
+  button: HTMLButtonElement,
+): Promise<void> {
+  button.disabled = true;
+  button.textContent = 'Сохраняем…';
+  const response = await runtimeRequest<{ ok: boolean; error?: string }>({
+    type: TRADE_VERIFICATION_RUNTIME.ACK_TRADE,
+    orderId: trade.orderId,
+    ackType: 'SELLER_ACK_SENT',
+    offerId: trade.offerId ?? undefined,
+    idempotencyKey: `ack:${trade.orderId}:SELLER_ACK_SENT`,
+  } satisfies AckTradeRuntimeRequest);
+
+  button.textContent = response.ok
+    ? 'Отправка подтверждена ✓'
+    : (response.error ?? 'Не удалось подтвердить');
+  button.disabled = response.ok;
+}
+
 async function acknowledgeReceived(
   trade: TradeVerificationResult,
   button: HTMLButtonElement,
@@ -251,7 +282,7 @@ async function acknowledgeReceived(
   } satisfies AckTradeRuntimeRequest);
 
   button.textContent = response.ok
-    ? 'Получение подтверждено ✓'
+    ? 'Предмет получен ✓'
     : (response.error ?? 'Не удалось подтвердить');
   button.disabled = response.ok;
 }
@@ -276,7 +307,7 @@ async function acknowledgePreAccept(
   } satisfies AckTradeRuntimeRequest);
 
   button.textContent = response.ok
-    ? 'Подтверждено ✓'
+    ? 'Вижу предложение ✓'
     : (response.error ?? 'Не удалось подтвердить');
   button.disabled = response.ok;
 }

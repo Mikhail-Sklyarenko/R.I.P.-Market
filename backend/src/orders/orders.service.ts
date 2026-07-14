@@ -1,4 +1,4 @@
-import { HttpStatus, Injectable } from '@nestjs/common';
+import { forwardRef, HttpStatus, Inject, Injectable } from '@nestjs/common';
 import {
   InventoryAssetStatus,
   LotStatus,
@@ -22,6 +22,8 @@ import {
   extensionTaskTtlMs,
   isExtensionTaskPipelineEnabled,
 } from '../extension/extension-task.config';
+import { ExtensionTradeAckService } from '../extension/extension-trade-ack.service';
+import type { TradeAcknowledgmentType } from '../extension/extension-trade-ack.types';
 import { LedgerService } from '../wallet/ledger.service';
 import { ExtensionRolloutService } from '../extension/extension-rollout.service';
 import { TradeReferenceReconcileService } from '../trades/trade-reference-reconcile.service';
@@ -58,6 +60,8 @@ export class OrdersService {
     private readonly extensionRolloutService: ExtensionRolloutService,
     private readonly steamVacService: SteamVacService,
     private readonly buyRequestMatching: BuyRequestMatchingService,
+    @Inject(forwardRef(() => ExtensionTradeAckService))
+    private readonly extensionTradeAckService: ExtensionTradeAckService,
   ) {}
 
   async create(buyerId: string, dto: CreateOrderDto, idempotencyKey: string) {
@@ -555,6 +559,106 @@ export class OrdersService {
       tradeTask,
       tradeAcknowledgments,
     });
+  }
+
+  /**
+   * Explicit delivery re-check for buyer/seller while trade is waiting.
+   * Bypasses Steam rate-limit backoff so stuck orders can recover after Guard.
+   */
+  async checkDelivery(orderId: string, requesterId: string) {
+    const preflight = await this.prisma.order.findUnique({
+      where: { id: orderId },
+      select: {
+        id: true,
+        buyerId: true,
+        sellerId: true,
+        status: true,
+        tradeOperation: { select: { status: true } },
+      },
+    });
+
+    if (
+      !preflight ||
+      (preflight.buyerId !== requesterId && preflight.sellerId !== requesterId)
+    ) {
+      throw new AppException(
+        ErrorCode.ORDER_NOT_FOUND,
+        'Order not found',
+        HttpStatus.NOT_FOUND,
+      );
+    }
+
+    if (
+      preflight.status !== OrderStatus.WAITING_TRADE ||
+      preflight.tradeOperation?.status !== TradeOperationStatus.WAITING
+    ) {
+      throw new AppException(
+        ErrorCode.BAD_REQUEST,
+        'Delivery check is only available while the trade is waiting',
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+
+    let transitioned = false;
+    try {
+      transitioned = await this.tradeStatusPoller.pollOrderById(orderId, {
+        force: true,
+      });
+    } catch {
+      // Still return refreshed order; Steam / inventory errors are transient.
+    }
+
+    const order = await this.getById(orderId, requesterId);
+    return {
+      checked: true,
+      transitioned,
+      order,
+    };
+  }
+
+  /**
+   * Website dual-ack path (JWT). Same rules as extension acknowledge;
+   * accelerates delivery verification when the buyer confirms receipt.
+   */
+  async acknowledgeTrade(
+    orderId: string,
+    requesterId: string,
+    type: TradeAcknowledgmentType,
+  ) {
+    const preflight = await this.prisma.order.findUnique({
+      where: { id: orderId },
+      select: {
+        id: true,
+        buyerId: true,
+        sellerId: true,
+        tradeOperation: { select: { externalOfferId: true } },
+      },
+    });
+
+    if (
+      !preflight ||
+      (preflight.buyerId !== requesterId && preflight.sellerId !== requesterId)
+    ) {
+      throw new AppException(
+        ErrorCode.ORDER_NOT_FOUND,
+        'Order not found',
+        HttpStatus.NOT_FOUND,
+      );
+    }
+
+    const ack = await this.extensionTradeAckService.acknowledge({
+      userId: requesterId,
+      orderId,
+      type,
+      offerId: preflight.tradeOperation?.externalOfferId ?? null,
+      idempotencyKey: `ack:${orderId}:${type}`,
+    });
+
+    const order = await this.getById(orderId, requesterId);
+    return {
+      ...ack,
+      order,
+    };
   }
 
   async listMyOrders(userId: string, query: ListMyOrdersQueryDto = {}) {

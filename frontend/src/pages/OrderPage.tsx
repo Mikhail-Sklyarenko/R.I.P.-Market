@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
-import { cancelOrder, getAuthConfig, getOrder, mockTradeSuccess, updateOrderTradeReference } from '../api/marketplace';
+import { acknowledgeOrderTrade, cancelOrder, checkOrderDelivery, getAuthConfig, getOrder, mockTradeSuccess, updateOrderTradeReference } from '../api/marketplace';
 import { mockTradeFail, mockTradeTimeout } from '../api/admin';
 import { getSettlementEligibility } from '../api/settlement';
 import type { Order } from '../api/types';
@@ -50,9 +50,13 @@ export function OrderPage() {
   const [liveVerificationMode, setLiveVerificationMode] = useState(false);
   const [extensionTaskPipeline, setExtensionTaskPipeline] = useState(false);
   const [extensionUiTradeFlow, setExtensionUiTradeFlow] = useState(false);
+  const [extensionTradeAckEnabled, setExtensionTradeAckEnabled] = useState(false);
   const [settlementBanner, setSettlementBanner] = useState(false);
   const [offerInput, setOfferInput] = useState('');
   const [savingOffer, setSavingOffer] = useState(false);
+  const [checkingDelivery, setCheckingDelivery] = useState(false);
+  const [acknowledging, setAcknowledging] = useState(false);
+  const [deliveryCheckMessage, setDeliveryCheckMessage] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [completing, setCompleting] = useState(false);
   const [failing, setFailing] = useState<'SAFE' | 'DISPUTE' | 'TIMEOUT' | null>(null);
@@ -97,6 +101,9 @@ export function OrderPage() {
         );
         setExtensionUiTradeFlow(
           Boolean(config.extension?.extensionUiTradeFlowEnabled),
+        );
+        setExtensionTradeAckEnabled(
+          Boolean(config.extension?.extensionTradeAcknowledgmentEnabled),
         );
         setTradeTimeoutMinutes(config.tradeTimeoutMinutes);
       })
@@ -179,6 +186,46 @@ export function OrderPage() {
       setError(err);
     } finally {
       setSavingOffer(false);
+    }
+  }
+
+  async function handleCheckDelivery() {
+    if (!token || !order) {
+      return;
+    }
+    setCheckingDelivery(true);
+    setError(null);
+    setDeliveryCheckMessage(null);
+    try {
+      const result = await checkOrderDelivery(token, order.id);
+      setOrder(result.order);
+      setDeliveryCheckMessage(
+        result.transitioned
+          ? 'Доставка подтверждена — статус заказа обновлён.'
+          : 'Проверка выполнена. Если предмет уже у вас в Steam, подождите ещё немного и повторите.',
+      );
+    } catch (err) {
+      setError(err);
+    } finally {
+      setCheckingDelivery(false);
+    }
+  }
+
+  async function handleAcknowledge(
+    type: 'SELLER_ACK_SENT' | 'BUYER_ACK_PRE_ACCEPT' | 'BUYER_ACK_RECEIVED',
+  ) {
+    if (!token || !order) {
+      return;
+    }
+    setAcknowledging(true);
+    setError(null);
+    try {
+      const result = await acknowledgeOrderTrade(token, order.id, type);
+      setOrder(result.order);
+    } catch (err) {
+      setError(err);
+    } finally {
+      setAcknowledging(false);
     }
   }
 
@@ -395,23 +442,44 @@ export function OrderPage() {
                 </p>
               ) : null}
 
+              {deliveryCheckMessage ? (
+                <p className="alert alert-success" data-testid="delivery-check-result">
+                  {deliveryCheckMessage}
+                </p>
+              ) : null}
+
               {isSeller && showTradePanels ? (
                 <OrderTradeSellerPanel
                   order={order}
                   offerInput={offerInput}
                   savingOffer={savingOffer}
+                  checkingDelivery={checkingDelivery}
+                  acknowledging={acknowledging}
+                  ackEnabled={extensionTradeAckEnabled}
                   extensionMode={extensionTaskPipeline && Boolean(order.tradeTask)}
                   onOfferInputChange={setOfferInput}
                   onSaveTradeReference={() => void handleSaveTradeReference()}
+                  onCheckDelivery={() => void handleCheckDelivery()}
+                  onAcknowledgeSent={() => void handleAcknowledge('SELLER_ACK_SENT')}
                 />
               ) : null}
 
               {isBuyer && showTradePanels ? (
                 <OrderTradeBuyerPanel
                   order={order}
+                  checkingDelivery={checkingDelivery}
+                  acknowledging={acknowledging}
+                  ackEnabled={extensionTradeAckEnabled}
                   extensionMode={extensionTaskPipeline && Boolean(order.tradeTask)}
                   nextActionTitle={nextAction?.title}
                   nextActionDescription={nextAction?.description}
+                  onCheckDelivery={() => void handleCheckDelivery()}
+                  onAcknowledgePreAccept={() =>
+                    void handleAcknowledge('BUYER_ACK_PRE_ACCEPT')
+                  }
+                  onAcknowledgeReceived={() =>
+                    void handleAcknowledge('BUYER_ACK_RECEIVED')
+                  }
                 />
               ) : null}
 

@@ -51,16 +51,60 @@ function renderTrades(trades: TradeVerificationResult[]): void {
           : trade.verificationStatus === 'mismatch'
             ? 'mismatch'
             : '';
+      const ackButton =
+        trade.nextAction.kind === 'confirm_sent'
+          ? `<button class="primary" data-ack="SELLER_ACK_SENT" data-order="${trade.orderId}" data-offer="${trade.offerId ?? ''}">Я отправил обмен</button>`
+          : trade.nextAction.kind === 'accept_in_steam' && !trade.acknowledgments.buyerPreAccept
+            ? `<button class="primary" data-ack="BUYER_ACK_PRE_ACCEPT" data-order="${trade.orderId}" data-offer="${trade.offerId ?? ''}">Вижу предложение</button>`
+            : trade.nextAction.kind === 'confirm_received'
+              ? `<button class="primary" data-ack="BUYER_ACK_RECEIVED" data-order="${trade.orderId}" data-offer="${trade.offerId ?? ''}">Предмет получен</button>`
+              : '';
       return `
         <article class="trade-card ${statusClass}">
           <h2>${trade.item.marketHashName}</h2>
           <p class="meta">#${trade.orderShortId} · ${roleLabel(trade.role)} · ${formatMoneyMinor(trade.amountMinor)}</p>
           <p class="next"><strong>${trade.nextAction.title}</strong><br />${trade.nextAction.description}</p>
+          ${ackButton}
           <a class="btn secondary" href="${trade.siteUrl}" target="_blank" rel="noreferrer">Открыть заказ</a>
         </article>
       `;
     })
     .join('');
+
+  tradesEl.querySelectorAll<HTMLButtonElement>('button[data-ack]').forEach((button) => {
+    button.addEventListener('click', () => {
+      void acknowledgeFromPopup(button);
+    });
+  });
+}
+
+async function acknowledgeFromPopup(button: HTMLButtonElement): Promise<void> {
+  const orderId = button.dataset.order;
+  const ackType = button.dataset.ack as
+    | 'SELLER_ACK_SENT'
+    | 'BUYER_ACK_PRE_ACCEPT'
+    | 'BUYER_ACK_RECEIVED'
+    | undefined;
+  if (!orderId || !ackType) {
+    return;
+  }
+  button.disabled = true;
+  const previous = button.textContent;
+  button.textContent = 'Сохраняем…';
+  const response = await chrome.runtime.sendMessage({
+    type: TRADE_VERIFICATION_RUNTIME.ACK_TRADE,
+    orderId,
+    ackType,
+    offerId: button.dataset.offer || undefined,
+    idempotencyKey: `ack:${orderId}:${ackType}`,
+  });
+  if (response?.ok) {
+    button.textContent = 'Готово ✓';
+    await render();
+  } else {
+    button.textContent = previous ?? 'Повторить';
+    button.disabled = false;
+  }
 }
 
 async function fetchStatus(): Promise<ExtensionStatus> {

@@ -141,16 +141,29 @@ export class ExtensionTradeAckService {
     }
 
     const asset = order.lot.inventoryAsset;
-    if (
-      asset.ownerId !== params.sellerId ||
-      (asset.status !== 'AVAILABLE' && asset.status !== 'RESERVED')
-    ) {
-      throw new AppException(
-        ErrorCode.EXTENSION_TASK_INVALID_ACK,
-        'Expected item is no longer in seller inventory',
-        HttpStatus.BAD_REQUEST,
-        { reasonCode: 'ITEM_MISSING' },
+    const sellerStillHoldsAsset =
+      asset.ownerId === params.sellerId &&
+      (asset.status === 'AVAILABLE' || asset.status === 'RESERVED');
+
+    if (!sellerStillHoldsAsset) {
+      // Offer may have already been accepted; keep offerId and verify delivery.
+      this.logger.warn(
+        JSON.stringify({
+          event: 'offer_sent_asset_already_gone',
+          orderId: params.orderId,
+          offerId: params.offerId,
+          assetStatus: asset.status,
+          ownerId: asset.ownerId,
+          sellerId: params.sellerId,
+        }),
       );
+      void this.tradeStatusPoller.pollOrderById(params.orderId).catch((error) => {
+        this.logger.warn(
+          `Delivery check after gone-asset OFFER_SENT failed for ${params.orderId}: ${
+            error instanceof Error ? error.message : 'unknown'
+          }`,
+        );
+      });
     }
 
     if (isExtensionTradeAcknowledgmentEnabled()) {
@@ -168,6 +181,10 @@ export class ExtensionTradeAckService {
           { reasonCode: 'ITEM_MISMATCH' },
         );
       }
+      return;
+    }
+
+    if (!sellerStillHoldsAsset) {
       return;
     }
 
@@ -243,13 +260,15 @@ export class ExtensionTradeAckService {
     });
 
     if (type === 'BUYER_ACK_RECEIVED') {
-      void this.tradeStatusPoller.pollOrderById(order.id).catch((error) => {
-        this.logger.warn(
-          `Immediate trade poll failed after buyer ack for order ${order.id}: ${
-            error instanceof Error ? error.message : 'unknown'
-          }`,
-        );
-      });
+      void this.tradeStatusPoller
+        .pollOrderById(order.id, { force: true })
+        .catch((error) => {
+          this.logger.warn(
+            `Immediate trade poll failed after buyer ack for order ${order.id}: ${
+              error instanceof Error ? error.message : 'unknown'
+            }`,
+          );
+        });
     }
 
     return { ok: true, type, idempotent: false };
@@ -621,6 +640,17 @@ export class ExtensionTradeAckService {
           title: 'Отправьте обмен',
           description:
             'Расширение отправит trade offer автоматически. Подтвердите Steam Guard при необходимости.',
+        };
+      }
+      if (
+        order.status === OrderStatus.WAITING_TRADE &&
+        !acknowledgments.sellerAckSent
+      ) {
+        return {
+          kind: 'confirm_sent',
+          title: 'Подтвердите отправку',
+          description:
+            'Если Guard уже подтверждён — нажмите «Я отправил обмен». Покупатель увидит, что предложение ушло.',
         };
       }
       if (order.status === OrderStatus.WAITING_TRADE) {

@@ -44,6 +44,8 @@ export function countActionableTrades(trades: TradeVerificationResult[]): number
     return (
       kind === 'accept_in_steam' ||
       kind === 'confirm_guard' ||
+      kind === 'confirm_sent' ||
+      kind === 'confirm_received' ||
       kind === 'report_issue'
     );
   }).length;

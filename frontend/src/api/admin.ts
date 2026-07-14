@@ -144,6 +144,18 @@ export function applyObservedStatus(
   });
 }
 
+export function checkAdminOrderDelivery(token: string, orderId: string) {
+  return apiRequest<{
+    checked: boolean;
+    transitioned: boolean;
+    card: AdminOrderCard;
+  }>(`/admin/orders/${orderId}/check-delivery`, {
+    method: 'POST',
+    token,
+    body: {},
+  });
+}
+
 export function getShadowMetrics(token: string) {
   return apiRequest<{ mismatchesLast7d: number }>('/admin/metrics/shadow', { token });
 }

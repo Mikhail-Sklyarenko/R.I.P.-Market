@@ -16,6 +16,9 @@ describe('ExtensionTradeTaskService integration-like', () => {
   const tradeAck = {
     assertOfferSentTrustGate: jest.fn().mockResolvedValue(undefined),
   };
+  const tradeStatusPoller = {
+    pollOrderById: jest.fn().mockResolvedValue(false),
+  };
   const service = new ExtensionTradeTaskService(
     prisma as never,
     reconcile as never,
@@ -23,6 +26,7 @@ describe('ExtensionTradeTaskService integration-like', () => {
     extensionFlowMetrics as never,
     antiFraud as never,
     tradeAck as never,
+    tradeStatusPoller as never,
   );
 
   beforeEach(() => {

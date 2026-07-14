@@ -25,6 +25,7 @@ describe('AdminService dispute ops', () => {
     {} as never,
     {} as never,
     {} as never,
+    { pollOrderById: jest.fn() } as never,
     {} as never,
     {} as never,
     disputeOpsService as unknown as DisputeOpsService,

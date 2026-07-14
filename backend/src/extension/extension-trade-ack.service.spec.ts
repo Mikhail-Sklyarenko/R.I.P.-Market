@@ -159,7 +159,7 @@ describe('ExtensionTradeAckService', () => {
     ).toBe(true);
   });
 
-  it('rejects OFFER_SENT when seller inventory no longer holds asset', async () => {
+  it('allows OFFER_SENT and triggers delivery check when seller inventory no longer holds asset', async () => {
     prisma.order.findUnique.mockResolvedValue({
       id: 'order-1',
       buyerId: 'buyer-1',
@@ -217,9 +217,8 @@ describe('ExtensionTradeAckService', () => {
         offerId: '1234567890',
         observed: { assetId: 'asset-1', floatValue: '0.254319' },
       }),
-    ).rejects.toMatchObject({
-      details: { reasonCode: 'ITEM_MISSING' },
-    });
+    ).resolves.toBeUndefined();
+    expect(tradeStatusPoller.pollOrderById).toHaveBeenCalledWith('order-1');
   });
 
   it('acknowledges buyer pre-accept idempotently', async () => {
@@ -270,6 +269,8 @@ describe('ExtensionTradeAckService', () => {
     });
 
     expect(result.idempotent).toBe(false);
-    expect(tradeStatusPoller.pollOrderById).toHaveBeenCalledWith('order-1');
+    expect(tradeStatusPoller.pollOrderById).toHaveBeenCalledWith('order-1', {
+      force: true,
+    });
   });
 });

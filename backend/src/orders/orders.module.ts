@@ -1,5 +1,6 @@
 import { Module, forwardRef } from '@nestjs/common';
 import { BuyRequestsModule } from '../buy-requests/buy-requests.module';
+import { ExtensionModule } from '../extension/extension.module';
 import { ExtensionRolloutModule } from '../extension/extension-rollout.module';
 import { LotsModule } from '../lots/lots.module';
 import { UsersModule } from '../users/users.module';
@@ -20,6 +21,7 @@ import { OrdersService } from './orders.service';
     ExtensionRolloutModule,
     UsersModule,
     forwardRef(() => TradesModule),
+    forwardRef(() => ExtensionModule),
   ],
   controllers: [OrdersController, MyOrdersController],
   providers: [

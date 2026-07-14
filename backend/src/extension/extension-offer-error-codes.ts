@@ -2,6 +2,7 @@ export const ExtensionOfferErrorCode = {
   BUYER_TRADE_URL_INVALID: 'BUYER_TRADE_URL_INVALID',
   BUYER_TRADE_URL_MISSING: 'BUYER_TRADE_URL_MISSING',
   ITEM_MISSING: 'ITEM_MISSING',
+  ITEM_ALREADY_GONE: 'ITEM_ALREADY_GONE',
   ITEM_MISMATCH: 'ITEM_MISMATCH',
   INVENTORY_NOT_LOADED: 'INVENTORY_NOT_LOADED',
   STEAM_UNAVAILABLE: 'STEAM_UNAVAILABLE',
@@ -35,8 +36,14 @@ export const OFFER_ERROR_UX_HINTS: Record<
   ITEM_MISSING: {
     title: 'Предмет не найден в инвентаре',
     sellerHint:
-      'Проверьте, что предмет всё ещё в вашем Steam-инвентаре и не продан вне площадки.',
+      'Проверьте, что предмет ещё в Steam-инвентаре. Если вы уже отправили и приняли обмен — дождитесь проверки доставки.',
     retryable: true,
+  },
+  ITEM_ALREADY_GONE: {
+    title: 'Предмет уже ушёл из инвентаря продавца',
+    sellerHint:
+      'Похоже, обмен уже прошёл в Steam. Не отправляйте новый offer — платформа проверяет доставку покупателю.',
+    retryable: false,
   },
   ITEM_MISMATCH: {
     title: 'Предмет не совпадает с заказом',
@@ -92,3 +99,46 @@ export const OFFER_ERROR_UX_HINTS: Record<
     retryable: false,
   },
 };
+
+/** Phases where ITEM_MISSING usually means the skin already left via Steam trade. */
+const ITEM_GONE_AFTER_PHASES = new Set([
+  'OFFER_DRAFTED',
+  'ITEM_SELECTED',
+  'OFFER_SUBMITTED',
+  'CONFIRM_PENDING',
+]);
+
+export function resolveOfferFailureReason(
+  reasonCode: string | null | undefined,
+  executionPhase: string | null | undefined,
+): ExtensionOfferErrorCodeType {
+  const raw = (reasonCode ?? 'OFFER_SEND_FAILED') as ExtensionOfferErrorCodeType;
+  if (
+    raw === ExtensionOfferErrorCode.ITEM_MISSING &&
+    executionPhase &&
+    ITEM_GONE_AFTER_PHASES.has(executionPhase)
+  ) {
+    return ExtensionOfferErrorCode.ITEM_ALREADY_GONE;
+  }
+  if (raw in OFFER_ERROR_UX_HINTS) {
+    return raw;
+  }
+  return ExtensionOfferErrorCode.OFFER_SEND_FAILED;
+}
+
+export function isOfferErrorRetryable(
+  reasonCode: string | null | undefined,
+  executionPhase: string | null | undefined,
+): boolean {
+  const resolved = resolveOfferFailureReason(reasonCode, executionPhase);
+  return OFFER_ERROR_UX_HINTS[resolved]?.retryable ?? true;
+}
+
+export function shouldTriggerDeliveryCheckAfterOfferFailure(
+  reasonCode: string | null | undefined,
+): boolean {
+  return (
+    reasonCode === ExtensionOfferErrorCode.ITEM_ALREADY_GONE ||
+    reasonCode === ExtensionOfferErrorCode.ITEM_MISSING
+  );
+}

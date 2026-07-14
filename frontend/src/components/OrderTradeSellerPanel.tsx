@@ -2,15 +2,24 @@ import { useState } from 'react';
 import type { Order } from '../api/types';
 import { ExtensionTaskProgress } from './ExtensionTaskProgress';
 import { ItemPreview } from './ItemPreview';
-import { formatTradePollStatus, SELLER_TRADE_INSTRUCTIONS } from '../utils/order-trade';
+import {
+  formatTradePollStatus,
+  isOrderTradeDeliveryCheck,
+  SELLER_TRADE_INSTRUCTIONS,
+} from '../utils/order-trade';
 
 type OrderTradeSellerPanelProps = {
   order: Order;
   offerInput: string;
   savingOffer: boolean;
+  checkingDelivery?: boolean;
+  acknowledging?: boolean;
+  ackEnabled?: boolean;
   extensionMode?: boolean;
   onOfferInputChange: (value: string) => void;
   onSaveTradeReference: () => void;
+  onCheckDelivery?: () => void;
+  onAcknowledgeSent?: () => void;
 };
 
 async function copyToClipboard(value: string): Promise<void> {
@@ -21,9 +30,14 @@ export function OrderTradeSellerPanel({
   order,
   offerInput,
   savingOffer,
+  checkingDelivery = false,
+  acknowledging = false,
+  ackEnabled = false,
   extensionMode = false,
   onOfferInputChange,
   onSaveTradeReference,
+  onCheckDelivery,
+  onAcknowledgeSent,
 }: OrderTradeSellerPanelProps) {
   const [copied, setCopied] = useState(false);
   const buyerTradeUrl = order.buyer?.tradeUrl?.trim() ?? '';
@@ -31,13 +45,22 @@ export function OrderTradeSellerPanel({
   const hasOfferSaved = Boolean(order.tradeOperation?.externalOfferId);
   const tradeTask = order.tradeTask;
   const isConfirmPending = tradeTask?.executionPhase === 'CONFIRM_PENDING';
+  const isDeliveryCheck = isOrderTradeDeliveryCheck(order);
+  const sellerAckSent = Boolean(order.tradeAcknowledgments?.sellerAckSent);
+  const showSellerAck =
+    ackEnabled &&
+    order.status === 'WAITING_TRADE' &&
+    hasOfferSaved &&
+    !sellerAckSent &&
+    !isDeliveryCheck &&
+    Boolean(onAcknowledgeSent);
   const extensionHandling =
     extensionMode &&
     tradeTask &&
     tradeTask.status !== 'EXPIRED' &&
     tradeTask.status !== 'FAILED' &&
     tradeTask.executionPhase !== 'OFFER_FAILED';
-  const showManualForm = !extensionHandling || !hasOfferSaved;
+  const showManualForm = (!extensionHandling || !hasOfferSaved) && !isDeliveryCheck;
   const itemMarketHashName =
     order.lot.inventoryAsset.itemDefinition.marketHashName ?? null;
 
@@ -63,12 +86,60 @@ export function OrderTradeSellerPanel({
         </div>
       ) : null}
 
+      {isDeliveryCheck ? (
+        <div className="alert alert-info" data-testid="seller-delivery-check-banner">
+          <strong>Проверяем доставку</strong>
+          <p className="muted small">
+            Предмет уже не найден у продавца в Steam. Не отправляйте новый trade offer —
+            платформа сверяет инвентарь покупателя.
+          </p>
+          {onCheckDelivery ? (
+            <button
+              type="button"
+              className="button secondary sm"
+              disabled={checkingDelivery}
+              data-testid="check-delivery-now"
+              onClick={onCheckDelivery}
+            >
+              {checkingDelivery ? 'Проверяем…' : 'Проверить доставку сейчас'}
+            </button>
+          ) : null}
+        </div>
+      ) : null}
+
+      {showSellerAck ? (
+        <div className="extension-seller-cta" data-testid="seller-ack-sent-cta">
+          <strong>Подтвердите отправку</strong>
+          <p className="muted small">
+            Если Guard уже подтверждён — нажмите ниже. Это не переводит деньги, а сообщает
+            покупателю и ускоряет согласование сделки.
+          </p>
+          <button
+            type="button"
+            className="button primary sm"
+            disabled={acknowledging}
+            data-testid="seller-ack-sent"
+            onClick={onAcknowledgeSent}
+          >
+            {acknowledging ? 'Сохраняем…' : 'Я отправил обмен'}
+          </button>
+        </div>
+      ) : null}
+
+      {sellerAckSent && !isDeliveryCheck ? (
+        <p className="alert alert-success" data-testid="seller-ack-sent-done">
+          Вы подтвердили отправку. Ожидаем принятия покупателем в Steam.
+        </p>
+      ) : null}
+
       <p className="muted small" data-testid="seller-waiting-message">
-        {extensionMode
-          ? extensionHandling && !isConfirmPending
-            ? 'Расширение добавит предмет в trade offer автоматически. Вам останется подтвердить обмен в Steam Guard, если потребуется.'
-            : 'Расширение отправит trade offer автоматически. Подтвердите в Steam Guard при необходимости.'
-          : 'Отправьте trade offer покупателю и укажите ссылку на предложение ниже.'}
+        {isDeliveryCheck
+          ? 'Статус сделки обновится автоматически после проверки доставки.'
+          : extensionMode
+            ? extensionHandling && !isConfirmPending
+              ? 'Расширение добавит предмет в trade offer автоматически. Вам останется подтвердить обмен в Steam Guard, если потребуется.'
+              : 'Расширение отправит trade offer автоматически. Подтвердите в Steam Guard при необходимости.'
+            : 'Отправьте trade offer покупателю и укажите ссылку на предложение ниже.'}
       </p>
 
       {extensionMode ? (

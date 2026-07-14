@@ -40,6 +40,24 @@ export function formatTradePollStatus(tradeOperation?: TradeOperation | null): s
   return tradeOperation.status;
 }
 
+export function isOrderTradeDeliveryCheck(order: {
+  tradeTask?: {
+    status?: string | null;
+    executionPhase?: string | null;
+    lastErrorCode?: string | null;
+  } | null;
+}): boolean {
+  const tradeTask = order.tradeTask;
+  if (!tradeTask) {
+    return false;
+  }
+  return (
+    tradeTask.lastErrorCode === 'ITEM_ALREADY_GONE' ||
+    ((tradeTask.status === 'FAILED' || tradeTask.executionPhase === 'OFFER_FAILED') &&
+      tradeTask.lastErrorCode === 'ITEM_MISSING')
+  );
+}
+
 export function getTradeTimeoutRemainingMinutes(
   orderCreatedAt: string,
   timeoutMinutes: number,

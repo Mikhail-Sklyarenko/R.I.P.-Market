@@ -13,6 +13,7 @@ import { ApiBearerAuth, ApiHeader, ApiTags } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { CurrentUser } from '../common/current-user.decorator';
 import type { AuthUser } from '../common/auth-user.interface';
+import { AcknowledgeTradeDto } from './dto/acknowledge-trade.dto';
 import { CreateOrderDto } from './dto/create-order.dto';
 import { UpdateTradeReferenceDto } from './dto/update-trade-reference.dto';
 import { OrdersService } from './orders.service';
@@ -41,6 +42,23 @@ export class OrdersController {
   @Get(':id')
   async getById(@CurrentUser() user: AuthUser, @Param('id') orderId: string) {
     return this.ordersService.getById(orderId, user.sub);
+  }
+
+  @Post(':id/check-delivery')
+  async checkDelivery(
+    @CurrentUser() user: AuthUser,
+    @Param('id') orderId: string,
+  ) {
+    return this.ordersService.checkDelivery(orderId, user.sub);
+  }
+
+  @Post(':id/acknowledge')
+  async acknowledgeTrade(
+    @CurrentUser() user: AuthUser,
+    @Param('id') orderId: string,
+    @Body() body: AcknowledgeTradeDto,
+  ) {
+    return this.ordersService.acknowledgeTrade(orderId, user.sub, body.type);
   }
 
   @ApiHeader({ name: 'Idempotency-Key', required: false })

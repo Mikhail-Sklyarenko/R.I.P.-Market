@@ -1,4 +1,10 @@
-import { HttpStatus, Injectable, Logger } from '@nestjs/common';
+import {
+  forwardRef,
+  HttpStatus,
+  Inject,
+  Injectable,
+  Logger,
+} from '@nestjs/common';
 import { Interval } from '@nestjs/schedule';
 import {
   OrderStatus,
@@ -17,11 +23,13 @@ import {
 } from './extension-task.config';
 import { isExtensionUiTradeFlowEnabled } from './extension-ui-trade-flow.config';
 import { TradeReferenceReconcileService } from '../trades/trade-reference-reconcile.service';
+import { TradeStatusPollerService } from '../trades/trade-status-poller.service';
 import { DisputeOpsService } from '../disputes/dispute-ops.service';
 import { isExtensionDisputeBridgeEnabled } from '../disputes/dispute-ops.config';
 import {
-  OFFER_ERROR_UX_HINTS,
-  type ExtensionOfferErrorCodeType,
+  isOfferErrorRetryable,
+  resolveOfferFailureReason,
+  shouldTriggerDeliveryCheckAfterOfferFailure,
 } from './extension-offer-error-codes';
 import { mapExtensionErrorToDisputeReason } from '../disputes/dispute-reason-codes';
 import { isValidSteamOfferId } from '../providers/trade/trade-offer.util';
@@ -68,6 +76,8 @@ export class ExtensionTradeTaskService {
     private readonly extensionFlowMetrics: ExtensionFlowMetricsService,
     private readonly antiFraud: AntiFraudRuleService,
     private readonly extensionTradeAckService: ExtensionTradeAckService,
+    @Inject(forwardRef(() => TradeStatusPollerService))
+    private readonly tradeStatusPoller: TradeStatusPollerService,
   ) {}
 
   async createOfferTask(params: CreateOfferTaskContext): Promise<void> {
@@ -271,12 +281,17 @@ export class ExtensionTradeTaskService {
       });
     }
 
-    const offerSentReconcile = await this.prisma.$transaction(async (tx) => {
+    const resolvedFailureReason =
+      params.phase === TradeTaskExecutionPhase.OFFER_FAILED
+        ? resolveOfferFailureReason(params.reasonCode, task.executionPhase)
+        : null;
+
+    const progressResult = await this.prisma.$transaction(async (tx) => {
       await tx.tradeTaskStatusEvent.create({
         data: {
           tradeTaskId: task.id,
           phase: params.phase,
-          reasonCode: params.reasonCode ?? null,
+          reasonCode: resolvedFailureReason ?? params.reasonCode ?? null,
           payload: params.details ?? undefined,
           idempotencyKey: params.idempotencyKey,
         },
@@ -328,12 +343,11 @@ export class ExtensionTradeTaskService {
       }
 
       if (params.phase === TradeTaskExecutionPhase.OFFER_FAILED) {
-        const reason = params.reasonCode ?? 'OFFER_SEND_FAILED';
-        const hint =
-          OFFER_ERROR_UX_HINTS[reason as ExtensionOfferErrorCodeType];
+        const reason = resolvedFailureReason ?? 'OFFER_SEND_FAILED';
         const nextAttemptCount = task.attemptCount + 1;
         const canRetry =
-          nextAttemptCount < task.maxAttempts && (hint?.retryable ?? true);
+          nextAttemptCount < task.maxAttempts &&
+          isOfferErrorRetryable(reason, task.executionPhase);
         await tx.tradeTask.update({
           where: { id: task.id },
           data: {
@@ -361,10 +375,13 @@ export class ExtensionTradeTaskService {
               orderId: task.orderId,
               tradeOperationId: task.tradeOperationId,
               reasonCode: reason,
+              deliveryCheck:
+                !canRetry && shouldTriggerDeliveryCheckAfterOfferFailure(reason),
+              previousPhase: task.executionPhase,
             },
           },
         });
-        return;
+        return { deliveryCheckOrderId: !canRetry ? task.orderId : null, reason };
       }
 
       await tx.tradeTask.update({
@@ -377,6 +394,18 @@ export class ExtensionTradeTaskService {
       return null;
     });
 
+    const offerSentReconcile =
+      progressResult &&
+      'orderId' in progressResult &&
+      'offerId' in progressResult
+        ? progressResult
+        : null;
+    const offerFailedResult =
+      progressResult &&
+      'deliveryCheckOrderId' in progressResult
+        ? progressResult
+        : null;
+
     if (offerSentReconcile) {
       await this.tradeReferenceReconcileService.reconcile({
         orderId: offerSentReconcile.orderId,
@@ -388,14 +417,41 @@ export class ExtensionTradeTaskService {
       });
     }
 
+    const failedReason =
+      offerFailedResult?.reason ??
+      resolveOfferFailureReason(params.reasonCode, task.executionPhase);
+
     if (
       params.phase === TradeTaskExecutionPhase.OFFER_FAILED &&
-      task.attemptCount >= task.maxAttempts
+      task.attemptCount + 1 >= task.maxAttempts &&
+      !shouldTriggerDeliveryCheckAfterOfferFailure(failedReason)
     ) {
-      await this.maybeBridgeExtensionDispute(
-        task.orderId,
-        params.reasonCode ?? 'OFFER_SEND_FAILED',
+      await this.maybeBridgeExtensionDispute(task.orderId, failedReason);
+    }
+
+    if (
+      params.phase === TradeTaskExecutionPhase.OFFER_FAILED &&
+      offerFailedResult?.deliveryCheckOrderId &&
+      shouldTriggerDeliveryCheckAfterOfferFailure(failedReason)
+    ) {
+      this.logger.log(
+        JSON.stringify({
+          event: 'trade_task_delivery_check_triggered',
+          taskId: task.id,
+          orderId: task.orderId,
+          reasonCode: failedReason,
+          previousPhase: task.executionPhase,
+        }),
       );
+      void this.tradeStatusPoller
+        .pollOrderById(offerFailedResult.deliveryCheckOrderId)
+        .catch((error) => {
+          this.logger.warn(
+            `Delivery check after offer failure failed for order ${task.orderId}: ${
+              error instanceof Error ? error.message : 'unknown'
+            }`,
+          );
+        });
     }
 
     if (params.phase === TradeTaskExecutionPhase.OFFER_FAILED) {
@@ -407,7 +463,7 @@ export class ExtensionTradeTaskService {
         orderId: task.orderId,
         taskId: task.id,
         success: false,
-        reasonCode: params.reasonCode ?? 'OFFER_SEND_FAILED',
+        reasonCode: failedReason,
         sellerId: order?.sellerId,
       });
       if (order?.sellerId) {

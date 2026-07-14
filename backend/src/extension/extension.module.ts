@@ -13,7 +13,7 @@ import { ExtensionSignatureGuard } from './guards/extension-signature.guard';
 @Module({
   imports: [
     AuthModule,
-    OrdersModule,
+    forwardRef(() => OrdersModule),
     DisputesModule,
     forwardRef(() => TradesModule),
   ],

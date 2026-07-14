@@ -28,6 +28,7 @@ import { getEnvAllowlistSteamIds } from '../settlement/settlement.config';
 import { settlementHoldReverseIdempotencyKey } from '../settlement/settlement-hold.config';
 import { TradesService } from '../trades/trades.service';
 import { TradeShadowComparatorService } from '../trades/trade-shadow-comparator.service';
+import { TradeStatusPollerService } from '../trades/trade-status-poller.service';
 import { DisputeFinancialGuardService } from '../disputes/dispute-financial-guard.service';
 import { DisputeOpsService } from '../disputes/dispute-ops.service';
 import { ExtensionRolloutService } from '../extension/extension-rollout.service';
@@ -58,6 +59,7 @@ export class AdminService {
     private readonly lotStateService: LotStateService,
     private readonly orderStateService: OrderStateService,
     private readonly tradesService: TradesService,
+    private readonly tradeStatusPoller: TradeStatusPollerService,
     private readonly shadowComparator: TradeShadowComparatorService,
     private readonly settlementService: SettlementService,
     private readonly disputeOpsService: DisputeOpsService,
@@ -566,6 +568,56 @@ export class AdminService {
       idempotencyKey,
     );
     return this.getOrderCard(orderId);
+  }
+
+  async checkDelivery(orderId: string, actorUserId: string) {
+    const order = await this.prisma.order.findUnique({
+      where: { id: orderId },
+      select: {
+        id: true,
+        status: true,
+        tradeOperation: { select: { status: true } },
+      },
+    });
+
+    if (!order) {
+      throw new NotFoundException('Order not found');
+    }
+
+    if (
+      order.status !== OrderStatus.WAITING_TRADE ||
+      order.tradeOperation?.status !== TradeOperationStatus.WAITING
+    ) {
+      throw new BadRequestException(
+        'Delivery check is only available while the trade is waiting',
+      );
+    }
+
+    let transitioned = false;
+    try {
+      transitioned = await this.tradeStatusPoller.pollOrderById(orderId, {
+        force: true,
+      });
+    } catch {
+      // Inventory/Steam failures are transient; still return the card.
+    }
+
+    await this.prisma.auditLog.create({
+      data: {
+        actorUserId,
+        entityType: 'order',
+        entityId: orderId,
+        action: 'ADMIN_CHECK_DELIVERY',
+        afterState: { checked: true, transitioned },
+      },
+    });
+
+    const card = await this.getOrderCard(orderId);
+    return toJsonSafe({
+      checked: true,
+      transitioned,
+      card,
+    });
   }
 
   async getShadowDashboard() {

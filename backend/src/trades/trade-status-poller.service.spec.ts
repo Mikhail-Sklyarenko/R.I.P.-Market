@@ -222,4 +222,32 @@ describe('TradeStatusPollerService', () => {
     );
     process.env.TRADE_PROVIDER = previousTradeProvider;
   });
+
+  it('force poll clears backoff and still checks the order', async () => {
+    const { poller, deliveryEngine, tradesService } = buildPoller({
+      singleOperation: baseOperation,
+      evaluation: {
+        decision: {
+          action: 'WAIT',
+          pollOutcome: 'WAITING',
+          reasonCode: 'OFFER_PENDING',
+        },
+        offerStatus: 'active',
+        inventoryDelta: 'pending',
+        evidence: {},
+      },
+    });
+    deliveryEngine.isInBackoff.mockReturnValue(true);
+
+    const skipped = await poller.pollOrderById('order-1');
+    expect(skipped).toBe(false);
+    expect(deliveryEngine.clearBackoff).not.toHaveBeenCalled();
+    expect(deliveryEngine.evaluate).not.toHaveBeenCalled();
+
+    const forced = await poller.pollOrderById('order-1', { force: true });
+    expect(forced).toBe(false);
+    expect(deliveryEngine.clearBackoff).toHaveBeenCalledWith('order-1');
+    expect(deliveryEngine.evaluate).toHaveBeenCalled();
+    expect(tradesService.applyTradeConfirmedFromPoll).not.toHaveBeenCalled();
+  });
 });

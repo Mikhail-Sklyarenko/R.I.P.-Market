@@ -154,7 +154,9 @@ export const OFFER_ERROR_HINTS: Record<string, string> = {
   BUYER_TRADE_URL_INVALID: 'Попросите покупателя обновить Trade URL.',
   BUYER_TRADE_URL_MISSING: 'У покупателя нет Trade URL в профиле.',
   ITEM_MISSING:
-    'Предмет не найден в Steam. Синхронизируйте инвентарь на сайте и убедитесь, что скин не продан.',
+    'Предмет не найден в Steam. Если обмен уже ушёл — дождитесь проверки доставки, не отправляйте новый offer.',
+  ITEM_ALREADY_GONE:
+    'Похоже, обмен уже прошёл в Steam. Не отправляйте новый offer — платформа проверяет доставку покупателю.',
   ITEM_MISMATCH:
     'В инвентаре несколько одинаковых скинов — укажите offer вручную или пересоздайте лот.',
   INVENTORY_NOT_LOADED:

@@ -62,11 +62,12 @@ export class TradeStatusPollerService implements OnModuleInit {
     await this.pollWaitingTrades();
   }
 
-  async pollOrderById(orderId: string): Promise<boolean> {
-    if (getProvidersConfig().trade === 'mock') {
-      return false;
-    }
-
+  async pollOrderById(
+    orderId: string,
+    options?: { force?: boolean },
+  ): Promise<boolean> {
+    // Explicit on-demand checks must run even when the trade provider is mock:
+    // inventory-delta confirmation still applies (extension/live Guard flows).
     const operation = await this.prisma.tradeOperation.findFirst({
       where: {
         orderId,
@@ -77,7 +78,13 @@ export class TradeStatusPollerService implements OnModuleInit {
       include: OPERATION_INCLUDE,
     });
 
-    if (!operation || this.deliveryEngine.isInBackoff(orderId)) {
+    if (!operation) {
+      return false;
+    }
+
+    if (options?.force) {
+      this.deliveryEngine.clearBackoff(orderId);
+    } else if (this.deliveryEngine.isInBackoff(orderId)) {
       return false;
     }
 

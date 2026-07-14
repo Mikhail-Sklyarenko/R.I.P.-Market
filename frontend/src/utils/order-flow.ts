@@ -1,4 +1,5 @@
 import type { Order } from '../api/types';
+import { isOrderTradeDeliveryCheck } from './order-trade';
 
 export const ORDER_STATUS_LABELS: Record<string, string> = {
   CREATED: 'Сделка создана',
@@ -120,13 +121,47 @@ export function getOrderNextAction(
 
   if (role === 'buyer') {
     if (order.status === 'WAITING_TRADE') {
+      if (isOrderTradeDeliveryCheck(order)) {
+        return {
+          title: 'Проверьте предмет в Steam',
+          description:
+            'Обмен мог уже пройти. Подтвердите получение ниже — это ускорит проверку на платформе.',
+        };
+      }
+      if (!order.tradeOperation?.externalOfferId) {
+        return {
+          title: 'Ждём обмен от продавца',
+          description:
+            'Продавец отправляет trade offer. Обычно это занимает 1–2 минуты.',
+        };
+      }
+      if (!order.tradeAcknowledgments?.buyerPreAccept) {
+        return {
+          title: 'Примите обмен в Steam',
+          description:
+            'Проверьте скин и нажмите «Вижу предложение», затем примите exchange в Steam.',
+        };
+      }
+      if (!order.tradeAcknowledgments?.buyerReceived) {
+        return {
+          title: 'Подтвердите получение',
+          description:
+            'После принятия в Steam нажмите «Предмет получен» — платформа быстрее сверит инвентарь.',
+        };
+      }
       return {
-        title: 'Примите обмен в Steam',
-        description:
-          'Продавец отправит trade offer. Примите его в клиенте Steam или на сайте.',
+        title: 'Платформа проверяет доставку',
+        description: 'Статус заказа обновится автоматически после проверки Steam.',
       };
     }
     if (order.status === 'TRADE_CONFIRMED') {
+      if (!order.tradeAcknowledgments?.buyerReceived) {
+        return {
+          title: 'Подтвердите получение',
+          description:
+            'Обмен уже подтверждён. Подтвердите получение предмета, если ещё не сделали этого.',
+        };
+      }
       return {
         title: 'Обмен подтверждён',
         description: 'Ожидаем финального расчёта. Страница обновится автоматически.',
@@ -147,10 +182,30 @@ export function getOrderNextAction(
 
   if (role === 'seller') {
     if (order.status === 'WAITING_TRADE') {
+      if (isOrderTradeDeliveryCheck(order)) {
+        return {
+          title: 'Проверяем доставку',
+          description:
+            'Предмет уже ушёл из вашего инвентаря. Не отправляйте новый обмен — платформа сверяет покупателя.',
+        };
+      }
+      if (!order.tradeOperation?.externalOfferId) {
+        return {
+          title: 'Отправьте обмен в Steam',
+          description:
+            'Отправьте trade offer покупателю и укажите ID или ссылку на предложение ниже.',
+        };
+      }
+      if (!order.tradeAcknowledgments?.sellerAckSent) {
+        return {
+          title: 'Подтвердите отправку',
+          description:
+            'Если Guard уже подтверждён — нажмите «Я отправил обмен». Покупатель увидит, что предложение ушло.',
+        };
+      }
       return {
-        title: 'Отправьте обмен в Steam',
-        description:
-          'Отправьте trade offer покупателю и укажите ID или ссылку на предложение ниже.',
+        title: 'Ожидаем покупателя',
+        description: 'Обмен отправлен. Покупатель должен принять его в Steam.',
       };
     }
     if (order.status === 'TRADE_CONFIRMED') {

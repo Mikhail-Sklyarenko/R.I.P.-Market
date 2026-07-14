@@ -308,6 +308,40 @@ export function getOrder(token: string, orderId: string) {
   return apiRequest<Order>(`/orders/${orderId}`, { token });
 }
 
+export function checkOrderDelivery(token: string, orderId: string) {
+  return apiRequest<{
+    checked: boolean;
+    transitioned: boolean;
+    order: Order;
+  }>(`/orders/${orderId}/check-delivery`, {
+    method: 'POST',
+    token,
+    body: {},
+  });
+}
+
+export type OrderTradeAcknowledgmentType =
+  | 'SELLER_ACK_SENT'
+  | 'BUYER_ACK_PRE_ACCEPT'
+  | 'BUYER_ACK_RECEIVED';
+
+export function acknowledgeOrderTrade(
+  token: string,
+  orderId: string,
+  type: OrderTradeAcknowledgmentType,
+) {
+  return apiRequest<{
+    ok: true;
+    type: OrderTradeAcknowledgmentType;
+    idempotent: boolean;
+    order: Order;
+  }>(`/orders/${orderId}/acknowledge`, {
+    method: 'POST',
+    token,
+    body: { type },
+  });
+}
+
 export function updateOrderTradeReference(
   token: string,
   orderId: string,

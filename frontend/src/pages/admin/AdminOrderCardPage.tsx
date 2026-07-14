@@ -1,6 +1,6 @@
 import { type FormEvent, useCallback, useEffect, useMemo, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
-import { getAdminOrderCard, openDispute, resolveDispute, applyObservedStatus, retrySettlement } from '../../api/admin';
+import { getAdminOrderCard, openDispute, resolveDispute, applyObservedStatus, retrySettlement, checkAdminOrderDelivery } from '../../api/admin';
 import type { AdminOrderCard } from '../../api/types';
 import { useAuth } from '../../auth/AuthContext';
 import { AdminConfirmModal } from '../../components/AdminConfirmModal';
@@ -203,6 +203,41 @@ export function AdminOrderCardPage() {
     card.settlement.allowed === false &&
     card.settlement.code !== 'TRADE_NOT_CONFIRMED' &&
     card.settlement.code !== 'ORDER_NOT_TRADE_CONFIRMED';
+
+  const canCheckDelivery =
+    order?.status === 'WAITING_TRADE' &&
+    order.tradeOperation?.status === 'WAITING';
+
+  async function handleCheckDelivery() {
+    if (!token || !id) {
+      return;
+    }
+    setConfirmState({
+      title: 'Check delivery',
+      message:
+        'Force an immediate Steam/inventory delivery check for this waiting trade?',
+      confirmLabel: 'Check delivery',
+      action: async () => {
+        setActionLoading('check-delivery');
+        setError(null);
+        setSuccessMessage(null);
+        try {
+          const result = await checkAdminOrderDelivery(token, id);
+          setCard(result.card);
+          setSuccessMessage(
+            result.transitioned
+              ? 'Delivery check transitioned the order'
+              : 'Delivery check completed — order still waiting',
+          );
+        } catch (err) {
+          setError(err);
+        } finally {
+          setActionLoading(null);
+          setConfirmState(null);
+        }
+      },
+    });
+  }
 
   function settlementBadge() {
     const settlement = card?.settlement;
@@ -572,6 +607,18 @@ export function AdminOrderCardPage() {
                 placeholder="Required for dispute actions"
               />
             </label>
+
+            {canCheckDelivery ? (
+              <button
+                type="button"
+                className="button secondary"
+                disabled={actionLoading !== null}
+                data-testid="admin-check-delivery"
+                onClick={() => void handleCheckDelivery()}
+              >
+                {actionLoading === 'check-delivery' ? 'Checking…' : 'Check delivery now'}
+              </button>
+            ) : null}
 
             {canRetrySettlement ? (
               <button

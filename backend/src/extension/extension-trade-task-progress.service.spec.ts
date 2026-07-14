@@ -34,6 +34,9 @@ describe('ExtensionTradeTaskService progress', () => {
   const tradeAck = {
     assertOfferSentTrustGate: jest.fn().mockResolvedValue(undefined),
   };
+  const tradeStatusPoller = {
+    pollOrderById: jest.fn().mockResolvedValue(false),
+  };
   const service = new ExtensionTradeTaskService(
     prisma as never,
     reconcile as never,
@@ -41,6 +44,7 @@ describe('ExtensionTradeTaskService progress', () => {
     extensionFlowMetrics as never,
     antiFraud as never,
     tradeAck as never,
+    tradeStatusPoller as never,
   );
 
   beforeEach(() => {
@@ -104,5 +108,40 @@ describe('ExtensionTradeTaskService progress', () => {
 
     expect(result.terminal).toBe(true);
     expect(prisma.$transaction).not.toHaveBeenCalled();
+  });
+
+  it('stops send retries and triggers delivery check when item gone after CONFIRM_PENDING', async () => {
+    prisma.tradeTaskStatusEvent.findUnique.mockResolvedValue(null);
+    prisma.tradeTask.findUnique.mockResolvedValue({
+      id: 'task-2',
+      orderId: 'order-2',
+      tradeOperationId: 'trade-2',
+      status: TradeTaskStatus.ACKED,
+      executionPhase: TradeTaskExecutionPhase.CONFIRM_PENDING,
+      attemptCount: 1,
+      maxAttempts: 5,
+    });
+    prisma.order.findUnique.mockResolvedValue({ sellerId: 'seller-2' });
+
+    const result = await service.reportTaskProgress({
+      taskId: 'task-2',
+      phase: TradeTaskExecutionPhase.OFFER_FAILED,
+      idempotencyKey: 'progress:task-2:OFFER_FAILED:missing',
+      reasonCode: 'ITEM_MISSING',
+    });
+
+    expect(result.terminal).toBe(true);
+    expect(tx.tradeTask.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          status: TradeTaskStatus.FAILED,
+          executionPhase: TradeTaskExecutionPhase.OFFER_FAILED,
+          lastErrorCode: 'ITEM_ALREADY_GONE',
+          nextAttemptAt: null,
+        }),
+      }),
+    );
+    expect(tradeStatusPoller.pollOrderById).toHaveBeenCalledWith('order-2');
+    expect(disputeOps.openSystemDispute).not.toHaveBeenCalled();
   });
 });
