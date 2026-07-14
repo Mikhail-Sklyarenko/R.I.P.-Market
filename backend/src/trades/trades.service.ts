@@ -786,6 +786,32 @@ export class TradesService {
           : settleResult.settled
             ? OrderStatus.COMPLETED
             : OrderStatus.TRADE_CONFIRMED;
+      } else {
+        // Staging / mock settlement: still mark lot+asset sold and complete order.
+        await this.settlementService.settleCompletedOrder(
+          tx,
+          {
+            id: current.id,
+            buyerId: current.buyerId,
+            sellerId: current.sellerId,
+            status: OrderStatus.TRADE_CONFIRMED,
+            amountMinor: current.amountMinor,
+            lotId: current.lotId,
+            buyer: current.buyer,
+            seller: current.seller,
+            hold: current.hold,
+            lot: current.lot,
+            tradeOperation: {
+              status: tradeVerifiedStatus,
+            },
+          },
+          `poll-settle:${orderId}`,
+        );
+        const updated = await tx.order.findUnique({
+          where: { id: current.id },
+          select: { status: true },
+        });
+        finalStatus = updated?.status ?? OrderStatus.COMPLETED;
       }
 
       await tx.auditLog.create({
