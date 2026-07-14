@@ -494,6 +494,11 @@ p {
   color: var(--color-success);
 }
 
+.badge-inactive {
+  background: rgba(148, 163, 184, 0.16);
+  color: #cbd5e1;
+}
+
 .badge-listed,
 .badge-reserved {
   background: var(--color-warning-bg);
@@ -3824,18 +3829,6 @@ p {
   white-space: nowrap;
 }
 
-.item-buy-request-card {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-3);
-  padding: var(--space-4);
-}
-
-.item-buy-request-card h2 {
-  margin: 0;
-  font-size: var(--font-size-lg);
-}
-
 .lot-compare-offers-link {
   display: inline-block;
 }
@@ -3868,23 +3861,48 @@ p {
   margin: 0;
 }
 
-.item-buy-request-panel h3 {
-  margin: 0 0 var(--space-2);
-  font-size: var(--font-size-md);
+.item-buy-request-purchase {
+  gap: var(--space-4);
 }
 
-.item-buy-request-panel {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-3);
-  padding-top: var(--space-3);
-  border-top: 1px solid var(--color-border);
+.item-buy-request-lead {
+  margin: 0;
+  line-height: 1.45;
+}
+
+.item-buy-request-price-field {
+  display: grid;
+  gap: var(--space-2);
+}
+
+.item-buy-request-price-field input {
+  width: 100%;
 }
 
 .item-buy-request-active {
   display: flex;
   flex-direction: column;
   gap: var(--space-3);
+  padding: var(--space-4);
+  border: 1px solid rgba(34, 197, 94, 0.28);
+  border-radius: var(--radius-md);
+  background: rgba(34, 197, 94, 0.08);
+}
+
+.item-buy-request-active-title {
+  margin: 0;
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  color: #86efac;
+}
+
+.item-buy-request-active-price {
+  margin: 0;
+  font-size: var(--font-size-lg);
+}
+
+.item-buy-request-footer {
+  margin: 0;
 }
 
 .inventory-show-unavailable {

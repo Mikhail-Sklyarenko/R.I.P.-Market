@@ -1,19 +1,25 @@
-import { DEAL_FLOW_STEP_ITEMS } from '../utils/order-flow';
+import {
+  BUY_REQUEST_FLOW_STEP_ITEMS,
+  DEAL_FLOW_STEP_ITEMS,
+  type DealFlowStepItem,
+} from '../utils/order-flow';
 
 type DealFlowStepsProps = {
   title?: string;
   compact?: boolean;
+  steps?: readonly DealFlowStepItem[];
 };
 
 export function DealFlowSteps({
   title = 'Как пройдёт сделка',
   compact = false,
+  steps = DEAL_FLOW_STEP_ITEMS,
 }: DealFlowStepsProps) {
   const content = (
     <>
       {!compact ? <h3 className="deal-flow-steps-title">{title}</h3> : null}
       <ol className={`deal-flow-steps-list${compact ? ' deal-flow-steps-list-compact' : ''}`}>
-        {DEAL_FLOW_STEP_ITEMS.map((step, index) => (
+        {steps.map((step, index) => (
           <li
             key={step.key}
             className="deal-flow-step"
@@ -47,3 +53,5 @@ export function DealFlowSteps({
     </div>
   );
 }
+
+export { BUY_REQUEST_FLOW_STEP_ITEMS };

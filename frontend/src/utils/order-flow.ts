@@ -204,4 +204,27 @@ export const DEAL_FLOW_STEP_ITEMS: readonly DealFlowStepItem[] = [
   },
 ] as const;
 
+export const BUY_REQUEST_FLOW_STEP_ITEMS: readonly DealFlowStepItem[] = [
+  {
+    key: 'request',
+    title: 'Оставляете заявку',
+    description: 'Укажите максимальную цену или следите за любыми предложениями.',
+  },
+  {
+    key: 'notify',
+    title: 'Получаете уведомление',
+    description: 'Когда появится подходящий лот — мы сразу сообщим в приложении.',
+  },
+  {
+    key: 'choose',
+    title: 'Выбираете лот',
+    description: 'Смотрите float, стикеры и цену — и открываете конкретное предложение.',
+  },
+  {
+    key: 'buy',
+    title: 'Покупаете как обычно',
+    description: 'Дальше стандартная покупка: резерв средств и обмен в Steam.',
+  },
+] as const;
+
 export const DEAL_FLOW_STEPS = DEAL_FLOW_STEP_ITEMS.map((step) => step.description);

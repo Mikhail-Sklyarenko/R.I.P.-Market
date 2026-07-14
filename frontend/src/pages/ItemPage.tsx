@@ -9,19 +9,28 @@ import {
 } from '../api/marketplace';
 import type { BuyRequest, CatalogItem, Lot } from '../api/types';
 import { useAuth } from '../auth/AuthContext';
+import { DealFlowSteps } from '../components/DealFlowSteps';
+import { BUY_REQUEST_FLOW_STEP_ITEMS } from '../utils/order-flow';
 import { ErrorAlert } from '../components/ErrorAlert';
 import { InventoryPriceStack } from '../components/InventoryPriceStack';
+import { ItemBuyRequestPanel } from '../components/ItemBuyRequestPanel';
 import { ItemCompareHeader } from '../components/ItemCompareHeader';
 import { ItemOffersTable } from '../components/ItemOffersTable';
+import { ItemParamsPanel } from '../components/ItemParamsPanel';
 import { LoadingState } from '../components/LoadingState';
+import { LotActionButtons } from '../components/LotActionButtons';
 import { LotBreadcrumbs } from '../components/LotBreadcrumbs';
-import { MoneyDisplay } from '../components/MoneyDisplay';
+import { LotItemHero } from '../components/LotItemHero';
 import {
   resolveSingleLotId,
   shouldRedirectItemPageToLot,
 } from '../utils/catalog-navigation';
 import { getRarityDisplayLabel } from '../utils/rarity-colors';
 import { parseUsdToMinor } from '../utils/format';
+import {
+  buildSteamMarketListingUrl,
+  toCatalogItemDisplaySource,
+} from '../utils/steam-market-link';
 
 export function ItemPage() {
   const { id } = useParams();
@@ -40,8 +49,13 @@ export function ItemPage() {
   const maxPriceMinor = useMemo(() => parseUsdToMinor(maxPriceInput), [maxPriceInput]);
   const hasOffers = (item?.activeLotCount ?? 0) > 0;
   const isComparisonPage = hasOffers && (item?.activeLotCount ?? 0) > 1;
+  const isBuyRequestPage = Boolean(item) && !hasOffers;
   const openBuyRequest = buyRequest?.status === 'OPEN' ? buyRequest : null;
   const cheapestLot = lots[0] ?? null;
+  const displayItem = useMemo(
+    () => (item ? toCatalogItemDisplaySource(item) : null),
+    [item],
+  );
 
   useEffect(() => {
     if (!id) {
@@ -151,7 +165,7 @@ export function ItemPage() {
       {loading ? <LoadingState message="Загрузка предмета…" /> : null}
       <ErrorAlert error={error} />
 
-      {item ? (
+      {item && displayItem ? (
         <>
           <LotBreadcrumbs
             marketHashName={item.marketHashName}
@@ -159,106 +173,82 @@ export function ItemPage() {
             categoryLabel={getRarityDisplayLabel(item.rarity)}
           />
 
-          <div className={`item-compare-layout${isComparisonPage ? '' : ' item-compare-layout-single'}`}>
-            <div className="item-compare-main">
-              <ItemCompareHeader item={item} />
-
-              {isComparisonPage ? <ItemOffersTable lots={lots} loading={lotsLoading} /> : null}
-
-              {!hasOffers ? (
-                <section className="card item-buy-request-card" data-testid="item-buy-request-panel">
-                  <h2>Заявка на покупку</h2>
-                  <p className="muted">
-                    Пока никто не продаёт этот предмет. Оставьте заявку — мы уведомим вас, когда
-                    появится подходящий лот.
-                  </p>
-
-                  {openBuyRequest ? (
-                    <div className="item-buy-request-active" data-testid="item-buy-request-active">
-                      <p>
-                        Заявка активна
-                        {openBuyRequest.maxPriceMinor ? (
-                          <>
-                            {' '}
-                            до <MoneyDisplay minor={openBuyRequest.maxPriceMinor} strong />
-                          </>
-                        ) : (
-                          ' без ограничения цены'
-                        )}
-                        .
-                      </p>
-                      <button
-                        type="button"
-                        className="button secondary"
-                        disabled={submitting}
-                        data-testid="item-buy-request-cancel"
-                        onClick={handleCancelBuyRequest}
-                      >
-                        Отменить заявку
-                      </button>
-                    </div>
-                  ) : (
-                    <>
-                      <label className="form-field">
-                        <span>Максимальная цена, USD (необязательно)</span>
-                        <input
-                          type="text"
-                          inputMode="decimal"
-                          placeholder="Например, 25.00"
-                          value={maxPriceInput}
-                          onChange={(event) => setMaxPriceInput(event.target.value)}
-                          data-testid="item-buy-request-max-price"
-                        />
-                      </label>
-                      <ErrorAlert error={requestError} />
-                      <button
-                        type="button"
-                        className="button primary lot-purchase-button"
-                        disabled={submitting}
-                        data-testid="item-buy-request-submit"
-                        onClick={handleCreateBuyRequest}
-                      >
-                        {token ? 'Оставить заявку на покупку' : 'Войти и оставить заявку'}
-                      </button>
-                      <p className="muted small">
-                        Активные заявки — во вкладке{' '}
-                        <Link to="/deals?tab=requests">Сделки → Заявки</Link>.
-                      </p>
-                    </>
-                  )}
-                </section>
-              ) : null}
-            </div>
-
-            {isComparisonPage ? (
-              <aside className="item-compare-sidebar">
-                <div className="card lot-purchase-card item-purchase-card">
-                  <p className="item-purchase-label muted small">Лучшее предложение</p>
-                  <div data-testid="item-market-price">
-                    <InventoryPriceStack
-                      steamPriceMinor={item.steamPriceMinor}
-                      marketplacePriceMinor={cheapestLot?.priceMinor ?? item.minMarketplacePriceMinor}
-                      testIdPrefix="item"
+          {isBuyRequestPage ? (
+            <>
+              <div className="lot-page-grid" data-testid="item-buy-request-layout">
+                <div className="lot-page-main">
+                  <div className="card lot-preview-card">
+                    <LotItemHero item={displayItem} />
+                    <ItemParamsPanel item={displayItem} testId="item-params" />
+                    <LotActionButtons
+                      steamMarketUrl={buildSteamMarketListingUrl(item.marketHashName)}
                     />
                   </div>
-
-                  {cheapestLot ? (
-                    <Link
-                      to={`/lots/${cheapestLot.id}`}
-                      className="button primary lot-purchase-button"
-                      data-testid="item-open-cheapest"
-                    >
-                      Открыть лучшее предложение
-                    </Link>
-                  ) : null}
-
-                  <p className="muted small">
-                    Float, стикеры и inspect доступны на странице конкретного лота.
-                  </p>
                 </div>
-              </aside>
-            ) : null}
-          </div>
+
+                <aside className="lot-page-sidebar">
+                  <ItemBuyRequestPanel
+                    item={item}
+                    token={token}
+                    openBuyRequest={openBuyRequest}
+                    maxPriceInput={maxPriceInput}
+                    submitting={submitting}
+                    requestError={requestError}
+                    onMaxPriceChange={setMaxPriceInput}
+                    onSubmit={handleCreateBuyRequest}
+                    onCancel={handleCancelBuyRequest}
+                  />
+                </aside>
+              </div>
+
+              <DealFlowSteps
+                title="Как работает заявка"
+                steps={BUY_REQUEST_FLOW_STEP_ITEMS}
+              />
+            </>
+          ) : (
+            <div
+              className={`item-compare-layout${isComparisonPage ? '' : ' item-compare-layout-single'}`}
+            >
+              <div className="item-compare-main">
+                <ItemCompareHeader item={item} />
+                {isComparisonPage ? (
+                  <ItemOffersTable lots={lots} loading={lotsLoading} />
+                ) : null}
+              </div>
+
+              {isComparisonPage ? (
+                <aside className="item-compare-sidebar">
+                  <div className="card lot-purchase-card item-purchase-card">
+                    <p className="item-purchase-label muted small">Лучшее предложение</p>
+                    <div data-testid="item-market-price">
+                      <InventoryPriceStack
+                        steamPriceMinor={item.steamPriceMinor}
+                        marketplacePriceMinor={
+                          cheapestLot?.priceMinor ?? item.minMarketplacePriceMinor
+                        }
+                        testIdPrefix="item"
+                      />
+                    </div>
+
+                    {cheapestLot ? (
+                      <Link
+                        to={`/lots/${cheapestLot.id}`}
+                        className="button primary lot-purchase-button"
+                        data-testid="item-open-cheapest"
+                      >
+                        Открыть лучшее предложение
+                      </Link>
+                    ) : null}
+
+                    <p className="muted small">
+                      Float, стикеры и inspect доступны на странице конкретного лота.
+                    </p>
+                  </div>
+                </aside>
+              ) : null}
+            </div>
+          )}
         </>
       ) : null}
     </div>
