@@ -6,7 +6,7 @@ import { TradesModule } from '../trades/trades.module';
 import { ExtensionController } from './extension.controller';
 import { ExtensionSecurityService } from './extension-security.service';
 import { ExtensionTradeTaskService } from './extension-trade-task.service';
-import { ExtensionTradeAckService } from './extension-trade-ack.service';
+import { ExtensionTradeAckModule } from './extension-trade-ack.module';
 import { ExtensionSessionGuard } from './guards/extension-session.guard';
 import { ExtensionSignatureGuard } from './guards/extension-signature.guard';
 
@@ -16,15 +16,15 @@ import { ExtensionSignatureGuard } from './guards/extension-signature.guard';
     forwardRef(() => OrdersModule),
     DisputesModule,
     forwardRef(() => TradesModule),
+    ExtensionTradeAckModule,
   ],
   controllers: [ExtensionController],
   providers: [
     ExtensionSecurityService,
     ExtensionTradeTaskService,
-    ExtensionTradeAckService,
     ExtensionSessionGuard,
     ExtensionSignatureGuard,
   ],
-  exports: [ExtensionTradeTaskService, ExtensionTradeAckService],
+  exports: [ExtensionTradeTaskService, ExtensionTradeAckModule],
 })
 export class ExtensionModule {}
