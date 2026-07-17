@@ -21,6 +21,7 @@ import { isLiveVerificationMode } from '../trades/trade-verification.config';
 import { getExtensionPublicConfig } from '../extension/extension-public.config';
 import { isReferencePriceEnabled } from '../catalog/reference-price.config';
 import { extractOpenIdParams } from '../providers/auth/steam-openid.util';
+import { isSteamHttpProxyConfigured } from '../common/steam/steam-http.client';
 import { MockLoginDto } from './dto/mock-login.dto';
 import { SteamLinkDto } from './dto/steam-link.dto';
 import { AuthService } from './auth.service';
@@ -42,6 +43,7 @@ export class AuthController {
       inventoryProvider: config.inventory,
       tradeProvider: config.trade,
       steamLoginAvailable: config.auth === 'steam',
+      steamHttpProxyConfigured: isSteamHttpProxyConfigured(),
       mockLoginAvailable: config.auth !== 'steam' || allowMockInSteamMode,
       mockTradeEnabled: process.env.ENABLE_MOCK_TRADE !== 'false',
       mockDepositEnabled: paymentConfig.mockDepositEnabled,

@@ -20,9 +20,13 @@ fi
 echo "==> Read secrets from existing backend .env"
 JWT_SECRET="$(grep '^JWT_SECRET=' "$APP_DIR/backend/.env" | cut -d= -f2- | tr -d '"')"
 STEAM_WEB_API_KEY="$(grep '^STEAM_WEB_API_KEY=' "$APP_DIR/backend/.env" | cut -d= -f2- | tr -d '"' || true)"
+STEAM_HTTP_PROXY="$(grep '^STEAM_HTTP_PROXY=' "$APP_DIR/backend/.env" | cut -d= -f2- | tr -d '"' || true)"
 if [ -z "$JWT_SECRET" ]; then
   echo "ERROR: JWT_SECRET missing in $APP_DIR/backend/.env" >&2
   exit 1
+fi
+if [ -z "$STEAM_HTTP_PROXY" ]; then
+  echo "WARN: STEAM_HTTP_PROXY missing — Steam OpenID/inventory/prices will use VPS IP (likely 403)." >&2
 fi
 
 ORIGINS="https://${DOMAIN},https://www.${DOMAIN},http://${DOMAIN},http://www.${DOMAIN},http://31.177.83.107"
@@ -47,6 +51,7 @@ STEAM_OPENID_REALM=https://${DOMAIN}
 API_PUBLIC_URL=https://${DOMAIN}/api/v1
 STEAM_WEB_API_KEY=${STEAM_WEB_API_KEY}
 ALLOW_MOCK_LOGIN_IN_STEAM_MODE=true
+STEAM_HTTP_PROXY=${STEAM_HTTP_PROXY}
 
 INVENTORY_SYNC_TTL_SECONDS=300
 INVENTORY_SYNC_MIN_INTERVAL_MS=60000

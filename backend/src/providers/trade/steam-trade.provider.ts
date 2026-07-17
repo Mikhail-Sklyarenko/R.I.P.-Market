@@ -1,6 +1,7 @@
 import { HttpStatus, Injectable, Logger } from '@nestjs/common';
 import { AppException } from '../../common/errors/app.exception';
 import { ErrorCode } from '../../common/errors/error-codes';
+import { steamFetch } from '../../common/steam/steam-http.client';
 import {
   TradeCompletionResult,
   TradeCompletionType,
@@ -73,7 +74,7 @@ export class SteamTradeProvider implements TradeProvider {
     url.searchParams.set('tradeofferid', tradeOfferId);
     url.searchParams.set('language', 'english');
 
-    const response = await fetch(url.toString());
+    const response = await steamFetch(url.toString());
     if (response.status === 429) {
       throw new SteamTradeRateLimitError();
     }

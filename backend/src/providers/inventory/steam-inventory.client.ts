@@ -1,3 +1,4 @@
+import { steamFetch } from '../../common/steam/steam-http.client';
 import {
   isPrivateInventoryResponse,
   SteamInventoryResponse,
@@ -12,7 +13,7 @@ export type SteamInventoryFetchFn = (
 async function defaultSteamInventoryFetch(
   url: string,
 ): Promise<{ status: number; body: SteamInventoryResponse }> {
-  const response = await fetch(url, {
+  const response = await steamFetch(url, {
     headers: {
       Accept: 'application/json',
       'User-Agent': 'RIP-Market/1.0',

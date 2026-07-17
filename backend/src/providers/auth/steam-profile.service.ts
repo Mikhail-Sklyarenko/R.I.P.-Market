@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+import { steamFetch } from '../../common/steam/steam-http.client';
 
 type PlayerSummary = {
   personaname?: string;
@@ -45,7 +46,7 @@ export class SteamProfileService {
     url.searchParams.set('key', apiKey);
     url.searchParams.set('steamids', steamId64);
 
-    const response = await fetch(url);
+    const response = await steamFetch(url);
     if (!response.ok) {
       return { personaname: null, avatarUrl: null };
     }
@@ -65,7 +66,7 @@ export class SteamProfileService {
     steamId64: string,
   ): Promise<string | null> {
     const url = `https://steamcommunity.com/profiles/${steamId64}/?xml=1`;
-    const response = await fetch(url);
+    const response = await steamFetch(url);
     if (!response.ok) {
       return null;
     }

@@ -1,6 +1,7 @@
 import { HttpStatus, Injectable } from '@nestjs/common';
 import { AppException } from '../common/errors/app.exception';
 import { ErrorCode } from '../common/errors/error-codes';
+import { steamFetch } from '../common/steam/steam-http.client';
 
 type PlayerBanRow = {
   SteamId: string;
@@ -58,7 +59,7 @@ export class SteamVacService {
     url.searchParams.set('key', apiKey);
     url.searchParams.set('steamids', steamId);
 
-    const response = await fetch(url);
+    const response = await steamFetch(url);
     if (!response.ok) {
       return false;
     }

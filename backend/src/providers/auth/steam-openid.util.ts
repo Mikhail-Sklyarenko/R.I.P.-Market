@@ -1,3 +1,5 @@
+import { steamFetch } from '../../common/steam/steam-http.client';
+
 export const STEAM_OPENID_ENDPOINT = 'https://steamcommunity.com/openid/login';
 
 const STEAM_CLAIMED_ID_PATTERN =
@@ -22,7 +24,7 @@ async function defaultOpenIdPost(
   url: string,
   body: string,
 ): Promise<OpenIdPostResult> {
-  const response = await fetch(url, {
+  const response = await steamFetch(url, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/x-www-form-urlencoded',

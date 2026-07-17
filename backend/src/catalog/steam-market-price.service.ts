@@ -1,5 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import * as https from 'node:https';
+import { steamFetch } from '../common/steam/steam-http.client';
 import { PrismaService } from '../prisma/prisma.service';
 
 type CacheEntry = {
@@ -509,7 +510,7 @@ export class SteamMarketPriceService {
     );
   }
 
-  private requestSteamPriceOverview(
+  private async requestSteamPriceOverview(
     marketHashName: string,
   ): Promise<SteamPriceOverviewResponse | null> {
     const url = new URL('https://steamcommunity.com/market/priceoverview/');
@@ -518,54 +519,39 @@ export class SteamMarketPriceService {
     url.searchParams.set('appid', '730');
     url.searchParams.set('market_hash_name', marketHashName);
 
-    return new Promise((resolve, reject) => {
-      const request = https.get(
-        url.toString(),
-        {
-          headers: {
-            Accept: 'application/json',
-            'User-Agent': STEAM_USER_AGENT,
-          },
-          timeout: FETCH_TIMEOUT_MS,
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
+    try {
+      const response = await steamFetch(url.toString(), {
+        headers: {
+          Accept: 'application/json',
+          'User-Agent': STEAM_USER_AGENT,
         },
-        (response) => {
-          if (response.statusCode === 429) {
-            response.resume();
-            reject(new SteamRateLimitError());
-            return;
-          }
-          if (response.statusCode === 403) {
-            response.resume();
-            reject(new SteamAccessDeniedError());
-            return;
-          }
-          if (response.statusCode !== 200) {
-            response.resume();
-            resolve(null);
-            return;
-          }
-
-          let body = '';
-          response.setEncoding('utf8');
-          response.on('data', (chunk) => {
-            body += chunk;
-          });
-          response.on('end', () => {
-            try {
-              resolve(JSON.parse(body) as SteamPriceOverviewResponse);
-            } catch (error) {
-              reject(error);
-            }
-          });
-        },
-      );
-
-      request.on('timeout', () => {
-        request.destroy();
-        reject(new Error('Steam market price request timed out'));
+        signal: controller.signal,
       });
-      request.on('error', reject);
-    });
+
+      if (response.status === 429) {
+        throw new SteamRateLimitError();
+      }
+      if (response.status === 403) {
+        throw new SteamAccessDeniedError();
+      }
+      if (response.status !== 200) {
+        return null;
+      }
+
+      return (await response.json()) as SteamPriceOverviewResponse;
+    } catch (error) {
+      if (error instanceof SteamRateLimitError || error instanceof SteamAccessDeniedError) {
+        throw error;
+      }
+      if (error instanceof Error && error.name === 'AbortError') {
+        throw new Error('Steam market price request timed out');
+      }
+      throw error;
+    } finally {
+      clearTimeout(timeout);
+    }
   }
 
   private requestJson<T>(url: string): Promise<T> {
