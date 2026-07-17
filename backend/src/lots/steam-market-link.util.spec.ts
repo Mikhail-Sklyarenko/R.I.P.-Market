@@ -25,6 +25,15 @@ describe('steam-market-link.util', () => {
     ).toBe('AK-47 | Redline (Minimal Wear)');
   });
 
+  it('accepts full Steam exterior names as wear input', () => {
+    expect(
+      resolveSteamMarketHashName(
+        'Dual Berettas | Polished Malachite (Factory New)',
+        'Battle-Scarred',
+      ),
+    ).toBe('Dual Berettas | Polished Malachite (Battle-Scarred)');
+  });
+
   it('keeps matching wear suffix unchanged', () => {
     expect(
       resolveSteamMarketHashName('AK-47 | Redline (Minimal Wear)', 'MW'),

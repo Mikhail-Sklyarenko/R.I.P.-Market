@@ -16,6 +16,22 @@ const WEAR_SUFFIX_TO_CODE: Record<string, string> = {
   'battle-scarred': 'BS',
 };
 
+const WEAR_INPUT_TO_CODE: Record<string, string> = {
+  fn: 'FN',
+  mw: 'MW',
+  ft: 'FT',
+  ww: 'WW',
+  bs: 'BS',
+  ...WEAR_SUFFIX_TO_CODE,
+};
+
+export function normalizeWearCode(wear?: string | null): string | null {
+  if (!wear?.trim()) {
+    return null;
+  }
+  return WEAR_INPUT_TO_CODE[wear.trim().toLowerCase()] ?? null;
+}
+
 export function parseWearCodeFromMarketHashName(
   marketHashName: string,
 ): string | null {
@@ -39,9 +55,9 @@ export function resolveSteamMarketHashName(
     return trimmed;
   }
 
-  const wearSuffix = wear
-    ? WEAR_CODE_TO_STEAM_SUFFIX[wear.toUpperCase()]
-    : undefined;
+  const wearCode =
+    normalizeWearCode(wear) ?? parseWearCodeFromMarketHashName(trimmed);
+  const wearSuffix = wearCode ? WEAR_CODE_TO_STEAM_SUFFIX[wearCode] : undefined;
   const match = trimmed.match(/^(.*)\s+\(([^)]+)\)\s*$/);
 
   if (match) {

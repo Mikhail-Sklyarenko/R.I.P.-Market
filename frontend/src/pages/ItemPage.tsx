@@ -29,6 +29,8 @@ import { getRarityDisplayLabel } from '../utils/rarity-colors';
 import { parseUsdToMinor } from '../utils/format';
 import {
   buildSteamMarketListingUrl,
+  parseWearCodeFromMarketHashName,
+  resolveSteamMarketHashName,
   toCatalogItemDisplaySource,
 } from '../utils/steam-market-link';
 
@@ -181,7 +183,14 @@ export function ItemPage() {
                     <LotItemHero item={displayItem} />
                     <ItemParamsPanel item={displayItem} testId="item-params" />
                     <LotActionButtons
-                      steamMarketUrl={buildSteamMarketListingUrl(item.marketHashName)}
+                      steamMarketUrl={buildSteamMarketListingUrl(
+                        item.marketHashName,
+                        parseWearCodeFromMarketHashName(item.marketHashName),
+                      )}
+                      steamMarketHashName={resolveSteamMarketHashName(
+                        item.marketHashName,
+                        parseWearCodeFromMarketHashName(item.marketHashName),
+                      )}
                     />
                   </div>
                 </div>

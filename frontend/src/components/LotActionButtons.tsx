@@ -1,6 +1,8 @@
 type LotActionButtonsProps = {
   inspectLink?: string | null;
   steamMarketUrl?: string | null;
+  /** Exact Steam market_hash_name (incl. wear) — shown on hover / for clarity */
+  steamMarketHashName?: string | null;
 };
 
 function InspectInGameIcon() {
@@ -47,10 +49,16 @@ function SteamMarketIcon() {
   );
 }
 
-export function LotActionButtons({ inspectLink, steamMarketUrl }: LotActionButtonsProps) {
+export function LotActionButtons({
+  inspectLink,
+  steamMarketUrl,
+  steamMarketHashName,
+}: LotActionButtonsProps) {
   if (!inspectLink && !steamMarketUrl) {
     return null;
   }
+
+  const marketTitle = steamMarketHashName?.trim() || undefined;
 
   return (
     <div className="lot-action-buttons" data-testid="lot-action-buttons">
@@ -71,6 +79,12 @@ export function LotActionButtons({ inspectLink, steamMarketUrl }: LotActionButto
           rel="noopener noreferrer"
           className="lot-action-button"
           data-testid="lot-steam-market-link"
+          title={marketTitle}
+          aria-label={
+            marketTitle
+              ? `Открыть в Steam Маркете: ${marketTitle}`
+              : 'Открыть в Steam Маркете'
+          }
         >
           <SteamMarketIcon />
           <span>Steam Маркет</span>

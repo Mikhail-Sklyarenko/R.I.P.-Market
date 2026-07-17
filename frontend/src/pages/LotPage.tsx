@@ -137,6 +137,10 @@ export function LotPage() {
                 <LotActionButtons
                   inspectLink={lot.inspectLink}
                   steamMarketUrl={lot.steamMarketUrl}
+                  steamMarketHashName={
+                    lot.steamMarketHashName ??
+                    displayItem.itemDefinition.marketHashName
+                  }
                 />
               </div>
             </div>
