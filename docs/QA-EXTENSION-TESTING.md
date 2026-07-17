@@ -3,7 +3,7 @@
 Подробное руководство по ручному тестированию **автоотправки trade offer** на staging **p2pcs.ru**.
 
 **Сайт:** https://p2pcs.ru  
-**Версия расширения:** [browser-extension-v0.4.0](https://github.com/Mikhail-Sklyarenko/R.I.P.-Market/releases/tag/browser-extension-v0.4.0)  
+**Версия расширения:** [browser-extension-v0.5.0](https://github.com/Mikhail-Sklyarenko/R.I.P.-Market/releases/tag/browser-extension-v0.5.0)  
 **Дата:** июль 2026
 
 Общие сценарии staging (каталог, кошелёк, споры): [QA-STAGING-p2pcs.md](./QA-STAGING-p2pcs.md).
@@ -66,8 +66,8 @@
 ### Шаг 1 — скачать
 
 1. Откройте [Releases на GitHub](https://github.com/Mikhail-Sklyarenko/R.I.P.-Market/releases).
-2. Найдите релиз **`browser-extension-v0.4.0`** (или новее).
-3. Скачайте файл **`rip-market-browser-extension-v0.4.0.zip`**.
+2. Найдите релиз **`browser-extension-v0.5.0`** (или новее).
+3. Скачайте файл **`rip-market-browser-extension-v0.5.0.zip`**.
 
 ### Шаг 2 — распаковать
 
