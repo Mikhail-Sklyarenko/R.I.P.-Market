@@ -138,4 +138,23 @@ describe('TradeInventoryDeltaService', () => {
     expect(result).toBe('unknown');
     expect(inventoryProvider.syncInventory).not.toHaveBeenCalled();
   });
+
+  it('returns unknown when inventory sync is failed or stale', async () => {
+    inventoryProvider.syncInventory
+      .mockResolvedValueOnce({ status: 'FAILED', stale: true })
+      .mockResolvedValueOnce({ status: 'SUCCESS', stale: false });
+
+    const result = await service.verify(
+      'seller-1',
+      'buyer-1',
+      'seller-steam',
+      'buyer-steam',
+      'asset-1',
+      'AK-47 | Redline (Field-Tested)',
+      { force: true },
+    );
+
+    expect(result).toBe('unknown');
+    expect(prisma.inventoryAsset.findFirst).not.toHaveBeenCalled();
+  });
 });

@@ -184,15 +184,34 @@ function decideDualSignal(
         'CONFIRMED',
       );
     }
-    if (inventory === 'pending' || inventory === 'seller_still_holds') {
+    if (inventory === 'seller_still_holds') {
       return decision(
         'WAIT',
         'OFFER_UNKNOWN',
-        inventory === 'seller_still_holds'
-          ? signals.buyerAckReceived
-            ? 'BUYER_ACK_BUT_ITEM_STILL_WITH_SELLER'
-            : 'AWAITING_BUYER_STEAM_ACCEPT'
-          : 'OFFER_UNKNOWN_RETRY',
+        signals.buyerAckReceived
+          ? 'BUYER_ACK_BUT_ITEM_STILL_WITH_SELLER'
+          : 'AWAITING_BUYER_STEAM_ACCEPT',
+        offer,
+        inventory,
+      );
+    }
+    if (inventory === 'pending' || inventory === 'unknown') {
+      if (signals.buyerAckReceived) {
+        return decision(
+          'CONFIRM',
+          'OFFER_ACCEPTED_INVENTORY_LAG',
+          inventory === 'pending'
+            ? 'BUYER_ACK_SELLER_ASSET_GONE'
+            : 'BUYER_ACK_INVENTORY_UNKNOWN',
+          offer,
+          inventory,
+          'CONFIRMED',
+        );
+      }
+      return decision(
+        'WAIT',
+        'OFFER_UNKNOWN',
+        inventory === 'pending' ? 'OFFER_UNKNOWN_RETRY' : 'INVENTORY_UNKNOWN_RETRY',
         offer,
         inventory,
       );
@@ -292,6 +311,24 @@ function decideDualSignal(
         : 'AWAITING_BUYER_STEAM_ACCEPT',
       offer,
       inventory,
+    );
+  }
+
+  // Asset left the seller (or never matched) but buyer inventory lag / new asset id.
+  // Buyer already confirmed receipt — safe to settle for P2P when offer API is blind.
+  if (
+    signals.buyerAckReceived &&
+    (inventory === 'pending' || inventory === 'unknown')
+  ) {
+    return decision(
+      'CONFIRM',
+      'OFFER_ACCEPTED_INVENTORY_LAG',
+      inventory === 'pending'
+        ? 'BUYER_ACK_SELLER_ASSET_GONE'
+        : 'BUYER_ACK_INVENTORY_UNKNOWN',
+      offer,
+      inventory,
+      'CONFIRMED',
     );
   }
 

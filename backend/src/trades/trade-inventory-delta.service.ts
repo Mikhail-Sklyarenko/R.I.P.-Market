@@ -42,14 +42,30 @@ export class TradeInventoryDeltaService {
 
     const force = options?.force ?? false;
 
+    let sellerSync;
+    let buyerSync;
     try {
-      await this.inventoryProvider.syncInventory(sellerId, sellerSteamId, {
-        force,
-      });
-      await this.inventoryProvider.syncInventory(buyerId, buyerSteamId, {
-        force,
-      });
+      sellerSync = await this.inventoryProvider.syncInventory(
+        sellerId,
+        sellerSteamId,
+        { force },
+      );
+      buyerSync = await this.inventoryProvider.syncInventory(
+        buyerId,
+        buyerSteamId,
+        { force },
+      );
     } catch {
+      return 'unknown';
+    }
+
+    // Failed/stale syncs keep pre-trade DB rows — do not treat that as seller_still_holds.
+    if (
+      sellerSync.status === 'FAILED' ||
+      buyerSync.status === 'FAILED' ||
+      sellerSync.stale ||
+      buyerSync.stale
+    ) {
       return 'unknown';
     }
 

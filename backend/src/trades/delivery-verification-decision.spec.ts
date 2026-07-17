@@ -151,6 +151,18 @@ describe('decideDeliveryVerification', () => {
     expect(decision.reasonCode).toBe('AWAITING_BUYER_STEAM_ACCEPT');
   });
 
+  it('confirms when buyer acked and seller asset is gone even if offer API is blind', () => {
+    const decision = decideDeliveryVerification(
+      baseSignals({
+        offerStatus: 'unknown',
+        inventoryDelta: 'pending',
+        buyerAckReceived: true,
+      }),
+    );
+    expect(decision.action).toBe('CONFIRM');
+    expect(decision.reasonCode).toBe('BUYER_ACK_SELLER_ASSET_GONE');
+  });
+
   it('legacy mode confirms buyer ack + inventory even when mock offer stays pending', () => {
     const decision = decideDeliveryVerification(
       baseSignals({

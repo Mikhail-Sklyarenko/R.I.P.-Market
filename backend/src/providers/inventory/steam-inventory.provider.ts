@@ -274,12 +274,14 @@ export class SteamInventoryProvider implements InventoryProvider {
     ownerId: string,
     activeAssetIds: string[],
   ) {
+    // Include assets linked to lots: after a P2P trade the Steam asset leaves the
+    // seller inventory but the row still has a lot (RESERVED/sold). Skipping those
+    // rows left delivery verification stuck on seller_still_holds forever.
     await this.prisma.inventoryAsset.updateMany({
       where: {
         ownerId,
         status: InventoryAssetStatus.AVAILABLE,
         assetExternalId: { notIn: activeAssetIds },
-        lot: null,
       },
       data: {
         status: InventoryAssetStatus.REMOVED,
