@@ -68,7 +68,18 @@ export class SteamAuthProvider implements AuthProvider {
   async verifyAndParseSteamId(
     openidParams: Record<string, string>,
   ): Promise<string> {
-    const verified = await verifySteamOpenId(openidParams);
+    let verified: Awaited<ReturnType<typeof verifySteamOpenId>>;
+    try {
+      verified = await verifySteamOpenId(openidParams);
+    } catch (error) {
+      const detail =
+        error instanceof Error ? error.message : 'Steam HTTP request failed';
+      throw new AppException(
+        ErrorCode.STEAM_AUTH_FAILED,
+        `Не удалось связаться со Steam для проверки входа (${detail}). Попробуйте ещё раз.`,
+        HttpStatus.UNAUTHORIZED,
+      );
+    }
     if (!verified.ok) {
       if (verified.reason === 'blocked') {
         throw new AppException(

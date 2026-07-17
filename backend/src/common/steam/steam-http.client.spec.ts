@@ -2,18 +2,25 @@ import {
   getSteamHttpProxyUrl,
   isSteamHttpProxyConfigured,
   resetSteamHttpClientForTests,
+  shouldUseSteamProxy,
   STEAM_HTTP_PROXY_ENV,
 } from './steam-http.client';
 
 describe('steam-http.client', () => {
-  const original = process.env[STEAM_HTTP_PROXY_ENV];
+  const originalProxy = process.env[STEAM_HTTP_PROXY_ENV];
+  const originalAll = process.env.STEAM_HTTP_PROXY_ALL;
 
   afterEach(() => {
     resetSteamHttpClientForTests();
-    if (original === undefined) {
+    if (originalProxy === undefined) {
       delete process.env[STEAM_HTTP_PROXY_ENV];
     } else {
-      process.env[STEAM_HTTP_PROXY_ENV] = original;
+      process.env[STEAM_HTTP_PROXY_ENV] = originalProxy;
+    }
+    if (originalAll === undefined) {
+      delete process.env.STEAM_HTTP_PROXY_ALL;
+    } else {
+      process.env.STEAM_HTTP_PROXY_ALL = originalAll;
     }
   });
 
@@ -24,11 +31,30 @@ describe('steam-http.client', () => {
     expect(getSteamHttpProxyUrl()).toBeNull();
   });
 
-  it('reads STEAM_HTTP_PROXY without exposing secrets in helpers', () => {
+  it('uses proxy for steamcommunity but not Web API by default', () => {
     process.env[STEAM_HTTP_PROXY_ENV] =
       'http://user:secret@gw.dataimpulse.com:823';
+    delete process.env.STEAM_HTTP_PROXY_ALL;
     resetSteamHttpClientForTests();
-    expect(isSteamHttpProxyConfigured()).toBe(true);
-    expect(getSteamHttpProxyUrl()).toContain('gw.dataimpulse.com:823');
+    expect(
+      shouldUseSteamProxy('https://steamcommunity.com/openid/login'),
+    ).toBe(true);
+    expect(
+      shouldUseSteamProxy(
+        'https://api.steampowered.com/ISteamUser/GetPlayerSummaries/v0002/',
+      ),
+    ).toBe(false);
+  });
+
+  it('can force proxy for all Steam hosts', () => {
+    process.env[STEAM_HTTP_PROXY_ENV] =
+      'http://user:secret@gw.dataimpulse.com:823';
+    process.env.STEAM_HTTP_PROXY_ALL = 'true';
+    resetSteamHttpClientForTests();
+    expect(
+      shouldUseSteamProxy(
+        'https://api.steampowered.com/ISteamUser/GetPlayerSummaries/v0002/',
+      ),
+    ).toBe(true);
   });
 });

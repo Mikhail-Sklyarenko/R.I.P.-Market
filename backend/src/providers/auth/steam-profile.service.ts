@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { steamFetch } from '../../common/steam/steam-http.client';
 
 type PlayerSummary = {
@@ -14,17 +14,28 @@ export type SteamPlayerSummary = {
 
 @Injectable()
 export class SteamProfileService {
+  private readonly logger = new Logger(SteamProfileService.name);
+
   async fetchPlayerSummary(steamId64: string): Promise<SteamPlayerSummary> {
-    const fromApi = await this.fetchPlayerSummaryFromWebApi(steamId64);
-    if (fromApi.personaname || fromApi.avatarUrl) {
-      return fromApi;
+    try {
+      const fromApi = await this.fetchPlayerSummaryFromWebApi(steamId64);
+      if (fromApi.personaname || fromApi.avatarUrl) {
+        return fromApi;
+      }
+      const personaFromXml =
+        await this.fetchPersonaNameFromCommunityXml(steamId64);
+      return {
+        personaname: personaFromXml,
+        avatarUrl: null,
+      };
+    } catch (error) {
+      this.logger.warn(
+        `Steam profile lookup failed for ${steamId64}: ${
+          error instanceof Error ? error.message : String(error)
+        }`,
+      );
+      return { personaname: null, avatarUrl: null };
     }
-    const personaFromXml =
-      await this.fetchPersonaNameFromCommunityXml(steamId64);
-    return {
-      personaname: personaFromXml,
-      avatarUrl: null,
-    };
   }
 
   async fetchPersonaName(steamId64: string): Promise<string | null> {
