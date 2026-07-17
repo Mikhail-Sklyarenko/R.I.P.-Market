@@ -22,6 +22,7 @@ import {
   extensionTaskTtlMs,
   isExtensionTaskPipelineEnabled,
 } from '../extension/extension-task.config';
+import { isExtensionUiTradeFlowEnabled } from '../extension/extension-ui-trade-flow.config';
 import { ExtensionTradeAckService } from '../extension/extension-trade-ack.service';
 import type { TradeAcknowledgmentType } from '../extension/extension-trade-ack.types';
 import { LedgerService } from '../wallet/ledger.service';
@@ -312,6 +313,7 @@ export class OrdersService {
                   inventoryAssetId: lot.inventoryAssetId,
                   idempotencyKey: idempotencyTaskKey,
                   sellerSteamId: sellerProfile?.steamId ?? null,
+                  uiTradeFlow: isExtensionUiTradeFlowEnabled(),
                 },
               },
               update: {},

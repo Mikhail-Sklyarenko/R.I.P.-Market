@@ -19,6 +19,22 @@ describe('order-trade utils', () => {
     );
     assert.equal(formatTradePollStatus({ id: '1', status: 'CONFIRMED' }), 'Принят');
     assert.equal(formatTradePollStatus({ id: '1', status: 'FAILED_SAFE' }), 'Отклонён');
+    assert.equal(
+      formatTradePollStatus({
+        id: '1',
+        status: 'FAILED_DISPUTE',
+        failReasonCode: 'INVENTORY_UNKNOWN_EXHAUSTED',
+      }),
+      'Сбой проверки Steam',
+    );
+    assert.equal(
+      formatTradePollStatus({
+        id: '1',
+        status: 'FAILED_DISPUTE',
+        failReasonCode: 'OFFER_DECLINED',
+      }),
+      'Отклонён',
+    );
   });
 
   it('calculates remaining timeout minutes', () => {

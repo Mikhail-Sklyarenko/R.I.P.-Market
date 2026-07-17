@@ -163,6 +163,34 @@ describe('decideDeliveryVerification', () => {
     expect(decision.reasonCode).toBe('BUYER_ACK_SELLER_ASSET_GONE');
   });
 
+  it('does not dispute inventory-unknown flaps when no offer was ever sent', () => {
+    const decision = decideDeliveryVerification(
+      baseSignals({
+        hasOfferId: false,
+        offerStatus: null,
+        inventoryDelta: 'unknown',
+        checkCount: 50,
+      }),
+    );
+    expect(decision.action).toBe('WAIT');
+    expect(decision.reasonCode).toBe('INVENTORY_UNKNOWN_RETRY');
+  });
+
+  it('disputes inventory-unknown exhaustion only after an offer id exists', () => {
+    process.env.DELIVERY_INVENTORY_UNKNOWN_MAX_CHECKS = '10';
+    const decision = decideDeliveryVerification(
+      baseSignals({
+        hasOfferId: true,
+        offerStatus: null,
+        inventoryDelta: 'unknown',
+        checkCount: 10,
+      }),
+    );
+    expect(decision.action).toBe('DISPUTE');
+    expect(decision.reasonCode).toBe('INVENTORY_UNKNOWN_EXHAUSTED');
+    delete process.env.DELIVERY_INVENTORY_UNKNOWN_MAX_CHECKS;
+  });
+
   it('legacy mode confirms buyer ack + inventory even when mock offer stays pending', () => {
     const decision = decideDeliveryVerification(
       baseSignals({

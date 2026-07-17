@@ -21,11 +21,20 @@ export function formatTradePollStatus(tradeOperation?: TradeOperation | null): s
     return '—';
   }
 
-  if (tradeOperation.status === 'CONFIRMED') {
+  if (tradeOperation.status === 'CONFIRMED' || tradeOperation.status === 'DELIVERY_VERIFIED') {
     return 'Принят';
   }
   if (tradeOperation.status === 'FAILED_SAFE' || tradeOperation.status === 'FAILED_DISPUTE') {
-    return 'Отклонён';
+    if (tradeOperation.failReasonCode === 'INVENTORY_UNKNOWN_EXHAUSTED') {
+      return 'Сбой проверки Steam';
+    }
+    if (tradeOperation.failReasonCode === 'OFFER_DECLINED') {
+      return 'Отклонён';
+    }
+    if (tradeOperation.failReasonCode === 'OFFER_EXPIRED' || tradeOperation.failReasonCode === 'TRADE_TIMEOUT') {
+      return 'Истёк';
+    }
+    return tradeOperation.failReasonCode ? 'Спор' : 'Отклонён';
   }
   if (tradeOperation.status === 'TIMEOUT') {
     return 'Таймаут';

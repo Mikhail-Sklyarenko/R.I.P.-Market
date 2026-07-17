@@ -26,7 +26,8 @@ import {
  * | unknown      | *                   | on     | DISPUTE | OFFER_UNKNOWN                  |
  * | (no offer)   | confirmed           | on     | CONFIRM | INVENTORY_ONLY_CONFIRMED       |
  * | (no offer)   | pending/holds       | on     | WAIT    | INVENTORY_PENDING              |
- * | (no offer)   | unknown (exhausted) | on     | DISPUTE | INVENTORY_UNKNOWN_EXHAUSTED    |
+ * | (no offer)   | unknown (exhausted, no offer) | on | WAIT | INVENTORY_UNKNOWN_RETRY |
+ * | (no offer)   | unknown (exhausted, with offer id) | on | DISPUTE | INVENTORY_UNKNOWN_EXHAUSTED |
  * | accepted     | *                   | off    | CONFIRM | LEGACY_OFFER_ACCEPTED          |
  * | (no offer)   | confirmed           | off    | CONFIRM | LEGACY_INVENTORY_CONFIRMED     |
  *
@@ -365,6 +366,17 @@ function decideInventoryOnly(
     inventory === 'unknown' &&
     signals.checkCount >= getInventoryUnknownMaxChecks()
   ) {
+    // No Steam offer yet: inventory sync flaps must not open a dispute while the
+    // seller is still trying to send. Wait for TRADE_TIMEOUT instead.
+    if (!signals.hasOfferId) {
+      return decision(
+        'WAIT',
+        'INVENTORY_PENDING',
+        'INVENTORY_UNKNOWN_RETRY',
+        null,
+        inventory,
+      );
+    }
     return decision(
       'DISPUTE',
       'INVENTORY_UNKNOWN_EXHAUSTED',
