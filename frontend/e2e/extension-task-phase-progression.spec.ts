@@ -6,10 +6,10 @@ import { seedOpenOrder } from './helpers/seed';
 const API_BASE = process.env.PLAYWRIGHT_API_BASE_URL ?? 'http://localhost:3001/api/v1';
 
 const PHASE_LABELS: Record<string, string> = {
-  ACKED: 'Задача принята расширением',
-  TRADE_PAGE_OPENED: 'Открыта страница обмена в Steam',
-  ITEM_SELECTED: 'Предмет добавлен в обмен',
-  OFFER_SUBMITTED: 'Обмен отправляется',
+  ACKED: 'Расширение взяло задачу',
+  TRADE_PAGE_OPENED: 'Открыли страницу обмена',
+  ITEM_SELECTED: 'Добавили предмет',
+  OFFER_SUBMITTED: 'Отправляем обмен',
 };
 
 test.describe('Extension task phase progression (mock API)', () => {

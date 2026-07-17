@@ -4557,6 +4557,32 @@ p {
   font-size: var(--font-size-base);
 }
 
+.order-trade-details {
+  border-top: 1px solid var(--color-border);
+  padding-top: var(--space-3);
+}
+
+.order-trade-details summary {
+  cursor: pointer;
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+  user-select: none;
+}
+
+.order-trade-details[open] summary {
+  margin-bottom: var(--space-3);
+  color: var(--color-text);
+}
+
+.order-trade-details .order-trade-checklist,
+.order-trade-details .order-trade-steps,
+.order-trade-details .extension-seller-cta,
+.order-trade-details .order-trade-destination,
+.order-trade-details .field,
+.order-trade-details .button {
+  margin-top: var(--space-2);
+}
+
 .order-trade-subtitle {
   margin: 0 0 var(--space-2);
   font-size: var(--font-size-sm);

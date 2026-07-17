@@ -19,8 +19,7 @@ export function ExtensionTaskProgress({
   if (!tradeTask) {
     return (
       <p className="muted small" data-testid="extension-task-missing">
-        Задача расширения ещё не создана. Если покупатель только что оплатил — обновите
-        страницу через несколько секунд.
+        Расширение ещё готовит задачу. Обновите страницу через несколько секунд.
       </p>
     );
   }
@@ -42,8 +41,8 @@ export function ExtensionTaskProgress({
       : tradeTask.executionPhase
         ? (TRADE_TASK_PHASE_LABELS[tradeTask.executionPhase] ?? tradeTask.executionPhase)
         : tradeTask.attemptCount > 0 || tradeTask.lastErrorCode
-          ? 'Повторная попытка'
-          : 'Ожидает обработки';
+          ? 'Повторяем отправку'
+          : 'Готовим обмен';
   const errorHint = tradeTask.lastErrorCode
     ? (OFFER_ERROR_HINTS[tradeTask.lastErrorCode] ?? tradeTask.lastErrorCode)
     : null;
@@ -57,33 +56,27 @@ export function ExtensionTaskProgress({
       className={`extension-task-progress${isConfirmPending ? ' extension-task-progress--confirm-pending' : ''}`}
       data-testid="extension-task-progress"
     >
-      <h4 className="order-trade-subtitle">Статус расширения</h4>
       <p data-testid="extension-task-phase">
-        Фаза: <strong>{phaseLabel}</strong>
+        <strong>{phaseLabel}</strong>
       </p>
       {isItemSelected && selectedItemName ? (
         <p className="muted small" data-testid="extension-task-selected-item">
           Предмет: <strong>{selectedItemName}</strong>
         </p>
       ) : null}
-      <p className="muted small">
-        Попытка {tradeTask.attemptCount} из {tradeTask.maxAttempts}
-      </p>
       {isConfirmPending ? (
         <p className="alert alert-success" data-testid="extension-task-confirm-pending">
-          Обмен создан. Подтвердите в Steam Guard на телефоне — это последний шаг для
-          продавца.
+          Откройте Steam Mobile и подтвердите отправку.
         </p>
       ) : null}
       {tradeTask.executionPhase === 'OFFER_SENT' ? (
         <p className="alert alert-success">
-          Обмен отправлен. Если Steam попросит — подтвердите в Guard на телефоне.
+          Обмен отправлен. Дальше ждём покупателя в Steam.
         </p>
       ) : null}
       {isDeliveryCheck ? (
         <p className="alert alert-info" data-testid="extension-task-delivery-check">
-          Похоже, предмет уже ушёл из инвентаря. Не создавайте новый offer — мы проверяем,
-          получил ли покупатель скин.
+          Предмет уже ушёл из инвентаря. Не создавайте новый offer — проверяем доставку.
         </p>
       ) : null}
       {errorHint && !isTerminalFailure ? (
@@ -102,10 +95,9 @@ export function ExtensionTaskProgress({
           ) : null}
         </p>
       ) : null}
-      {!isTerminalSuccess && !isTerminalFailure ? (
+      {!isTerminalSuccess && !isTerminalFailure && !isDeliveryCheck ? (
         <p className="muted small">
-          Расширение обрабатывает сделку. Убедитесь, что вы залогинены в Steam в этом
-          браузере.
+          Оставьте вкладку Steam открытой под аккаунтом продавца.
         </p>
       ) : null}
       {showRetry ? (
@@ -120,9 +112,12 @@ export function ExtensionTaskProgress({
       ) : null}
       {manualFallbackVisible ? (
         <p className="muted small">
-          Если автоотправка не сработала — используйте ручной ввод offer ниже.
+          Если автоотправка не сработала — откройте блок ниже и укажите offer вручную.
         </p>
       ) : null}
+      <p className="muted small">
+        Попытка {tradeTask.attemptCount} из {tradeTask.maxAttempts}
+      </p>
     </div>
   );
 }

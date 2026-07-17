@@ -1,5 +1,5 @@
 import type { Order } from '../api/types';
-import { isOrderTradeDeliveryCheck } from './order-trade';
+import { isOrderTradeDeliveryCheck } from './order-trade.ts';
 
 export const ORDER_STATUS_LABELS: Record<string, string> = {
   CREATED: 'Сделка создана',
@@ -125,58 +125,26 @@ export function getOrderNextAction(
         return {
           title: 'Проверьте предмет в Steam',
           description:
-            'Обмен мог уже пройти. Подтвердите получение ниже — это ускорит проверку на платформе.',
+            'Обмен мог уже пройти. Откройте инвентарь Steam — платформа сверит доставку сама.',
         };
       }
       if (!order.tradeOperation?.externalOfferId) {
         return {
           title: 'Ждём обмен от продавца',
           description:
-            'Продавец отправляет trade offer. Обычно это занимает 1–2 минуты.',
-        };
-      }
-      if (!order.tradeAcknowledgments?.buyerPreAccept) {
-        return {
-          title: 'Примите обмен в Steam',
-          description:
-            'Проверьте скин и нажмите «Вижу предложение», затем примите exchange в Steam.',
-        };
-      }
-      if (!order.tradeAcknowledgments?.buyerReceived) {
-        return {
-          title: 'Подтвердите получение',
-          description:
-            'После принятия в Steam нажмите «Предмет получен» — платформа быстрее сверит инвентарь.',
-        };
-      }
-      if (
-        order.deliveryProbe?.inventoryHint === 'seller_still_holds' ||
-        order.deliveryProbe?.reasonCode === 'BUYER_ACK_BUT_ITEM_STILL_WITH_SELLER' ||
-        order.deliveryProbe?.reasonCode === 'AWAITING_BUYER_STEAM_ACCEPT'
-      ) {
-        return {
-          title: 'Примите обмен в Steam',
-          description:
-            'Подтверждение в R.I.P Market есть, но скин всё ещё у продавца. Откройте входящие предложения Steam и примите trade offer — иначе сделка не завершится.',
+            'Продавец отправляет trade offer. Обычно это занимает 1–2 минуты — страница обновится сама.',
         };
       }
       return {
-        title: 'Платформа проверяет доставку',
+        title: 'Примите обмен в Steam',
         description:
-          'Ищем предмет в инвентаре Steam. Если обмен ещё не принят — откройте входящие предложения и примите его.',
+          'Откройте входящие предложения, проверьте скин и примите обмен. Сайт обновится сам.',
       };
     }
     if (order.status === 'TRADE_CONFIRMED') {
-      if (!order.tradeAcknowledgments?.buyerReceived) {
-        return {
-          title: 'Подтвердите получение',
-          description:
-            'Обмен уже подтверждён. Подтвердите получение предмета, если ещё не сделали этого.',
-        };
-      }
       return {
         title: 'Обмен подтверждён',
-        description: 'Ожидаем финального расчёта. Страница обновится автоматически.',
+        description: 'Платформа завершает проверку. Страница обновится автоматически.',
       };
     }
     if (order.status === 'SETTLEMENT_HOLD') {
@@ -203,22 +171,22 @@ export function getOrderNextAction(
       }
       if (!order.tradeOperation?.externalOfferId) {
         return {
-          title: 'Отправьте обмен в Steam',
+          title: 'Ждём автоотправку',
           description:
-            'Отправьте trade offer покупателю и укажите ID или ссылку на предложение ниже.',
+            'Расширение само отправит обмен. Если Steam попросит — подтвердите в приложении на телефоне.',
         };
       }
       if (!order.tradeAcknowledgments?.sellerAckSent) {
         return {
-          title: 'Подтвердите отправку',
+          title: 'Подтвердите в Steam Guard',
           description:
-            'Если Guard уже подтверждён — нажмите «Я отправил обмен». Покупатель увидит, что предложение ушло.',
+            'Если Steam прислал запрос — подтвердите на телефоне. Дальше ждём принятия покупателем.',
         };
       }
       return {
-        title: 'Ожидаем покупателя',
+        title: 'Ждём покупателя',
         description:
-          'Обмен отправлен. Покупатель должен принять его во входящих предложениях Steam. Пока скин у вас в инвентаре — сделка не завершится.',
+          'Обмен ушёл. Покупатель должен принять его во входящих предложениях Steam.',
       };
     }
     if (order.status === 'TRADE_CONFIRMED') {

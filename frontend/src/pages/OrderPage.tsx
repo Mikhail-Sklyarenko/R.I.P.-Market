@@ -457,6 +457,8 @@ export function OrderPage() {
                   acknowledging={acknowledging}
                   ackEnabled={extensionTradeAckEnabled}
                   extensionMode={extensionTaskPipeline && Boolean(order.tradeTask)}
+                  nextActionTitle={nextAction?.title}
+                  nextActionDescription={nextAction?.description}
                   onOfferInputChange={setOfferInput}
                   onSaveTradeReference={() => void handleSaveTradeReference()}
                   onCheckDelivery={() => void handleCheckDelivery()}

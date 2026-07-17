@@ -637,9 +637,9 @@ export class ExtensionTradeAckService {
       ) {
         return {
           kind: 'wait',
-          title: 'Отправьте обмен',
+          title: 'Отправляем обмен…',
           description:
-            'Расширение отправит trade offer автоматически. Подтвердите Steam Guard при необходимости.',
+            'Расширение само отправит trade offer. Если Steam попросит — подтвердите Guard на телефоне.',
         };
       }
       if (
@@ -647,18 +647,18 @@ export class ExtensionTradeAckService {
         !acknowledgments.sellerAckSent
       ) {
         return {
-          kind: 'confirm_sent',
-          title: 'Подтвердите отправку',
+          kind: 'confirm_guard',
+          title: 'Подтвердите в Steam Guard',
           description:
-            'Если Guard уже подтверждён — нажмите «Я отправил обмен». Покупатель увидит, что предложение ушло.',
+            'Если пришло уведомление Steam — подтвердите на телефоне. Дальше ждём покупателя.',
         };
       }
       if (order.status === OrderStatus.WAITING_TRADE) {
         return {
-          kind: 'confirm_guard',
-          title: 'Ожидаем принятия покупателем',
+          kind: 'wait',
+          title: 'Ждём покупателя',
           description:
-            'Обмен отправлен. Покупатель должен принять его в Steam.',
+            'Обмен отправлен. Покупатель должен принять его во входящих предложениях Steam.',
         };
       }
       if (
@@ -684,30 +684,14 @@ export class ExtensionTradeAckService {
           kind: 'wait',
           title: 'Ждём обмен от продавца',
           description:
-            'Обычно это занимает 1–2 минуты. Страница обновится автоматически.',
-        };
-      }
-      if (!acknowledgments.buyerPreAccept) {
-        return {
-          kind: 'accept_in_steam',
-          title: 'Примите обмен в Steam',
-          description:
-            'Сделка проверена платформой. Откройте Steam и примите trade offer.',
-        };
-      }
-      if (!acknowledgments.buyerReceived) {
-        return {
-          kind: 'confirm_received',
-          title: 'Подтвердите получение',
-          description:
-            'После принятия обмена в Steam нажмите «Подтвердил получение предмета».',
+            'Обычно 1–2 минуты. Страница обновится сама — ничего нажимать не нужно.',
         };
       }
       return {
         kind: 'accept_in_steam',
-        title: 'Подтвердите в Steam',
+        title: 'Примите обмен в Steam',
         description:
-          'Вы подтвердили сделку в R.I.P Market. Примите обмен в Steam.',
+          'Откройте входящие предложения, проверьте скин и примите обмен. Сайт обновится сам.',
       };
     }
 
@@ -715,14 +699,6 @@ export class ExtensionTradeAckService {
       order.status === OrderStatus.TRADE_CONFIRMED ||
       order.status === OrderStatus.SETTLEMENT_HOLD
     ) {
-      if (!acknowledgments.buyerReceived) {
-        return {
-          kind: 'confirm_received',
-          title: 'Подтвердите получение',
-          description:
-            'Предмет должен быть в инвентаре. Подтвердите получение для завершения сделки на платформе.',
-        };
-      }
       return {
         kind: 'platform_verifying',
         title: 'Обмен подтверждён',

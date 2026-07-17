@@ -58,43 +58,12 @@ export function OrderTradeBuyerPanel({
       order.status === 'TRADE_CONFIRMED' ||
       order.status === 'SETTLEMENT_HOLD');
 
+  const showSteamCta = hasOfferSaved || isDeliveryCheck;
+  const showAwaitingSeller = !hasOfferSaved;
+
   return (
     <div className="card order-trade-panel" data-testid="buyer-trade-panel">
-      <h3 className="order-trade-panel-title">Обмен в Steam — покупатель</h3>
-
-      {isDeliveryCheck ? (
-        <div className="alert alert-info" data-testid="buyer-delivery-check-banner">
-          <strong>Проверьте предмет в Steam</strong>
-          <p className="muted small">
-            Обмен мог уже пройти. Откройте инвентарь или входящие предложения Steam и
-            убедитесь, что скин на месте — платформа подтвердит сделку автоматически.
-          </p>
-          <div className="stack horizontal" style={{ gap: '0.5rem', flexWrap: 'wrap' }}>
-            {onCheckDelivery ? (
-              <button
-                type="button"
-                className="button secondary sm"
-                disabled={checkingDelivery}
-                data-testid="check-delivery-now"
-                onClick={onCheckDelivery}
-              >
-                {checkingDelivery ? 'Проверяем…' : 'Проверить доставку сейчас'}
-              </button>
-            ) : null}
-            {showConfirmReceived ? (
-              <button
-                type="button"
-                className="button primary sm"
-                disabled={acknowledging}
-                data-testid="buyer-ack-received"
-                onClick={onAcknowledgeReceived}
-              >
-                {acknowledging ? 'Сохраняем…' : 'Предмет получен'}
-              </button>
-            ) : null}
-          </div>
-        </div>
-      ) : null}
+      <h3 className="order-trade-panel-title">Ваш шаг</h3>
 
       {nextActionTitle ? (
         <div className="next-action-card" data-testid="order-next-action">
@@ -105,100 +74,129 @@ export function OrderTradeBuyerPanel({
         </div>
       ) : null}
 
-      {showPreAccept ? (
-        <div className="extension-seller-cta" data-testid="buyer-ack-preaccept-cta">
-          <strong>Видите предложение в Steam?</strong>
+      {isDeliveryCheck ? (
+        <div className="alert alert-info" data-testid="buyer-delivery-check-banner">
+          <strong>Проверьте предмет в Steam</strong>
           <p className="muted small">
-            Проверьте скин и нажмите ниже, затем примите exchange в Steam. Это не переводит
-            деньги — только ускоряет проверку на платформе.
+            Обмен мог уже пройти. Откройте инвентарь Steam — платформа подтвердит сделку
+            сама.
           </p>
-          <button
-            type="button"
-            className="button primary sm"
-            disabled={acknowledging}
-            data-testid="buyer-ack-preaccept"
-            onClick={onAcknowledgePreAccept}
-          >
-            {acknowledging ? 'Сохраняем…' : 'Вижу предложение'}
-          </button>
+          {onCheckDelivery ? (
+            <button
+              type="button"
+              className="button secondary sm"
+              disabled={checkingDelivery}
+              data-testid="check-delivery-now"
+              onClick={onCheckDelivery}
+            >
+              {checkingDelivery ? 'Проверяем…' : 'Проверить доставку сейчас'}
+            </button>
+          ) : null}
         </div>
       ) : null}
 
-      {!isDeliveryCheck && showConfirmReceived ? (
-        <div className="extension-seller-cta" data-testid="buyer-ack-received-cta">
-          <strong>Предмет уже у вас?</strong>
+      {showAwaitingSeller ? (
+        <p className="muted small" data-testid="buyer-awaiting-offer-message">
+          {extensionTaskActive
+            ? 'Продавец отправляет обмен через расширение. Обычно 1–2 минуты — страница обновится сама.'
+            : 'Ждём, пока продавец отправит обмен в Steam.'}
+        </p>
+      ) : null}
+
+      {showSteamCta ? (
+        <a
+          className="button primary"
+          href={STEAM_INCOMING_OFFERS_URL}
+          target="_blank"
+          rel="noreferrer"
+          data-testid="buyer-steam-offers-link"
+        >
+          Открыть входящие предложения Steam
+        </a>
+      ) : null}
+
+      {hasOfferSaved && !isDeliveryCheck ? (
+        <details className="order-trade-details" data-testid="buyer-trade-checklist">
+          <summary>Перед принятием проверьте скин</summary>
+          <ul className="order-trade-checklist">
+            {BUYER_TRADE_SAFETY_CHECKLIST.map((item) => (
+              <li key={item}>{item}</li>
+            ))}
+          </ul>
+        </details>
+      ) : null}
+
+      {(showPreAccept || showConfirmReceived) && !isDeliveryCheck ? (
+        <details className="order-trade-details" data-testid="buyer-ack-details">
+          <summary>Если статус на сайте не обновился</summary>
           <p className="muted small">
-            После принятия в Steam подтвердите получение — платформа быстрее сверит инвентарь.
+            Эти кнопки не заменяют принятие обмена в Steam — только помогают сайту
+            быстрее сверить статус.
           </p>
+          {showPreAccept ? (
+            <div className="extension-seller-cta" data-testid="buyer-ack-preaccept-cta">
+              <button
+                type="button"
+                className="button secondary sm"
+                disabled={acknowledging}
+                data-testid="buyer-ack-preaccept"
+                onClick={onAcknowledgePreAccept}
+              >
+                {acknowledging ? 'Сохраняем…' : 'Вижу предложение в Steam'}
+              </button>
+            </div>
+          ) : null}
+          {showConfirmReceived ? (
+            <div className="extension-seller-cta" data-testid="buyer-ack-received-cta">
+              <button
+                type="button"
+                className="button secondary sm"
+                disabled={acknowledging}
+                data-testid="buyer-ack-received"
+                onClick={onAcknowledgeReceived}
+              >
+                {acknowledging ? 'Сохраняем…' : 'Предмет уже у меня в Steam'}
+              </button>
+            </div>
+          ) : null}
+        </details>
+      ) : null}
+
+      {isDeliveryCheck && showConfirmReceived ? (
+        <details className="order-trade-details" data-testid="buyer-ack-details">
+          <summary>Ускорить проверку</summary>
           <button
             type="button"
-            className="button primary sm"
+            className="button secondary sm"
             disabled={acknowledging}
             data-testid="buyer-ack-received"
             onClick={onAcknowledgeReceived}
           >
-            {acknowledging ? 'Сохраняем…' : 'Предмет получен'}
+            {acknowledging ? 'Сохраняем…' : 'Предмет уже у меня в Steam'}
           </button>
-        </div>
+        </details>
       ) : null}
-
-      <a
-        className="button secondary"
-        href={STEAM_INCOMING_OFFERS_URL}
-        target="_blank"
-        rel="noreferrer"
-        data-testid="buyer-steam-offers-link"
-      >
-        Открыть входящие предложения Steam
-      </a>
-
-      <div data-testid="buyer-trade-checklist">
-        <h4 className="order-trade-subtitle">Проверьте перед принятием</h4>
-        <ul className="order-trade-checklist">
-          {BUYER_TRADE_SAFETY_CHECKLIST.map((item) => (
-            <li key={item}>{item}</li>
-          ))}
-        </ul>
-      </div>
 
       {acks?.buyerReceived ? (
         order.status === 'WAITING_TRADE' ? (
           <p className="alert alert-warning" data-testid="buyer-received-ack-pending-steam">
-            Вы подтвердили получение в R.I.P Market, но платформа ещё не видит скин у вас в
-            Steam. Примите входящий trade offer — после перехода предмета статус обновится
-            сам.
+            На сайте отметка есть, но скин ещё не виден у вас в Steam. Примите входящий
+            trade offer — статус обновится сам.
           </p>
         ) : (
           <p className="alert alert-success" data-testid="buyer-received-ack">
-            Вы подтвердили получение предмета в R.I.P Market.
+            Получение отмечено. Если скин уже в Steam — сделка скоро закроется.
           </p>
         )
       ) : acks?.buyerPreAccept ? (
         <p className="alert alert-success" data-testid="buyer-extension-ack">
-          Вы подтвердили, что видите предложение. Примите обмен в Steam.
+          Ок. Осталось принять обмен в Steam.
         </p>
       ) : extensionMode && !ackEnabled ? (
         <p className="muted small" data-testid="buyer-extension-hint">
-          Установите расширение R.I.P Market — на странице обмена в Steam вы увидите
-          проверку сделки перед принятием.
+          С расширением R.I.P Market на странице обмена в Steam будет проверка сделки.
         </p>
       ) : null}
-
-      {!hasOfferSaved && extensionTaskActive ? (
-        <p className="muted small" data-testid="buyer-awaiting-offer-message">
-          Продавец отправляет предмет через расширение. Обычно это занимает 1–2 минуты —
-          мы обновим страницу автоматически.
-        </p>
-      ) : !hasOfferSaved ? (
-        <p className="muted small" data-testid="buyer-awaiting-offer-message">
-          Ожидаем, пока продавец отправит обмен и укажет ссылку на trade offer.
-        </p>
-      ) : (
-        <p className="muted small" data-testid="buyer-accept-offer-message">
-          Продавец отправил обмен. Примите trade offer в Steam и проверьте, что предмет
-          совпадает с заказом.
-        </p>
-      )}
     </div>
   );
 }

@@ -140,14 +140,14 @@ export function formatExtensionUiTradeFlowLabel(enabled: boolean): string {
 }
 
 export const TRADE_TASK_PHASE_LABELS: Record<string, string> = {
-  ACKED: 'Задача принята расширением',
-  TRADE_PAGE_OPENED: 'Открыта страница обмена в Steam',
-  OFFER_DRAFTED: 'Обмен подготовлен',
-  ITEM_SELECTED: 'Предмет добавлен в обмен',
-  OFFER_SUBMITTED: 'Обмен отправляется',
+  ACKED: 'Расширение взяло задачу',
+  TRADE_PAGE_OPENED: 'Открыли страницу обмена',
+  OFFER_DRAFTED: 'Готовим обмен',
+  ITEM_SELECTED: 'Добавили предмет',
+  OFFER_SUBMITTED: 'Отправляем обмен',
   CONFIRM_PENDING: 'Подтвердите в Steam Guard',
   OFFER_SENT: 'Обмен отправлен',
-  OFFER_FAILED: 'Ошибка отправки',
+  OFFER_FAILED: 'Не удалось отправить',
 };
 
 export const OFFER_ERROR_HINTS: Record<string, string> = {

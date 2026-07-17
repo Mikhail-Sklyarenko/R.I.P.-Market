@@ -51,21 +51,53 @@ function renderTrades(trades: TradeVerificationResult[]): void {
           : trade.verificationStatus === 'mismatch'
             ? 'mismatch'
             : '';
-      const ackButton =
-        trade.nextAction.kind === 'confirm_sent'
-          ? `<button class="primary" data-ack="SELLER_ACK_SENT" data-order="${trade.orderId}" data-offer="${trade.offerId ?? ''}">Я отправил обмен</button>`
-          : trade.nextAction.kind === 'accept_in_steam' && !trade.acknowledgments.buyerPreAccept
-            ? `<button class="primary" data-ack="BUYER_ACK_PRE_ACCEPT" data-order="${trade.orderId}" data-offer="${trade.offerId ?? ''}">Вижу предложение</button>`
-            : trade.nextAction.kind === 'confirm_received'
-              ? `<button class="primary" data-ack="BUYER_ACK_RECEIVED" data-order="${trade.orderId}" data-offer="${trade.offerId ?? ''}">Предмет получен</button>`
-              : '';
+      const showSellerAck =
+        trade.role === 'seller' &&
+        trade.orderStatus === 'WAITING_TRADE' &&
+        Boolean(trade.offerId) &&
+        !trade.acknowledgments.sellerAckSent &&
+        trade.verificationStatus !== 'mismatch';
+      const showPreAccept =
+        trade.role === 'buyer' &&
+        trade.orderStatus === 'WAITING_TRADE' &&
+        Boolean(trade.offerId) &&
+        !trade.acknowledgments.buyerPreAccept &&
+        !trade.acknowledgments.buyerReceived &&
+        trade.verificationStatus !== 'mismatch';
+      const showConfirmReceived =
+        trade.role === 'buyer' &&
+        Boolean(trade.offerId) &&
+        !trade.acknowledgments.buyerReceived &&
+        trade.verificationStatus !== 'mismatch' &&
+        (trade.orderStatus === 'WAITING_TRADE' ||
+          trade.orderStatus === 'TRADE_CONFIRMED' ||
+          trade.orderStatus === 'SETTLEMENT_HOLD');
+      const primaryLink =
+        trade.verificationStatus === 'mismatch' || trade.nextAction.kind === 'report_issue'
+          ? `<a class="btn primary" href="${trade.siteUrl}" target="_blank" rel="noreferrer">Открыть заказ</a>`
+          : trade.role === 'buyer' && trade.nextAction.kind === 'accept_in_steam'
+            ? `<a class="btn primary" href="https://steamcommunity.com/my/tradeoffers/" target="_blank" rel="noreferrer">Открыть Steam</a>`
+            : `<a class="btn primary" href="${trade.siteUrl}" target="_blank" rel="noreferrer">Открыть заказ</a>`;
+      const ackButtons = [
+        showSellerAck
+          ? `<button class="secondary" data-ack="SELLER_ACK_SENT" data-order="${trade.orderId}" data-offer="${trade.offerId ?? ''}">Я отправил обмен</button>`
+          : '',
+        showPreAccept
+          ? `<button class="secondary" data-ack="BUYER_ACK_PRE_ACCEPT" data-order="${trade.orderId}" data-offer="${trade.offerId ?? ''}">Вижу предложение</button>`
+          : '',
+        showConfirmReceived
+          ? `<button class="secondary" data-ack="BUYER_ACK_RECEIVED" data-order="${trade.orderId}" data-offer="${trade.offerId ?? ''}">Предмет получен</button>`
+          : '',
+      ]
+        .filter(Boolean)
+        .join('');
       return `
         <article class="trade-card ${statusClass}">
           <h2>${trade.item.marketHashName}</h2>
           <p class="meta">#${trade.orderShortId} · ${roleLabel(trade.role)} · ${formatMoneyMinor(trade.amountMinor)}</p>
           <p class="next"><strong>${trade.nextAction.title}</strong><br />${trade.nextAction.description}</p>
-          ${ackButton}
-          <a class="btn secondary" href="${trade.siteUrl}" target="_blank" rel="noreferrer">Открыть заказ</a>
+          ${primaryLink}
+          ${ackButtons}
         </article>
       `;
     })

@@ -16,6 +16,8 @@ type OrderTradeSellerPanelProps = {
   acknowledging?: boolean;
   ackEnabled?: boolean;
   extensionMode?: boolean;
+  nextActionTitle?: string;
+  nextActionDescription?: string;
   onOfferInputChange: (value: string) => void;
   onSaveTradeReference: () => void;
   onCheckDelivery?: () => void;
@@ -34,6 +36,8 @@ export function OrderTradeSellerPanel({
   acknowledging = false,
   ackEnabled = false,
   extensionMode = false,
+  nextActionTitle,
+  nextActionDescription,
   onOfferInputChange,
   onSaveTradeReference,
   onCheckDelivery,
@@ -75,13 +79,23 @@ export function OrderTradeSellerPanel({
 
   return (
     <div className="card order-trade-panel" data-testid="seller-trade-panel">
-      <h3 className="order-trade-panel-title">Обмен в Steam — продавец</h3>
+      <h3 className="order-trade-panel-title">Ваш шаг</h3>
+
+      {nextActionTitle ? (
+        <div className="next-action-card" data-testid="order-next-action">
+          <strong>{nextActionTitle}</strong>
+          {nextActionDescription ? (
+            <p className="muted small">{nextActionDescription}</p>
+          ) : null}
+        </div>
+      ) : null}
 
       {extensionMode && extensionHandling && isConfirmPending ? (
         <div className="extension-seller-cta" data-testid="seller-extension-guard-cta">
-          <strong>Осталось подтвердить Guard</strong>
+          <strong>Подтвердите в Steam Guard</strong>
           <p className="muted small">
-            Расширение уже создало обмен. Откройте Steam Mobile и подтвердите отправку.
+            Обмен уже создан. Откройте Steam Mobile и подтвердите отправку — это ваш
+            главный шаг.
           </p>
         </div>
       ) : null}
@@ -90,8 +104,8 @@ export function OrderTradeSellerPanel({
         <div className="alert alert-info" data-testid="seller-delivery-check-banner">
           <strong>Проверяем доставку</strong>
           <p className="muted small">
-            Предмет уже не найден у продавца в Steam. Не отправляйте новый trade offer —
-            платформа сверяет инвентарь покупателя.
+            Предмет уже ушёл из вашего инвентаря. Не отправляйте новый обмен — платформа
+            сверяет покупателя.
           </p>
           {onCheckDelivery ? (
             <button
@@ -107,40 +121,11 @@ export function OrderTradeSellerPanel({
         </div>
       ) : null}
 
-      {showSellerAck ? (
-        <div className="extension-seller-cta" data-testid="seller-ack-sent-cta">
-          <strong>Подтвердите отправку</strong>
-          <p className="muted small">
-            Если Guard уже подтверждён — нажмите ниже. Это не переводит деньги, а сообщает
-            покупателю и ускоряет согласование сделки.
-          </p>
-          <button
-            type="button"
-            className="button primary sm"
-            disabled={acknowledging}
-            data-testid="seller-ack-sent"
-            onClick={onAcknowledgeSent}
-          >
-            {acknowledging ? 'Сохраняем…' : 'Я отправил обмен'}
-          </button>
-        </div>
-      ) : null}
-
       {sellerAckSent && !isDeliveryCheck ? (
         <p className="alert alert-success" data-testid="seller-ack-sent-done">
-          Вы подтвердили отправку. Ожидаем принятия покупателем в Steam.
+          Обмен отмечен как отправленный. Ждём принятия покупателем в Steam.
         </p>
       ) : null}
-
-      <p className="muted small" data-testid="seller-waiting-message">
-        {isDeliveryCheck
-          ? 'Статус сделки обновится автоматически после проверки доставки.'
-          : extensionMode
-            ? extensionHandling && !isConfirmPending
-              ? 'Расширение добавит предмет в trade offer автоматически. Вам останется подтвердить обмен в Steam Guard, если потребуется.'
-              : 'Расширение отправит trade offer автоматически. Подтвердите в Steam Guard при необходимости.'
-            : 'Отправьте trade offer покупателю и укажите ссылку на предложение ниже.'}
-      </p>
 
       {extensionMode ? (
         <ExtensionTaskProgress
@@ -148,7 +133,11 @@ export function OrderTradeSellerPanel({
           manualFallbackVisible={showManualForm}
           itemMarketHashName={itemMarketHashName}
         />
-      ) : null}
+      ) : (
+        <p className="muted small" data-testid="seller-waiting-message">
+          Отправьте trade offer покупателю и сохраните ссылку на предложение ниже.
+        </p>
+      )}
 
       <ItemPreview
         item={order.lot.inventoryAsset}
@@ -157,78 +146,119 @@ export function OrderTradeSellerPanel({
         showAttrs
       />
 
-      <div className="order-trade-destination">
-        <h4 className="order-trade-subtitle">Куда отправить обмен</h4>
-        {buyerTradeUrl ? (
-          <div className="order-trade-url-row" data-testid="seller-buyer-trade-url">
-            <code className="order-trade-url-value">{buyerTradeUrl}</code>
-            <div className="order-trade-url-actions">
+      {(showSellerAck || showManualForm || buyerTradeUrl) && !isDeliveryCheck ? (
+        <details
+          className="order-trade-details"
+          data-testid="seller-trade-details"
+          open={!extensionHandling && showManualForm}
+        >
+          <summary>
+            {extensionHandling
+              ? 'Дополнительно / если автоотправка не сработала'
+              : 'Куда отправить и как указать обмен'}
+          </summary>
+
+          {showSellerAck ? (
+            <div className="extension-seller-cta" data-testid="seller-ack-sent-cta">
+              <p className="muted small">
+                Если Guard уже подтверждён, а статус на сайте не обновился — отметьте
+                отправку.
+              </p>
               <button
                 type="button"
                 className="button secondary sm"
-                onClick={() => void handleCopyBuyerTradeUrl()}
+                disabled={acknowledging}
+                data-testid="seller-ack-sent"
+                onClick={onAcknowledgeSent}
               >
-                {copied ? 'Скопировано' : 'Копировать'}
+                {acknowledging ? 'Сохраняем…' : 'Я отправил обмен'}
               </button>
-              <a
-                className="button secondary sm"
-                href={buyerTradeUrl}
-                target="_blank"
-                rel="noreferrer"
-              >
-                Открыть в Steam
-              </a>
             </div>
-          </div>
-        ) : (
-          <p className="alert alert-warning" data-testid="seller-buyer-trade-url-missing">
-            У покупателя не указан Trade URL в профиле. Попросите его добавить ссылку в
-            настройках аккаунта.
-          </p>
-        )}
-      </div>
+          ) : null}
 
-      <div data-testid="seller-trade-instructions">
-        <h4 className="order-trade-subtitle">Инструкция</h4>
-        <ol className="order-trade-steps">
-          {SELLER_TRADE_INSTRUCTIONS.map((step) => (
-            <li key={step}>{step}</li>
-          ))}
-        </ol>
-      </div>
+          <div className="order-trade-destination">
+            <h4 className="order-trade-subtitle">Trade URL покупателя</h4>
+            {buyerTradeUrl ? (
+              <div className="order-trade-url-row" data-testid="seller-buyer-trade-url">
+                <code className="order-trade-url-value">{buyerTradeUrl}</code>
+                <div className="order-trade-url-actions">
+                  <button
+                    type="button"
+                    className="button secondary sm"
+                    onClick={() => void handleCopyBuyerTradeUrl()}
+                  >
+                    {copied ? 'Скопировано' : 'Копировать'}
+                  </button>
+                  <a
+                    className="button secondary sm"
+                    href={buyerTradeUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                  >
+                    Открыть в Steam
+                  </a>
+                </div>
+              </div>
+            ) : (
+              <p className="alert alert-warning" data-testid="seller-buyer-trade-url-missing">
+                У покупателя не указан Trade URL. Попросите добавить его в настройках
+                аккаунта.
+              </p>
+            )}
+          </div>
+
+          {!extensionHandling ? (
+            <div data-testid="seller-trade-instructions">
+              <h4 className="order-trade-subtitle">Инструкция</h4>
+              <ol className="order-trade-steps">
+                {SELLER_TRADE_INSTRUCTIONS.map((step) => (
+                  <li key={step}>{step}</li>
+                ))}
+              </ol>
+            </div>
+          ) : null}
+
+          {!hasOfferSaved && showManualForm ? (
+            <>
+              <label className="field">
+                <span className="field-label">Ссылка или ID trade offer</span>
+                <input
+                  type="text"
+                  value={offerInput}
+                  onChange={(event) => onOfferInputChange(event.target.value)}
+                  placeholder="https://steamcommunity.com/tradeoffer/…"
+                  data-testid="trade-offer-input"
+                />
+              </label>
+              <button
+                type="button"
+                className="button secondary"
+                disabled={savingOffer || !offerInput.trim()}
+                data-testid="save-trade-offer"
+                onClick={onSaveTradeReference}
+              >
+                {savingOffer ? 'Сохраняем…' : 'Сохранить предложение'}
+              </button>
+            </>
+          ) : hasOfferSaved ? (
+            <p className="muted small">
+              Предложение обмена:{' '}
+              <strong data-testid="trade-offer-id">
+                {order.tradeOperation?.externalOfferId}
+              </strong>
+            </p>
+          ) : null}
+        </details>
+      ) : hasOfferSaved ? (
+        <p className="muted small">
+          Предложение обмена:{' '}
+          <strong data-testid="trade-offer-id">{order.tradeOperation?.externalOfferId}</strong>
+        </p>
+      ) : null}
 
       <p className="order-trade-poll-status" data-testid="trade-poll-status">
         Статус проверки: <strong>{pollStatus}</strong>
       </p>
-
-      {!hasOfferSaved && showManualForm ? (
-        <>
-          <label className="field">
-            <span className="field-label">Ссылка или ID trade offer</span>
-            <input
-              type="text"
-              value={offerInput}
-              onChange={(event) => onOfferInputChange(event.target.value)}
-              placeholder="https://steamcommunity.com/tradeoffer/…"
-              data-testid="trade-offer-input"
-            />
-          </label>
-          <button
-            type="button"
-            className="button secondary"
-            disabled={savingOffer || !offerInput.trim()}
-            data-testid="save-trade-offer"
-            onClick={onSaveTradeReference}
-          >
-            {savingOffer ? 'Сохраняем…' : 'Сохранить предложение'}
-          </button>
-        </>
-      ) : (
-        <p className="muted small">
-          Предложение обмена сохранено:{' '}
-          <strong data-testid="trade-offer-id">{order.tradeOperation?.externalOfferId}</strong>
-        </p>
-      )}
     </div>
   );
 }
