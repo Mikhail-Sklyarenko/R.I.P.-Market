@@ -22,8 +22,13 @@ export function mapSteamSendError(
   if (/private|inventory is private/i.test(combined)) {
     return { code: OfferErrorCode.INVENTORY_NOT_LOADED, message: combined };
   }
-  if (/empty response|null response|invalid json/i.test(combined)) {
-    return { code: OfferErrorCode.STEAM_UNAVAILABLE, message: combined };
+  if (/empty response|null response|invalid json|HTTP 400/i.test(combined)) {
+    return {
+      code: OfferErrorCode.STEAM_UNAVAILABLE,
+      message:
+        combined ||
+        'Steam rejected the API send (often Trade Protected). Retry — extension will use UI autofill.',
+    };
   }
   if (/content script|page script|trade page|jquery|UserYou/i.test(combined)) {
     return { code: OfferErrorCode.STEAM_UNAVAILABLE, message: combined };

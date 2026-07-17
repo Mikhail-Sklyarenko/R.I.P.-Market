@@ -8,6 +8,7 @@ import { MockInventoryProvider } from './inventory/mock-inventory.provider';
 import { InventoryMetricsService } from './inventory/inventory-metrics.service';
 import { InventorySyncCacheService } from './inventory/inventory-sync-cache.service';
 import { SteamInventoryProvider } from './inventory/steam-inventory.provider';
+import { HybridTradeProvider } from './trade/hybrid-trade.provider';
 import { MockTradeProvider } from './trade/mock-trade.provider';
 import { SteamTradeProvider } from './trade/steam-trade.provider';
 import { MockPaymentProvider } from './payment/mock-payment.provider';
@@ -33,6 +34,7 @@ import {
     InventoryMetricsService,
     MockTradeProvider,
     SteamTradeProvider,
+    HybridTradeProvider,
     MockPaymentProvider,
     CryptoTronGatewayProvider,
     E2eCryptoPaymentProvider,
@@ -55,10 +57,15 @@ import {
     },
     {
       provide: TRADE_PROVIDER,
-      useFactory: (mock: MockTradeProvider, steam: SteamTradeProvider) => {
-        return getProvidersConfig().trade === 'steam' ? steam : mock;
+      useFactory: (
+        mock: MockTradeProvider,
+        steam: SteamTradeProvider,
+        hybrid: HybridTradeProvider,
+      ) => {
+        // mock → hybrid: admin completeTrade stays mock, offer verify uses Steam
+        return getProvidersConfig().trade === 'steam' ? steam : hybrid;
       },
-      inject: [MockTradeProvider, SteamTradeProvider],
+      inject: [MockTradeProvider, SteamTradeProvider, HybridTradeProvider],
     },
     {
       provide: PAYMENT_PROVIDER,

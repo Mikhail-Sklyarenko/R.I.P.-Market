@@ -554,10 +554,43 @@ export class OrdersService {
       buyerReceived: ackTypes.has('BUYER_ACK_RECEIVED'),
     };
 
+    const latestPoll = order.tradeOperation
+      ? await this.prisma.tradePollEvent.findFirst({
+          where: { tradeOperationId: order.tradeOperation.id },
+          orderBy: { checkedAt: 'desc' },
+          select: {
+            checkedAt: true,
+            offerStatus: true,
+            outcome: true,
+            strategy: true,
+            error: true,
+          },
+        })
+      : null;
+    const inventoryHint = latestPoll?.strategy?.includes(':')
+      ? (latestPoll.strategy.split(':').pop() ?? null)
+      : null;
+    const deliveryProbe = latestPoll
+      ? {
+          checkedAt: latestPoll.checkedAt,
+          offerStatus: latestPoll.offerStatus,
+          outcome: latestPoll.outcome,
+          reasonCode: latestPoll.error,
+          inventoryHint:
+            inventoryHint === 'seller_still_holds' ||
+            inventoryHint === 'confirmed' ||
+            inventoryHint === 'pending' ||
+            inventoryHint === 'unknown'
+              ? inventoryHint
+              : null,
+        }
+      : null;
+
     return toJsonSafe({
       ...orderRest,
       tradeTask,
       tradeAcknowledgments,
+      deliveryProbe,
     });
   }
 

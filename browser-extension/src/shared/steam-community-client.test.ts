@@ -131,4 +131,28 @@ describe('SteamCommunityClient.sendTradeOffer', () => {
       confirmPending: false,
     });
   });
+
+  it('falls back to UI autofill when API returns HTTP 400 empty', async () => {
+    const { sendTradeOfferViaPageScript } = await import('./steam-trade-offer.js');
+    const { runTradeOfferAutofillInMainWorld } = await import('./trade-offer-ui-runner.js');
+    vi.mocked(sendTradeOfferViaPageScript).mockResolvedValueOnce({
+      ok: false,
+      error: 'Steam returned empty response (HTTP 400)',
+    });
+
+    const client = new SteamCommunityClient();
+    const result = await client.sendTradeOffer({
+      buyerTradeUrl:
+        'https://steamcommunity.com/tradeoffer/new/?partner=123&token=abc',
+      item: { assetId: 'asset-1' },
+    });
+
+    expect(sendTradeOfferViaPageScript).toHaveBeenCalled();
+    expect(runTradeOfferAutofillInMainWorld).toHaveBeenCalled();
+    expect(result).toEqual({
+      ok: true,
+      offerId: 'ui-offer',
+      confirmPending: true,
+    });
+  });
 });

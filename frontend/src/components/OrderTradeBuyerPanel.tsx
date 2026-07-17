@@ -162,9 +162,17 @@ export function OrderTradeBuyerPanel({
       </div>
 
       {acks?.buyerReceived ? (
-        <p className="alert alert-success" data-testid="buyer-received-ack">
-          Вы подтвердили получение предмета в R.I.P Market.
-        </p>
+        order.status === 'WAITING_TRADE' ? (
+          <p className="alert alert-warning" data-testid="buyer-received-ack-pending-steam">
+            Вы подтвердили получение в R.I.P Market, но платформа ещё не видит скин у вас в
+            Steam. Примите входящий trade offer — после перехода предмета статус обновится
+            сам.
+          </p>
+        ) : (
+          <p className="alert alert-success" data-testid="buyer-received-ack">
+            Вы подтвердили получение предмета в R.I.P Market.
+          </p>
+        )
       ) : acks?.buyerPreAccept ? (
         <p className="alert alert-success" data-testid="buyer-extension-ack">
           Вы подтвердили, что видите предложение. Примите обмен в Steam.

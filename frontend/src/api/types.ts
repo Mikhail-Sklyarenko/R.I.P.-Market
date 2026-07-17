@@ -358,6 +358,14 @@ export type TradeAcknowledgmentSummary = {
   buyerReceived: boolean;
 };
 
+export type DeliveryProbe = {
+  checkedAt: string;
+  offerStatus?: string | null;
+  outcome: string;
+  reasonCode?: string | null;
+  inventoryHint?: 'seller_still_holds' | 'confirmed' | 'pending' | 'unknown' | null;
+};
+
 export type Order = {
   id: string;
   lotId: string;
@@ -372,6 +380,7 @@ export type Order = {
   tradeOperation?: TradeOperation | null;
   tradeTask?: TradeTaskSummary | null;
   tradeAcknowledgments?: TradeAcknowledgmentSummary | null;
+  deliveryProbe?: DeliveryProbe | null;
   hold?: { id: string; amountMinor: string } | null;
   buyer?: OrderParty;
   seller?: OrderParty;

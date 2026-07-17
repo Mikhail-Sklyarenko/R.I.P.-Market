@@ -191,7 +191,27 @@ export class SteamCommunityClient {
       if (!tabId) {
         return { ok: false, error: 'Steam tab unavailable' };
       }
-      return await sendTradeOfferViaPageScript(tabId, draft);
+      const apiResult = await sendTradeOfferViaPageScript(tabId, draft);
+      if (
+        apiResult.ok ||
+        !/empty response|null response|HTTP 400|invalid json/i.test(
+          apiResult.error,
+        )
+      ) {
+        return apiResult;
+      }
+
+      // Classic /tradeoffer/new/send often returns HTTP 400 empty for Trade Protected
+      // inventories — fall back to page autofill so the item is actually selected.
+      const tradeTabId = await this.navigateToTradePage(draft.buyerTradeUrl);
+      if (!tradeTabId) {
+        return {
+          ok: false,
+          error: `${apiResult.error} (UI fallback failed: trade page unavailable)`,
+          strError: apiResult.strError,
+        };
+      }
+      return await this.sendTradeOfferViaUi(tradeTabId, draft);
     } catch (error) {
       return {
         ok: false,

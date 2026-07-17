@@ -5,6 +5,7 @@ import { getProvidersConfig } from '../providers/config';
 import { SteamTradeRateLimitError } from '../providers/trade/steam-trade.provider';
 import { PrismaService } from '../prisma/prisma.service';
 import { ExtensionFlowMetricsService } from '../common/observability/extension-flow-metrics.service';
+import { isDeliveryVerificationEngineEnabled } from './delivery-verification.config';
 import {
   DeliveryVerificationEngineService,
   type DeliveryVerificationOperation,
@@ -56,7 +57,12 @@ export class TradeStatusPollerService implements OnModuleInit {
     ) {
       return;
     }
-    if (getProvidersConfig().trade === 'mock') {
+    // TRADE_PROVIDER=mock still verifies real Steam offer IDs via HybridTradeProvider
+    // and inventory delta — keep the interval alive whenever the delivery engine is on.
+    if (
+      getProvidersConfig().trade === 'mock' &&
+      !isDeliveryVerificationEngineEnabled()
+    ) {
       return;
     }
     await this.pollWaitingTrades();
@@ -144,8 +150,8 @@ export class TradeStatusPollerService implements OnModuleInit {
       await this.recordPollEvent(operation.id, {
         outcome: decision.pollOutcome,
         strategy: operation.externalOfferId
-          ? 'OFFER_POLL+INVENTORY_DELTA'
-          : 'INVENTORY_DELTA',
+          ? `OFFER_POLL+INVENTORY_DELTA:${inventoryDelta ?? 'null'}`
+          : `INVENTORY_DELTA:${inventoryDelta ?? 'null'}`,
         offerStatus: offerStatus ?? inventoryDelta,
         error: decision.action === 'BACKOFF' ? 'rate_limited' : undefined,
         reasonCode: decision.reasonCode,

@@ -149,9 +149,21 @@ export function getOrderNextAction(
             'После принятия в Steam нажмите «Предмет получен» — платформа быстрее сверит инвентарь.',
         };
       }
+      if (
+        order.deliveryProbe?.inventoryHint === 'seller_still_holds' ||
+        order.deliveryProbe?.reasonCode === 'BUYER_ACK_BUT_ITEM_STILL_WITH_SELLER' ||
+        order.deliveryProbe?.reasonCode === 'AWAITING_BUYER_STEAM_ACCEPT'
+      ) {
+        return {
+          title: 'Примите обмен в Steam',
+          description:
+            'Подтверждение в R.I.P Market есть, но скин всё ещё у продавца. Откройте входящие предложения Steam и примите trade offer — иначе сделка не завершится.',
+        };
+      }
       return {
         title: 'Платформа проверяет доставку',
-        description: 'Статус заказа обновится автоматически после проверки Steam.',
+        description:
+          'Ищем предмет в инвентаре Steam. Если обмен ещё не принят — откройте входящие предложения и примите его.',
       };
     }
     if (order.status === 'TRADE_CONFIRMED') {
@@ -205,7 +217,8 @@ export function getOrderNextAction(
       }
       return {
         title: 'Ожидаем покупателя',
-        description: 'Обмен отправлен. Покупатель должен принять его в Steam.',
+        description:
+          'Обмен отправлен. Покупатель должен принять его во входящих предложениях Steam. Пока скин у вас в инвентаре — сделка не завершится.',
       };
     }
     if (order.status === 'TRADE_CONFIRMED') {

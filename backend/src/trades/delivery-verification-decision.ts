@@ -188,7 +188,11 @@ function decideDualSignal(
       return decision(
         'WAIT',
         'OFFER_UNKNOWN',
-        'OFFER_UNKNOWN_RETRY',
+        inventory === 'seller_still_holds'
+          ? signals.buyerAckReceived
+            ? 'BUYER_ACK_BUT_ITEM_STILL_WITH_SELLER'
+            : 'AWAITING_BUYER_STEAM_ACCEPT'
+          : 'OFFER_UNKNOWN_RETRY',
         offer,
         inventory,
       );
@@ -276,6 +280,18 @@ function decideDualSignal(
       offer,
       inventory,
       'FAILED_DISPUTE',
+    );
+  }
+
+  if (inventory === 'seller_still_holds') {
+    return decision(
+      'WAIT',
+      'OFFER_PENDING',
+      signals.buyerAckReceived
+        ? 'BUYER_ACK_BUT_ITEM_STILL_WITH_SELLER'
+        : 'AWAITING_BUYER_STEAM_ACCEPT',
+      offer,
+      inventory,
     );
   }
 

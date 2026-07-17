@@ -64,9 +64,9 @@ ENABLE_EXTENSION_ROLLOUT=false
 ENABLE_EXTENSION_TASK_PIPELINE=true
 ENABLE_EXTENSION_OFFER_ORCHESTRATOR=true
 ENABLE_EXTENSION_TRADE_REFERENCE=true
-# API send path: auto-create+send offer; seller only confirms Mobile Guard.
-# UI autofill is slower and flaky on Steam Trade Protected inventories.
-ENABLE_EXTENSION_UI_TRADE_FLOW=false
+# API send path is preferred when Steam accepts /tradeoffer/new/send.
+# Trade Protected inventories often return HTTP 400 empty — UI autofill is the reliable path.
+ENABLE_EXTENSION_UI_TRADE_FLOW=true
 ENABLE_EXTENSION_TRADE_ACKNOWLEDGMENT=true
 ENABLE_TRADE_REFERENCE_RECONCILE=true
 ENABLE_EXTENSION_FIRST_TRADE_FLOW=false

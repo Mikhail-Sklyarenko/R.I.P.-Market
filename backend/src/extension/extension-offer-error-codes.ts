@@ -58,9 +58,9 @@ export const OFFER_ERROR_UX_HINTS: Record<
     retryable: true,
   },
   STEAM_UNAVAILABLE: {
-    title: 'Steam временно недоступен',
+    title: 'Steam временно недоступен или отклонил API-отправку',
     sellerHint:
-      'Подождите 1–2 минуты и повторите. Если ошибка сохраняется — проверьте статус Steam.',
+      'Часто это Trade Protected: расширение должно само открыть страницу обмена и добавить предмет. Обновите расширение, откройте steamcommunity.com под аккаунтом продавца и повторите. Затем подтвердите обмен в Steam Guard.',
     retryable: true,
   },
   STEAM_GUARD_REQUIRED: {
