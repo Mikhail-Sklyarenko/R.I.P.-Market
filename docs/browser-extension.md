@@ -104,7 +104,7 @@ Execution phases reported to backend: `ACKED` → `TRADE_PAGE_OPENED` → `OFFER
 | «Trade hold» / escrow | `TRADE_HOLD_BLOCKED` | Steam блокирует обмен. Подождать снятия hold или отправить offer вручную по Trade URL покупателя. |
 | HTTP 400 / `strError` от Steam send | `OFFER_SEND_FAILED` | Проверить Trade URL покупателя, что предмет ещё в инвентаре, повторить. При повторе — ручная отправка. |
 | Другой Steam в Chrome | `STEAM_ACCOUNT_MISMATCH` | Войти в steamcommunity.com под аккаунтом продавца или pair в нужном Chrome-профиле. |
-| Инвентарь не грузится / 429 | `INVENTORY_NOT_LOADED` | Открыть steamcommunity.com, обновить страницу заказа. Опционально: Steam Web API key в popup расширения для fallback. |
+| Инвентарь не грузится / 429 | `INVENTORY_NOT_LOADED` | Открыть steamcommunity.com, обновить страницу заказа. Запасной ключ Steam — только в «Дополнительно» popup (по рекомендации поддержки). |
 | Предмет не найден | `ITEM_MISSING` | Синхронизировать инвентарь на сайте; убедиться, что скин не продан/не в hold. |
 | Несколько одинаковых скинов | `ITEM_MISMATCH` | Указать offer вручную или пересоздать лот с уникальным asset. |
 | Guard не подтверждён | `CONFIRM_PENDING` | Открыть Steam Mobile → подтвердить trade offer. |
@@ -115,7 +115,7 @@ Execution phases reported to backend: `ACKED` → `TRADE_PAGE_OPENED` → `OFFER
 - Seller must be logged into [steamcommunity.com](https://steamcommunity.com) in the same browser
 - Buyer must have a valid Trade URL in profile
 - Extension rollout allowlist must include the seller (internal stage uses `EXTENSION_ROLLOUT_INTERNAL_USER_IDS`)
-- Optional: Steam Web API key in extension popup for inventory fallback on 429
+- Optional advanced: Steam inventory fallback key in extension popup → «Дополнительно» (support-only)
 
 ## Manual QA checklist (UI trade flow)
 

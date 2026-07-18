@@ -15,6 +15,9 @@ const apiKeyInput = document.getElementById('steam-api-key') as HTMLInputElement
 const saveApiKeyBtn = document.getElementById('save-api-key') as HTMLButtonElement;
 const clearApiKeyBtn = document.getElementById('clear-api-key') as HTMLButtonElement;
 const apiKeyStatusEl = document.getElementById('api-key-status');
+const advancedSettingsEl = document.getElementById(
+  'advanced-settings',
+) as HTMLDetailsElement | null;
 
 type ExtensionStatus = {
   connected: boolean;
@@ -165,8 +168,14 @@ async function renderApiKeyStatus(): Promise<void> {
   }
   const stored = await getSteamWebApiKey();
   apiKeyStatusEl.textContent = stored
-    ? 'Ключ сохранён локально в расширении.'
-    : 'Ключ не задан — используется только загрузка через Steam в браузере.';
+    ? 'Запасной ключ сохранён в этом браузере.'
+    : 'Ключ не задан — расширение работает через Steam в браузере.';
+
+  if (advancedSettingsEl && stored && !advancedSettingsEl.open) {
+    // Keep advanced closed by default; only expand if user already has a key
+    // so they can find and clear it without hunting.
+    advancedSettingsEl.open = true;
+  }
 }
 
 async function render(): Promise<void> {

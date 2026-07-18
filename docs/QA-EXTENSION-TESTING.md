@@ -237,7 +237,7 @@ gmmlnkjdbcoojbhndjcfehojknjamaoj
 |---------|-------------------|-------------|
 | «Задача расширения ещё не создана» | Покупка только что прошла | Подождать 5–10 с, обновить страницу |
 | Фаза не двигается > 2 мин | Steam не залогинен / другой аккаунт | Проверить steamcommunity.com под продавцом |
-| `INVENTORY_NOT_LOADED` | Steam rate limit | Открыть steamcommunity.com, обновить сделку; в popup расширения можно указать Steam Web API key |
+| `INVENTORY_NOT_LOADED` | Steam rate limit | Открыть steamcommunity.com, обновить сделку; подождать и повторить. Запасной ключ Steam — только в «Дополнительно» popup (по рекомендации поддержки) |
 | `ITEM_MISSING` | Скин продан или не в инвентаре | **Обновить из Steam** на сайте, пересоздать лот |
 | `TRADE_HOLD_BLOCKED` | Steam trade hold | Подождать или отправить offer вручную |
 | `CONFIRM_PENDING` долго | Guard не подтверждён | Steam Mobile → подтвердить обмен |
