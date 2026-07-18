@@ -2353,30 +2353,82 @@ p {
   z-index: 2;
   display: flex;
   flex-direction: column;
-  gap: var(--space-3);
+  gap: 0;
   margin: 0;
+  padding: 0;
+  min-width: 0;
   min-height: 0;
+  max-width: 100%;
+  overflow: hidden;
   border-color: rgba(125, 211, 252, 0.35);
+  /* Keep the decision zone (payout + CTA) on-screen without page scroll. */
+  max-height: calc(100dvh - 11rem);
 }
 
 .inventory-sell-panel-body {
   display: grid;
   gap: var(--space-3);
+  min-width: 0;
   min-height: 0;
   flex: 1 1 auto;
+  padding: var(--space-4) var(--space-5) var(--space-3);
+  overflow-x: hidden;
   overflow-y: auto;
   overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
 }
 
 .inventory-sell-panel-footer {
+  display: grid;
+  gap: var(--space-3);
   flex-shrink: 0;
-  margin-top: auto;
-  padding-top: var(--space-3);
+  min-width: 0;
+  padding: var(--space-3) var(--space-5) var(--space-5);
   border-top: 1px solid var(--color-border);
+  background: var(--color-bg-elevated);
 }
 
 .inventory-sell-panel-submit {
   width: 100%;
+}
+
+.inventory-sell-payout.pricing-preview {
+  margin: 0;
+  padding: var(--space-3);
+  gap: var(--space-2);
+}
+
+.inventory-payout-summary {
+  margin: 0;
+  font-size: var(--font-size-sm);
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+.inventory-payout-breakdown {
+  display: grid;
+  gap: var(--space-1);
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+  min-width: 0;
+}
+
+.inventory-payout-breakdown > div {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: var(--space-3);
+  min-width: 0;
+}
+
+.inventory-payout-breakdown > div > span:first-child {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.inventory-payout-breakdown .money-display {
+  flex: 0 0 auto;
 }
 
 @media (min-width: 1200px) {
@@ -2386,21 +2438,18 @@ p {
     align-self: start;
   }
 
-  .inventory-sell-panel {
-    /* Leave room for app header + page header so submit stays on-screen
-       without scrolling the page when the panel first opens. */
-    max-height: calc(100dvh - 11rem);
-    overflow: hidden;
-  }
-
   .inventory-sell-panel .lot-item-hero-sm .lot-item-hero-image-wrap {
-    min-height: 120px;
-    padding: var(--space-3);
+    min-height: 88px;
+    padding: var(--space-2);
   }
 
   .inventory-sell-panel .lot-item-hero-sm .lot-item-hero-image {
-    max-width: 180px;
-    max-height: 100px;
+    max-width: 140px;
+    max-height: 80px;
+  }
+
+  .inventory-sell-panel .lot-item-hero-title-sm {
+    font-size: var(--font-size-sm);
   }
 }
 
@@ -2417,6 +2466,11 @@ p {
   justify-content: space-between;
   gap: var(--space-3);
   flex-shrink: 0;
+  padding: var(--space-4) var(--space-5) 0;
+}
+
+.inventory-sell-panel > .inventory-sell-panel-title {
+  padding: var(--space-4) var(--space-5) 0;
 }
 
 .inventory-sell-panel-close {
@@ -2441,6 +2495,7 @@ p {
 .inventory-sell-panel-fields {
   display: grid;
   gap: var(--space-3);
+  min-width: 0;
 }
 
 .inventory-bulk-list-option {
@@ -2449,10 +2504,17 @@ p {
   gap: var(--space-2);
   font-size: var(--font-size-sm);
   color: var(--color-text-muted);
+  min-width: 0;
+}
+
+.inventory-bulk-list-option span {
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 
 .inventory-bulk-list-option input {
   margin-top: 0.15rem;
+  flex-shrink: 0;
 }
 
 .inventory-asset-card-bulk-highlight {
@@ -2474,22 +2536,17 @@ p {
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
   background: var(--color-bg-subtle);
+  min-width: 0;
 }
 
 .inventory-price-recommendation p {
   margin: 0;
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 
-.inventory-payout-summary {
-  margin: 0;
-  font-size: var(--font-size-base);
-}
-
-.inventory-payout-breakdown {
-  display: grid;
-  gap: var(--space-2);
-  font-size: var(--font-size-sm);
-  color: var(--color-text-muted);
+.inventory-price-recommendation .button {
+  flex-shrink: 0;
 }
 
 .inventory-grid {
@@ -2545,14 +2602,38 @@ p {
   }
 
   .inventory-sell-panel {
-    max-height: min(78vh, 640px);
+    padding: 0;
+    max-height: min(78dvh, 640px);
     box-shadow: 0 -8px 32px rgba(0, 0, 0, 0.45);
+  }
+
+  .inventory-sell-panel-body {
+    padding: var(--space-3) var(--space-4) var(--space-2);
+  }
+
+  .inventory-sell-panel-footer {
+    padding: var(--space-3) var(--space-4) var(--space-4);
+  }
+
+  .inventory-sell-panel-header,
+  .inventory-sell-panel > .inventory-sell-panel-title {
+    padding: var(--space-3) var(--space-4) 0;
   }
 
   .inventory-sell-panel-close {
     display: inline-flex;
     align-items: center;
     justify-content: center;
+  }
+
+  .inventory-sell-panel .lot-item-hero-sm .lot-item-hero-image-wrap {
+    min-height: 72px;
+    padding: var(--space-2);
+  }
+
+  .inventory-sell-panel .lot-item-hero-sm .lot-item-hero-image {
+    max-width: 120px;
+    max-height: 68px;
   }
 }
 
@@ -2896,7 +2977,7 @@ p {
 }
 
 .inventory-sell-panel .lot-item-hero-sm .lot-item-hero-image-wrap {
-  overflow: visible;
+  overflow: hidden;
 }
 
 .my-lots-pending-payout {

@@ -31,6 +31,21 @@ type InventorySellPanelProps = {
   showClose?: boolean;
 };
 
+function formatLotCountLabel(count: number): string {
+  const mod100 = count % 100;
+  const mod10 = count % 10;
+  if (mod100 >= 11 && mod100 <= 14) {
+    return `${count} лотов`;
+  }
+  if (mod10 === 1) {
+    return `${count} лот`;
+  }
+  if (mod10 >= 2 && mod10 <= 4) {
+    return `${count} лота`;
+  }
+  return `${count} лотов`;
+}
+
 export function InventorySellPanel({
   asset,
   priceHint,
@@ -171,41 +186,41 @@ export function InventorySellPanel({
               </span>
             </label>
           ) : null}
-
-          {totalPreview ? (
-            <div className="pricing-preview" data-testid="pricing-preview">
-              <p className="inventory-payout-summary">
-                {listingCount > 1 ? (
-                  <>
-                    Вы получите{' '}
-                    <MoneyDisplay minor={totalPreview.sellerReceiveMinor} strong /> за{' '}
-                    {listingCount} лота после комиссии 5%
-                  </>
-                ) : (
-                  <>
-                    Вы получите <MoneyDisplay minor={totalPreview.sellerReceiveMinor} strong />{' '}
-                    после комиссии 5%
-                  </>
-                )}
-              </p>
-              <div className="inventory-payout-breakdown">
-                <div>
-                  <span>{listingCount > 1 ? 'Сумма лотов' : 'Цена лота'}</span>
-                  <MoneyDisplay minor={totalPreview.priceMinor} strong />
-                </div>
-                <div>
-                  <span>Комиссия (5%)</span>
-                  <MoneyDisplay minor={totalPreview.commissionMinor} strong />
-                </div>
-              </div>
-            </div>
-          ) : null}
-
-          <ErrorAlert error={sellError} />
         </div>
       </div>
 
       <div className="inventory-sell-panel-footer">
+        {totalPreview ? (
+          <div className="pricing-preview inventory-sell-payout" data-testid="pricing-preview">
+            <p className="inventory-payout-summary">
+              {listingCount > 1 ? (
+                <>
+                  Вы получите{' '}
+                  <MoneyDisplay minor={totalPreview.sellerReceiveMinor} strong /> за{' '}
+                  {formatLotCountLabel(listingCount)} после комиссии 5%
+                </>
+              ) : (
+                <>
+                  Вы получите <MoneyDisplay minor={totalPreview.sellerReceiveMinor} strong />{' '}
+                  после комиссии 5%
+                </>
+              )}
+            </p>
+            <div className="inventory-payout-breakdown">
+              <div>
+                <span>{listingCount > 1 ? 'Сумма лотов' : 'Цена лота'}</span>
+                <MoneyDisplay minor={totalPreview.priceMinor} strong />
+              </div>
+              <div>
+                <span>Комиссия (5%)</span>
+                <MoneyDisplay minor={totalPreview.commissionMinor} strong />
+              </div>
+            </div>
+          </div>
+        ) : null}
+
+        <ErrorAlert error={sellError} />
+
         <button
           type="submit"
           className="button primary inventory-sell-panel-submit"
@@ -215,7 +230,7 @@ export function InventorySellPanel({
           {submitting
             ? 'Публикация…'
             : listingCount > 1
-              ? `Выставить ${listingCount} лота`
+              ? `Выставить ${formatLotCountLabel(listingCount)}`
               : 'Выставить лот'}
         </button>
       </div>
