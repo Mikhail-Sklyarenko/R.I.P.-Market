@@ -6,6 +6,7 @@ import {
   formatLotStatus,
   computeSellerPendingReceiveMinor,
   getBulkListableSiblings,
+  groupInventoryAssetsForDisplay,
   sortInventoryAssetsBySteamPriceDesc,
 } from './seller-flow.ts';
 
@@ -151,5 +152,62 @@ describe('seller-flow utils', () => {
     assert.deepEqual(getBulkListableSiblings([skin], skin).map((asset) => asset.id), [
       'skin-1',
     ]);
+  });
+
+  it('stacks fungible duplicates and keeps skins separate', () => {
+    const caseA = {
+      id: 'case-1',
+      status: 'AVAILABLE',
+      tradable: true,
+      floatValue: null,
+      paintSeed: null,
+      wear: null,
+      stickers: null,
+      itemDefinition: { marketHashName: 'Gallery Case' },
+    };
+    const caseB = {
+      ...caseA,
+      id: 'case-2',
+    };
+    const caseListed = {
+      ...caseA,
+      id: 'case-listed',
+      status: 'LISTED',
+    };
+    const skinA = {
+      id: 'skin-1',
+      status: 'AVAILABLE',
+      tradable: true,
+      floatValue: '0.12',
+      paintSeed: 42,
+      wear: 'FT',
+      stickers: null,
+      itemDefinition: { marketHashName: 'AK-47 | Redline (Field-Tested)' },
+    };
+    const skinB = {
+      ...skinA,
+      id: 'skin-2',
+      floatValue: '0.21',
+      paintSeed: 7,
+    };
+
+    const stacks = groupInventoryAssetsForDisplay([
+      caseA,
+      skinA,
+      caseB,
+      skinB,
+      caseListed,
+    ]);
+
+    assert.equal(stacks.length, 4);
+    assert.equal(stacks[0]?.key, 'fungible:listable:Gallery Case');
+    assert.equal(stacks[0]?.count, 2);
+    assert.equal(stacks[0]?.representative.id, 'case-1');
+    assert.equal(stacks[1]?.count, 1);
+    assert.equal(stacks[1]?.representative.id, 'skin-1');
+    assert.equal(stacks[2]?.count, 1);
+    assert.equal(stacks[2]?.representative.id, 'skin-2');
+    assert.equal(stacks[3]?.key, 'fungible:LISTED:Gallery Case');
+    assert.equal(stacks[3]?.count, 1);
   });
 });

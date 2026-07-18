@@ -32,6 +32,7 @@ import {
   canListAsset,
   filterInventoryAssets,
   getBulkListableSiblings,
+  groupInventoryAssetsForDisplay,
   INVENTORY_STATUS_FILTERS,
   sortInventoryAssetsBySteamPriceDesc,
   type InventoryStatusFilter,
@@ -84,13 +85,6 @@ export function InventoryPage() {
     }
     return getBulkListableSiblings(assets, selectedAsset);
   }, [assets, selectedAsset]);
-
-  const bulkHighlightIds = useMemo(() => {
-    if (!selectedAsset || !bulkListAll || bulkListTargets.length < 2) {
-      return new Set<string>();
-    }
-    return new Set(bulkListTargets.map((asset) => asset.id));
-  }, [selectedAsset, bulkListAll, bulkListTargets]);
 
   const selectedPriceHint = selectedAsset
     ? priceHints[selectedAsset.itemDefinition.marketHashName]
@@ -248,6 +242,11 @@ export function InventoryPage() {
     [assets, search, statusFilter, showUnavailable, priceHints],
   );
 
+  const displayStacks = useMemo(
+    () => groupInventoryAssetsForDisplay(filteredAssets),
+    [filteredAssets],
+  );
+
   const visibleCount = useMemo(
     () => filterInventoryAssets(assets, '', 'all', showUnavailable).length,
     [assets, showUnavailable],
@@ -258,7 +257,8 @@ export function InventoryPage() {
       return;
     }
     setSelectedAssetId(asset.id);
-    setBulkListAll(false);
+    const siblings = getBulkListableSiblings(assets, asset);
+    setBulkListAll(siblings.length >= 2);
     setSellError(null);
   }
 
@@ -537,29 +537,45 @@ export function InventoryPage() {
                 </label>
               </div>
               <p className="muted small inventory-filter-total" data-testid="inventory-filter-total">
-                Показано: {filteredAssets.length} из {visibleCount}
+                Показано: {displayStacks.length}{' '}
+                {displayStacks.length === 1 ? 'позиция' : 'позиций'}
+                {filteredAssets.length !== displayStacks.length
+                  ? ` (${filteredAssets.length} шт.)`
+                  : null}{' '}
+                из {visibleCount}
               </p>
             </div>
 
-            {filteredAssets.length === 0 ? (
+            {displayStacks.length === 0 ? (
               <EmptyState
                 title="Ничего не найдено"
                 message="Измените поиск или фильтр статуса."
               />
             ) : (
-              <div className="inventory-grid">
-                {filteredAssets.map((asset) => (
-                  <InventoryAssetCard
-                    key={asset.id}
-                    asset={asset}
-                    isSelected={selectedAssetId === asset.id}
-                    isBulkHighlighted={bulkHighlightIds.has(asset.id)}
-                    priceHint={priceHints[asset.itemDefinition.marketHashName]}
-                    pricesLoading={pricesLoading}
-                    requireSteamPrice
-                    onSelect={selectAsset}
-                  />
-                ))}
+              <div className="inventory-grid" data-testid="inventory-grid">
+                {displayStacks.map((stack) => {
+                  const asset = stack.representative;
+                  const stackSelected =
+                    selectedAssetId != null &&
+                    stack.assets.some((item) => item.id === selectedAssetId);
+                  const stackBulkHighlighted =
+                    stackSelected &&
+                    bulkListAll &&
+                    bulkListTargets.length >= 2;
+                  return (
+                    <InventoryAssetCard
+                      key={stack.key}
+                      asset={asset}
+                      isSelected={stackSelected}
+                      isBulkHighlighted={stackBulkHighlighted}
+                      stackCount={stack.count}
+                      priceHint={priceHints[asset.itemDefinition.marketHashName]}
+                      pricesLoading={pricesLoading}
+                      requireSteamPrice
+                      onSelect={selectAsset}
+                    />
+                  );
+                })}
               </div>
             )}
           </div>

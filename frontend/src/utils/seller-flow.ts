@@ -200,6 +200,79 @@ export function getBulkListableSiblings<
   );
 }
 
+export type InventoryDisplayStack<T> = {
+  key: string;
+  representative: T;
+  assets: T[];
+  count: number;
+};
+
+/**
+ * Collapse fungible duplicates (cases, capsules, etc.) into one tile per group.
+ * Skins with float/wear stay one-per-card. Listable and non-listable stay separate.
+ */
+export function groupInventoryAssetsForDisplay<
+  T extends {
+    id: string;
+    status: string;
+    tradable: boolean;
+    marketable?: boolean;
+    tradeLockUntil?: string | null;
+    floatValue?: string | null;
+    paintSeed?: number | null;
+    wear?: string | null;
+    stickers?: unknown[] | null;
+    itemDefinition: { marketHashName: string };
+  },
+>(assets: T[]): InventoryDisplayStack<T>[] {
+  const stacks = new Map<string, T[]>();
+  const order: string[] = [];
+
+  for (const asset of assets) {
+    const key = inventoryDisplayStackKey(asset);
+    const existing = stacks.get(key);
+    if (existing) {
+      existing.push(asset);
+    } else {
+      stacks.set(key, [asset]);
+      order.push(key);
+    }
+  }
+
+  return order.map((key) => {
+    const group = stacks.get(key)!;
+    return {
+      key,
+      representative: group[0]!,
+      assets: group,
+      count: group.length,
+    };
+  });
+}
+
+export function inventoryDisplayStackKey(asset: {
+  id: string;
+  status: string;
+  tradable: boolean;
+  marketable?: boolean;
+  tradeLockUntil?: string | null;
+  floatValue?: string | null;
+  paintSeed?: number | null;
+  wear?: string | null;
+  stickers?: unknown[] | null;
+  itemDefinition: { marketHashName: string };
+}): string {
+  if (!isFungibleInventoryAsset(asset)) {
+    return `unique:${asset.id}`;
+  }
+
+  const name = asset.itemDefinition.marketHashName;
+  if (canListAsset(asset)) {
+    return `fungible:listable:${name}`;
+  }
+  return `fungible:${asset.status}:${name}`;
+}
+
 export const SELLER_SALE_STEPS = [
   'Выставляете предмет и указываете цену.',
   'Покупатель резервирует средства — лот переходит в RESERVED.',

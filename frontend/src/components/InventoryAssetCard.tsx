@@ -18,6 +18,7 @@ type InventoryAssetCardProps = {
   asset: InventoryAsset;
   isSelected: boolean;
   isBulkHighlighted?: boolean;
+  stackCount?: number;
   priceHint?: InventoryPriceHint | null;
   pricesLoading?: boolean;
   requireSteamPrice?: boolean;
@@ -41,6 +42,7 @@ export function InventoryAssetCard({
   asset,
   isSelected,
   isBulkHighlighted = false,
+  stackCount = 1,
   priceHint,
   pricesLoading = false,
   requireSteamPrice = false,
@@ -55,6 +57,7 @@ export function InventoryAssetCard({
   const showStatusBadge = asset.status !== 'AVAILABLE';
   const rarityStyle = getRarityStyle(asset.itemDefinition.rarity);
   const unavailableReason = !listable ? assetUnavailableReason(asset) : null;
+  const showStackBadge = stackCount > 1;
 
   const cardStyle = {
     '--lot-rarity-color': rarityStyle.color,
@@ -82,6 +85,7 @@ export function InventoryAssetCard({
     listable ? 'inventory-asset-card-listable' : 'inventory-asset-card-locked',
     isSelected ? 'inventory-asset-card-selected' : '',
     isBulkHighlighted && !isSelected ? 'inventory-asset-card-bulk-highlight' : '',
+    showStackBadge ? 'inventory-asset-card-stacked' : '',
   ]
     .filter(Boolean)
     .join(' ');
@@ -94,7 +98,9 @@ export function InventoryAssetCard({
         onClick: handleSelect,
         onKeyDown: handleKeyDown,
         'aria-pressed': isSelected,
-        'aria-label': `Выбрать ${name}`,
+        'aria-label': showStackBadge
+          ? `Выбрать ${name}, ${stackCount} шт.`
+          : `Выбрать ${name}`,
       }
     : {
         'data-testid': `asset-${asset.id}`,
@@ -130,6 +136,14 @@ export function InventoryAssetCard({
         </div>
 
         <div className="inventory-asset-card-top-end">
+          {showStackBadge ? (
+            <span
+              className="inventory-asset-card-stack"
+              data-testid={`inventory-asset-stack-${asset.id}`}
+            >
+              ×{stackCount}
+            </span>
+          ) : null}
           {showStatusBadge ? (
             asset.status === 'LISTED' ? (
               <Link
