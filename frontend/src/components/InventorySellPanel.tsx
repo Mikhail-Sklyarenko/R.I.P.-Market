@@ -233,11 +233,11 @@ export function InventorySellPanel({
               </p>
               <div className="inventory-payout-breakdown">
                 <div>
-                  <span>{listingCount > 1 ? 'Сумма лотов' : 'Цена лота'}</span>
+                  <span>{listingCount > 1 ? 'Сумма' : 'Цена'}</span>
                   <MoneyDisplay minor={totalPreview.priceMinor} strong />
                 </div>
                 <div>
-                  <span>Комиссия (5%)</span>
+                  <span>Комиссия</span>
                   <MoneyDisplay minor={totalPreview.commissionMinor} strong />
                 </div>
               </div>
