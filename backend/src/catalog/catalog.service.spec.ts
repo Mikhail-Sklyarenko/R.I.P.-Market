@@ -200,6 +200,22 @@ describe('CatalogService', () => {
       expect.objectContaining({
         where: expect.objectContaining({
           game: 'CS2',
+          NOT: expect.objectContaining({
+            OR: expect.arrayContaining([
+              {
+                marketHashName: {
+                  contains: 'Service Medal',
+                  mode: 'insensitive',
+                },
+              },
+              {
+                marketHashName: {
+                  equals: 'AK-47',
+                  mode: 'insensitive',
+                },
+              },
+            ]),
+          }),
           OR: [
             { marketHashName: { contains: 'Sticker', mode: 'insensitive' } },
             { marketHashName: { contains: 'Charm', mode: 'insensitive' } },
@@ -208,5 +224,57 @@ describe('CatalogService', () => {
         }),
       }),
     );
+  });
+
+  it('excludes medals and default stock weapons from catalog queries', async () => {
+    prisma.lot.findMany.mockResolvedValue([]);
+    prisma.itemDefinition.count.mockResolvedValue(0);
+    prisma.itemDefinition.findMany.mockResolvedValue([]);
+
+    await service.listItems({ page: 1, limit: 24 });
+
+    expect(prisma.itemDefinition.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          game: 'CS2',
+          NOT: expect.objectContaining({
+            OR: expect.arrayContaining([
+              {
+                marketHashName: {
+                  contains: 'Service Medal',
+                  mode: 'insensitive',
+                },
+              },
+              {
+                marketHashName: {
+                  equals: 'AWP',
+                  mode: 'insensitive',
+                },
+              },
+              {
+                marketHashName: {
+                  equals: 'Zeus x27',
+                  mode: 'insensitive',
+                },
+              },
+            ]),
+          }),
+        }),
+      }),
+    );
+  });
+
+  it('returns not found for non-listable catalog item detail', async () => {
+    prisma.itemDefinition.findUnique.mockResolvedValue({
+      id: 'medal-1',
+      marketHashName: '2024 Service Medal',
+      weapon: null,
+      rarity: null,
+      iconUrl: null,
+    });
+
+    await expect(service.getItem('medal-1')).rejects.toMatchObject({
+      code: 'NOT_FOUND',
+    });
   });
 });

@@ -5,6 +5,7 @@ import {
 } from '@nestjs/common';
 import { Cron } from '@nestjs/schedule';
 import { LotStatus, OrderStatus } from '@prisma/client';
+import { isListableMarketHashName } from '../lots/listing-eligibility.util';
 import { PrismaService } from '../prisma/prisma.service';
 import { SteamMarketPriceService } from './steam-market-price.service';
 
@@ -138,11 +139,15 @@ export class SteamPriceWarmerService implements OnModuleInit {
       pushName(order.lot.inventoryAsset.itemDefinition.marketHashName);
     }
 
-    const skinBatch = catalogBatch.filter((item) =>
-      item.marketHashName.includes(' | '),
+    const skinBatch = catalogBatch.filter(
+      (item) =>
+        isListableMarketHashName(item.marketHashName) &&
+        item.marketHashName.includes(' | '),
     );
     const otherBatch = catalogBatch.filter(
-      (item) => !item.marketHashName.includes(' | '),
+      (item) =>
+        isListableMarketHashName(item.marketHashName) &&
+        !item.marketHashName.includes(' | '),
     );
     for (const item of [...skinBatch, ...otherBatch]) {
       pushName(item.marketHashName);

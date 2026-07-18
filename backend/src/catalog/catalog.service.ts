@@ -9,6 +9,11 @@ import {
   parseWearCodeFromMarketHashName,
   resolveSteamMarketHashName,
 } from '../lots/steam-market-link.util';
+import {
+  DEFAULT_STOCK_WEAPON_MARKET_HASH_NAMES,
+  isListableMarketHashName,
+  NON_LISTABLE_MARKET_HASH_NAME_FRAGMENTS,
+} from '../lots/listing-eligibility.util';
 import { SteamMarketPriceService } from './steam-market-price.service';
 import type { ListCatalogItemsQueryDto } from './dto/list-catalog-items-query.dto';
 import { catalogLotMatchesWearFloatFilters } from './catalog-lot-filters.util';
@@ -134,7 +139,7 @@ export class CatalogService {
     const item = await this.prisma.itemDefinition.findUnique({
       where: { id: itemId },
     });
-    if (!item) {
+    if (!item || !isListableMarketHashName(item.marketHashName)) {
       throw new AppException(
         ErrorCode.NOT_FOUND,
         'Item not found',
@@ -167,7 +172,7 @@ export class CatalogService {
 
   async listPopular(limit = 12) {
     const capped = Math.min(Math.max(limit, 1), 24);
-    const itemWhere: Prisma.ItemDefinitionWhereInput = { game: 'CS2' };
+    const itemWhere = this.buildItemWhere({});
     const [popularStats, lotStats, featuredLots] = await Promise.all([
       this.loadPopularStats(),
       this.loadActiveLotStats(itemWhere, {}),
@@ -189,9 +194,10 @@ export class CatalogService {
     }
 
     const definitions = await this.prisma.itemDefinition.findMany({
-      where: { id: { in: [...candidateIds] } },
+      where: { ...itemWhere, id: { in: [...candidateIds] } },
     });
     const rows = definitions
+      .filter((item) => isListableMarketHashName(item.marketHashName))
       .map((item) =>
         this.buildCatalogItemRow(item, lotStats, popularStats, featuredLots, {}, {}),
       )
@@ -386,7 +392,10 @@ export class CatalogService {
   private buildItemWhere(
     query: ListCatalogItemsQueryDto,
   ): Prisma.ItemDefinitionWhereInput {
-    const where: Prisma.ItemDefinitionWhereInput = { game: 'CS2' };
+    const where: Prisma.ItemDefinitionWhereInput = {
+      game: 'CS2',
+      NOT: this.buildNonListableMarketHashNameFilter(),
+    };
     this.applyMarketHashNameQuery(where, query.q);
     if (query.weapon) {
       where.weapon = { equals: query.weapon, mode: 'insensitive' };
@@ -395,6 +404,26 @@ export class CatalogService {
       where.rarity = { equals: query.rarity, mode: 'insensitive' };
     }
     return where;
+  }
+
+  /** Prisma mirror of isListableMarketHashName — keep fragments/names in sync via shared constants. */
+  private buildNonListableMarketHashNameFilter(): Prisma.ItemDefinitionWhereInput {
+    return {
+      OR: [
+        ...NON_LISTABLE_MARKET_HASH_NAME_FRAGMENTS.map((fragment) => ({
+          marketHashName: {
+            contains: fragment,
+            mode: 'insensitive' as const,
+          },
+        })),
+        ...DEFAULT_STOCK_WEAPON_MARKET_HASH_NAMES.map((name) => ({
+          marketHashName: {
+            equals: name,
+            mode: 'insensitive' as const,
+          },
+        })),
+      ],
+    };
   }
 
   private applyMarketHashNameQuery(
