@@ -7,6 +7,7 @@ import {
   computeSellerPendingReceiveMinor,
   getBulkListableSiblings,
   groupInventoryAssetsForDisplay,
+  sortInventoryAssets,
   sortInventoryAssetsBySteamPriceDesc,
 } from './seller-flow.ts';
 
@@ -79,6 +80,17 @@ describe('seller-flow utils', () => {
         'AWP | Asiimov (Field-Tested)',
         'AK-47 | Redline (Field-Tested)',
         'Glock-18 | Water Elemental (Field-Tested)',
+      ],
+    );
+
+    assert.deepEqual(
+      sortInventoryAssets(assets, priceHints, 'price-asc').map(
+        (asset) => asset.itemDefinition.marketHashName,
+      ),
+      [
+        'Glock-18 | Water Elemental (Field-Tested)',
+        'AK-47 | Redline (Field-Tested)',
+        'AWP | Asiimov (Field-Tested)',
       ],
     );
   });

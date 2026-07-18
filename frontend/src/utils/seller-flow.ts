@@ -104,17 +104,41 @@ type InventoryPriceHintLike = {
   steamPriceMinor?: number | null;
 };
 
-export function sortInventoryAssetsBySteamPriceDesc<
-  T extends { itemDefinition: { marketHashName: string } },
->(assets: T[], priceHints: Record<string, InventoryPriceHintLike>): T[] {
-  return [...assets].sort((left, right) => {
-    const leftPrice =
-      priceHints[left.itemDefinition.marketHashName]?.steamPriceMinor ?? 0;
-    const rightPrice =
-      priceHints[right.itemDefinition.marketHashName]?.steamPriceMinor ?? 0;
+export type InventorySortOption = 'price-desc' | 'price-asc' | 'name';
 
-    if (rightPrice !== leftPrice) {
-      return rightPrice - leftPrice;
+export const INVENTORY_SORT_OPTIONS: Array<{
+  id: InventorySortOption;
+  label: string;
+}> = [
+  { id: 'price-desc', label: 'Цена ↓' },
+  { id: 'price-asc', label: 'Цена ↑' },
+  { id: 'name', label: 'По названию' },
+];
+
+export function sortInventoryAssets<
+  T extends { itemDefinition: { marketHashName: string } },
+>(
+  assets: T[],
+  priceHints: Record<string, InventoryPriceHintLike>,
+  sort: InventorySortOption = 'price-desc',
+): T[] {
+  return [...assets].sort((left, right) => {
+    if (sort === 'name') {
+      return left.itemDefinition.marketHashName.localeCompare(
+        right.itemDefinition.marketHashName,
+        'ru',
+      );
+    }
+
+    const leftPrice =
+      priceHints[left.itemDefinition.marketHashName]?.steamPriceMinor ?? null;
+    const rightPrice =
+      priceHints[right.itemDefinition.marketHashName]?.steamPriceMinor ?? null;
+    const leftValue = leftPrice ?? -1;
+    const rightValue = rightPrice ?? -1;
+
+    if (rightValue !== leftValue) {
+      return sort === 'price-asc' ? leftValue - rightValue : rightValue - leftValue;
     }
 
     return left.itemDefinition.marketHashName.localeCompare(
@@ -122,6 +146,13 @@ export function sortInventoryAssetsBySteamPriceDesc<
       'ru',
     );
   });
+}
+
+/** @deprecated Prefer sortInventoryAssets(..., 'price-desc') */
+export function sortInventoryAssetsBySteamPriceDesc<
+  T extends { itemDefinition: { marketHashName: string } },
+>(assets: T[], priceHints: Record<string, InventoryPriceHintLike>): T[] {
+  return sortInventoryAssets(assets, priceHints, 'price-desc');
 }
 
 export function filterSellerLots<

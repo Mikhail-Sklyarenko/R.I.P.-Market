@@ -2286,7 +2286,7 @@ p {
 
 .inventory-workspace {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(280px, 340px);
+  grid-template-columns: minmax(0, 1fr) minmax(360px, 420px);
   gap: var(--space-4);
   align-items: start;
 }
@@ -2309,10 +2309,40 @@ p {
   scroll-margin-bottom: 12rem;
 }
 
+.inventory-price-inline {
+  margin: 0;
+}
+
+.inventory-price-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-md);
+  border: 1px solid rgba(251, 191, 36, 0.28);
+  background: rgba(251, 191, 36, 0.08);
+}
+
+.inventory-price-banner p {
+  margin: 0;
+  min-width: 0;
+  line-height: 1.35;
+}
+
+.inventory-price-banner .button {
+  flex-shrink: 0;
+}
+
+.inventory-price-banner-error {
+  border-color: rgba(248, 113, 113, 0.35);
+  background: rgba(248, 113, 113, 0.08);
+}
+
 .inventory-toolbar {
   display: grid;
   gap: var(--space-2);
-  padding: var(--space-3);
+  padding: var(--space-2) var(--space-3);
   border-radius: var(--radius-md);
   border: 1px solid var(--color-border);
   background: var(--color-bg-subtle);
@@ -2320,8 +2350,25 @@ p {
 
 .inventory-toolbar-fields {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
-  gap: var(--space-3);
+  grid-template-columns: minmax(0, 1.4fr) minmax(110px, 0.7fr) minmax(110px, 0.7fr) auto;
+  gap: var(--space-2) var(--space-3);
+  align-items: end;
+}
+
+.inventory-toolbar .field {
+  margin: 0;
+  gap: var(--space-1);
+}
+
+.inventory-toolbar .field-label {
+  font-size: var(--font-size-xs);
+}
+
+.inventory-toolbar input,
+.inventory-toolbar select {
+  min-height: 36px;
+  padding-top: 0.4rem;
+  padding-bottom: 0.4rem;
 }
 
 .inventory-filter-total {
@@ -2361,8 +2408,8 @@ p {
   max-width: 100%;
   overflow: hidden;
   border-color: rgba(125, 211, 252, 0.35);
-  /* Keep the decision zone (payout + CTA) on-screen without page scroll. */
-  max-height: calc(100dvh - 11rem);
+  /* Keep decision zone in the viewport once sticky engages. */
+  max-height: calc(100dvh - 2 * var(--space-4));
 }
 
 .inventory-sell-panel-body {
@@ -2436,6 +2483,15 @@ p {
     position: sticky;
     top: var(--space-4);
     align-self: start;
+    max-height: calc(100dvh - 2 * var(--space-4));
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+  }
+
+  .inventory-sidebar > .inventory-sell-panel,
+  .inventory-sidebar > .inventory-sell-placeholder {
+    max-height: 100%;
   }
 
   .inventory-sell-panel .lot-item-hero-sm .lot-item-hero-image-wrap {
@@ -2529,10 +2585,10 @@ p {
 
 .inventory-price-recommendation {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   justify-content: space-between;
   gap: var(--space-3);
-  padding: var(--space-3);
+  padding: var(--space-2) var(--space-3);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
   background: var(--color-bg-subtle);
@@ -2542,7 +2598,7 @@ p {
 .inventory-price-recommendation p {
   margin: 0;
   min-width: 0;
-  overflow-wrap: anywhere;
+  line-height: 1.35;
 }
 
 .inventory-price-recommendation .button {
@@ -2561,6 +2617,19 @@ p {
 @media (max-width: 1199px) {
   .inventory-workspace {
     grid-template-columns: 1fr;
+  }
+
+  .inventory-toolbar-fields {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .inventory-toolbar-search {
+    grid-column: 1 / -1;
+  }
+
+  .inventory-show-unavailable {
+    grid-column: 1 / -1;
+    padding-bottom: 0.15rem;
   }
 
   .inventory-workspace-panel-open .inventory-main {
@@ -4034,7 +4103,9 @@ p {
   display: inline-flex;
   align-items: center;
   gap: var(--space-2);
-  margin-top: var(--space-2);
+  min-height: 36px;
+  margin: 0;
+  white-space: nowrap;
 }
 
 .support-faq-category + .support-faq-category {

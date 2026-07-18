@@ -1,4 +1,4 @@
-import { type FormEvent, useCallback, useEffect, useMemo, useState } from 'react';
+import { type FormEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import {
   createLot,
@@ -33,8 +33,10 @@ import {
   filterInventoryAssets,
   getBulkListableSiblings,
   groupInventoryAssetsForDisplay,
+  INVENTORY_SORT_OPTIONS,
   INVENTORY_STATUS_FILTERS,
-  sortInventoryAssetsBySteamPriceDesc,
+  sortInventoryAssets,
+  type InventorySortOption,
   type InventoryStatusFilter,
 } from '../utils/seller-flow';
 import { profileToAuthUser } from '../utils/user-profile';
@@ -54,9 +56,11 @@ export function InventoryPage() {
   const [sellError, setSellError] = useState<unknown>(null);
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<InventoryStatusFilter>('all');
+  const [sortOption, setSortOption] = useState<InventorySortOption>('price-desc');
   const [showUnavailable, setShowUnavailable] = useState(false);
   const [selectedAssetId, setSelectedAssetId] = useState<string | null>(null);
   const [bulkListAll, setBulkListAll] = useState(false);
+  const sidebarRef = useRef<HTMLElement | null>(null);
   const [priceInput, setPriceInput] = useState('10.00');
   const [preview, setPreview] = useState<PricingPreview | null>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -235,11 +239,12 @@ export function InventoryPage() {
 
   const filteredAssets = useMemo(
     () =>
-      sortInventoryAssetsBySteamPriceDesc(
+      sortInventoryAssets(
         filterInventoryAssets(assets, search, statusFilter, showUnavailable),
         priceHints,
+        sortOption,
       ),
-    [assets, search, statusFilter, showUnavailable, priceHints],
+    [assets, search, statusFilter, showUnavailable, priceHints, sortOption],
   );
 
   const displayStacks = useMemo(
@@ -260,6 +265,9 @@ export function InventoryPage() {
     const siblings = getBulkListableSiblings(assets, asset);
     setBulkListAll(siblings.length >= 2);
     setSellError(null);
+    window.requestAnimationFrame(() => {
+      sidebarRef.current?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+    });
   }
 
   async function handleSubmitListing(event: FormEvent) {
@@ -434,44 +442,6 @@ export function InventoryPage() {
 
       {loading ? <LoadingState message="Загрузка инвентаря…" /> : null}
 
-      {!loading && pricesLoading ? (
-        <p className="muted small" data-testid="inventory-prices-loading">
-          Загрузка актуальных цен Steam…
-        </p>
-      ) : null}
-
-      {!loading && !pricesLoading && pricesError ? (
-        <div className="card inventory-price-error" data-testid="inventory-prices-error">
-          <ErrorAlert error={pricesError} />
-          <button
-            type="button"
-            className="button secondary"
-            data-testid="inventory-prices-retry"
-            onClick={() => void loadPriceHints(assets, true)}
-          >
-            Повторить загрузку цен
-          </button>
-        </div>
-      ) : null}
-
-      {!loading && !pricesLoading && !pricesError && steamPriceMissing.length > 0 ? (
-        <div className="card inventory-price-warning" data-testid="inventory-prices-partial">
-          <p>
-            Не удалось загрузить цены Steam для {steamPriceMissing.length}{' '}
-            {steamPriceMissing.length === 1 ? 'предмета' : 'предметов'}. Инвентарь доступен;
-            выставить на продажу можно только предметы с актуальной ценой Steam.
-          </p>
-          <button
-            type="button"
-            className="button secondary"
-            data-testid="inventory-prices-retry-partial"
-            onClick={() => void loadPriceHints(assets, true)}
-          >
-            Повторить загрузку цен
-          </button>
-        </div>
-      ) : null}
-
       {steamLinked && tradeUrlReady && !loading && assets.length === 0 ? (
         <EmptyState
           title="Инвентарь пуст"
@@ -498,9 +468,53 @@ export function InventoryPage() {
             />
           ) : null}
           <div className="inventory-main">
+            {pricesLoading ? (
+              <p className="muted small inventory-price-inline" data-testid="inventory-prices-loading">
+                Загрузка актуальных цен Steam…
+              </p>
+            ) : null}
+
+            {!pricesLoading && pricesError ? (
+              <div
+                className="inventory-price-banner inventory-price-banner-error"
+                data-testid="inventory-prices-error"
+              >
+                <p className="muted small">Не удалось загрузить цены Steam.</p>
+                <button
+                  type="button"
+                  className="button secondary sm"
+                  data-testid="inventory-prices-retry"
+                  onClick={() => void loadPriceHints(assets, true)}
+                >
+                  Повторить
+                </button>
+              </div>
+            ) : null}
+
+            {!pricesLoading && !pricesError && steamPriceMissing.length > 0 ? (
+              <div
+                className="inventory-price-banner"
+                data-testid="inventory-prices-partial"
+              >
+                <p className="muted small">
+                  Нет цен Steam у {steamPriceMissing.length}{' '}
+                  {steamPriceMissing.length === 1 ? 'предмета' : 'предметов'} — выставить
+                  можно только с ценой.
+                </p>
+                <button
+                  type="button"
+                  className="button secondary sm"
+                  data-testid="inventory-prices-retry-partial"
+                  onClick={() => void loadPriceHints(assets, true)}
+                >
+                  Повторить
+                </button>
+              </div>
+            ) : null}
+
             <div className="inventory-toolbar" data-testid="inventory-filters">
               <div className="inventory-toolbar-fields">
-                <label className="field catalog-filter-field">
+                <label className="field catalog-filter-field inventory-toolbar-search">
                   <span className="field-label">Поиск</span>
                   <input
                     type="search"
@@ -526,6 +540,22 @@ export function InventoryPage() {
                     ))}
                   </select>
                 </label>
+                <label className="field catalog-filter-field">
+                  <span className="field-label">Сортировка</span>
+                  <select
+                    value={sortOption}
+                    onChange={(event) =>
+                      setSortOption(event.target.value as InventorySortOption)
+                    }
+                    data-testid="inventory-sort"
+                  >
+                    {INVENTORY_SORT_OPTIONS.map((option) => (
+                      <option key={option.id} value={option.id}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </select>
+                </label>
                 <label className="inventory-show-unavailable">
                   <input
                     type="checkbox"
@@ -533,7 +563,7 @@ export function InventoryPage() {
                     onChange={(event) => setShowUnavailable(event.target.checked)}
                     data-testid="inventory-show-unavailable"
                   />
-                  <span className="muted small">Показать недоступные</span>
+                  <span className="muted small">Недоступные</span>
                 </label>
               </div>
               <p className="muted small inventory-filter-total" data-testid="inventory-filter-total">
@@ -581,6 +611,7 @@ export function InventoryPage() {
           </div>
 
           <aside
+            ref={sidebarRef}
             className={`inventory-sidebar${
               selectedAsset && selectedListable ? ' inventory-sidebar-active' : ''
             }`}
