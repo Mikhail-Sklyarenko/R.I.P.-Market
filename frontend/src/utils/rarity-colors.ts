@@ -43,7 +43,6 @@ export const CATALOG_RARITY_FILTERS = [
   { value: 'Mil-Spec Grade', label: 'Армейское качество' },
   { value: 'Industrial Grade', label: 'Промышленное качество' },
   { value: 'Consumer Grade', label: 'Ширпотреб' },
-  { value: 'Contraband', label: 'Контрабанда' },
   { value: 'Extraordinary', label: 'Скрытое' },
 ] as const;
 

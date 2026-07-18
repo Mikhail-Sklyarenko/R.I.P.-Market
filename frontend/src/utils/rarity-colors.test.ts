@@ -34,6 +34,10 @@ describe('rarity-colors utils', () => {
       CATALOG_RARITY_FILTERS.find((option) => option.value === 'Covert')?.label,
       'Тайное',
     );
+    assert.equal(
+      CATALOG_RARITY_FILTERS.some((option) => option.value === 'Contraband'),
+      false,
+    );
   });
 
   it('maps rarity values to Russian display labels', () => {
