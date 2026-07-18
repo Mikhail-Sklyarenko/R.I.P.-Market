@@ -1,4 +1,4 @@
-import type { FormEvent } from 'react';
+import { type FormEvent, useEffect } from 'react';
 import type { InventoryAsset, InventoryPriceHint, PricingPreview } from '../api/types';
 import { formatUsdFromMinor } from '../utils/format';
 import { formatPaintSeed } from '../utils/item-image';
@@ -24,11 +24,11 @@ type InventorySellPanelProps = {
   priceMinor: number | null;
   bulkListableCount?: number;
   bulkListAll?: boolean;
+  stackCount?: number;
   onBulkListAllChange?: (value: boolean) => void;
   onPriceChange: (value: string) => void;
   onSubmit: (event: FormEvent) => void;
-  onClose?: () => void;
-  showClose?: boolean;
+  onClose: () => void;
 };
 
 function formatLotCountLabel(count: number): string {
@@ -58,11 +58,11 @@ export function InventorySellPanel({
   priceMinor,
   bulkListableCount = 1,
   bulkListAll = false,
+  stackCount = 1,
   onBulkListAllChange,
   onPriceChange,
   onSubmit,
   onClose,
-  showClose = false,
 }: InventorySellPanelProps) {
   const patternText = formatPaintSeed(asset.paintSeed);
   const recommendedMinor = getRecommendedPriceMinor(priceHint);
@@ -82,71 +82,98 @@ export function InventorySellPanel({
         }
       : preview;
 
+  useEffect(() => {
+    function onKeyDown(event: KeyboardEvent) {
+      if (event.key === 'Escape') {
+        onClose();
+      }
+    }
+    window.addEventListener('keydown', onKeyDown);
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      window.removeEventListener('keydown', onKeyDown);
+      document.body.style.overflow = previousOverflow;
+    };
+  }, [onClose]);
+
   return (
     <form
-      className="card inventory-sell-panel"
+      className="card inventory-listing-modal"
       data-testid="inventory-sell-panel"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="inventory-listing-modal-title"
       onSubmit={onSubmit}
     >
-      {showClose ? (
-        <div className="inventory-sell-panel-header">
-          <h2 className="inventory-sell-panel-title">Выставить лот</h2>
-          <button
-            type="button"
-            className="inventory-sell-panel-close"
-            aria-label="Закрыть"
-            onClick={onClose}
-          >
-            ×
-          </button>
-        </div>
-      ) : (
-        <h2 className="inventory-sell-panel-title">Выставить лот</h2>
-      )}
+      <div className="inventory-listing-modal-header">
+        <h2 id="inventory-listing-modal-title" className="inventory-listing-modal-title">
+          Выставить лот
+        </h2>
+        <button
+          type="button"
+          className="inventory-listing-modal-close"
+          aria-label="Закрыть"
+          onClick={onClose}
+        >
+          ×
+        </button>
+      </div>
 
-      <div className="inventory-sell-panel-body">
-        <LotItemHero
-          item={asset}
-          title={asset.itemDefinition.marketHashName}
-          size="sm"
-        />
+      <div className="inventory-listing-modal-grid">
+        <section className="inventory-listing-modal-preview">
+          <div className="inventory-listing-modal-preview-media">
+            {stackCount > 1 ? (
+              <span
+                className="inventory-listing-modal-stack"
+                data-testid="inventory-listing-stack-count"
+              >
+                ×{stackCount}
+              </span>
+            ) : null}
+            <LotItemHero
+              item={asset}
+              title={asset.itemDefinition.marketHashName}
+              size="md"
+            />
+          </div>
 
-        {hasFloat ? <WearBar floatValue={asset.floatValue!} /> : null}
+          {hasFloat ? <WearBar floatValue={asset.floatValue!} /> : null}
 
-        {priceHint?.steamPriceMinor ? (
-          <p
-            className="inventory-sell-steam-price muted small"
-            data-testid="inventory-sell-steam-price"
-          >
-            Цена Steam: <MoneyDisplay minor={priceHint.steamPriceMinor} strong />
-          </p>
-        ) : steamPriceMissing ? (
-          <p className="field-error small" data-testid="inventory-sell-steam-price-missing">
-            Цена Steam недоступна — выставление лота временно заблокировано.
-          </p>
-        ) : null}
+          {patternText ? (
+            <p
+              className="inventory-sell-panel-pattern muted small"
+              data-testid="inventory-sell-pattern"
+            >
+              Паттерн {patternText}
+            </p>
+          ) : null}
 
-        {patternText ? (
-          <p
-            className="inventory-sell-panel-pattern muted small"
-            data-testid="inventory-sell-pattern"
-          >
-            Паттерн {patternText}
-          </p>
-        ) : null}
+          {priceHint?.steamPriceMinor ? (
+            <p
+              className="inventory-sell-steam-price muted small"
+              data-testid="inventory-sell-steam-price"
+            >
+              Цена Steam: <MoneyDisplay minor={priceHint.steamPriceMinor} strong />
+            </p>
+          ) : steamPriceMissing ? (
+            <p className="field-error small" data-testid="inventory-sell-steam-price-missing">
+              Цена Steam недоступна — выставление лота временно заблокировано.
+            </p>
+          ) : null}
+        </section>
 
-        <div className="inventory-sell-panel-fields">
+        <section className="inventory-listing-modal-action">
           {recommendedMinor ? (
             <div
               className="inventory-price-recommendation"
               data-testid="inventory-price-recommendation"
             >
               <p className="muted small">
-                Рекомендуем от{' '}
-                <strong>{formatUsdFromMinor(recommendedMinor)}</strong>
+                Рекомендуем от <strong>{formatUsdFromMinor(recommendedMinor)}</strong>
                 {recommendedSource === 'market'
-                  ? ' — минимальная цена на маркете'
-                  : ' — ориентир Steam −5%'}
+                  ? ' — мин. на маркете'
+                  : ' — Steam −5%'}
               </p>
               <button
                 type="button"
@@ -168,6 +195,7 @@ export function InventorySellPanel({
               value={priceInput}
               onChange={(event) => onPriceChange(event.target.value)}
               data-testid="price-input"
+              autoFocus
             />
           </label>
 
@@ -186,53 +214,51 @@ export function InventorySellPanel({
               </span>
             </label>
           ) : null}
-        </div>
-      </div>
 
-      <div className="inventory-sell-panel-footer">
-        {totalPreview ? (
-          <div className="pricing-preview inventory-sell-payout" data-testid="pricing-preview">
-            <p className="inventory-payout-summary">
-              {listingCount > 1 ? (
-                <>
-                  Вы получите{' '}
-                  <MoneyDisplay minor={totalPreview.sellerReceiveMinor} strong /> за{' '}
-                  {formatLotCountLabel(listingCount)} после комиссии 5%
-                </>
-              ) : (
-                <>
-                  Вы получите <MoneyDisplay minor={totalPreview.sellerReceiveMinor} strong />{' '}
-                  после комиссии 5%
-                </>
-              )}
-            </p>
-            <div className="inventory-payout-breakdown">
-              <div>
-                <span>{listingCount > 1 ? 'Сумма лотов' : 'Цена лота'}</span>
-                <MoneyDisplay minor={totalPreview.priceMinor} strong />
-              </div>
-              <div>
-                <span>Комиссия (5%)</span>
-                <MoneyDisplay minor={totalPreview.commissionMinor} strong />
+          {totalPreview ? (
+            <div className="pricing-preview inventory-sell-payout" data-testid="pricing-preview">
+              <p className="inventory-payout-summary">
+                {listingCount > 1 ? (
+                  <>
+                    Вы получите{' '}
+                    <MoneyDisplay minor={totalPreview.sellerReceiveMinor} strong /> за{' '}
+                    {formatLotCountLabel(listingCount)} после комиссии 5%
+                  </>
+                ) : (
+                  <>
+                    Вы получите <MoneyDisplay minor={totalPreview.sellerReceiveMinor} strong />{' '}
+                    после комиссии 5%
+                  </>
+                )}
+              </p>
+              <div className="inventory-payout-breakdown">
+                <div>
+                  <span>{listingCount > 1 ? 'Сумма лотов' : 'Цена лота'}</span>
+                  <MoneyDisplay minor={totalPreview.priceMinor} strong />
+                </div>
+                <div>
+                  <span>Комиссия (5%)</span>
+                  <MoneyDisplay minor={totalPreview.commissionMinor} strong />
+                </div>
               </div>
             </div>
-          </div>
-        ) : null}
+          ) : null}
 
-        <ErrorAlert error={sellError} />
+          <ErrorAlert error={sellError} />
 
-        <button
-          type="submit"
-          className="button primary inventory-sell-panel-submit"
-          disabled={submitting || !priceMinor || !!priceError || steamPriceMissing}
-          data-testid="submit-listing"
-        >
-          {submitting
-            ? 'Публикация…'
-            : listingCount > 1
-              ? `Выставить ${formatLotCountLabel(listingCount)}`
-              : 'Выставить лот'}
-        </button>
+          <button
+            type="submit"
+            className="button primary inventory-listing-modal-submit"
+            disabled={submitting || !priceMinor || !!priceError || steamPriceMissing}
+            data-testid="submit-listing"
+          >
+            {submitting
+              ? 'Публикация…'
+              : listingCount > 1
+                ? `Выставить ${formatLotCountLabel(listingCount)}`
+                : 'Выставить лот'}
+          </button>
+        </section>
       </div>
     </form>
   );

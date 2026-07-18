@@ -55,18 +55,20 @@ test.describe('Seller flow', () => {
     await expect(page.getByTestId('submit-listing')).toBeDisabled();
   });
 
-  test('sell panel anchors to bottom on mobile', async ({ page }) => {
+  test('sell panel opens as a centered listing modal', async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 844 });
     await loginAsSeller(page);
 
     await page.locator('[data-testid^="list-asset-"]').first().click();
     await expect(page.getByTestId('inventory-sell-panel')).toBeVisible();
     await expect(page.getByTestId('inventory-sell-backdrop')).toBeVisible();
+    await expect(page.getByTestId('inventory-listing-overlay')).toBeVisible();
 
     const panelBox = await page.getByTestId('inventory-sell-panel').boundingBox();
     expect(panelBox).not.toBeNull();
     if (panelBox) {
-      expect(panelBox.y + panelBox.height).toBeGreaterThan(844 * 0.55);
+      expect(panelBox.width).toBeGreaterThan(280);
+      expect(panelBox.y).toBeGreaterThan(40);
     }
 
     await page.getByTestId('inventory-sell-backdrop').click();

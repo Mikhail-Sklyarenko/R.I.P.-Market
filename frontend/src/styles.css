@@ -2286,7 +2286,7 @@ p {
 
 .inventory-workspace {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(360px, 420px);
+  grid-template-columns: minmax(0, 1fr);
   gap: var(--space-4);
   align-items: start;
 }
@@ -2297,16 +2297,138 @@ p {
   min-width: 0;
 }
 
-.inventory-sidebar {
+.inventory-sell-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  border: none;
+  padding: 0;
+  margin: 0;
+  background: rgba(2, 6, 23, 0.62);
+  cursor: pointer;
+}
+
+.inventory-listing-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 41;
+  display: grid;
+  place-items: center;
+  padding: var(--space-4);
+  pointer-events: none;
+}
+
+.inventory-listing-overlay-dialog {
+  position: relative;
+  z-index: 42;
+  width: min(720px, calc(100vw - 2rem));
+  max-height: min(88dvh, 760px);
+  pointer-events: auto;
+}
+
+.inventory-listing-modal {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  margin: 0;
+  padding: 0;
+  max-height: min(88dvh, 760px);
+  overflow: hidden;
+  border-color: rgba(125, 211, 252, 0.35);
+  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.55);
+}
+
+.inventory-listing-modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  flex-shrink: 0;
+  padding: var(--space-4) var(--space-5);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.inventory-listing-modal-title {
+  margin: 0;
+  font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-semibold);
+}
+
+.inventory-listing-modal-close {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: var(--color-text-muted);
+  font-size: 1.35rem;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.inventory-listing-modal-close:hover {
+  color: var(--color-text);
+  border-color: rgba(255, 255, 255, 0.18);
+}
+
+.inventory-listing-modal-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.05fr) minmax(0, 0.95fr);
+  gap: var(--space-5);
+  min-height: 0;
+  padding: var(--space-5);
+  overflow: auto;
+  overscroll-behavior: contain;
+}
+
+.inventory-listing-modal-preview,
+.inventory-listing-modal-action {
+  display: grid;
+  gap: var(--space-3);
+  align-content: start;
   min-width: 0;
 }
 
-.inventory-sell-backdrop {
-  display: none;
+.inventory-listing-modal-preview-media {
+  position: relative;
 }
 
-.inventory-workspace-panel-open .inventory-main {
-  scroll-margin-bottom: 12rem;
+.inventory-listing-modal-stack {
+  position: absolute;
+  top: var(--space-3);
+  right: var(--space-3);
+  z-index: 2;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 2rem;
+  padding: 0.2rem 0.55rem;
+  border-radius: 999px;
+  background: rgba(91, 141, 239, 0.28);
+  border: 1px solid rgba(91, 141, 239, 0.5);
+  color: #d7e4ff;
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  font-variant-numeric: tabular-nums;
+}
+
+.inventory-listing-modal .lot-item-hero-title {
+  font-size: var(--font-size-base);
+  line-height: 1.3;
+}
+
+.inventory-listing-modal .lot-item-hero-image-wrap {
+  min-height: 180px;
+  overflow: hidden;
+}
+
+.inventory-listing-modal-submit {
+  width: 100%;
+  margin-top: var(--space-1);
 }
 
 .inventory-price-inline {
@@ -2375,70 +2497,6 @@ p {
   margin: 0;
 }
 
-.inventory-sell-placeholder {
-  position: sticky;
-  top: var(--space-4);
-  display: grid;
-  gap: var(--space-2);
-  padding: var(--space-5);
-  text-align: center;
-  border-style: dashed;
-  background: transparent;
-}
-
-.inventory-sell-placeholder-title {
-  margin: 0;
-  font-size: var(--font-size-base);
-  font-weight: var(--font-weight-semibold);
-}
-
-.inventory-sell-placeholder-text {
-  margin: 0;
-}
-
-.inventory-sell-panel {
-  z-index: 2;
-  display: flex;
-  flex-direction: column;
-  gap: 0;
-  margin: 0;
-  padding: 0;
-  min-width: 0;
-  min-height: 0;
-  max-width: 100%;
-  overflow: hidden;
-  border-color: rgba(125, 211, 252, 0.35);
-  /* Keep decision zone in the viewport once sticky engages. */
-  max-height: calc(100dvh - 2 * var(--space-4));
-}
-
-.inventory-sell-panel-body {
-  display: grid;
-  gap: var(--space-3);
-  min-width: 0;
-  min-height: 0;
-  flex: 1 1 auto;
-  padding: var(--space-4) var(--space-5) var(--space-3);
-  overflow-x: hidden;
-  overflow-y: auto;
-  overscroll-behavior: contain;
-  -webkit-overflow-scrolling: touch;
-}
-
-.inventory-sell-panel-footer {
-  display: grid;
-  gap: var(--space-3);
-  flex-shrink: 0;
-  min-width: 0;
-  padding: var(--space-3) var(--space-5) var(--space-5);
-  border-top: 1px solid var(--color-border);
-  background: var(--color-bg-elevated);
-}
-
-.inventory-sell-panel-submit {
-  width: 100%;
-}
-
 .inventory-sell-payout.pricing-preview {
   margin: 0;
   padding: var(--space-3);
@@ -2478,82 +2536,6 @@ p {
   flex: 0 0 auto;
 }
 
-@media (min-width: 1200px) {
-  .inventory-sidebar {
-    position: sticky;
-    top: var(--space-4);
-    align-self: start;
-    max-height: calc(100dvh - 2 * var(--space-4));
-    display: flex;
-    flex-direction: column;
-    min-height: 0;
-  }
-
-  .inventory-sidebar > .inventory-sell-panel,
-  .inventory-sidebar > .inventory-sell-placeholder {
-    max-height: 100%;
-  }
-
-  .inventory-sell-panel .lot-item-hero-sm .lot-item-hero-image-wrap {
-    min-height: 88px;
-    padding: var(--space-2);
-  }
-
-  .inventory-sell-panel .lot-item-hero-sm .lot-item-hero-image {
-    max-width: 140px;
-    max-height: 80px;
-  }
-
-  .inventory-sell-panel .lot-item-hero-title-sm {
-    font-size: var(--font-size-sm);
-  }
-}
-
-.inventory-sell-panel-title {
-  margin: 0;
-  flex-shrink: 0;
-  font-size: var(--font-size-base);
-  font-weight: var(--font-weight-semibold);
-}
-
-.inventory-sell-panel-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-3);
-  flex-shrink: 0;
-  padding: var(--space-4) var(--space-5) 0;
-}
-
-.inventory-sell-panel > .inventory-sell-panel-title {
-  padding: var(--space-4) var(--space-5) 0;
-}
-
-.inventory-sell-panel-close {
-  display: none;
-  width: 32px;
-  height: 32px;
-  padding: 0;
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
-  background: transparent;
-  color: var(--color-text-muted);
-  font-size: 1.25rem;
-  line-height: 1;
-  cursor: pointer;
-}
-
-.inventory-sell-panel-close:hover {
-  color: var(--color-text);
-  border-color: rgba(255, 255, 255, 0.15);
-}
-
-.inventory-sell-panel-fields {
-  display: grid;
-  gap: var(--space-3);
-  min-width: 0;
-}
-
 .inventory-bulk-list-option {
   display: flex;
   align-items: flex-start;
@@ -2579,8 +2561,8 @@ p {
 }
 
 .inventory-sell-panel-pattern {
-  margin: calc(-1 * var(--space-2)) 0 0;
-  text-align: center;
+  margin: 0;
+  text-align: left;
 }
 
 .inventory-price-recommendation {
@@ -2614,9 +2596,30 @@ p {
   margin-bottom: 0;
 }
 
-@media (max-width: 1199px) {
-  .inventory-workspace {
+@media (max-width: 760px) {
+  .inventory-listing-overlay {
+    align-items: end;
+    padding: 0;
+  }
+
+  .inventory-listing-overlay-dialog {
+    width: 100%;
+    max-height: min(92dvh, 860px);
+  }
+
+  .inventory-listing-modal {
+    max-height: min(92dvh, 860px);
+    border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+  }
+
+  .inventory-listing-modal-grid {
     grid-template-columns: 1fr;
+    gap: var(--space-4);
+    padding: var(--space-4);
+  }
+
+  .inventory-listing-modal .lot-item-hero-image-wrap {
+    min-height: 140px;
   }
 
   .inventory-toolbar-fields {
@@ -2630,79 +2633,6 @@ p {
   .inventory-show-unavailable {
     grid-column: 1 / -1;
     padding-bottom: 0.15rem;
-  }
-
-  .inventory-workspace-panel-open .inventory-main {
-    padding-bottom: min(44vh, 380px);
-  }
-
-  .inventory-sell-backdrop {
-    display: block;
-    position: fixed;
-    inset: 0;
-    z-index: 29;
-    border: none;
-    padding: 0;
-    background: rgba(2, 6, 23, 0.55);
-    cursor: pointer;
-  }
-
-  .inventory-sidebar {
-    position: fixed;
-    right: 0;
-    bottom: 0;
-    left: 0;
-    z-index: 31;
-    padding: var(--space-3);
-    padding-bottom: calc(var(--space-3) + env(safe-area-inset-bottom, 0px));
-    background: linear-gradient(180deg, transparent 0%, rgba(15, 23, 42, 0.96) 18%);
-    transform: translateY(110%);
-    transition: transform 0.22s ease;
-    pointer-events: none;
-  }
-
-  .inventory-sidebar-active {
-    transform: translateY(0);
-    pointer-events: auto;
-  }
-
-  .inventory-sell-placeholder {
-    display: none;
-  }
-
-  .inventory-sell-panel {
-    padding: 0;
-    max-height: min(78dvh, 640px);
-    box-shadow: 0 -8px 32px rgba(0, 0, 0, 0.45);
-  }
-
-  .inventory-sell-panel-body {
-    padding: var(--space-3) var(--space-4) var(--space-2);
-  }
-
-  .inventory-sell-panel-footer {
-    padding: var(--space-3) var(--space-4) var(--space-4);
-  }
-
-  .inventory-sell-panel-header,
-  .inventory-sell-panel > .inventory-sell-panel-title {
-    padding: var(--space-3) var(--space-4) 0;
-  }
-
-  .inventory-sell-panel-close {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-  }
-
-  .inventory-sell-panel .lot-item-hero-sm .lot-item-hero-image-wrap {
-    min-height: 72px;
-    padding: var(--space-2);
-  }
-
-  .inventory-sell-panel .lot-item-hero-sm .lot-item-hero-image {
-    max-width: 120px;
-    max-height: 68px;
   }
 }
 
@@ -3043,10 +2973,6 @@ p {
   display: flex;
   flex-wrap: wrap;
   gap: var(--space-2);
-}
-
-.inventory-sell-panel .lot-item-hero-sm .lot-item-hero-image-wrap {
-  overflow: hidden;
 }
 
 .my-lots-pending-payout {

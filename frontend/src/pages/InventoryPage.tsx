@@ -1,4 +1,4 @@
-import { type FormEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { type FormEvent, useCallback, useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import {
   createLot,
@@ -22,7 +22,6 @@ import { EmptyState } from '../components/EmptyState';
 import { ErrorAlert } from '../components/ErrorAlert';
 import { InventoryAssetCard } from '../components/InventoryAssetCard';
 import { InventorySellPanel } from '../components/InventorySellPanel';
-import { InventorySellPlaceholder } from '../components/InventorySellPlaceholder';
 import { LoadingState } from '../components/LoadingState';
 import { PageHeader } from '../components/PageHeader';
 import { SellerSaleInfo } from '../components/SellerSaleInfo';
@@ -60,7 +59,6 @@ export function InventoryPage() {
   const [showUnavailable, setShowUnavailable] = useState(false);
   const [selectedAssetId, setSelectedAssetId] = useState<string | null>(null);
   const [bulkListAll, setBulkListAll] = useState(false);
-  const sidebarRef = useRef<HTMLElement | null>(null);
   const [priceInput, setPriceInput] = useState('10.00');
   const [preview, setPreview] = useState<PricingPreview | null>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -265,10 +263,13 @@ export function InventoryPage() {
     const siblings = getBulkListableSiblings(assets, asset);
     setBulkListAll(siblings.length >= 2);
     setSellError(null);
-    window.requestAnimationFrame(() => {
-      sidebarRef.current?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
-    });
   }
+
+  const clearSelection = useCallback(() => {
+    setSelectedAssetId(null);
+    setBulkListAll(false);
+    setSellError(null);
+  }, []);
 
   async function handleSubmitListing(event: FormEvent) {
     event.preventDefault();
@@ -326,12 +327,6 @@ export function InventoryPage() {
     }
   }
 
-  function clearSelection() {
-    setSelectedAssetId(null);
-    setBulkListAll(false);
-    setSellError(null);
-  }
-
   async function handleResetDevTrades() {
     if (!token) {
       return;
@@ -355,7 +350,7 @@ export function InventoryPage() {
     <div className="page inventory-page">
       <PageHeader
         title="Инвентарь"
-        subtitle="Выберите предмет в сетке и укажите цену в панели продажи."
+        subtitle="Выберите предмет в сетке — откроется окно выставления лота."
         actions={
           <button
             type="button"
@@ -453,20 +448,7 @@ export function InventoryPage() {
       tradeUrlReady &&
       !loading &&
       assets.length > 0 ? (
-        <div
-          className={`inventory-workspace${
-            selectedAsset && selectedListable ? ' inventory-workspace-panel-open' : ''
-          }`}
-        >
-          {selectedAsset && selectedListable ? (
-            <button
-              type="button"
-              className="inventory-sell-backdrop"
-              aria-label="Закрыть панель продажи"
-              data-testid="inventory-sell-backdrop"
-              onClick={clearSelection}
-            />
-          ) : null}
+        <div className="inventory-workspace">
           <div className="inventory-main">
             {pricesLoading ? (
               <p className="muted small inventory-price-inline" data-testid="inventory-prices-loading">
@@ -609,14 +591,23 @@ export function InventoryPage() {
               </div>
             )}
           </div>
+        </div>
+      ) : null}
 
-          <aside
-            ref={sidebarRef}
-            className={`inventory-sidebar${
-              selectedAsset && selectedListable ? ' inventory-sidebar-active' : ''
-            }`}
+      {selectedAsset && selectedListable ? (
+        <>
+          <button
+            type="button"
+            className="inventory-sell-backdrop"
+            aria-label="Закрыть панель продажи"
+            data-testid="inventory-sell-backdrop"
+            onClick={clearSelection}
+          />
+          <div
+            className="inventory-listing-overlay"
+            data-testid="inventory-listing-overlay"
           >
-            {selectedAsset && selectedListable ? (
+            <div className="inventory-listing-overlay-dialog">
               <InventorySellPanel
                 asset={selectedAsset}
                 priceHint={selectedPriceHint}
@@ -629,17 +620,15 @@ export function InventoryPage() {
                 priceMinor={priceMinor}
                 bulkListableCount={bulkListTargets.length}
                 bulkListAll={bulkListAll}
+                stackCount={bulkListTargets.length}
                 onBulkListAllChange={setBulkListAll}
                 onPriceChange={setPriceInput}
                 onSubmit={(event) => void handleSubmitListing(event)}
                 onClose={clearSelection}
-                showClose
               />
-            ) : (
-              <InventorySellPlaceholder />
-            )}
-          </aside>
-        </div>
+            </div>
+          </div>
+        </>
       ) : null}
 
       <SellerSaleInfo />
