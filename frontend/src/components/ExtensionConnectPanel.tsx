@@ -55,6 +55,22 @@ export function ExtensionConnectPanel({ token, compact = false }: ExtensionConne
   }
 
   if (!runtimeAvailable) {
+    if (compact) {
+      return (
+        <div className="extension-panel extension-panel-compact" data-testid="extension-install-hint">
+          <h3 className="extension-panel-title">Расширение для автообмена</h3>
+          <p className="muted small">Опционально — ускоряет отправку trade offer при продаже.</p>
+          <details className="extension-install-details">
+            <summary>Как установить</summary>
+            <p className="muted small">
+              Загрузите папку <code>browser-extension/dist</code> в Chrome → Расширения → Режим
+              разработчика и укажите <code>VITE_EXTENSION_ID</code> во frontend <code>.env</code>.
+            </p>
+          </details>
+        </div>
+      );
+    }
+
     return (
       <div className="card extension-panel" data-testid="extension-install-hint">
         <h3 className="extension-panel-title">Расширение для автообмена</h3>
@@ -68,7 +84,10 @@ export function ExtensionConnectPanel({ token, compact = false }: ExtensionConne
   }
 
   return (
-    <div className="card extension-panel" data-testid="extension-connect-panel">
+    <div
+      className={`extension-panel${compact ? ' extension-panel-compact' : ' card'}`}
+      data-testid="extension-connect-panel"
+    >
       <h3 className="extension-panel-title">
         {compact ? 'Расширение' : 'Расширение для автообмена'}
       </h3>

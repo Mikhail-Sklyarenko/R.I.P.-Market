@@ -2080,16 +2080,18 @@ p {
 
 .account-page {
   display: grid;
-  gap: var(--space-6);
+  gap: var(--space-5);
 }
 
 .account-page-grid {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(300px, 400px);
-  gap: var(--space-6);
+  grid-template-columns: minmax(0, 1.15fr) minmax(0, 0.85fr);
+  gap: var(--space-5);
   align-items: start;
 }
 
+.account-page-primary,
+.account-page-secondary,
 .account-page-main,
 .account-page-sidebar {
   min-width: 0;
@@ -2120,16 +2122,47 @@ p {
   word-break: break-all;
 }
 
-.account-settings-card .extension-panel {
-  margin-top: var(--space-2);
+.account-extension-section {
+  margin-top: var(--space-1);
   padding-top: var(--space-4);
   border-top: 1px solid var(--color-border);
-  background: transparent;
+}
+
+.account-settings-card .extension-panel,
+.account-extension-section .extension-panel {
+  margin: 0;
+  padding: 0;
+  border: none;
   border-radius: 0;
-  border-left: none;
-  border-right: none;
-  border-bottom: none;
+  background: transparent;
   box-shadow: none;
+}
+
+.extension-panel-compact {
+  display: grid;
+  gap: var(--space-2);
+}
+
+.extension-install-details {
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-bg-subtle);
+}
+
+.extension-install-details summary {
+  cursor: pointer;
+  padding: var(--space-3) var(--space-4);
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+}
+
+.extension-install-details[open] summary {
+  border-bottom: 1px solid var(--color-border);
+}
+
+.extension-install-details p {
+  margin: 0;
+  padding: var(--space-3) var(--space-4);
 }
 
 .account-page-stack {
@@ -2144,6 +2177,13 @@ p {
 .account-trade-url-section {
   display: grid;
   gap: var(--space-3);
+}
+
+.account-trade-url-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  align-items: center;
 }
 
 .account-trade-url-help {
@@ -2174,7 +2214,7 @@ p {
 }
 
 .account-onboarding-ready {
-  padding: var(--space-4);
+  padding: var(--space-3) var(--space-4);
 }
 
 .account-onboarding-ready-text {

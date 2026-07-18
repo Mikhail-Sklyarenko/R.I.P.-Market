@@ -74,8 +74,8 @@ export function AccountTradingOnboarding({
     };
   }, [extensionChannelEnabled]);
 
+  // Required path only — optional extension must not keep the full checklist open.
   const requiredReady = steamLinked && tradeUrlReady;
-  const extensionReady = !extensionChannelEnabled || extensionConnected;
 
   const steps: OnboardingStep[] = [
     {
@@ -96,7 +96,7 @@ export function AccountTradingOnboarding({
     },
   ];
 
-  if (extensionChannelEnabled) {
+  if (extensionChannelEnabled && !requiredReady) {
     steps.push({
       key: 'extension',
       label: 'Подключить расширение',
@@ -110,14 +110,18 @@ export function AccountTradingOnboarding({
     });
   }
 
-  if (requiredReady && extensionReady) {
+  if (requiredReady) {
     return (
       <div className="card account-onboarding account-onboarding-ready" data-testid="account-trading-onboarding">
         <p className="account-onboarding-ready-text">
-          Аккаунт готов к торговле.{' '}
-          <Link to="/catalog">Перейти в каталог</Link>
+          Аккаунт готов к торговле
+          {extensionChannelEnabled && !extensionConnected
+            ? ' · расширение опционально'
+            : ''}
+          .{' '}
+          <Link to="/catalog">Каталог</Link>
           {' · '}
-          <Link to="/sell/inventory">Открыть инвентарь</Link>
+          <Link to="/sell/inventory">Инвентарь</Link>
         </p>
       </div>
     );
@@ -156,11 +160,6 @@ export function AccountTradingOnboarding({
           </li>
         ))}
       </ol>
-      {requiredReady ? (
-        <p className="muted small account-onboarding-next">
-          Дальше: <Link to="/deals">Сделки</Link> — покупки, продажи и лоты в одном разделе.
-        </p>
-      ) : null}
     </div>
   );
 }
