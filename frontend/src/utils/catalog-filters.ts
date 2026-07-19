@@ -41,8 +41,13 @@ export const OTHER_CATALOG_SEARCH_TERMS = [
   'Agent',
   'Music Kit',
   ' Case',
+  'Capsule',
+  'Package',
   'Collectible',
   'Pin',
+  'Key',
+  'Name Tag',
+  'Storage Unit',
 ] as const;
 
 export const OTHER_CATALOG_ALL_Q = OTHER_CATALOG_SEARCH_TERMS.join('|');
@@ -247,6 +252,20 @@ export const CATALOG_CATEGORY_OPTIONS: readonly CatalogCategoryOption[] = [
     tabId: 'other',
     icon: 'other',
     q: ' Case',
+  },
+  {
+    value: 'other-capsule',
+    label: 'Капсулы',
+    tabId: 'other',
+    icon: 'other',
+    q: 'Capsule',
+  },
+  {
+    value: 'other-key',
+    label: 'Ключи',
+    tabId: 'other',
+    icon: 'other',
+    q: 'Key',
   },
   {
     value: 'other-collectible',

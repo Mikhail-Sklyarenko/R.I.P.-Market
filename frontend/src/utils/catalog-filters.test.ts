@@ -36,8 +36,10 @@ describe('catalog-filters utils', () => {
   it('resolves other subcategory filters by market hash query', () => {
     assert.deepEqual(resolveCatalogFilter('other', 'other-charm'), { q: 'Charm' });
     assert.deepEqual(resolveCatalogFilter('other', ''), {
-      q: 'Sticker|Charm|Patch|Graffiti|Agent|Music Kit| Case|Collectible|Pin',
+      q: 'Sticker|Charm|Patch|Graffiti|Agent|Music Kit| Case|Capsule|Package|Collectible|Pin|Key|Name Tag|Storage Unit',
     });
+    assert.deepEqual(resolveCatalogFilter('other', 'other-capsule'), { q: 'Capsule' });
+    assert.deepEqual(resolveCatalogFilter('other', 'other-key'), { q: 'Key' });
   });
 
   it('maps other category values to the other tab', () => {
