@@ -91,7 +91,7 @@ export class SteamVacService {
     url.searchParams.set('key', apiKey);
     url.searchParams.set('steamids', steamId);
 
-    let response: Response;
+    let response: Awaited<ReturnType<typeof steamFetch>>;
     try {
       response = await steamFetch(url);
     } catch (error) {
