@@ -1,21 +1,35 @@
-import { type FormEvent, useEffect, useState } from 'react';
+import { type FormEvent, useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { createSupportTicket, listMySupportTickets } from '../api/marketplace';
 import type { SupportTicket } from '../api/types';
 import { useAuth } from '../auth/AuthContext';
 import { ErrorAlert } from '../components/ErrorAlert';
 import { PageHeader } from '../components/PageHeader';
-import { SUPPORT_TICKET_TOPICS } from '../data/support-ticket-topics';
+import { ThemeSelect } from '../components/ThemeSelect';
+import {
+  SUPPORT_TICKET_TOPICS,
+  type SupportTicketTopicId,
+} from '../data/support-ticket-topics';
 import { SUPPORT_EMAIL } from '../utils/format';
+
+const TOPIC_OPTIONS = SUPPORT_TICKET_TOPICS.map((topic) => ({
+  value: topic.id,
+  label: topic.label,
+}));
 
 export function SupportPage() {
   const { token } = useAuth();
   const [tickets, setTickets] = useState<SupportTicket[]>([]);
-  const [subject, setSubject] = useState('');
+  const [topicId, setTopicId] = useState<SupportTicketTopicId | ''>('');
   const [body, setBody] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<unknown>(null);
   const [success, setSuccess] = useState<string | null>(null);
+
+  const subject = useMemo(
+    () => SUPPORT_TICKET_TOPICS.find((topic) => topic.id === topicId)?.label ?? '',
+    [topicId],
+  );
 
   useEffect(() => {
     if (!token) {
@@ -40,7 +54,7 @@ export function SupportPage() {
         body: body.trim(),
       });
       setTickets((current) => [ticket, ...current]);
-      setSubject('');
+      setTopicId('');
       setBody('');
       setSuccess('Тикет создан. Команда поддержки ответит в этом разделе.');
     } catch (err: unknown) {
@@ -84,21 +98,14 @@ export function SupportPage() {
           <form className="support-ticket-form" onSubmit={(event) => void handleSubmit(event)}>
             <label className="field">
               <span className="field-label">Тема</span>
-              <select
-                value={subject}
-                onChange={(event) => setSubject(event.target.value)}
-                data-testid="support-ticket-subject"
+              <ThemeSelect
+                value={topicId}
+                options={TOPIC_OPTIONS}
+                placeholder="Выберите тему"
                 required
-              >
-                <option value="" disabled>
-                  Выберите тему
-                </option>
-                {SUPPORT_TICKET_TOPICS.map((topic) => (
-                  <option key={topic.id} value={topic.label}>
-                    {topic.label}
-                  </option>
-                ))}
-              </select>
+                data-testid="support-ticket-subject"
+                onChange={(value) => setTopicId(value as SupportTicketTopicId | '')}
+              />
             </label>
             <label className="field">
               <span className="field-label">Описание</span>
