@@ -27,7 +27,10 @@ export function CatalogItemCard({
   const navigate = useNavigate();
   const name = item.marketHashName;
   const { weapon, skin } = parseCatalogLotName(name);
-  const wearBadge = getWearBadgeStyle(parseWearCodeFromMarketHashName(name));
+  // Seeded catalog cards are one-per-skin; wear is chosen on the item page.
+  const wearBadge = item.catalogSeeded
+    ? null
+    : getWearBadgeStyle(parseWearCodeFromMarketHashName(name));
   const itemPath = getCatalogItemPath(item);
   const buyPath = getCatalogBuyPath(item);
   const hasOffers = item.activeLotCount > 0;

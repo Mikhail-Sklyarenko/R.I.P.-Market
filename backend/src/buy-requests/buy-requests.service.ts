@@ -3,9 +3,20 @@ import { BuyRequestStatus, UserStatus } from '@prisma/client';
 import { AppException } from '../common/errors/app.exception';
 import { ErrorCode } from '../common/errors/error-codes';
 import { toJsonSafe } from '../common/json-safe.util';
+import {
+  buildMarketHashNameWithWear,
+  deriveBaseMarketHashName,
+} from '../item-definitions/base-market-hash-name.util';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateBuyRequestDto } from './dto/create-buy-request.dto';
 import { BuyRequestMatchingService } from './buy-request-matching.service';
+
+function parseAvailableWears(value: unknown): string[] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+  return value.filter((entry): entry is string => typeof entry === 'string');
+}
 
 @Injectable()
 export class BuyRequestsService {
@@ -24,10 +35,10 @@ export class BuyRequestsService {
       );
     }
 
-    const item = await this.prisma.itemDefinition.findUnique({
+    const catalogItem = await this.prisma.itemDefinition.findUnique({
       where: { id: itemDefinitionId },
     });
-    if (!item) {
+    if (!catalogItem) {
       throw new AppException(
         ErrorCode.NOT_FOUND,
         'Item not found',
@@ -35,10 +46,12 @@ export class BuyRequestsService {
       );
     }
 
+    const item = await this.resolveTargetItemDefinition(catalogItem, dto.wear);
+
     const existingOpen = await this.prisma.buyRequest.findFirst({
       where: {
         buyerId,
-        itemDefinitionId,
+        itemDefinitionId: item.id,
         status: BuyRequestStatus.OPEN,
       },
     });
@@ -54,7 +67,7 @@ export class BuyRequestsService {
     const buyRequest = await this.prisma.buyRequest.create({
       data: {
         buyerId,
-        itemDefinitionId,
+        itemDefinitionId: item.id,
         maxPriceMinor:
           dto.maxPriceMinor !== undefined
             ? BigInt(dto.maxPriceMinor)
@@ -81,10 +94,25 @@ export class BuyRequestsService {
   }
 
   async listMine(buyerId: string, itemDefinitionId?: string) {
+    const scope = itemDefinitionId
+      ? await this.resolveListScope(itemDefinitionId)
+      : null;
+
     const requests = await this.prisma.buyRequest.findMany({
       where: {
         buyerId,
-        ...(itemDefinitionId ? { itemDefinitionId } : {}),
+        ...(scope?.type === 'ids'
+          ? { itemDefinitionId: { in: scope.ids } }
+          : scope?.type === 'base'
+            ? {
+                itemDefinition: {
+                  OR: [
+                    { id: { in: scope.ids } },
+                    { baseMarketHashName: scope.baseMarketHashName },
+                  ],
+                },
+              }
+            : {}),
       },
       orderBy: { createdAt: 'desc' },
       take: 50,
@@ -139,5 +167,99 @@ export class BuyRequestsService {
     });
 
     return toJsonSafe(updated);
+  }
+
+  private async resolveTargetItemDefinition(
+    catalogItem: {
+      id: string;
+      marketHashName: string;
+      baseMarketHashName: string | null;
+      weapon: string | null;
+      rarity: string | null;
+      iconUrl: string | null;
+      catalogSeeded: boolean;
+      availableWears: unknown;
+    },
+    wear?: string,
+  ) {
+    const availableWears = parseAvailableWears(catalogItem.availableWears);
+    const needsWear =
+      catalogItem.catalogSeeded && availableWears.length > 0;
+
+    if (needsWear && !wear) {
+      throw new AppException(
+        ErrorCode.VALIDATION_ERROR,
+        'Select a wear for this skin',
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+
+    if (!wear || !catalogItem.catalogSeeded) {
+      return catalogItem;
+    }
+
+    if (availableWears.length > 0 && !availableWears.includes(wear)) {
+      throw new AppException(
+        ErrorCode.VALIDATION_ERROR,
+        'Selected wear is not available for this skin',
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+
+    const baseName =
+      catalogItem.baseMarketHashName ??
+      deriveBaseMarketHashName(catalogItem.marketHashName);
+    const marketHashName = buildMarketHashNameWithWear(baseName, wear);
+
+    return this.prisma.itemDefinition.upsert({
+      where: { marketHashName },
+      create: {
+        game: 'CS2',
+        marketHashName,
+        baseMarketHashName: baseName,
+        weapon: catalogItem.weapon,
+        rarity: catalogItem.rarity,
+        iconUrl: catalogItem.iconUrl,
+        catalogSeeded: false,
+      },
+      update: {
+        baseMarketHashName: baseName,
+        weapon: catalogItem.weapon ?? undefined,
+        rarity: catalogItem.rarity ?? undefined,
+        ...(catalogItem.iconUrl?.trim()
+          ? { iconUrl: catalogItem.iconUrl.trim() }
+          : {}),
+      },
+    });
+  }
+
+  private async resolveListScope(
+    itemDefinitionId: string,
+  ): Promise<
+    | { type: 'ids'; ids: string[] }
+    | { type: 'base'; ids: string[]; baseMarketHashName: string }
+  > {
+    const item = await this.prisma.itemDefinition.findUnique({
+      where: { id: itemDefinitionId },
+      select: {
+        id: true,
+        catalogSeeded: true,
+        baseMarketHashName: true,
+        marketHashName: true,
+      },
+    });
+    if (!item) {
+      return { type: 'ids', ids: [itemDefinitionId] };
+    }
+    if (!item.catalogSeeded) {
+      return { type: 'ids', ids: [item.id] };
+    }
+    return {
+      type: 'base',
+      ids: [item.id],
+      baseMarketHashName:
+        item.baseMarketHashName ??
+        deriveBaseMarketHashName(item.marketHashName),
+    };
   }
 }

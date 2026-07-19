@@ -40,28 +40,34 @@ describe('CatalogService', () => {
     steamMarketPrice.getPricesWithMeta.mockResolvedValue({});
   });
 
-  it('returns item definitions without active lots in catalog', async () => {
+  it('returns seeded catalog cards without active lots', async () => {
     prisma.lot.findMany.mockResolvedValue([]);
     prisma.itemDefinition.count.mockResolvedValue(2);
     prisma.itemDefinition.findMany.mockResolvedValue([
       {
         id: 'item-unlisted',
         marketHashName: 'Revolution Case',
+        baseMarketHashName: 'Revolution Case',
         weapon: null,
         rarity: 'Base Grade',
         iconUrl: null,
+        availableWears: [],
+        catalogSeeded: true,
       },
       {
         id: 'item-listed',
-        marketHashName: 'AK-47 | Redline (Field-Tested)',
+        marketHashName: 'AK-47 | Redline',
+        baseMarketHashName: 'AK-47 | Redline',
         weapon: 'Rifle',
         rarity: 'Classified',
         iconUrl: null,
+        availableWears: ['FT', 'MW'],
+        catalogSeeded: true,
       },
     ]);
     steamMarketPrice.getPricesWithMeta.mockResolvedValue({
       'Revolution Case': { priceMinor: 350, fetchedAt: '2026-07-11T12:00:00.000Z' },
-      'AK-47 | Redline (Field-Tested)': {
+      'AK-47 | Redline': {
         priceMinor: 1250,
         fetchedAt: '2026-07-11T12:00:00.000Z',
       },
@@ -74,21 +80,23 @@ describe('CatalogService', () => {
       activeLotCount: 0,
       minMarketplacePriceMinor: null,
       featuredLotId: null,
+      catalogSeeded: true,
     });
   });
 
-  it('includes listed items with lot stats and featured lot', async () => {
+  it('aggregates wear-variant lots onto the seeded base skin card', async () => {
     prisma.lot.findMany.mockImplementation((args: { select?: unknown; orderBy?: unknown }) => {
       if (args.orderBy) {
         return Promise.resolve([
           {
             id: 'lot-1',
             inventoryAsset: {
-              itemDefinitionId: 'item-listed',
+              itemDefinitionId: 'item-wear-ft',
               wear: 'FT',
               floatValue: null,
               itemDefinition: {
                 marketHashName: 'AK-47 | Redline (Field-Tested)',
+                baseMarketHashName: 'AK-47 | Redline',
               },
             },
             listingSnapshot: {
@@ -104,9 +112,13 @@ describe('CatalogService', () => {
           {
             priceMinor: 1000n,
             inventoryAsset: {
-              itemDefinitionId: 'item-listed',
+              itemDefinitionId: 'item-wear-ft',
               wear: 'FT',
               floatValue: null,
+              itemDefinition: {
+                marketHashName: 'AK-47 | Redline (Field-Tested)',
+                baseMarketHashName: 'AK-47 | Redline',
+              },
             },
             listingSnapshot: {
               wear: 'FT',
@@ -119,11 +131,14 @@ describe('CatalogService', () => {
     });
     prisma.itemDefinition.findMany.mockResolvedValue([
       {
-        id: 'item-listed',
-        marketHashName: 'AK-47 | Redline (Field-Tested)',
+        id: 'item-seeded',
+        marketHashName: 'AK-47 | Redline',
+        baseMarketHashName: 'AK-47 | Redline',
         weapon: 'Rifle',
         rarity: 'Classified',
         iconUrl: null,
+        availableWears: ['FT', 'MW'],
+        catalogSeeded: true,
       },
     ]);
     prisma.itemDefinition.count.mockResolvedValue(1);
@@ -132,10 +147,12 @@ describe('CatalogService', () => {
 
     expect(result.items).toHaveLength(1);
     expect(result.items[0]).toMatchObject({
-      id: 'item-listed',
+      id: 'item-seeded',
       activeLotCount: 1,
       featuredLotId: 'lot-1',
       minMarketplacePriceMinor: '1000',
+      availableWears: ['FT', 'MW'],
+      catalogSeeded: true,
     });
   });
 
@@ -144,15 +161,18 @@ describe('CatalogService', () => {
     prisma.itemDefinition.findMany.mockResolvedValue([
       {
         id: 'item-a',
-        marketHashName: 'AK-47 | Redline (Field-Tested)',
+        marketHashName: 'AK-47 | Redline',
+        baseMarketHashName: 'AK-47 | Redline',
         weapon: 'Rifle',
         rarity: 'Classified',
         iconUrl: null,
+        availableWears: ['FT'],
+        catalogSeeded: true,
       },
     ]);
     prisma.itemDefinition.count = jest.fn().mockResolvedValue(1);
     steamMarketPrice.getPricesWithMeta.mockResolvedValue({
-      'AK-47 | Redline (Field-Tested)': {
+      'AK-47 | Redline': {
         priceMinor: 1250,
         fetchedAt: '2026-07-11T12:00:00.000Z',
       },
@@ -163,9 +183,11 @@ describe('CatalogService', () => {
     expect(result.items).toHaveLength(1);
     expect(result.items[0]?.steamPriceMinor).toBe(1250);
     expect(steamMarketPrice.getPricesWithMeta).toHaveBeenCalledWith(
-      ['AK-47 | Redline (Field-Tested)'],
+      ['AK-47 | Redline'],
       { cacheOnly: true },
     );
+    // No bulk live Steam refresh for empty seeded cards.
+    expect(steamMarketPrice.getPricesWithMeta).toHaveBeenCalledTimes(1);
   });
 
   it('returns unlisted items when weapon filter matches but no lots exist', async () => {
@@ -174,10 +196,13 @@ describe('CatalogService', () => {
     prisma.itemDefinition.findMany.mockResolvedValue([
       {
         id: 'item-knife',
-        marketHashName: '★ Karambit | Doppler (Factory New)',
+        marketHashName: '★ Karambit | Doppler',
+        baseMarketHashName: '★ Karambit | Doppler',
         weapon: 'Knife',
         rarity: 'Covert',
         iconUrl: null,
+        availableWears: ['FN'],
+        catalogSeeded: true,
       },
     ]);
 
@@ -206,6 +231,7 @@ describe('CatalogService', () => {
       expect.objectContaining({
         where: expect.objectContaining({
           game: 'CS2',
+          catalogSeeded: true,
           NOT: expect.objectContaining({
             OR: expect.arrayContaining([
               {
@@ -243,6 +269,7 @@ describe('CatalogService', () => {
       expect.objectContaining({
         where: expect.objectContaining({
           game: 'CS2',
+          catalogSeeded: true,
           NOT: expect.objectContaining({
             OR: expect.arrayContaining([
               {

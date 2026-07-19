@@ -263,16 +263,25 @@ model ExtensionCommandAck {
 }
 
 model ItemDefinition {
-  id             String           @id @default(uuid())
-  game           String           @default("CS2")
-  marketHashName String           @unique
-  weapon         String?
-  rarity         String?
-  iconUrl        String?
-  createdAt      DateTime         @default(now())
-  updatedAt      DateTime         @updatedAt
-  assets         InventoryAsset[]
-  buyRequests    BuyRequest[]
+  id                 String           @id @default(uuid())
+  game               String           @default("CS2")
+  marketHashName     String           @unique
+  /// Skin identity without wear suffix (catalog card key). Same as marketHashName for seeded cards.
+  baseMarketHashName String?
+  weapon             String?
+  rarity             String?
+  iconUrl            String?
+  /// Wear codes available for buy requests: ["FN","MW","FT",...]
+  availableWears     Json?
+  /// Imported catalog card — never deleted by orphan inventory cleanup.
+  catalogSeeded      Boolean          @default(false)
+  createdAt          DateTime         @default(now())
+  updatedAt          DateTime         @updatedAt
+  assets             InventoryAsset[]
+  buyRequests        BuyRequest[]
+
+  @@index([catalogSeeded, marketHashName])
+  @@index([baseMarketHashName])
 }
 
 model InventoryAsset {

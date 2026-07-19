@@ -4,6 +4,8 @@ import { AppException } from '../../common/errors/app.exception';
 import { ErrorCode } from '../../common/errors/error-codes';
 import { isRealSteamId } from '../../common/steam-id.util';
 import { isListableMarketHashName } from '../../lots/listing-eligibility.util';
+import { deriveBaseMarketHashName } from '../../item-definitions/base-market-hash-name.util';
+
 import { PrismaService } from '../../prisma/prisma.service';
 import { InventoryMetricsService } from './inventory-metrics.service';
 import { InventorySyncCacheService, getInventoryStaleGraceMs } from './inventory-sync-cache.service';
@@ -213,16 +215,20 @@ export class SteamInventoryProvider implements InventoryProvider {
       const marketable = item.marketable && listableByName;
       const tradable = item.tradable && listableByName;
 
+      const baseMarketHashName = deriveBaseMarketHashName(item.marketHashName);
       const itemDefinition = await this.prisma.itemDefinition.upsert({
         where: { marketHashName: item.marketHashName },
         create: {
           marketHashName: item.marketHashName,
+          baseMarketHashName,
           game: 'CS2',
           weapon: item.weapon,
           rarity: item.rarity,
           iconUrl: item.iconUrl,
+          catalogSeeded: false,
         },
         update: {
+          baseMarketHashName,
           weapon: item.weapon ?? undefined,
           rarity: item.rarity ?? undefined,
           // Always refresh icon when Steam provides one — definitions created

@@ -1,5 +1,5 @@
 import { Type } from 'class-transformer';
-import { IsInt, IsOptional, IsPositive } from 'class-validator';
+import { IsIn, IsInt, IsOptional, IsPositive } from 'class-validator';
 
 export class CreateBuyRequestDto {
   @IsOptional()
@@ -7,4 +7,9 @@ export class CreateBuyRequestDto {
   @IsInt()
   @IsPositive()
   maxPriceMinor?: number;
+
+  /** Wear for catalog-seeded skin cards (FN/MW/FT/WW/BS). */
+  @IsOptional()
+  @IsIn(['FN', 'MW', 'FT', 'WW', 'BS'])
+  wear?: 'FN' | 'MW' | 'FT' | 'WW' | 'BS';
 }

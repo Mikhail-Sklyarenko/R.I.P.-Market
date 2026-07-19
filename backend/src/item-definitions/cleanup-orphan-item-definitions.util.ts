@@ -5,11 +5,19 @@ export type OrphanItemCleanupReport = {
   deleted: number;
 };
 
+/**
+ * Deletes item definitions with no inventory assets.
+ * Never deletes catalog-seeded cards (full CS2 catalog import).
+ */
 export async function cleanupOrphanItemDefinitions(
   prisma: Pick<PrismaService, 'itemDefinition'>,
 ): Promise<OrphanItemCleanupReport> {
   const orphans = await prisma.itemDefinition.findMany({
-    where: { assets: { none: {} } },
+    where: {
+      catalogSeeded: false,
+      assets: { none: {} },
+      buyRequests: { none: {} },
+    },
     select: { id: true },
   });
 

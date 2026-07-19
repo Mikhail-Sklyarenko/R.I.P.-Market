@@ -1,6 +1,10 @@
 import { Link } from 'react-router-dom';
 import type { BuyRequest, CatalogItem } from '../api/types';
 import { formatUsdFromMinor } from '../utils/format';
+import {
+  CATALOG_WEAR_FILTERS,
+  getWearDisplayLabel,
+} from '../utils/wear-filters';
 import { ErrorAlert } from './ErrorAlert';
 import { InventoryPriceStack } from './InventoryPriceStack';
 import { MoneyDisplay } from './MoneyDisplay';
@@ -9,6 +13,8 @@ type ItemBuyRequestPanelProps = {
   item: CatalogItem;
   token: string | null;
   openBuyRequest: BuyRequest | null;
+  selectedWear: string;
+  onWearChange: (wear: string) => void;
   maxPriceInput: string;
   submitting: boolean;
   requestError: unknown;
@@ -32,6 +38,8 @@ export function ItemBuyRequestPanel({
   item,
   token,
   openBuyRequest,
+  selectedWear,
+  onWearChange,
   maxPriceInput,
   submitting,
   requestError,
@@ -41,6 +49,14 @@ export function ItemBuyRequestPanel({
 }: ItemBuyRequestPanelProps) {
   const steamSuggestion = steamSuggestionInput(item.steamPriceMinor);
   const hasTypedPrice = maxPriceInput.trim().length > 0;
+  const wearOptions = (item.availableWears?.length
+    ? CATALOG_WEAR_FILTERS.filter((option) =>
+        item.availableWears!.includes(option.value),
+      )
+    : []
+  );
+  const requiresWear = Boolean(item.catalogSeeded && wearOptions.length > 0);
+  const canSubmit = !requiresWear || Boolean(selectedWear);
 
   return (
     <div
@@ -78,6 +94,17 @@ export function ItemBuyRequestPanel({
             ) : (
               'Без ограничения цены'
             )}
+            {openBuyRequest.itemDefinition?.marketHashName ? (
+              <span className="muted small item-buy-request-active-wear">
+                {' '}
+                · {openBuyRequest.itemDefinition.marketHashName}
+              </span>
+            ) : selectedWear ? (
+              <span className="muted small item-buy-request-active-wear">
+                {' '}
+                · {getWearDisplayLabel(selectedWear)}
+              </span>
+            ) : null}
           </p>
           <button
             type="button"
@@ -91,6 +118,28 @@ export function ItemBuyRequestPanel({
         </div>
       ) : (
         <>
+          {requiresWear ? (
+            <fieldset className="item-buy-request-wear" data-testid="item-buy-request-wear">
+              <legend className="field-label">Состояние</legend>
+              <div className="item-buy-request-wear-options">
+                {wearOptions.map((option) => (
+                  <button
+                    key={option.value}
+                    type="button"
+                    className={`catalog-rarity-filter${
+                      selectedWear === option.value ? ' active' : ''
+                    }`}
+                    style={{ color: option.color }}
+                    data-testid={`item-buy-request-wear-${option.value.toLowerCase()}`}
+                    onClick={() => onWearChange(option.value)}
+                  >
+                    {option.label}
+                  </button>
+                ))}
+              </div>
+            </fieldset>
+          ) : null}
+
           <div className="item-buy-request-price-block">
             {steamSuggestion ? (
               <div
@@ -144,7 +193,7 @@ export function ItemBuyRequestPanel({
           <button
             type="button"
             className="button primary lot-purchase-button"
-            disabled={submitting}
+            disabled={submitting || !canSubmit}
             data-testid="item-buy-request-submit"
             onClick={onSubmit}
           >

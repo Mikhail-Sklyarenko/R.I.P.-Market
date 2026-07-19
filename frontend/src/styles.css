@@ -4546,6 +4546,29 @@ p {
   line-height: 1.45;
 }
 
+.item-buy-request-wear {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  display: grid;
+  gap: var(--space-2);
+}
+
+.item-buy-request-wear-options,
+.item-page-wear-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.item-page-wear-filters {
+  margin: 0 0 var(--space-4);
+}
+
+.item-buy-request-active-wear {
+  display: inline;
+}
+
 .item-buy-request-price-block {
   display: grid;
   gap: var(--space-3);

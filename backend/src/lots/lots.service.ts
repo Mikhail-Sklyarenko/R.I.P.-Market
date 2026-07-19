@@ -402,7 +402,10 @@ export class LotsService {
     const page = query.page ?? 1;
     const limit = query.limit ?? DEFAULT_LOTS_PAGE_LIMIT;
     const skip = (page - 1) * limit;
-    const where = this.buildActiveLotsWhere(query);
+    const itemDefinitionScope = await this.resolveItemDefinitionLotScope(
+      query.itemDefinitionId,
+    );
+    const where = this.buildActiveLotsWhere(query, itemDefinitionScope);
     const orderBy = this.buildLotsOrderBy(query.sort);
 
     const [total, lots] = await Promise.all([
@@ -534,7 +537,43 @@ export class LotsService {
     } as const;
   }
 
-  private buildActiveLotsWhere(query: ListLotsQueryDto): Prisma.LotWhereInput {
+  private async resolveItemDefinitionLotScope(
+    itemDefinitionId?: string,
+  ): Promise<
+    | { type: 'id'; id: string }
+    | { type: 'base'; baseMarketHashName: string }
+    | null
+  > {
+    if (!itemDefinitionId) {
+      return null;
+    }
+    const def = await this.prisma.itemDefinition.findUnique({
+      where: { id: itemDefinitionId },
+      select: {
+        id: true,
+        catalogSeeded: true,
+        baseMarketHashName: true,
+        marketHashName: true,
+      },
+    });
+    if (!def) {
+      return { type: 'id', id: itemDefinitionId };
+    }
+    if (def.catalogSeeded) {
+      return {
+        type: 'base',
+        baseMarketHashName: def.baseMarketHashName ?? def.marketHashName,
+      };
+    }
+    return { type: 'id', id: def.id };
+  }
+
+  private buildActiveLotsWhere(
+    query: ListLotsQueryDto,
+    itemDefinitionScope: Awaited<
+      ReturnType<LotsService['resolveItemDefinitionLotScope']>
+    > = null,
+  ): Prisma.LotWhereInput {
     const where: Prisma.LotWhereInput = {
       status: LotStatus.ACTIVE,
     };
@@ -561,7 +600,15 @@ export class LotsService {
     }
 
     const inventoryAssetFilter: Prisma.InventoryAssetWhereInput = {};
-    if (query.itemDefinitionId) {
+    if (itemDefinitionScope?.type === 'id') {
+      inventoryAssetFilter.itemDefinitionId = itemDefinitionScope.id;
+    } else if (itemDefinitionScope?.type === 'base') {
+      const base = itemDefinitionScope.baseMarketHashName;
+      itemDefinitionFilter.OR = [
+        { baseMarketHashName: base },
+        { marketHashName: base },
+      ];
+    } else if (query.itemDefinitionId) {
       inventoryAssetFilter.itemDefinitionId = query.itemDefinitionId;
     }
     if (Object.keys(itemDefinitionFilter).length > 0) {

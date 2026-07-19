@@ -6,7 +6,6 @@ import { toJsonSafe } from '../common/json-safe.util';
 import { PrismaService } from '../prisma/prisma.service';
 import {
   lotWearMatchesMarketHashName,
-  parseWearCodeFromMarketHashName,
   resolveSteamMarketHashName,
 } from '../lots/steam-market-link.util';
 import {
@@ -18,6 +17,7 @@ import { ItemIconService } from './item-icon.service';
 import { SteamMarketPriceService } from './steam-market-price.service';
 import type { ListCatalogItemsQueryDto } from './dto/list-catalog-items-query.dto';
 import { catalogLotMatchesWearFloatFilters } from './catalog-lot-filters.util';
+import { deriveBaseMarketHashName } from '../item-definitions/base-market-hash-name.util';
 
 const POPULAR_WINDOW_MS = 30 * 24 * 60 * 60 * 1000;
 
@@ -27,6 +27,8 @@ export type CatalogItemRow = {
   weapon: string | null;
   rarity: string | null;
   iconUrl: string | null;
+  availableWears: string[];
+  catalogSeeded: boolean;
   minMarketplacePriceMinor: string | null;
   activeLotCount: number;
   orderCount30d: number;
@@ -37,12 +39,26 @@ export type CatalogItemRow = {
   featuredLotId: string | null;
 };
 
+function parseAvailableWears(value: unknown): string[] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+  return value.filter((entry): entry is string => typeof entry === 'string');
+}
+
+function catalogBaseKey(baseMarketHashName: string): string {
+  return `base:${baseMarketHashName}`;
+}
+
 type ItemDefinitionRecord = {
   id: string;
   marketHashName: string;
   weapon: string | null;
   rarity: string | null;
   iconUrl: string | null;
+  baseMarketHashName?: string | null;
+  availableWears?: unknown;
+  catalogSeeded?: boolean;
 };
 
 @Injectable()
@@ -60,9 +76,9 @@ export class CatalogService {
     const where = this.buildItemWhere(query);
 
     const [lotStats, popularStats, featuredLots] = await Promise.all([
-      this.loadActiveLotStats(where, query),
+      this.loadActiveLotStats(query, {}),
       this.loadPopularStats(),
-      this.loadFeaturedLots(where, query),
+      this.loadFeaturedLots(query, {}),
     ]);
 
     if (this.canPaginateInDatabase(query)) {
@@ -153,11 +169,12 @@ export class CatalogService {
       );
     }
 
-    const where: Prisma.ItemDefinitionWhereInput = { id: itemId };
+    const baseName =
+      item.baseMarketHashName ?? deriveBaseMarketHashName(item.marketHashName);
     const [lotStats, popularStats, featuredLots] = await Promise.all([
-      this.loadActiveLotStats(where, {}),
-      this.loadPopularStats(),
-      this.loadFeaturedLots(where, {}),
+      this.loadActiveLotStats({}, { baseNames: [baseName] }),
+      this.loadPopularStats({ baseNames: [baseName] }),
+      this.loadFeaturedLots({}, { baseNames: [baseName] }),
     ]);
     const steamPrices = await this.steamMarketPrice.getPricesWithMeta(
       [item.marketHashName],
@@ -173,9 +190,6 @@ export class CatalogService {
       {},
     );
     this.itemIcons.scheduleMissingIconRefresh([row]);
-    if (row.steamPriceMinor == null) {
-      void this.steamMarketPrice.getPricesWithMeta([item.marketHashName]);
-    }
 
     return toJsonSafe(row);
   }
@@ -185,26 +199,35 @@ export class CatalogService {
     const itemWhere = this.buildItemWhere({});
     const [popularStats, lotStats, featuredLots] = await Promise.all([
       this.loadPopularStats(),
-      this.loadActiveLotStats(itemWhere, {}),
-      this.loadFeaturedLots(itemWhere, {}),
+      this.loadActiveLotStats({}, {}),
+      this.loadFeaturedLots({}, {}),
     ]);
 
-    const candidateIds = new Set<string>();
-    for (const itemDefinitionId of lotStats.keys()) {
-      candidateIds.add(itemDefinitionId);
+    const bases = new Set<string>();
+    for (const key of lotStats.keys()) {
+      if (key.startsWith('base:')) {
+        bases.add(key.slice('base:'.length));
+      }
     }
-    for (const [itemDefinitionId, orderCount] of popularStats) {
-      if (orderCount > 0) {
-        candidateIds.add(itemDefinitionId);
+    for (const [key, orderCount] of popularStats) {
+      if (orderCount > 0 && key.startsWith('base:')) {
+        bases.add(key.slice('base:'.length));
       }
     }
 
-    if (candidateIds.size === 0) {
+    if (bases.size === 0) {
       return [];
     }
 
+    const baseList = [...bases];
     const definitions = await this.prisma.itemDefinition.findMany({
-      where: { ...itemWhere, id: { in: [...candidateIds] } },
+      where: {
+        ...itemWhere,
+        OR: [
+          { marketHashName: { in: baseList } },
+          { baseMarketHashName: { in: baseList } },
+        ],
+      },
     });
     const rows = definitions
       .filter((item) => isListableMarketHashName(item.marketHashName))
@@ -328,8 +351,14 @@ export class CatalogService {
   }
 
   private scheduleMissingSteamPriceRefresh(rows: CatalogItemRow[]): void {
+    // Seeded catalog cards skip bulk Steam price refresh (optional until needed).
     const missing = rows
-      .filter((row) => row.steamPriceMinor == null)
+      .filter(
+        (row) =>
+          !row.catalogSeeded &&
+          row.steamPriceMinor == null &&
+          row.activeLotCount > 0,
+      )
       .map((row) => row.marketHashName);
     if (missing.length === 0) {
       return;
@@ -349,32 +378,11 @@ export class CatalogService {
   }
 
   private resolveCatalogDefinitionIds(
-    query: ListCatalogItemsQueryDto,
-    lotStats: Map<string, { minPriceMinor: bigint; count: number }>,
-    popularStats: Map<string, number>,
+    _query: ListCatalogItemsQueryDto,
+    _lotStats: Map<string, { minPriceMinor: bigint; count: number }>,
+    _popularStats: Map<string, number>,
   ): string[] | null {
-    if (
-      query.sort === 'cheapest' ||
-      query.sort === 'price_desc' ||
-      query.minPriceMinor !== undefined ||
-      query.maxPriceMinor !== undefined
-    ) {
-      return [...lotStats.keys()];
-    }
-
-    if (query.sort === 'popular') {
-      const ids = new Set<string>();
-      for (const itemDefinitionId of lotStats.keys()) {
-        ids.add(itemDefinitionId);
-      }
-      for (const [itemDefinitionId, orderCount] of popularStats) {
-        if (orderCount > 0) {
-          ids.add(itemDefinitionId);
-        }
-      }
-      return [...ids];
-    }
-
+    // Lot stats are keyed by base:…; load seeded cards in-memory for filtered sorts.
     return null;
   }
 
@@ -393,23 +401,35 @@ export class CatalogService {
       }
     >,
   ): CatalogItemRow {
-    const stats = lotStats.get(item.id);
+    const baseName =
+      item.baseMarketHashName ?? deriveBaseMarketHashName(item.marketHashName);
+    const baseStats = lotStats.get(catalogBaseKey(baseName));
+    const idStats = lotStats.get(item.id);
+    const stats = baseStats ?? idStats;
     return {
       id: item.id,
       marketHashName: item.marketHashName,
       weapon: item.weapon,
       rarity: item.rarity,
       iconUrl: item.iconUrl,
+      availableWears: parseAvailableWears(item.availableWears),
+      catalogSeeded: Boolean(item.catalogSeeded),
       minMarketplacePriceMinor: stats?.minPriceMinor?.toString() ?? null,
       activeLotCount: stats?.count ?? 0,
-      orderCount30d: popularStats.get(item.id) ?? 0,
+      orderCount30d:
+        popularStats.get(catalogBaseKey(baseName)) ??
+        popularStats.get(item.id) ??
+        0,
       steamPriceMinor: steamPrices[item.marketHashName]?.priceMinor ?? null,
       steamPriceFetchedAt: steamPrices[item.marketHashName]?.fetchedAt ?? null,
       buffPriceMinor:
         referencePrices[item.marketHashName]?.buffPriceMinor ?? null,
       csfloatPriceMinor:
         referencePrices[item.marketHashName]?.csfloatPriceMinor ?? null,
-      featuredLotId: featuredLots.get(item.id) ?? null,
+      featuredLotId:
+        featuredLots.get(catalogBaseKey(baseName)) ??
+        featuredLots.get(item.id) ??
+        null,
     };
   }
 
@@ -424,11 +444,8 @@ export class CatalogService {
       return false;
     }
     if (query.wear) {
-      const wearCode = parseWearCodeFromMarketHashName(row.marketHashName);
-      if (!wearCode) {
-        return false;
-      }
-      return wearCode.toUpperCase() === query.wear.toUpperCase();
+      // Wear filter is applied to lots; empty cards stay hidden.
+      return false;
     }
     return true;
   }
@@ -438,6 +455,8 @@ export class CatalogService {
   ): Prisma.ItemDefinitionWhereInput {
     const where: Prisma.ItemDefinitionWhereInput = {
       game: 'CS2',
+      // One card per skin from catalog import; wear variants live as sibling defs.
+      catalogSeeded: true,
       NOT: this.buildNonListableMarketHashNameFilter(),
     };
     this.applyMarketHashNameQuery(where, query.q);
@@ -493,13 +512,15 @@ export class CatalogService {
   }
 
   private async loadActiveLotStats(
-    itemWhere: Prisma.ItemDefinitionWhereInput,
     query: ListCatalogItemsQueryDto,
+    options: { baseNames?: string[] } = {},
   ): Promise<Map<string, { minPriceMinor: bigint; count: number }>> {
     const lots = await this.prisma.lot.findMany({
       where: {
         status: LotStatus.ACTIVE,
-        inventoryAsset: { itemDefinition: itemWhere },
+        inventoryAsset: {
+          itemDefinition: this.buildLotItemDefinitionFilter(options.baseNames),
+        },
       },
       select: {
         priceMinor: true,
@@ -508,6 +529,12 @@ export class CatalogService {
             itemDefinitionId: true,
             wear: true,
             floatValue: true,
+            itemDefinition: {
+              select: {
+                baseMarketHashName: true,
+                marketHashName: true,
+              },
+            },
           },
         },
         listingSnapshot: {
@@ -520,38 +547,67 @@ export class CatalogService {
     });
 
     const map = new Map<string, { minPriceMinor: bigint; count: number }>();
+    const bump = (key: string, priceMinor: bigint) => {
+      const current = map.get(key);
+      if (!current) {
+        map.set(key, { minPriceMinor: priceMinor, count: 1 });
+        return;
+      }
+      current.count += 1;
+      if (priceMinor < current.minPriceMinor) {
+        current.minPriceMinor = priceMinor;
+      }
+    };
+
     for (const lot of lots) {
       if (!catalogLotMatchesWearFloatFilters(lot, query)) {
         continue;
       }
-      const itemDefinitionId = lot.inventoryAsset.itemDefinitionId;
-      const current = map.get(itemDefinitionId);
-      if (!current) {
-        map.set(itemDefinitionId, {
-          minPriceMinor: lot.priceMinor,
-          count: 1,
-        });
-        continue;
-      }
-      current.count += 1;
-      if (lot.priceMinor < current.minPriceMinor) {
-        current.minPriceMinor = lot.priceMinor;
+      const def = lot.inventoryAsset.itemDefinition;
+      bump(lot.inventoryAsset.itemDefinitionId, lot.priceMinor);
+      const baseKey =
+        def.baseMarketHashName ?? deriveBaseMarketHashName(def.marketHashName);
+      if (baseKey) {
+        bump(catalogBaseKey(baseKey), lot.priceMinor);
       }
     }
     return map;
   }
 
-  private async loadPopularStats(): Promise<Map<string, number>> {
+  private async loadPopularStats(
+    options: { baseNames?: string[] } = {},
+  ): Promise<Map<string, number>> {
     const since = new Date(Date.now() - POPULAR_WINDOW_MS);
     const orders = await this.prisma.order.findMany({
       where: {
         status: OrderStatus.COMPLETED,
         createdAt: { gte: since },
+        ...(options.baseNames?.length
+          ? {
+              lot: {
+                inventoryAsset: {
+                  itemDefinition: this.buildLotItemDefinitionFilter(
+                    options.baseNames,
+                  ),
+                },
+              },
+            }
+          : {}),
       },
       select: {
         lot: {
           select: {
-            inventoryAsset: { select: { itemDefinitionId: true } },
+            inventoryAsset: {
+              select: {
+                itemDefinitionId: true,
+                itemDefinition: {
+                  select: {
+                    baseMarketHashName: true,
+                    marketHashName: true,
+                  },
+                },
+              },
+            },
           },
         },
       },
@@ -559,20 +615,32 @@ export class CatalogService {
 
     const map = new Map<string, number>();
     for (const order of orders) {
-      const itemDefinitionId = order.lot.inventoryAsset.itemDefinitionId;
-      map.set(itemDefinitionId, (map.get(itemDefinitionId) ?? 0) + 1);
+      const asset = order.lot.inventoryAsset;
+      map.set(
+        asset.itemDefinitionId,
+        (map.get(asset.itemDefinitionId) ?? 0) + 1,
+      );
+      const baseKey =
+        asset.itemDefinition.baseMarketHashName ??
+        deriveBaseMarketHashName(asset.itemDefinition.marketHashName);
+      if (baseKey) {
+        const key = catalogBaseKey(baseKey);
+        map.set(key, (map.get(key) ?? 0) + 1);
+      }
     }
     return map;
   }
 
   private async loadFeaturedLots(
-    itemWhere: Prisma.ItemDefinitionWhereInput,
     query: ListCatalogItemsQueryDto,
+    options: { baseNames?: string[] } = {},
   ): Promise<Map<string, string>> {
     const lots = await this.prisma.lot.findMany({
       where: {
         status: LotStatus.ACTIVE,
-        inventoryAsset: { itemDefinition: itemWhere },
+        inventoryAsset: {
+          itemDefinition: this.buildLotItemDefinitionFilter(options.baseNames),
+        },
       },
       orderBy: { priceMinor: 'asc' },
       select: {
@@ -582,7 +650,12 @@ export class CatalogService {
             itemDefinitionId: true,
             wear: true,
             floatValue: true,
-            itemDefinition: { select: { marketHashName: true } },
+            itemDefinition: {
+              select: {
+                marketHashName: true,
+                baseMarketHashName: true,
+              },
+            },
           },
         },
         listingSnapshot: {
@@ -602,7 +675,12 @@ export class CatalogService {
       }
 
       const itemDefinitionId = lot.inventoryAsset.itemDefinitionId;
-      if (map.has(itemDefinitionId)) {
+      const def = lot.inventoryAsset.itemDefinition;
+      const baseKey =
+        def.baseMarketHashName ?? deriveBaseMarketHashName(def.marketHashName);
+      const baseMapKey = catalogBaseKey(baseKey);
+
+      if (map.has(itemDefinitionId) && map.has(baseMapKey)) {
         continue;
       }
 
@@ -620,9 +698,31 @@ export class CatalogService {
         continue;
       }
 
-      map.set(itemDefinitionId, lot.id);
+      if (!map.has(itemDefinitionId)) {
+        map.set(itemDefinitionId, lot.id);
+      }
+      if (!map.has(baseMapKey)) {
+        map.set(baseMapKey, lot.id);
+      }
     }
     return map;
+  }
+
+  /** Lots attach to wear-specific definitions — never filter by catalogSeeded here. */
+  private buildLotItemDefinitionFilter(
+    baseNames?: string[],
+  ): Prisma.ItemDefinitionWhereInput {
+    const where: Prisma.ItemDefinitionWhereInput = {
+      game: 'CS2',
+      NOT: this.buildNonListableMarketHashNameFilter(),
+    };
+    if (baseNames?.length) {
+      where.OR = [
+        { baseMarketHashName: { in: baseNames } },
+        { marketHashName: { in: baseNames } },
+      ];
+    }
+    return where;
   }
 
   private sortItems(

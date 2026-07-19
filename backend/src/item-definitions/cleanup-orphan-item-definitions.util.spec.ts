@@ -15,7 +15,11 @@ describe('cleanupOrphanItemDefinitions', () => {
 
     expect(report).toEqual({ scanned: 2, deleted: 2 });
     expect(prisma.itemDefinition.findMany).toHaveBeenCalledWith({
-      where: { assets: { none: {} } },
+      where: {
+        catalogSeeded: false,
+        assets: { none: {} },
+        buyRequests: { none: {} },
+      },
       select: { id: true },
     });
     expect(prisma.itemDefinition.deleteMany).toHaveBeenCalledWith({

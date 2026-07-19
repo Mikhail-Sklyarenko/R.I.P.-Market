@@ -26,6 +26,7 @@
     "reconcile:ledger": "ts-node -r tsconfig-paths/register src/scripts/reconcile-ledger.ts",
     "reconcile:payments": "ts-node -r tsconfig-paths/register src/scripts/reconcile-payments.ts",
     "backfill:lot-snapshots": "ts-node -r tsconfig-paths/register src/scripts/backfill-lot-listing-snapshots.ts",
+    "import:cs2-catalog": "ts-node -r tsconfig-paths/register src/scripts/import-cs2-catalog.ts",
     "cleanup:orphan-items": "ts-node -r tsconfig-paths/register src/scripts/cleanup-orphan-item-definitions.ts"
   },
   "dependencies": {

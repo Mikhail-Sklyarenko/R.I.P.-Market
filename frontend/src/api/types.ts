@@ -244,6 +244,8 @@ export type CatalogItem = {
   weapon: string | null;
   rarity: string | null;
   iconUrl: string | null;
+  availableWears?: string[];
+  catalogSeeded?: boolean;
   minMarketplacePriceMinor: string | null;
   activeLotCount: number;
   orderCount30d: number;

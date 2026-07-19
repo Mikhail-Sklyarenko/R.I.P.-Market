@@ -12,7 +12,9 @@ type ItemCompareHeaderProps = {
 };
 
 export function ItemCompareHeader({ item }: ItemCompareHeaderProps) {
-  const wearBadge = getWearBadgeStyle(parseWearCodeFromMarketHashName(item.marketHashName));
+  const wearBadge = item.catalogSeeded
+    ? null
+    : getWearBadgeStyle(parseWearCodeFromMarketHashName(item.marketHashName));
   const rarityLabel = getRarityDisplayLabel(item.rarity);
   const rarityStyle = getRarityStyle(item.rarity);
   const offerLabel =

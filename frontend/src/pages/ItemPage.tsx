@@ -34,6 +34,7 @@ import {
   resolveSteamMarketHashName,
   toCatalogItemDisplaySource,
 } from '../utils/steam-market-link';
+import { CATALOG_WEAR_FILTERS } from '../utils/wear-filters';
 
 export function ItemPage() {
   const { id } = useParams();
@@ -48,6 +49,7 @@ export function ItemPage() {
   const [requestError, setRequestError] = useState<unknown>(null);
   const [submitting, setSubmitting] = useState(false);
   const [maxPriceInput, setMaxPriceInput] = useState('');
+  const [selectedWear, setSelectedWear] = useState('');
 
   const maxPriceMinor = useMemo(() => parseUsdToMinor(maxPriceInput), [maxPriceInput]);
   const hasOffers = (item?.activeLotCount ?? 0) > 0;
@@ -59,6 +61,18 @@ export function ItemPage() {
     () => (item ? toCatalogItemDisplaySource(item) : null),
     [item],
   );
+  const wearOptions = useMemo(() => {
+    if (!item?.availableWears?.length) {
+      return [];
+    }
+    return CATALOG_WEAR_FILTERS.filter((option) =>
+      item.availableWears!.includes(option.value),
+    );
+  }, [item]);
+  const effectiveWear =
+    selectedWear ||
+    parseWearCodeFromMarketHashName(item?.marketHashName ?? '') ||
+    '';
 
   useEffect(() => {
     if (!id) {
@@ -67,7 +81,20 @@ export function ItemPage() {
     setLoading(true);
     setError(null);
     getCatalogItem(id)
-      .then(setItem)
+      .then((next) => {
+        setItem(next);
+        const wears = next.availableWears ?? [];
+        setSelectedWear((prev) => {
+          if (prev && wears.includes(prev)) {
+            return prev;
+          }
+          // Offers page: show all wears by default. Buy-request page: pick first wear.
+          if ((next.activeLotCount ?? 0) > 0) {
+            return '';
+          }
+          return wears[0] ?? '';
+        });
+      })
       .catch((err: unknown) => setError(err))
       .finally(() => setLoading(false));
   }, [id]);
@@ -77,11 +104,17 @@ export function ItemPage() {
       return;
     }
     setLotsLoading(true);
-    listLots({ itemDefinitionId: id, sort: 'price_asc', limit: 24, page: 1 })
+    listLots({
+      itemDefinitionId: id,
+      wear: selectedWear || undefined,
+      sort: 'price_asc',
+      limit: 24,
+      page: 1,
+    })
       .then((page) => setLots(page.items))
       .catch(() => setLots([]))
       .finally(() => setLotsLoading(false));
-  }, [id]);
+  }, [id, selectedWear]);
 
   useEffect(() => {
     if (!token || !id) {
@@ -90,10 +123,27 @@ export function ItemPage() {
     }
     listMyBuyRequests(token, id)
       .then((requests) => {
-        setBuyRequest(requests.find((request) => request.status === 'OPEN') ?? requests[0] ?? null);
+        const open = requests.find((request) => request.status === 'OPEN');
+        if (open && selectedWear) {
+          const wearInName = parseWearCodeFromMarketHashName(
+            open.itemDefinition?.marketHashName ?? '',
+          );
+          if (wearInName && wearInName !== selectedWear) {
+            const matching = requests.find(
+              (request) =>
+                request.status === 'OPEN' &&
+                parseWearCodeFromMarketHashName(
+                  request.itemDefinition?.marketHashName ?? '',
+                ) === selectedWear,
+            );
+            setBuyRequest(matching ?? open);
+            return;
+          }
+        }
+        setBuyRequest(open ?? requests[0] ?? null);
       })
       .catch(() => setBuyRequest(null));
-  }, [token, id]);
+  }, [token, id, selectedWear]);
 
   useEffect(() => {
     if (!item || lotsLoading) {
@@ -120,6 +170,10 @@ export function ItemPage() {
       }
       return;
     }
+    if (wearOptions.length > 0 && !selectedWear) {
+      setRequestError(new Error('Выберите состояние скина.'));
+      return;
+    }
     if (maxPriceInput.trim() && !maxPriceMinor) {
       setRequestError(new Error('Укажите корректную максимальную цену в USD.'));
       return;
@@ -130,6 +184,7 @@ export function ItemPage() {
     try {
       const created = await createBuyRequest(token, id, {
         maxPriceMinor: maxPriceMinor ?? undefined,
+        wear: selectedWear || undefined,
       });
       setBuyRequest(created);
       setMaxPriceInput('');
@@ -194,11 +249,11 @@ export function ItemPage() {
                       <LotActionButtons
                         steamMarketUrl={buildSteamMarketListingUrl(
                           item.marketHashName,
-                          parseWearCodeFromMarketHashName(item.marketHashName),
+                          effectiveWear || null,
                         )}
                         steamMarketHashName={resolveSteamMarketHashName(
                           item.marketHashName,
-                          parseWearCodeFromMarketHashName(item.marketHashName),
+                          effectiveWear || null,
                         )}
                       />
                     </div>
@@ -210,6 +265,8 @@ export function ItemPage() {
                     item={item}
                     token={token}
                     openBuyRequest={openBuyRequest}
+                    selectedWear={selectedWear}
+                    onWearChange={setSelectedWear}
                     maxPriceInput={maxPriceInput}
                     submitting={submitting}
                     requestError={requestError}
@@ -231,12 +288,41 @@ export function ItemPage() {
             >
               <div className="item-compare-main">
                 <ItemCompareHeader item={item} />
-                {isComparisonPage ? (
+                {wearOptions.length > 0 ? (
+                  <div
+                    className="item-page-wear-filters"
+                    data-testid="item-page-wear-filters"
+                  >
+                    <button
+                      type="button"
+                      className={`catalog-rarity-filter${selectedWear === '' ? ' active' : ''}`}
+                      data-testid="item-wear-all"
+                      onClick={() => setSelectedWear('')}
+                    >
+                      Все состояния
+                    </button>
+                    {wearOptions.map((option) => (
+                      <button
+                        key={option.value}
+                        type="button"
+                        className={`catalog-rarity-filter${
+                          selectedWear === option.value ? ' active' : ''
+                        }`}
+                        style={{ color: option.color }}
+                        data-testid={`item-wear-${option.value.toLowerCase()}`}
+                        onClick={() => setSelectedWear(option.value)}
+                      >
+                        {option.label}
+                      </button>
+                    ))}
+                  </div>
+                ) : null}
+                {isComparisonPage || lots.length > 0 ? (
                   <ItemOffersTable lots={lots} loading={lotsLoading} />
                 ) : null}
               </div>
 
-              {isComparisonPage ? (
+              {isComparisonPage || cheapestLot ? (
                 <aside className="item-compare-sidebar">
                   <div className="card lot-purchase-card item-purchase-card">
                     <p className="item-purchase-label muted small">Лучшее предложение</p>
@@ -259,6 +345,19 @@ export function ItemPage() {
                         Открыть лучшее предложение
                       </Link>
                     ) : null}
+
+                    <a
+                      className="button secondary lot-purchase-button"
+                      href={buildSteamMarketListingUrl(
+                        item.marketHashName,
+                        effectiveWear || null,
+                      )}
+                      target="_blank"
+                      rel="noreferrer"
+                      data-testid="item-steam-market-link"
+                    >
+                      Steam Market
+                    </a>
 
                     <p className="muted small">
                       Float, стикеры и inspect доступны на странице конкретного лота.
