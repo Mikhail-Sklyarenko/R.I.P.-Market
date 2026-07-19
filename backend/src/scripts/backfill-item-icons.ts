@@ -24,7 +24,7 @@ async function main() {
         OR: [{ iconUrl: null }, { iconUrl: '' }],
       },
       select: { id: true, marketHashName: true },
-      orderBy: { updatedAt: 'desc' },
+      orderBy: { updatedAt: 'asc' },
       take: limit,
     });
 
@@ -36,9 +36,12 @@ async function main() {
 
     // eslint-disable-next-line no-console
     console.log(`Refreshing icons for ${missing.length} definition(s)…`);
+    const fromSnapshots = await icons.backfillMissingFromSnapshots(limit);
     const updated = await icons.refreshMissingIcons(missing);
     // eslint-disable-next-line no-console
-    console.log(`Updated ${updated} icon(s)`);
+    console.log(
+      `Updated ${fromSnapshots + updated} icon(s) (snapshots=${fromSnapshots}, steam=${updated})`,
+    );
   } finally {
     await prisma.$disconnect();
   }

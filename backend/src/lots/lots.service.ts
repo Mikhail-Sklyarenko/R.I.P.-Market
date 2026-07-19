@@ -22,9 +22,11 @@ import { LotStateService } from './lot-state.service';
 import { hasValidTradeUrl } from '../users/trade-url.util';
 import { SteamVacService } from '../users/steam-vac.service';
 import { SteamMarketPriceService } from '../catalog/steam-market-price.service';
+import { ItemIconService } from '../catalog/item-icon.service';
 import { assertListingEligible } from './listing-eligibility.util';
 import { assertBulkListingAssets } from './bulk-listing.util';
 import { buildLotListingSnapshotData } from './lot-listing-snapshot.util';
+import { ensureItemDefinitionIcon } from '../item-definitions/ensure-item-definition-icon.util';
 import {
   buildFallbackInspectLink,
   resolveInspectLink,
@@ -44,6 +46,7 @@ export class LotsService {
     private readonly inventoryService: InventoryService,
     private readonly steamVacService: SteamVacService,
     private readonly steamMarketPrice: SteamMarketPriceService,
+    private readonly itemIcons: ItemIconService,
     private readonly buyRequestMatching: BuyRequestMatchingService,
   ) {}
 
@@ -113,6 +116,8 @@ export class LotsService {
     if (lot?.id) {
       void this.buyRequestMatching.matchLotActivated(lot.id).catch(() => undefined);
     }
+
+    this.scheduleIconRefreshForLots([lot]);
 
     return toJsonSafe(lot);
   }
@@ -201,6 +206,8 @@ export class LotsService {
       void this.buyRequestMatching.matchLotActivated(lot.id).catch(() => undefined);
     }
 
+    this.scheduleIconRefreshForLots(lots);
+
     return toJsonSafe({
       lots,
       createdCount: lots.length,
@@ -247,7 +254,7 @@ export class LotsService {
       tradable: boolean;
       marketable: boolean;
       tradeLockUntil: Date | null;
-      itemDefinition: { marketHashName: string };
+      itemDefinition: { marketHashName: string; id?: string };
     } & Parameters<typeof buildLotListingSnapshotData>[0],
     priceMinor: number,
   ) {
@@ -312,6 +319,12 @@ export class LotsService {
       update: snapshotData,
     });
 
+    await ensureItemDefinitionIcon(
+      tx,
+      asset.itemDefinitionId,
+      snapshotData.iconUrl,
+    );
+
     if (reusableLot && reusableLot.id === created.id) {
       await tx.lotStatusEvent.create({
         data: {
@@ -338,6 +351,42 @@ export class LotsService {
         listingSnapshot: true,
       },
     });
+  }
+
+  private scheduleIconRefreshForLots(
+    lots: Array<{
+      inventoryAsset?: {
+        itemDefinitionId?: string;
+        itemDefinition?: {
+          id?: string;
+          marketHashName?: string;
+          iconUrl?: string | null;
+        };
+      } | null;
+      listingSnapshot?: { iconUrl?: string | null } | null;
+    } | null>,
+  ): void {
+    const rows = lots
+      .map((lot) => {
+        const definition = lot?.inventoryAsset?.itemDefinition;
+        const id =
+          lot?.inventoryAsset?.itemDefinitionId ?? definition?.id ?? null;
+        const marketHashName = definition?.marketHashName ?? null;
+        if (!id || !marketHashName) {
+          return null;
+        }
+        return {
+          id,
+          marketHashName,
+          iconUrl:
+            definition?.iconUrl?.trim() ||
+            lot?.listingSnapshot?.iconUrl?.trim() ||
+            null,
+        };
+      })
+      .filter((row): row is NonNullable<typeof row> => row != null);
+
+    this.itemIcons.scheduleMissingIconRefresh(rows);
   }
 
   async listActive() {

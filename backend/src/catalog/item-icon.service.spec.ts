@@ -10,6 +10,10 @@ describe('ItemIconService', () => {
     lot: {
       findMany: jest.fn(),
     },
+    lotListingSnapshot: {
+      findMany: jest.fn(),
+      updateMany: jest.fn(),
+    },
   };
 
   const service = new ItemIconService(prisma as never);
@@ -17,9 +21,17 @@ describe('ItemIconService', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     process.env.STEAM_ITEM_ICON_ENABLED = 'true';
+    prisma.itemDefinition.findMany.mockResolvedValue([]);
+    prisma.lot.findMany.mockResolvedValue([]);
+    prisma.lotListingSnapshot.findMany.mockResolvedValue([]);
+    prisma.lotListingSnapshot.updateMany.mockResolvedValue({ count: 0 });
+    prisma.itemDefinition.updateMany.mockResolvedValue({ count: 0 });
   });
 
   it('copies icons from listing snapshots onto empty definitions', async () => {
+    prisma.itemDefinition.findMany.mockResolvedValue([
+      { id: 'def-1', marketHashName: 'AK-47 | Redline (Field-Tested)' },
+    ]);
     prisma.lot.findMany.mockResolvedValue([
       {
         inventoryAsset: { itemDefinitionId: 'def-1' },
@@ -41,6 +53,32 @@ describe('ItemIconService', () => {
         OR: [{ iconUrl: null }, { iconUrl: '' }],
       },
       data: { iconUrl: '-9a81dlW-redline' },
+    });
+    expect(prisma.lotListingSnapshot.updateMany).toHaveBeenCalled();
+  });
+
+  it('falls back to marketHashName match when asset link has no icon', async () => {
+    prisma.itemDefinition.findMany.mockResolvedValue([
+      { id: 'def-2', marketHashName: 'AWP | Asiimov (Battle-Scarred)' },
+    ]);
+    prisma.lot.findMany.mockResolvedValue([]);
+    prisma.lotListingSnapshot.findMany.mockResolvedValue([
+      {
+        marketHashName: 'AWP | Asiimov (Battle-Scarred)',
+        iconUrl: '-9a81dlW-asiimov',
+      },
+    ]);
+    prisma.itemDefinition.updateMany.mockResolvedValue({ count: 1 });
+
+    const updated = await service.backfillFromListingSnapshots(['def-2']);
+
+    expect(updated).toBe(1);
+    expect(prisma.itemDefinition.updateMany).toHaveBeenCalledWith({
+      where: {
+        id: 'def-2',
+        OR: [{ iconUrl: null }, { iconUrl: '' }],
+      },
+      data: { iconUrl: '-9a81dlW-asiimov' },
     });
   });
 

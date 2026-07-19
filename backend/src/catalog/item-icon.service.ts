@@ -53,6 +53,10 @@ export class ItemIconService {
     return process.env.STEAM_ITEM_ICON_ENABLED !== 'false';
   }
 
+  isSteamBlocked(): boolean {
+    return Date.now() < this.steamBlockedUntil;
+  }
+
   /**
    * Fire-and-forget: fill missing ItemDefinition.iconUrl for catalog rows.
    * Prefer copying from listing snapshots, then Steam market search.
@@ -112,10 +116,7 @@ export class ItemIconService {
 
       const iconUrl = await this.fetchIconUrl(item.marketHashName);
       if (iconUrl) {
-        await this.prisma.itemDefinition.update({
-          where: { id: item.id },
-          data: { iconUrl },
-        });
+        await this.persistIcon(item.id, item.marketHashName, iconUrl);
         updated += 1;
         this.recentFailures.delete(item.marketHashName);
       } else {
@@ -134,7 +135,27 @@ export class ItemIconService {
   }
 
   /**
+   * Global DB-only backfill: any definition missing an icon that can be
+   * copied from LotListingSnapshot (by asset link or marketHashName).
+   */
+  async backfillMissingFromSnapshots(limit = 200): Promise<number> {
+    const missing = await this.prisma.itemDefinition.findMany({
+      where: {
+        OR: [{ iconUrl: null }, { iconUrl: '' }],
+      },
+      select: { id: true },
+      orderBy: { updatedAt: 'asc' },
+      take: limit,
+    });
+    if (missing.length === 0) {
+      return 0;
+    }
+    return this.backfillFromListingSnapshots(missing.map((row) => row.id));
+  }
+
+  /**
    * Copy iconUrl from LotListingSnapshot onto ItemDefinition when the def has none.
+   * Matches by inventory asset link first, then by marketHashName.
    */
   async backfillFromListingSnapshots(definitionIds: string[]): Promise<number> {
     const uniqueIds = [...new Set(definitionIds.filter(Boolean))];
@@ -142,9 +163,24 @@ export class ItemIconService {
       return 0;
     }
 
+    const definitions = await this.prisma.itemDefinition.findMany({
+      where: {
+        id: { in: uniqueIds },
+        OR: [{ iconUrl: null }, { iconUrl: '' }],
+      },
+      select: { id: true, marketHashName: true },
+    });
+    if (definitions.length === 0) {
+      return 0;
+    }
+
+    const iconByDefinition = new Map<string, string>();
+
     const lots = await this.prisma.lot.findMany({
       where: {
-        inventoryAsset: { itemDefinitionId: { in: uniqueIds } },
+        inventoryAsset: {
+          itemDefinitionId: { in: definitions.map((d) => d.id) },
+        },
         listingSnapshot: {
           iconUrl: { not: null },
         },
@@ -156,7 +192,6 @@ export class ItemIconService {
       take: 500,
     });
 
-    const iconByDefinition = new Map<string, string>();
     for (const lot of lots) {
       const defId = lot.inventoryAsset.itemDefinitionId;
       const icon = lot.listingSnapshot?.iconUrl?.trim();
@@ -166,8 +201,35 @@ export class ItemIconService {
       iconByDefinition.set(defId, icon);
     }
 
+    const stillNeed = definitions.filter((d) => !iconByDefinition.has(d.id));
+    if (stillNeed.length > 0) {
+      const snapshots = await this.prisma.lotListingSnapshot.findMany({
+        where: {
+          marketHashName: { in: stillNeed.map((d) => d.marketHashName) },
+          iconUrl: { not: null },
+        },
+        select: { marketHashName: true, iconUrl: true },
+        take: 500,
+      });
+      const iconByName = new Map<string, string>();
+      for (const snapshot of snapshots) {
+        const icon = snapshot.iconUrl?.trim();
+        if (!icon || iconByName.has(snapshot.marketHashName)) {
+          continue;
+        }
+        iconByName.set(snapshot.marketHashName, icon);
+      }
+      for (const def of stillNeed) {
+        const icon = iconByName.get(def.marketHashName);
+        if (icon) {
+          iconByDefinition.set(def.id, icon);
+        }
+      }
+    }
+
     let updated = 0;
     for (const [id, iconUrl] of iconByDefinition) {
+      const def = definitions.find((row) => row.id === id);
       const result = await this.prisma.itemDefinition.updateMany({
         where: {
           id,
@@ -175,9 +237,39 @@ export class ItemIconService {
         },
         data: { iconUrl },
       });
-      updated += result.count;
+      if (result.count > 0) {
+        updated += result.count;
+        if (def) {
+          await this.backfillEmptySnapshots(def.marketHashName, iconUrl);
+        }
+      }
     }
     return updated;
+  }
+
+  async persistIcon(
+    definitionId: string,
+    marketHashName: string,
+    iconUrl: string,
+  ): Promise<void> {
+    await this.prisma.itemDefinition.update({
+      where: { id: definitionId },
+      data: { iconUrl },
+    });
+    await this.backfillEmptySnapshots(marketHashName, iconUrl);
+  }
+
+  private async backfillEmptySnapshots(
+    marketHashName: string,
+    iconUrl: string,
+  ): Promise<void> {
+    await this.prisma.lotListingSnapshot.updateMany({
+      where: {
+        marketHashName,
+        OR: [{ iconUrl: null }, { iconUrl: '' }],
+      },
+      data: { iconUrl },
+    });
   }
 
   async fetchIconUrl(marketHashName: string): Promise<string | null> {

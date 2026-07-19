@@ -225,7 +225,9 @@ export class SteamInventoryProvider implements InventoryProvider {
         update: {
           weapon: item.weapon ?? undefined,
           rarity: item.rarity ?? undefined,
-          ...(item.iconUrl ? { iconUrl: item.iconUrl } : {}),
+          // Always refresh icon when Steam provides one — definitions created
+          // before icons were captured stay blank otherwise.
+          ...(item.iconUrl?.trim() ? { iconUrl: item.iconUrl.trim() } : {}),
         },
       });
 
