@@ -7,6 +7,7 @@ import {
   getSteamCallbackActions,
   getSteamCallbackMessage,
 } from '../utils/format';
+import { consumeSteamReturnPath } from '../utils/steam-return-path';
 
 export function SteamCallbackPage() {
   const navigate = useNavigate();
@@ -56,7 +57,11 @@ export function SteamCallbackPage() {
       steamAvatarUrl: steamAvatarUrl ?? undefined,
     });
     const linked = searchParams.get('linked') === '1';
-    navigate(linked ? '/account' : getHomePathForRole(role), {
+    const rememberedPath = consumeSteamReturnPath();
+    const destination = linked
+      ? '/account'
+      : rememberedPath ?? getHomePathForRole(role);
+    navigate(destination, {
       replace: true,
       state: linked ? { steamLinked: true } : undefined,
     });

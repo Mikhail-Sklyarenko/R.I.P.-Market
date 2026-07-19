@@ -391,6 +391,44 @@ p {
   font-size: var(--font-size-xs);
 }
 
+.steam-login-button {
+  white-space: nowrap;
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--color-primary-from) 35%, transparent);
+}
+
+.steam-login-button:hover:not(:disabled) {
+  opacity: 1;
+  filter: brightness(1.06);
+}
+
+.steam-login-button-icon {
+  flex: 0 0 auto;
+  opacity: 0.95;
+}
+
+.login-steam-cta {
+  width: 100%;
+  min-height: 44px;
+  font-size: var(--font-size-sm);
+}
+
+.login-dev-mock {
+  display: grid;
+  gap: var(--space-3);
+  margin-top: var(--space-5);
+  padding-top: var(--space-4);
+  border-top: 1px solid var(--color-border);
+}
+
+.login-dev-mock-label {
+  margin: 0;
+}
+
+.login-back-link {
+  margin: var(--space-4) 0 0;
+  text-align: center;
+}
+
 .button:disabled {
   opacity: 0.5;
   cursor: not-allowed;

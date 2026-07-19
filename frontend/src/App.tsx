@@ -1,6 +1,6 @@
 import { Navigate, Route, Routes } from 'react-router-dom';
 import { AdminRoute } from './auth/AdminRoute';
-import { AuthProvider } from './auth/AuthContext';
+import { AuthProvider, useAuth } from './auth/AuthContext';
 import { WalletProvider } from './wallet/WalletContext';
 import { ProtectedRoute } from './auth/ProtectedRoute';
 import { AdminLayout } from './components/AdminLayout';
@@ -33,17 +33,11 @@ import { SupportPage } from './pages/SupportPage';
 import { WalletPage } from './pages/WalletPage';
 import { getHomePathForRole } from './utils/format';
 
+/** Marketplace-first home: guests and users land in catalog; admins → admin. */
 function HomeRedirect() {
-  const raw = localStorage.getItem('rip_market_auth');
-  if (raw) {
-    try {
-      const auth = JSON.parse(raw) as { user?: { role?: string } };
-      if (auth.user?.role) {
-        return <Navigate to={getHomePathForRole(auth.user.role)} replace />;
-      }
-    } catch {
-      // ignore
-    }
+  const { token, user } = useAuth();
+  if (token && user?.role) {
+    return <Navigate to={getHomePathForRole(user.role)} replace />;
   }
   return <Navigate to="/catalog" replace />;
 }
@@ -57,6 +51,7 @@ export function App() {
         <Route path="/login/steam/callback" element={<SteamCallbackPage />} />
 
         <Route element={<Layout />}>
+          <Route path="/" element={<HomeRedirect />} />
           <Route path="/catalog" element={<CatalogPage />} />
           <Route path="/catalog/items/:id" element={<ItemPage />} />
           <Route path="/lots/:id" element={<LotPage />} />
@@ -64,7 +59,6 @@ export function App() {
           <Route path="/support" element={<SupportPage />} />
 
           <Route element={<ProtectedRoute />}>
-            <Route path="/" element={<HomeRedirect />} />
             <Route path="/account" element={<AccountPage />} />
             <Route path="/wallet" element={<WalletPage />} />
             <Route path="/lots/:id/checkout" element={<CheckoutPage />} />

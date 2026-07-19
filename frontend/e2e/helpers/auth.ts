@@ -24,7 +24,7 @@ async function loginAsMockRole(
   role: 'SELLER' | 'BUYER',
   options?: { steamId?: string; gotoInventory?: boolean },
 ) {
-  await page.goto('/login');
+  await page.goto('/login?dev=1');
   await page.getByRole('button', { name: role === 'SELLER' ? 'Seller' : 'Buyer', exact: true }).click();
   await page.getByTestId(`login-${role.toLowerCase()}`).click();
   await expect(page).toHaveURL(/\/catalog$/);
@@ -51,9 +51,9 @@ export async function loginAsBuyer(page: Page) {
 }
 
 export async function loginAsAdmin(page: Page) {
-  await page.goto('/login');
+  await page.goto('/login?dev=1');
   await page.evaluate(() => localStorage.removeItem('rip_market_auth'));
-  await page.goto('/login');
+  await page.goto('/login?dev=1');
   await page.getByRole('button', { name: 'Admin', exact: true }).click();
   await page.getByTestId('login-admin').click();
   await expect(page).toHaveURL(/\/admin\/orders$/);
