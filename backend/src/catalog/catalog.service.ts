@@ -14,6 +14,7 @@ import {
   isListableMarketHashName,
   NON_LISTABLE_MARKET_HASH_NAME_FRAGMENTS,
 } from '../lots/listing-eligibility.util';
+import { ItemIconService } from './item-icon.service';
 import { SteamMarketPriceService } from './steam-market-price.service';
 import type { ListCatalogItemsQueryDto } from './dto/list-catalog-items-query.dto';
 import { catalogLotMatchesWearFloatFilters } from './catalog-lot-filters.util';
@@ -49,6 +50,7 @@ export class CatalogService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly steamMarketPrice: SteamMarketPriceService,
+    private readonly itemIcons: ItemIconService,
   ) {}
 
   async listItems(query: ListCatalogItemsQueryDto) {
@@ -85,10 +87,12 @@ export class CatalogService {
         ),
       );
       const hydrated = await this.hydrateRowsWithCachedSteamPrices(rows);
-      this.scheduleMissingSteamPriceRefresh(hydrated.rows);
+      const withIcons = await this.hydrateMissingIconsFromSnapshots(hydrated.rows);
+      this.scheduleMissingSteamPriceRefresh(withIcons);
+      this.itemIcons.scheduleMissingIconRefresh(withIcons);
 
       return this.buildListResponse(
-        hydrated.rows,
+        withIcons,
         total,
         page,
         limit,
@@ -124,10 +128,12 @@ export class CatalogService {
     const total = filtered.length;
     const pageRows = filtered.slice(skip, skip + limit);
     const hydrated = await this.hydrateRowsWithCachedSteamPrices(pageRows);
-    this.scheduleMissingSteamPriceRefresh(hydrated.rows);
+    const withIcons = await this.hydrateMissingIconsFromSnapshots(hydrated.rows);
+    this.scheduleMissingSteamPriceRefresh(withIcons);
+    this.itemIcons.scheduleMissingIconRefresh(withIcons);
 
     return this.buildListResponse(
-      hydrated.rows,
+      withIcons,
       total,
       page,
       limit,
@@ -158,16 +164,20 @@ export class CatalogService {
       { cacheOnly: true },
     );
 
-    return toJsonSafe(
-      this.buildCatalogItemRow(
-        item,
-        lotStats,
-        popularStats,
-        featuredLots,
-        steamPrices,
-        {},
-      ),
+    const row = this.buildCatalogItemRow(
+      item,
+      lotStats,
+      popularStats,
+      featuredLots,
+      steamPrices,
+      {},
     );
+    this.itemIcons.scheduleMissingIconRefresh([row]);
+    if (row.steamPriceMinor == null) {
+      void this.steamMarketPrice.getPricesWithMeta([item.marketHashName]);
+    }
+
+    return toJsonSafe(row);
   }
 
   async listPopular(limit = 12) {
@@ -213,9 +223,11 @@ export class CatalogService {
       .slice(0, capped);
 
     const hydrated = await this.hydrateRowsWithCachedSteamPrices(rows);
-    this.scheduleMissingSteamPriceRefresh(hydrated.rows);
+    const withIcons = await this.hydrateMissingIconsFromSnapshots(hydrated.rows);
+    this.scheduleMissingSteamPriceRefresh(withIcons);
+    this.itemIcons.scheduleMissingIconRefresh(withIcons);
 
-    return toJsonSafe(hydrated.rows);
+    return toJsonSafe(withIcons);
   }
 
   async getSteamPrices(
@@ -281,6 +293,38 @@ export class CatalogService {
       rows: hydratedRows,
       steamPriceFetchedAt: latestSteamPriceFetch,
     };
+  }
+
+  private async hydrateMissingIconsFromSnapshots(
+    rows: CatalogItemRow[],
+  ): Promise<CatalogItemRow[]> {
+    const missing = rows.filter((row) => !row.iconUrl?.trim());
+    if (missing.length === 0) {
+      return rows;
+    }
+
+    const updated = await this.itemIcons.backfillFromListingSnapshots(
+      missing.map((row) => row.id),
+    );
+    if (updated === 0) {
+      return rows;
+    }
+
+    const refreshed = await this.prisma.itemDefinition.findMany({
+      where: { id: { in: missing.map((row) => row.id) } },
+      select: { id: true, iconUrl: true },
+    });
+    const iconById = new Map(
+      refreshed.map((item) => [item.id, item.iconUrl?.trim() || null]),
+    );
+
+    return rows.map((row) => {
+      if (row.iconUrl?.trim()) {
+        return row;
+      }
+      const iconUrl = iconById.get(row.id);
+      return iconUrl ? { ...row, iconUrl } : row;
+    });
   }
 
   private scheduleMissingSteamPriceRefresh(rows: CatalogItemRow[]): void {

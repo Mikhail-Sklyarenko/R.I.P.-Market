@@ -2616,6 +2616,70 @@ p {
   margin: 0.75rem 0 0;
 }
 
+.order-item-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.65rem;
+  max-width: 22rem;
+  color: inherit;
+  text-decoration: none;
+  border-radius: 0.5rem;
+  padding: 0.2rem 0.35rem 0.2rem 0.2rem;
+  margin: -0.2rem -0.35rem -0.2rem -0.2rem;
+  transition:
+    background-color 0.15s ease,
+    color 0.15s ease;
+}
+
+.order-item-link:hover,
+.order-item-link:focus-visible {
+  background: color-mix(in srgb, var(--color-primary-from, #3b82f6) 14%, transparent);
+  outline: none;
+}
+
+.order-item-link-thumb {
+  flex: 0 0 auto;
+  width: 2.5rem;
+  height: 2.5rem;
+  border-radius: 0.45rem;
+  overflow: hidden;
+  background: color-mix(in srgb, #0b1220 80%, #1e293b);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, #94a3b8 18%, transparent);
+}
+
+.order-item-link-image {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  display: block;
+}
+
+.order-item-link-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+  min-width: 0;
+}
+
+.order-item-link-name {
+  font-weight: 600;
+  line-height: 1.25;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.order-item-link-hint {
+  font-size: 0.72rem;
+  color: var(--color-text-muted, #94a3b8);
+  opacity: 0.85;
+}
+
+.order-item-link:hover .order-item-link-hint,
+.order-item-link:focus-visible .order-item-link-hint {
+  color: var(--color-primary-from, #3b82f6);
+}
+
 .my-orders-item-link {
   color: inherit;
   text-decoration: underline;

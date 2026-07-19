@@ -7,6 +7,7 @@ import { EmptyState } from '../components/EmptyState';
 import { ErrorAlert } from '../components/ErrorAlert';
 import { LoadingState } from '../components/LoadingState';
 import { MoneyDisplay } from '../components/MoneyDisplay';
+import { OrderItemLink } from '../components/OrderItemLink';
 import { PageHeader } from '../components/PageHeader';
 import { StatusBadge } from '../components/StatusBadge';
 import { useWalletSummary } from '../hooks/useWalletSummary';
@@ -22,6 +23,7 @@ import {
   type OrderRoleFilter,
   type OrderStatusFilter,
 } from '../utils/my-orders';
+import { resolveDisplayIconUrl } from '../utils/item-image';
 
 type MyOrdersPageProps = {
   embedded?: boolean;
@@ -261,14 +263,15 @@ export function MyOrdersPage({
                 return (
                   <tr key={order.id} data-testid={`order-row-${order.status}`}>
                     <td>
-                      <Link
-                        to={itemHref}
-                        className="my-orders-item-link"
-                        data-testid={`order-item-link-${order.id}`}
-                        title="Открыть страницу предмета"
-                      >
-                        {itemName}
-                      </Link>
+                      <OrderItemLink
+                        href={itemHref}
+                        name={itemName}
+                        iconUrl={resolveDisplayIconUrl(
+                          order.lot.listingSnapshot?.iconUrl,
+                          order.lot.inventoryAsset.itemDefinition.iconUrl,
+                        )}
+                        testId={`order-item-link-${order.id}`}
+                      />
                     </td>
                     <td>{formatOrderRoleLabel(role)}</td>
                     <td>

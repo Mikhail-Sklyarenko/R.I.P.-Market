@@ -368,6 +368,8 @@ export function InventoryPage() {
         }
       />
 
+      <SellerSaleInfo />
+
       {!steamLinked && requiresSteamLink ? (
         <p className="muted small" data-testid="inventory-refresh-hint">
           Обновление недоступно: сначала привяжите Steam в настройках аккаунта.
@@ -635,7 +637,6 @@ export function InventoryPage() {
         </>
       ) : null}
 
-      <SellerSaleInfo />
     </div>
   );
 }

@@ -720,7 +720,10 @@ export class OrdersService {
       where,
       include: {
         lot: {
-          include: { inventoryAsset: { include: { itemDefinition: true } } },
+          include: {
+            inventoryAsset: { include: { itemDefinition: true } },
+            listingSnapshot: true,
+          },
         },
         tradeOperation: true,
         hold: true,
