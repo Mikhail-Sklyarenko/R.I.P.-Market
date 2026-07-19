@@ -28,7 +28,7 @@ export function InventoryPriceStack({
   loading = false,
   requireSteamPrice = false,
 }: PriceStackProps) {
-  if (loading) {
+  if (loading && !steamPriceMinor && !marketplacePriceMinor) {
     return <PriceStackSkeleton testIdPrefix={testIdPrefix} />;
   }
 

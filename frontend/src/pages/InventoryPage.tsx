@@ -43,6 +43,7 @@ import { hasTradeUrl } from '../utils/trade-url';
 import { formatDataTimestamp } from '../utils/lot-display';
 
 const STALE_INVENTORY_REVALIDATE_MS = 2_500;
+const PRICE_HINT_REFRESH_BATCH = 8;
 
 export function InventoryPage() {
   const { token, user, updateUser } = useAuth();
@@ -70,6 +71,7 @@ export function InventoryPage() {
   const [steamPriceFetchedAt, setSteamPriceFetchedAt] = useState<string | null>(null);
   const [steamPriceMissing, setSteamPriceMissing] = useState<string[]>([]);
   const [pricesLoading, setPricesLoading] = useState(false);
+  const [pricesRefreshing, setPricesRefreshing] = useState(false);
   const [pricesError, setPricesError] = useState<unknown>(null);
 
   const inventoryProvider = config?.inventoryProvider ?? 'mock';
@@ -97,16 +99,18 @@ export function InventoryPage() {
   const selectedSteamPriceMissing =
     Boolean(selectedAsset) &&
     !pricesLoading &&
+    !pricesRefreshing &&
     steamPriceMissing.includes(selectedAsset!.itemDefinition.marketHashName);
 
   const priceMinor = useMemo(() => parseUsdToMinor(priceInput), [priceInput]);
   const selectedListable = selectedAsset ? canListAsset(selectedAsset) : false;
 
-  const applyPriceHintsResponse = useCallback(
+  const mergePriceHints = useCallback(
     (response: Awaited<ReturnType<typeof getInventoryPriceHints>>) => {
-      setPriceHints(response.hints);
-      setSteamPriceFetchedAt(response.steamPriceFetchedAt ?? null);
-      setSteamPriceMissing(response.steamPriceMissing ?? []);
+      setPriceHints((previous) => ({ ...previous, ...response.hints }));
+      if (response.steamPriceFetchedAt) {
+        setSteamPriceFetchedAt(response.steamPriceFetchedAt);
+      }
     },
     [],
   );
@@ -118,6 +122,7 @@ export function InventoryPage() {
         setSteamPriceFetchedAt(null);
         setSteamPriceMissing([]);
         setPricesLoading(false);
+        setPricesRefreshing(false);
         setPricesError(null);
         return;
       }
@@ -129,11 +134,14 @@ export function InventoryPage() {
 
       if (forceRefresh) {
         setPricesLoading(true);
+        setPricesRefreshing(false);
         try {
           const response = await getInventoryPriceHints(token, marketHashNames, {
             forceRefresh: true,
           });
-          applyPriceHintsResponse(response);
+          setPriceHints(response.hints);
+          setSteamPriceFetchedAt(response.steamPriceFetchedAt ?? null);
+          setSteamPriceMissing(response.steamPriceMissing ?? []);
         } catch (err: unknown) {
           setPriceHints({});
           setSteamPriceFetchedAt(null);
@@ -145,34 +153,48 @@ export function InventoryPage() {
         return;
       }
 
-      // Fast path: cached prices only, then fill misses without blocking the grid.
+      // 1) Unlock the grid from cache immediately.
       setPricesLoading(true);
+      let missing: string[] = [];
       try {
         const cached = await getInventoryPriceHints(token, marketHashNames, {
           cacheOnly: true,
         });
-        applyPriceHintsResponse(cached);
-        const missing = cached.steamPriceMissing ?? [];
-        if (missing.length === 0) {
-          setPricesLoading(false);
-          return;
-        }
-        const refreshed = await getInventoryPriceHints(token, missing);
-        applyPriceHintsResponse({
-          hints: { ...cached.hints, ...refreshed.hints },
-          steamPriceFetchedAt:
-            refreshed.steamPriceFetchedAt ?? cached.steamPriceFetchedAt,
-          referencePriceFetchedAt:
-            refreshed.referencePriceFetchedAt ?? cached.referencePriceFetchedAt,
-          steamPriceMissing: refreshed.steamPriceMissing ?? [],
-        });
+        setPriceHints(cached.hints);
+        setSteamPriceFetchedAt(cached.steamPriceFetchedAt ?? null);
+        missing = cached.steamPriceMissing ?? [];
+        setSteamPriceMissing(missing);
       } catch (err: unknown) {
         setPricesError(err);
-      } finally {
         setPricesLoading(false);
+        return;
+      }
+      setPricesLoading(false);
+
+      if (missing.length === 0) {
+        return;
+      }
+
+      // 2) Fill misses in small batches so one slow Steam call never blocks the UI.
+      setPricesRefreshing(true);
+      const stillMissing: string[] = [];
+      try {
+        for (let index = 0; index < missing.length; index += PRICE_HINT_REFRESH_BATCH) {
+          const batch = missing.slice(index, index + PRICE_HINT_REFRESH_BATCH);
+          try {
+            const refreshed = await getInventoryPriceHints(token, batch);
+            mergePriceHints(refreshed);
+            stillMissing.push(...(refreshed.steamPriceMissing ?? []));
+          } catch {
+            stillMissing.push(...batch);
+          }
+        }
+        setSteamPriceMissing(stillMissing);
+      } finally {
+        setPricesRefreshing(false);
       }
     },
-    [token, applyPriceHintsResponse],
+    [token, mergePriceHints],
   );
 
   const scheduleStaleRevalidate = useCallback(
@@ -553,13 +575,13 @@ export function InventoryPage() {
               </p>
             ) : null}
 
-            {pricesLoading ? (
+            {pricesLoading || pricesRefreshing ? (
               <p className="muted small inventory-price-inline" data-testid="inventory-prices-loading">
-                Уточняем цены Steam…
+                {pricesLoading ? 'Загрузка цен Steam…' : 'Уточняем цены Steam…'}
               </p>
             ) : null}
 
-            {!pricesLoading && pricesError ? (
+            {!pricesLoading && !pricesRefreshing && pricesError ? (
               <div
                 className="inventory-price-banner inventory-price-banner-error"
                 data-testid="inventory-prices-error"
@@ -576,7 +598,7 @@ export function InventoryPage() {
               </div>
             ) : null}
 
-            {!pricesLoading && !pricesError && steamPriceMissing.length > 0 ? (
+            {!pricesLoading && !pricesRefreshing && !pricesError && steamPriceMissing.length > 0 ? (
               <div
                 className="inventory-price-banner"
                 data-testid="inventory-prices-partial"
@@ -685,7 +707,13 @@ export function InventoryPage() {
                       isBulkHighlighted={stackBulkHighlighted}
                       stackCount={stack.count}
                       priceHint={priceHints[asset.itemDefinition.marketHashName]}
-                      pricesLoading={pricesLoading}
+                      pricesLoading={
+                        (pricesLoading || pricesRefreshing) &&
+                        !priceHints[asset.itemDefinition.marketHashName]
+                          ?.steamPriceMinor &&
+                        !priceHints[asset.itemDefinition.marketHashName]
+                          ?.minMarketplacePriceMinor
+                      }
                       requireSteamPrice
                       onSelect={selectAsset}
                     />
