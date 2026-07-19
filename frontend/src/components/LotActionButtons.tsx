@@ -87,7 +87,7 @@ export function LotActionButtons({
           }
         >
           <SteamMarketIcon />
-          <span>Steam Маркет</span>
+          <span>Steam Market</span>
         </a>
       ) : null}
     </div>

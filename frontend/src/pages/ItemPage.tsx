@@ -179,19 +179,21 @@ export function ItemPage() {
             <>
               <div className="lot-page-grid" data-testid="item-buy-request-layout">
                 <div className="lot-page-main">
-                  <div className="card lot-preview-card">
+                  <div className="card lot-preview-card" data-testid="item-preview-card">
                     <LotItemHero item={displayItem} />
-                    <ItemParamsPanel item={displayItem} testId="item-params" />
-                    <LotActionButtons
-                      steamMarketUrl={buildSteamMarketListingUrl(
-                        item.marketHashName,
-                        parseWearCodeFromMarketHashName(item.marketHashName),
-                      )}
-                      steamMarketHashName={resolveSteamMarketHashName(
-                        item.marketHashName,
-                        parseWearCodeFromMarketHashName(item.marketHashName),
-                      )}
-                    />
+                    <div className="lot-preview-card-body">
+                      <ItemParamsPanel item={displayItem} testId="item-params" />
+                      <LotActionButtons
+                        steamMarketUrl={buildSteamMarketListingUrl(
+                          item.marketHashName,
+                          parseWearCodeFromMarketHashName(item.marketHashName),
+                        )}
+                        steamMarketHashName={resolveSteamMarketHashName(
+                          item.marketHashName,
+                          parseWearCodeFromMarketHashName(item.marketHashName),
+                        )}
+                      />
+                    </div>
                   </div>
                 </div>
 

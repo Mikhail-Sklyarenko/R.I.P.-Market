@@ -121,27 +121,29 @@ export function LotPage() {
 
           <div className="lot-page-grid">
             <div className="lot-page-main">
-              <div className="card lot-preview-card">
+              <div className="card lot-preview-card" data-testid="lot-preview-card">
                 <LotItemHero item={displayItem} />
 
-                <ItemParamsPanel item={displayItem} testId="lot-spec" />
+                <div className="lot-preview-card-body">
+                  <ItemParamsPanel item={displayItem} testId="lot-spec" />
 
-                <LotStickers stickers={displayItem.stickers} testIdPrefix="lot" />
+                  <LotStickers stickers={displayItem.stickers} testIdPrefix="lot" />
 
-                {snapshotCapturedAt ? (
-                  <p className="muted small" data-testid="lot-snapshot-captured-at">
-                    Характеристики зафиксированы при выставлении: {snapshotCapturedAt}
-                  </p>
-                ) : null}
+                  {snapshotCapturedAt ? (
+                    <p className="muted small lot-preview-meta" data-testid="lot-snapshot-captured-at">
+                      Характеристики зафиксированы при выставлении: {snapshotCapturedAt}
+                    </p>
+                  ) : null}
 
-                <LotActionButtons
-                  inspectLink={lot.inspectLink}
-                  steamMarketUrl={lot.steamMarketUrl}
-                  steamMarketHashName={
-                    lot.steamMarketHashName ??
-                    displayItem.itemDefinition.marketHashName
-                  }
-                />
+                  <LotActionButtons
+                    inspectLink={lot.inspectLink}
+                    steamMarketUrl={lot.steamMarketUrl}
+                    steamMarketHashName={
+                      lot.steamMarketHashName ??
+                      displayItem.itemDefinition.marketHashName
+                    }
+                  />
+                </div>
               </div>
             </div>
 
