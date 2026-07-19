@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { useEffect, useMemo, useState, type MouseEvent } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
 import { listMyOrders } from '../api/marketplace';
 import type { Order } from '../api/types';
 import { useAuth } from '../auth/AuthContext';
@@ -17,7 +17,6 @@ import {
   computeSellerPendingReceiveMinor,
   filterOrders,
   formatOrderRoleLabel,
-  getDealNextStepShort,
   getOrderRole,
   getOrderSummaryCounts,
   isActiveOrderStatus,
@@ -39,6 +38,7 @@ export function MyOrdersPage({
   buyerOnly = false,
   emptyStateMode = 'default',
 }: MyOrdersPageProps) {
+  const navigate = useNavigate();
   const { token, user } = useAuth();
   const { summary: walletSummary } = useWalletSummary();
   const [summaryOrders, setSummaryOrders] = useState<Order[]>([]);
@@ -245,9 +245,8 @@ export function MyOrdersPage({
                 {!sellerOnly && !buyerOnly ? <th>Роль</th> : null}
                 <th>Сумма</th>
                 <th>Статус</th>
-                <th>Дальше</th>
                 <th>Дата</th>
-                <th>Действия</th>
+                <th>ID</th>
               </tr>
             </thead>
             <tbody>
@@ -255,24 +254,52 @@ export function MyOrdersPage({
                 const role = getOrderRole(order, user?.id);
                 const itemName =
                   order.lot.inventoryAsset.itemDefinition.marketHashName;
-                const itemDefinitionId =
-                  order.lot.inventoryAsset.itemDefinitionId ??
-                  order.lot.inventoryAsset.itemDefinition.id;
-                const itemHref = itemDefinitionId
-                  ? `/catalog/items/${itemDefinitionId}`
-                  : `/lots/${order.lotId}`;
+                const orderHref = `/orders/${order.id}`;
+
+                function openOrder(event?: MouseEvent) {
+                  // Let real links (item) / middle-click work without double navigation.
+                  if (
+                    event &&
+                    (event.defaultPrevented ||
+                      event.button !== 0 ||
+                      event.metaKey ||
+                      event.ctrlKey ||
+                      event.shiftKey ||
+                      event.altKey)
+                  ) {
+                    return;
+                  }
+                  const target = event?.target as HTMLElement | undefined;
+                  if (target?.closest('a, button')) {
+                    return;
+                  }
+                  navigate(orderHref);
+                }
+
                 return (
-                  <tr key={order.id} data-testid={`order-row-${order.status}`}>
+                  <tr
+                    key={order.id}
+                    className="deals-order-row"
+                    data-testid={`order-row-${order.status}`}
+                    tabIndex={0}
+                    onClick={openOrder}
+                    onKeyDown={(event) => {
+                      if (event.key === 'Enter' || event.key === ' ') {
+                        event.preventDefault();
+                        navigate(orderHref);
+                      }
+                    }}
+                  >
                     <td>
                       <OrderItemLink
-                        href={itemHref}
+                        href={orderHref}
                         name={itemName}
                         iconUrl={resolveDisplayIconUrl(
                           order.lot.listingSnapshot?.iconUrl,
                           order.lot.inventoryAsset.itemDefinition.iconUrl,
                         )}
                         compact
-                        testId={`order-item-link-${order.id}`}
+                        testId={`open-order-${order.id}`}
                       />
                     </td>
                     {!sellerOnly && !buyerOnly ? (
@@ -299,12 +326,6 @@ export function MyOrdersPage({
                       />
                       <span className="sr-only">{order.status}</span>
                     </td>
-                    <td
-                      className="deals-next-step"
-                      data-testid={`order-next-step-${order.id}`}
-                    >
-                      {getDealNextStepShort(order, role)}
-                    </td>
                     <td className="deals-date-cell">
                       {new Date(order.createdAt).toLocaleString('ru-RU', {
                         day: '2-digit',
@@ -314,21 +335,12 @@ export function MyOrdersPage({
                         minute: '2-digit',
                       })}
                     </td>
-                    <td>
-                      <div className="deals-row-actions">
-                        <CopyableDealId
-                          id={order.id}
-                          compact
-                          testId={`order-deal-id-${order.id}`}
-                        />
-                        <Link
-                          to={`/orders/${order.id}`}
-                          className="button secondary sm deals-open-link"
-                          data-testid={`open-order-${order.id}`}
-                        >
-                          Открыть
-                        </Link>
-                      </div>
+                    <td className="deals-id-cell">
+                      <CopyableDealId
+                        id={order.id}
+                        compact
+                        testId={`order-deal-id-${order.id}`}
+                      />
                     </td>
                   </tr>
                 );

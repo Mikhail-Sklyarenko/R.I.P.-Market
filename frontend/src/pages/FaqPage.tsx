@@ -123,8 +123,8 @@ export function FaqPage() {
       <section className="card faq-support-cta" data-testid="faq-support-cta">
         <h2 className="support-section-title">Не нашли ответ?</h2>
         <p className="muted small">
-          Напишите в поддержку — укажите ID сделки (Сделки → Открыть → «Скопировать»)
-          и опишите проблему. Можно создать тикет на
+          Напишите в поддержку — укажите ID сделки (Сделки → клик по ID или
+          «Скопировать» на странице сделки) и опишите проблему. Можно создать тикет на
           сайте или отправить письмо.
         </p>
         <div className="faq-support-cta-actions">

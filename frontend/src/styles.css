@@ -954,7 +954,7 @@ p {
 
 .deals-orders-table {
   width: 100%;
-  min-width: 920px;
+  min-width: 780px;
   background: transparent;
   table-layout: auto;
 }
@@ -973,8 +973,19 @@ p {
 
 .deals-orders-table td:first-child {
   white-space: normal;
-  min-width: 12rem;
-  max-width: 22rem;
+  min-width: 14rem;
+  max-width: 26rem;
+}
+
+.deals-order-row {
+  cursor: pointer;
+  transition: background-color 0.15s ease;
+}
+
+.deals-order-row:hover,
+.deals-order-row:focus-visible {
+  background: color-mix(in srgb, var(--color-primary-from, #3b82f6) 8%, transparent);
+  outline: none;
 }
 
 .deals-role-label {
@@ -986,31 +997,13 @@ p {
   font-variant-numeric: tabular-nums;
 }
 
-.deals-next-step {
-  color: var(--color-text-muted);
-  font-size: var(--font-size-sm);
-  max-width: 12rem;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
 .deals-date-cell {
   font-size: var(--font-size-sm);
   color: var(--color-text-muted);
 }
 
-.deals-row-actions {
-  display: flex;
-  flex-direction: row;
-  flex-wrap: nowrap;
-  align-items: center;
-  gap: 8px;
-}
-
-.deals-open-link {
-  flex: 0 0 auto;
-  text-decoration: none;
-  white-space: nowrap;
+.deals-id-cell {
+  width: 1%;
 }
 
 .copyable-deal-id {
@@ -1052,35 +1045,35 @@ p {
 
 .copyable-deal-id-compact {
   display: inline-flex;
-  flex-wrap: nowrap;
   align-items: center;
-  gap: 6px;
-  flex: 0 0 auto;
+  margin: 0;
+  padding: 0;
+  border: none;
+  background: transparent;
+  cursor: pointer;
 }
 
 .copyable-deal-id-compact .copyable-deal-id-value {
-  max-width: 5.75rem;
+  max-width: 7.5rem;
   word-break: normal;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  transition:
+    border-color 0.15s ease,
+    color 0.15s ease,
+    background-color 0.15s ease;
 }
 
-.copyable-deal-id-btn {
-  margin: 0;
-  padding: 3px 8px;
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-sm);
-  background: transparent;
-  color: var(--color-text-muted);
-  font-size: 11px;
-  line-height: 1.2;
-  cursor: pointer;
-}
-
-.copyable-deal-id-btn:hover {
-  color: var(--color-text);
+.copyable-deal-id-compact:hover .copyable-deal-id-value {
   border-color: var(--color-text-muted);
+  color: var(--color-text);
+}
+
+.copyable-deal-id-value-copied {
+  border-color: color-mix(in srgb, var(--color-success) 45%, var(--color-border));
+  background: var(--color-success-bg);
+  color: var(--color-success);
 }
 
 .order-support-link {
@@ -2978,11 +2971,13 @@ p {
 
 .order-item-link-compact {
   max-width: 100%;
+  gap: 0.75rem;
 }
 
 .order-item-link-compact .order-item-link-thumb {
-  width: 2.1rem;
-  height: 2.1rem;
+  width: 2.85rem;
+  height: 2.85rem;
+  border-radius: 0.5rem;
 }
 
 .order-item-link-hint {

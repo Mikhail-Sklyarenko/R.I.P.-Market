@@ -1,8 +1,8 @@
-import { useState } from 'react';
+import { useState, type MouseEvent } from 'react';
 
 type CopyableDealIdProps = {
   id: string;
-  /** Compact row for tables: short id + copy. */
+  /** Compact chip for tables: click the ID to copy. */
   compact?: boolean;
   className?: string;
   testId?: string;
@@ -23,7 +23,9 @@ export function CopyableDealId({
 }: CopyableDealIdProps) {
   const [copied, setCopied] = useState(false);
 
-  async function handleCopy() {
+  async function handleCopy(event?: MouseEvent) {
+    event?.stopPropagation();
+    event?.preventDefault();
     try {
       await navigator.clipboard.writeText(id);
       setCopied(true);
@@ -35,24 +37,29 @@ export function CopyableDealId({
 
   if (compact) {
     return (
-      <div
+      <button
+        type="button"
         className={['copyable-deal-id', 'copyable-deal-id-compact', className]
           .filter(Boolean)
           .join(' ')}
+        onClick={(event) => void handleCopy(event)}
+        title={copied ? 'Скопировано' : `Скопировать ID: ${id}`}
+        aria-label={
+          copied ? 'ID сделки скопирован' : `Скопировать ID сделки ${id}`
+        }
         data-testid={testId}
       >
-        <code className="copyable-deal-id-value" title={id}>
-          {shortDealId(id)}
-        </code>
-        <button
-          type="button"
-          className="copyable-deal-id-btn"
-          onClick={() => void handleCopy()}
-          data-testid={`${testId}-copy`}
+        <code
+          className={[
+            'copyable-deal-id-value',
+            copied ? 'copyable-deal-id-value-copied' : '',
+          ]
+            .filter(Boolean)
+            .join(' ')}
         >
-          {copied ? 'Скопировано' : 'ID'}
-        </button>
-      </div>
+          {copied ? 'Скопировано' : shortDealId(id)}
+        </code>
+      </button>
     );
   }
 

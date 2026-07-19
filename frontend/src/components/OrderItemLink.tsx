@@ -27,7 +27,7 @@ export function OrderItemLink({
         .filter(Boolean)
         .join(' ')}
       data-testid={testId}
-      title={`Открыть ${name}`}
+      title={compact ? `Открыть сделку: ${name}` : `Открыть ${name}`}
     >
       <span className="order-item-link-thumb" aria-hidden="true">
         <SteamItemImage

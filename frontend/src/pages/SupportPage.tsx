@@ -85,7 +85,7 @@ export function SupportPage() {
         <h2 className="support-section-title">Создать тикет</h2>
         <p className="muted small">
           Опишите проблему. Если речь о покупке или продаже — вставьте ID сделки
-          со страницы сделки (Сделки → Открыть → «Скопировать»). Email:{' '}
+          (Сделки → клик по ID в списке или «Скопировать» на странице сделки). Email:{' '}
           <a href={`mailto:${SUPPORT_EMAIL}`} data-testid="support-email-link">
             {SUPPORT_EMAIL}
           </a>
