@@ -51,7 +51,7 @@ export function UserMenu() {
       return <SteamLoginButton testId="nav-login-steam" />;
     }
     return (
-      <Link to="/login" className="button primary sm" data-testid="nav-login">
+      <Link to="/login?dev=1" className="button primary sm" data-testid="nav-login">
         Войти
       </Link>
     );
@@ -137,7 +137,7 @@ export function UserMenu() {
             onClick={() => {
               logout();
               setOpen(false);
-              navigate('/catalog');
+              navigate('/');
             }}
           >
             Выйти

@@ -1,10 +1,6 @@
 import { useState } from 'react';
 import { useLocation } from 'react-router-dom';
-import { getSteamLoginUrl } from '../api/marketplace';
-import { rememberSteamReturnPath } from '../utils/steam-return-path';
-
-const API_BASE_URL =
-  import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:3000/api/v1';
+import { startSteamLogin } from '../utils/start-steam-login';
 
 type SteamLoginButtonProps = {
   /** Where to send the user after Steam login. Defaults to current location. */
@@ -53,11 +49,8 @@ export function SteamLoginButton({
     setLoading(true);
     const path =
       returnPath ?? `${location.pathname}${location.search}${location.hash}`;
-    rememberSteamReturnPath(path);
     try {
-      const callbackUrl = `${API_BASE_URL}/auth/steam/callback`;
-      const response = await getSteamLoginUrl(callbackUrl);
-      window.location.href = response.url;
+      await startSteamLogin(path);
     } catch {
       setLoading(false);
     }

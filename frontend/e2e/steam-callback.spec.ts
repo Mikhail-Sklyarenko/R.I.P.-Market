@@ -6,7 +6,7 @@ test.describe('Steam callback page', () => {
       '/login/steam/callback?accessToken=test-token&userId=user-1&username=steam_user&role=BUYER&status=ACTIVE&steamId=76561198000000000',
     );
 
-    await expect(page).toHaveURL(/\/catalog$/);
+    await expect(page).toHaveURL(/\/($|catalog\/?$)/);
     await expect
       .poll(async () =>
         page.evaluate(() => {

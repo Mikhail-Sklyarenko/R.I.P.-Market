@@ -21,6 +21,7 @@ import { getRarityDisplayLabel } from '../utils/rarity-colors';
 import { SimilarLots } from '../components/SimilarLots';
 import { StatusBadge } from '../components/StatusBadge';
 import { formatDataTimestamp, resolveLotDisplayItem } from '../utils/lot-display';
+import { startSteamLogin } from '../utils/start-steam-login';
 
 export function LotPage() {
   const { id } = useParams();
@@ -82,12 +83,16 @@ export function LotPage() {
       .catch(() => setSiblingOfferCount(null));
   }, [itemDefinitionId]);
 
-  function handleProceedToCheckout() {
+  async function handleProceedToCheckout() {
     if (!id) {
       return;
     }
     if (!token) {
-      navigate(`/login?returnUrl=${encodeURIComponent(`/lots/${id}/checkout`)}`);
+      try {
+        await startSteamLogin(`/lots/${id}/checkout`);
+      } catch {
+        // Stay on lot; user can retry via header Steam CTA.
+      }
       return;
     }
     navigate(`/lots/${id}/checkout`);

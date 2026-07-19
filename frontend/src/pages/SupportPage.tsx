@@ -93,7 +93,7 @@ export function SupportPage() {
 
         {!token ? (
           <p className="muted">
-            <Link to="/login?returnUrl=%2Fsupport">Войдите</Link>, чтобы создать тикет.
+            Войдите через Steam в шапке сайта, чтобы создать тикет.
           </p>
         ) : (
           <form className="support-ticket-form" onSubmit={(event) => void handleSubmit(event)}>

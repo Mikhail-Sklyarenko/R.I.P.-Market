@@ -131,7 +131,7 @@ export function getHomePathForRole(role: string): string {
   if (role === 'ADMIN') {
     return '/admin/orders';
   }
-  return '/catalog';
+  return '/';
 }
 
 export const OPEN_DISPUTE_STATUSES = new Set([
@@ -169,12 +169,12 @@ export type SteamCallbackAction = {
 export function getSteamCallbackActions(errorCode: string | null): SteamCallbackAction[] {
   if (errorCode === 'STEAM_ALREADY_LINKED') {
     return [
-      { label: 'Войти в другой аккаунт', href: '/login' },
+      { label: 'На главную', href: '/' },
       { label: 'Открыть аккаунт', href: '/account' },
     ];
   }
 
-  return [{ label: 'Вернуться ко входу', href: '/login' }];
+  return [{ label: 'Вернуться в каталог', href: '/' }];
 }
 
 export const MOCK_TRADE_ENABLED = viteEnv?.VITE_ENABLE_MOCK_TRADE !== 'false';

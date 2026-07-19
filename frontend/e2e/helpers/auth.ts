@@ -27,7 +27,7 @@ async function loginAsMockRole(
   await page.goto('/login?dev=1');
   await page.getByRole('button', { name: role === 'SELLER' ? 'Seller' : 'Buyer', exact: true }).click();
   await page.getByTestId(`login-${role.toLowerCase()}`).click();
-  await expect(page).toHaveURL(/\/catalog$/);
+  await expect(page).toHaveURL(/\/($|catalog\/?$)/);
   const token = await readPageToken(page);
   if (role === 'SELLER') {
     await prepareUserForTrading(page.request, token, options?.steamId);
@@ -35,7 +35,7 @@ async function loginAsMockRole(
     await prepareBuyerForPurchase(page.request, token);
   }
   await page.reload();
-  await expect(page).toHaveURL(/\/catalog$/);
+  await expect(page).toHaveURL(/\/($|catalog\/?$)/);
   if (options?.gotoInventory ?? role === 'SELLER') {
     await page.goto('/sell/inventory');
     await expect(page).toHaveURL(/\/sell\/inventory$/);

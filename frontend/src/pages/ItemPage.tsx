@@ -27,6 +27,7 @@ import {
 } from '../utils/catalog-navigation';
 import { getRarityDisplayLabel } from '../utils/rarity-colors';
 import { parseUsdToMinor } from '../utils/format';
+import { startSteamLogin } from '../utils/start-steam-login';
 import {
   buildSteamMarketListingUrl,
   parseWearCodeFromMarketHashName,
@@ -108,8 +109,15 @@ export function ItemPage() {
   }, [item, lots, lotsLoading, navigate]);
 
   async function handleCreateBuyRequest() {
-    if (!token || !id) {
-      navigate(`/login?returnUrl=${encodeURIComponent(`/catalog/items/${id}`)}`);
+    if (!id) {
+      return;
+    }
+    if (!token) {
+      try {
+        await startSteamLogin(`/catalog/items/${id}`);
+      } catch {
+        // Stay on item page; user can retry via header Steam CTA.
+      }
       return;
     }
     if (maxPriceInput.trim() && !maxPriceMinor) {

@@ -36,7 +36,7 @@ test.describe('Main navigation', () => {
     await expect(page).toHaveURL(/\/deals/);
 
     await page.getByTestId('nav-catalog').click();
-    await expect(page).toHaveURL(/\/catalog$/);
+    await expect(page).toHaveURL(/\/($|catalog\/?$)/);
   });
 
   test('seller sees sell nav and inventory route', async ({ page }) => {
@@ -49,7 +49,7 @@ test.describe('Main navigation', () => {
 
   test('guest can open catalog and lot without auth', async ({ page, request }) => {
     await seedActiveLot(request);
-    await page.goto('/catalog');
+    await page.goto('/');
     await expect(page.getByTestId('catalog-grid')).toBeVisible();
 
     await page.getByTestId('catalog-open-lot').first().click();

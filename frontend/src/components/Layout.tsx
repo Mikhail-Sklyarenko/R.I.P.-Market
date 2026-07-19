@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Link, NavLink, Outlet } from 'react-router-dom';
+import { Link, NavLink, Outlet, useLocation } from 'react-router-dom';
 import { useAuth } from '../auth/AuthContext';
 import { useWalletSummary } from '../hooks/useWalletSummary';
 import { MoneyDisplay } from './MoneyDisplay';
@@ -14,21 +14,31 @@ function navLinkClass({ isActive }: { isActive: boolean }) {
 
 export function Layout() {
   const { token, user } = useAuth();
+  const location = useLocation();
   const { summary: walletSummary, loading: walletLoading } = useWalletSummary();
   const [supportOpen, setSupportOpen] = useState(false);
   const isAuthenticated = Boolean(token);
+  const catalogActive =
+    location.pathname === '/' || location.pathname.startsWith('/catalog');
 
   return (
     <div className="app-shell">
       <header className="app-header">
         <div className="app-header-start">
-          <Link to="/catalog" className="app-brand">
+          <Link to="/" className="app-brand">
             <p className="eyebrow">R.I.P. Market</p>
             <h1>CS2 P2P</h1>
           </Link>
 
           <nav className="app-nav" aria-label="Main navigation">
-            <NavLink to="/catalog" className={navLinkClass} data-testid="nav-catalog">
+            <NavLink
+              to="/"
+              className={() =>
+                catalogActive ? 'app-nav-link active' : 'app-nav-link'
+              }
+              end
+              data-testid="nav-catalog"
+            >
               Купить
             </NavLink>
             <NavLink to="/sell/inventory" className={navLinkClass} data-testid="nav-sell">

@@ -30,7 +30,7 @@ export function AdminLayout() {
             className="link-button"
             onClick={() => {
               logout();
-              navigate('/login');
+              navigate('/');
             }}
           >
             Logout
