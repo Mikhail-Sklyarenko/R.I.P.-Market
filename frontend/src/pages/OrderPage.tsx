@@ -12,6 +12,7 @@ import { MoneyDisplay } from '../components/MoneyDisplay';
 import { OrderStepper } from '../components/OrderStepper';
 import { OrderTradeBuyerPanel } from '../components/OrderTradeBuyerPanel';
 import { OrderTradeSellerPanel } from '../components/OrderTradeSellerPanel';
+import { CopyableDealId } from '../components/CopyableDealId';
 import { ExtensionConnectPanel } from '../components/ExtensionConnectPanel';
 import { PageHeader } from '../components/PageHeader';
 import { StatusBadge } from '../components/StatusBadge';
@@ -430,11 +431,22 @@ export function OrderPage() {
           <aside className="order-page-sidebar">
             <div className="card order-action-card">
               <div className="order-action-header">
-                <StatusBadge status={order.status} label={formatOrderStatus(order.status)} />
+                <StatusBadge
+                  status={order.status}
+                  label={formatOrderStatus(order.status)}
+                  compact
+                />
                 <span data-testid="order-status" className="sr-only">
                   {order.status}
                 </span>
               </div>
+
+              <CopyableDealId id={order.id} testId="order-deal-id" />
+
+              <p className="muted small order-support-link">
+                <Link to="/support">Написать в поддержку</Link>
+                {' — укажите ID сделки выше.'}
+              </p>
 
               {showTradePanels && timeoutRemainingMinutes !== null ? (
                 <p className="order-trade-timeout" data-testid="order-trade-timeout">

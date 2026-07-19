@@ -1,6 +1,6 @@
 import type { Order } from '../api/types';
-import { getOrderNextAction } from './order-flow';
-import { computeSellerPendingReceiveMinor } from './seller-flow';
+import { getOrderNextAction } from './order-flow.ts';
+import { computeSellerPendingReceiveMinor } from './seller-flow.ts';
 
 export { computeSellerPendingReceiveMinor };
 
@@ -41,12 +41,19 @@ export function isActiveOrderStatus(status: string): boolean {
   return ACTIVE_STATUSES.has(status);
 }
 
+const TERMINAL_ORDER_STATUSES = new Set(['COMPLETED', 'CANCELED', 'FAILED']);
+
 export function getDealNextStepShort(order: Order, role: OrderRole): string {
+  // Avoid duplicating status text like «Сделка завершена» in the next-step column.
+  if (TERMINAL_ORDER_STATUSES.has(order.status)) {
+    return '—';
+  }
+
   if (role === 'buyer' && order.status === 'WAITING_TRADE') {
     return 'Ожидается передача';
   }
   if (role === 'seller' && order.status === 'WAITING_TRADE') {
-    return 'Покупатель оплатил — передайте предмет';
+    return 'Передайте предмет';
   }
 
   const action = getOrderNextAction(order, role);

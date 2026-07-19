@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { listMyOrders } from '../api/marketplace';
 import type { Order } from '../api/types';
 import { useAuth } from '../auth/AuthContext';
+import { CopyableDealId } from '../components/CopyableDealId';
 import { EmptyState } from '../components/EmptyState';
 import { ErrorAlert } from '../components/ErrorAlert';
 import { LoadingState } from '../components/LoadingState';
@@ -11,7 +12,7 @@ import { OrderItemLink } from '../components/OrderItemLink';
 import { PageHeader } from '../components/PageHeader';
 import { StatusBadge } from '../components/StatusBadge';
 import { useWalletSummary } from '../hooks/useWalletSummary';
-import { formatOrderStatus } from '../utils/order-flow';
+import { formatOrderStatusCompact } from '../utils/order-flow';
 import {
   computeSellerPendingReceiveMinor,
   filterOrders,
@@ -236,17 +237,17 @@ export function MyOrdersPage({
       ) : null}
 
       {filteredOrders.length > 0 ? (
-        <div className="table-wrap">
-          <table className="data-table" data-testid="my-orders-table">
+        <div className="table-wrap deals-orders-table-wrap">
+          <table className="data-table deals-orders-table" data-testid="my-orders-table">
             <thead>
               <tr>
                 <th>Предмет</th>
                 <th>Роль</th>
                 <th>Сумма</th>
                 <th>Статус</th>
-                <th>Следующий шаг</th>
+                <th>Дальше</th>
                 <th>Дата</th>
-                <th />
+                <th>Действия</th>
               </tr>
             </thead>
             <tbody>
@@ -273,7 +274,11 @@ export function MyOrdersPage({
                         testId={`order-item-link-${order.id}`}
                       />
                     </td>
-                    <td>{formatOrderRoleLabel(role)}</td>
+                    <td>
+                      <span className="deals-role-label">
+                        {formatOrderRoleLabel(role)}
+                      </span>
+                    </td>
                     <td>
                       <MoneyDisplay
                         minor={
@@ -292,21 +297,35 @@ export function MyOrdersPage({
                     <td>
                       <StatusBadge
                         status={order.status}
-                        label={formatOrderStatus(order.status)}
+                        label={formatOrderStatusCompact(order.status)}
+                        compact
                       />
                       <span className="sr-only">{order.status}</span>
                     </td>
-                    <td data-testid={`order-next-step-${order.id}`}>
+                    <td
+                      className="deals-next-step"
+                      data-testid={`order-next-step-${order.id}`}
+                    >
                       {getDealNextStepShort(order, role)}
                     </td>
-                    <td>{new Date(order.createdAt).toLocaleString()}</td>
+                    <td className="deals-date-cell">
+                      {new Date(order.createdAt).toLocaleString('ru-RU')}
+                    </td>
                     <td>
-                      <Link
-                        to={`/orders/${order.id}`}
-                        data-testid={`open-order-${order.id}`}
-                      >
-                        Сделка
-                      </Link>
+                      <div className="deals-row-actions">
+                        <CopyableDealId
+                          id={order.id}
+                          compact
+                          testId={`order-deal-id-${order.id}`}
+                        />
+                        <Link
+                          to={`/orders/${order.id}`}
+                          className="button secondary sm deals-open-link"
+                          data-testid={`open-order-${order.id}`}
+                        >
+                          Открыть
+                        </Link>
+                      </div>
                     </td>
                   </tr>
                 );

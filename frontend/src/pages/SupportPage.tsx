@@ -84,7 +84,8 @@ export function SupportPage() {
       >
         <h2 className="support-section-title">Создать тикет</h2>
         <p className="muted small">
-          Укажите ID сделки и опишите проблему. Email:{' '}
+          Опишите проблему. Если речь о покупке или продаже — вставьте ID сделки
+          со страницы сделки (Сделки → Открыть → «Скопировать»). Email:{' '}
           <a href={`mailto:${SUPPORT_EMAIL}`} data-testid="support-email-link">
             {SUPPORT_EMAIL}
           </a>
@@ -113,7 +114,7 @@ export function SupportPage() {
                 value={body}
                 onChange={(event) => setBody(event.target.value)}
                 rows={5}
-                placeholder="ID сделки, что произошло, что уже пробовали…"
+                placeholder="ID сделки (из страницы сделки), что произошло, что уже пробовали…"
                 data-testid="support-ticket-body"
                 required
                 minLength={10}

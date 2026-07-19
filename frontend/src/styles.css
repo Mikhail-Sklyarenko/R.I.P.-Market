@@ -621,6 +621,19 @@ p {
   white-space: nowrap;
 }
 
+/* Dense tables: sentence case, no shouty ALL CAPS truncation feel */
+.badge.badge-compact {
+  text-transform: none;
+  letter-spacing: 0;
+  border-radius: var(--radius-sm);
+  padding: 5px 10px;
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  line-height: 1.25;
+  max-width: 11.5rem;
+  white-space: normal;
+}
+
 .badge-available,
 .badge-active {
   background: var(--color-success-bg);
@@ -658,7 +671,9 @@ p {
 
 .badge-waiting_trade,
 .badge-payment_reserved,
-.badge-trade_confirmed {
+.badge-trade_confirmed,
+.badge-created,
+.badge-settlement_hold {
   background: var(--color-warning-bg);
   color: var(--color-warning);
 }
@@ -930,6 +945,128 @@ p {
 }
 
 .notifications-filters,
+.deals-orders-table-wrap {
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background: var(--color-bg-elevated);
+}
+
+.deals-orders-table {
+  background: transparent;
+}
+
+.deals-orders-table th {
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.deals-orders-table td {
+  vertical-align: middle;
+}
+
+.deals-role-label {
+  color: var(--color-text-muted);
+  font-size: var(--font-size-sm);
+}
+
+.deals-next-step {
+  color: var(--color-text-muted);
+  font-size: var(--font-size-sm);
+  line-height: 1.35;
+  max-width: 14rem;
+}
+
+.deals-date-cell {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+  white-space: nowrap;
+}
+
+.deals-row-actions {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-2);
+  min-width: 7.5rem;
+}
+
+.deals-open-link {
+  text-decoration: none;
+}
+
+.copyable-deal-id {
+  display: grid;
+  gap: var(--space-2);
+}
+
+.copyable-deal-id-label {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.copyable-deal-id-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.copyable-deal-id-value {
+  display: inline-block;
+  max-width: 100%;
+  padding: 4px 8px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--color-border);
+  background: var(--color-bg-subtle);
+  color: var(--color-text);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 12px;
+  line-height: 1.35;
+  word-break: break-all;
+}
+
+.copyable-deal-id-hint {
+  margin: 0;
+}
+
+.copyable-deal-id-compact {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+
+.copyable-deal-id-compact .copyable-deal-id-value {
+  max-width: 7.5rem;
+  word-break: normal;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.copyable-deal-id-btn {
+  margin: 0;
+  padding: 3px 8px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--color-text-muted);
+  font-size: 11px;
+  line-height: 1.2;
+  cursor: pointer;
+}
+
+.copyable-deal-id-btn:hover {
+  color: var(--color-text);
+  border-color: var(--color-text-muted);
+}
+
+.order-support-link {
+  margin: 0;
+}
+
 .deals-filters {
   margin-bottom: var(--space-4);
 }

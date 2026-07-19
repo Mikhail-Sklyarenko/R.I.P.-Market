@@ -1,6 +1,9 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
-import { formatOrderStatus } from './order-flow.ts';
+import {
+  formatOrderStatus,
+  formatOrderStatusCompact,
+} from './order-flow.ts';
 
 describe('order-flow utils', () => {
   it('returns human-readable labels instead of raw enum values', () => {
@@ -8,6 +11,13 @@ describe('order-flow utils', () => {
     assert.equal(formatOrderStatus('SETTLEMENT_HOLD'), 'Проверка сделки (до 8 дней)');
     assert.equal(formatOrderStatus('COMPLETED'), 'Сделка завершена');
     assert.equal(formatOrderStatus('DISPUTE'), 'Открыт спор');
+  });
+
+  it('returns compact labels without redundant Сделка prefix', () => {
+    assert.equal(formatOrderStatusCompact('COMPLETED'), 'Завершена');
+    assert.equal(formatOrderStatusCompact('CANCELED'), 'Отменена');
+    assert.equal(formatOrderStatusCompact('FAILED'), 'Не состоялась');
+    assert.equal(formatOrderStatusCompact('WAITING_TRADE'), 'Обмен в Steam');
   });
 
   it('does not expose raw status strings in user-facing labels', () => {

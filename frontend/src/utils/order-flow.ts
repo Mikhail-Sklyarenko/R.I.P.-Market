@@ -13,6 +13,19 @@ export const ORDER_STATUS_LABELS: Record<string, string> = {
   DISPUTE: 'Открыт спор',
 };
 
+/** Compact labels for deals table — no redundant «Сделка» prefix. */
+export const ORDER_STATUS_LABELS_COMPACT: Record<string, string> = {
+  CREATED: 'Создана',
+  PAYMENT_RESERVED: 'Средства в резерве',
+  WAITING_TRADE: 'Обмен в Steam',
+  TRADE_CONFIRMED: 'Обмен подтверждён',
+  SETTLEMENT_HOLD: 'На проверке',
+  COMPLETED: 'Завершена',
+  CANCELED: 'Отменена',
+  FAILED: 'Не состоялась',
+  DISPUTE: 'Спор',
+};
+
 export type OrderStep = {
   key: string;
   label: string;
@@ -57,6 +70,10 @@ function resolveHappyPath(status: string): readonly string[] {
 
 export function formatOrderStatus(status: string): string {
   return ORDER_STATUS_LABELS[status] ?? status;
+}
+
+export function formatOrderStatusCompact(status: string): string {
+  return ORDER_STATUS_LABELS_COMPACT[status] ?? ORDER_STATUS_LABELS[status] ?? status;
 }
 
 export function getOrderSteps(status: string): OrderStep[] {
