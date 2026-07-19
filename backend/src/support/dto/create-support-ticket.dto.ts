@@ -1,9 +1,9 @@
-import { IsString, MaxLength, MinLength } from 'class-validator';
+import { IsIn, IsString, MaxLength, MinLength } from 'class-validator';
+import { SUPPORT_TICKET_TOPIC_LABELS } from '../support-ticket-topics';
 
 export class CreateSupportTicketDto {
   @IsString()
-  @MinLength(3)
-  @MaxLength(120)
+  @IsIn([...SUPPORT_TICKET_TOPIC_LABELS])
   subject!: string;
 
   @IsString()

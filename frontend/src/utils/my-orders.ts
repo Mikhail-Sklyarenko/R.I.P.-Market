@@ -34,6 +34,7 @@ const ACTIVE_STATUSES = new Set([
   'PAYMENT_RESERVED',
   'WAITING_TRADE',
   'TRADE_CONFIRMED',
+  'SETTLEMENT_HOLD',
 ]);
 
 export function isActiveOrderStatus(status: string): boolean {

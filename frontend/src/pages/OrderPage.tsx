@@ -343,6 +343,28 @@ export function OrderPage() {
                     size="lg"
                     showAttrs={false}
                   />
+                  <p className="order-item-links">
+                    <Link
+                      to={
+                        (asset.itemDefinitionId ?? asset.itemDefinition.id)
+                          ? `/catalog/items/${
+                              asset.itemDefinitionId ?? asset.itemDefinition.id
+                            }`
+                          : `/lots/${order.lotId}`
+                      }
+                      className="button secondary sm"
+                      data-testid="order-open-item-page"
+                    >
+                      Страница предмета
+                    </Link>
+                    <Link
+                      to={`/lots/${order.lotId}`}
+                      className="button ghost sm"
+                      data-testid="order-open-lot-page"
+                    >
+                      Лот
+                    </Link>
+                  </p>
                   {asset.floatValue !== null &&
                   asset.floatValue !== undefined &&
                   asset.floatValue !== '' ? (

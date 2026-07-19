@@ -23,9 +23,10 @@ type InventorySellPanelProps = {
   submitting: boolean;
   priceMinor: number | null;
   bulkListableCount?: number;
-  bulkListAll?: boolean;
+  /** How many identical items to list (1..bulkListableCount). */
+  bulkListCount?: number;
   stackCount?: number;
-  onBulkListAllChange?: (value: boolean) => void;
+  onBulkListCountChange?: (value: number) => void;
   onPriceChange: (value: string) => void;
   onSubmit: (event: FormEvent) => void;
   onClose: () => void;
@@ -57,9 +58,9 @@ export function InventorySellPanel({
   submitting,
   priceMinor,
   bulkListableCount = 1,
-  bulkListAll = false,
+  bulkListCount = 1,
   stackCount = 1,
-  onBulkListAllChange,
+  onBulkListCountChange,
   onPriceChange,
   onSubmit,
   onClose,
@@ -71,8 +72,10 @@ export function InventorySellPanel({
     asset.floatValue !== null &&
     asset.floatValue !== undefined &&
     asset.floatValue !== '';
-  const showBulkOption = bulkListableCount >= 2;
-  const listingCount = bulkListAll && showBulkOption ? bulkListableCount : 1;
+  const showQuantityPicker = bulkListableCount >= 2;
+  const listingCount = showQuantityPicker
+    ? Math.min(Math.max(1, bulkListCount), bulkListableCount)
+    : 1;
   const totalPreview =
     preview && listingCount > 1
       ? {
@@ -201,16 +204,45 @@ export function InventorySellPanel({
 
           {priceError ? <p className="field-error">{priceError}</p> : null}
 
-          {showBulkOption ? (
-            <label className="inventory-bulk-list-option" data-testid="inventory-bulk-list-option">
-              <input
-                type="checkbox"
-                checked={bulkListAll}
-                onChange={(event) => onBulkListAllChange?.(event.target.checked)}
-                data-testid="inventory-bulk-list-checkbox"
-              />
-              <span>
-                Выставить все одинаковые ({bulkListableCount} шт.) по одной цене
+          {showQuantityPicker ? (
+            <label
+              className="field inventory-bulk-quantity"
+              htmlFor="inventory-bulk-quantity"
+              data-testid="inventory-bulk-list-option"
+            >
+              <span className="field-label">
+                Количество (доступно {bulkListableCount} шт.)
+              </span>
+              <div className="inventory-bulk-quantity-row">
+                <input
+                  id="inventory-bulk-quantity"
+                  type="number"
+                  min={1}
+                  max={bulkListableCount}
+                  step={1}
+                  value={listingCount}
+                  onChange={(event) => {
+                    const next = Number(event.target.value);
+                    if (!Number.isFinite(next)) {
+                      return;
+                    }
+                    onBulkListCountChange?.(
+                      Math.min(Math.max(1, Math.trunc(next)), bulkListableCount),
+                    );
+                  }}
+                  data-testid="inventory-bulk-quantity-input"
+                />
+                <button
+                  type="button"
+                  className="button secondary sm"
+                  data-testid="inventory-bulk-quantity-all"
+                  onClick={() => onBulkListCountChange?.(bulkListableCount)}
+                >
+                  Все {bulkListableCount}
+                </button>
+              </div>
+              <span className="muted small">
+                Одинаковые предметы без float — выставите нужное число по одной цене.
               </span>
             </label>
           ) : null}

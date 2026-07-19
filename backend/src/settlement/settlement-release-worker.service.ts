@@ -4,7 +4,6 @@ import { OrderStatus } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import {
   getSettlementReleaseBatchSize,
-  isSettlementHoldWindowEnabled,
   settlementHoldReleaseIdempotencyKey,
 } from './settlement-hold.config';
 import { SettlementService } from './settlement.service';
@@ -27,9 +26,8 @@ export class SettlementReleaseWorkerService {
     ) {
       return;
     }
-    if (!isSettlementHoldWindowEnabled()) {
-      return;
-    }
+    // Always scan SETTLEMENT_HOLD — recovers payouts stuck when hold window
+    // was enabled without real settlement (force-release path).
     await this.releaseDueHolds();
   }
 
@@ -43,12 +41,17 @@ export class SettlementReleaseWorkerService {
     let released = 0;
 
     try {
+      const realSettlement = process.env.ENABLE_REAL_SETTLEMENT === 'true';
       const orders = await this.prisma.order.findMany({
         where: {
           status: OrderStatus.SETTLEMENT_HOLD,
           hold: {
-            settlementHoldUntil: { lte: new Date() },
             settlementReleasedAt: null,
+            // When real settlement is off, force-release all stuck holds
+            // (hold window should not have applied). Otherwise wait until due.
+            ...(realSettlement
+              ? { settlementHoldUntil: { lte: new Date() } }
+              : {}),
           },
         },
         select: { id: true },

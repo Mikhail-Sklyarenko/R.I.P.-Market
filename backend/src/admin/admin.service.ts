@@ -466,10 +466,25 @@ export class AdminService {
       throw new BadRequestException('Idempotency-Key header is required');
     }
 
-    await this.settlementService.trySettleConfirmedOrder(
-      orderId,
-      `admin-retry-settle:${idempotencyKey}`,
-    );
+    const current = await this.prisma.order.findUnique({
+      where: { id: orderId },
+      select: { status: true },
+    });
+    if (!current) {
+      throw new NotFoundException('Order not found');
+    }
+
+    if (current.status === OrderStatus.SETTLEMENT_HOLD) {
+      await this.settlementService.releaseDueSettlementHold(
+        orderId,
+        `admin-retry-release:${idempotencyKey}`,
+      );
+    } else {
+      await this.settlementService.trySettleConfirmedOrder(
+        orderId,
+        `admin-retry-settle:${idempotencyKey}`,
+      );
+    }
 
     await this.prisma.auditLog.create({
       data: {

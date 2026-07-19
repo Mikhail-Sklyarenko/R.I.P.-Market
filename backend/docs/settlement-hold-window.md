@@ -10,6 +10,7 @@ Funds remain in the buyer `HOLD` wallet account during `SETTLEMENT_HOLD` until `
 4. **Hold audit dedup** — enter/release/reverse each have dedicated audit `idempotencyKey`.
 5. **Pre-release reversal** — only while `capturedMinor = 0`; refunds via `refundHold()` with `settlement-hold-reverse:{orderId}`.
 6. **Settlement guard** — release still requires `ENABLE_REAL_SETTLEMENT`, live verification, allowlist, and daily caps.
+7. **Hold window gate** — `ENABLE_SETTLEMENT_HOLD_WINDOW` only delays payout when `ENABLE_REAL_SETTLEMENT=true`. If real settlement is off, sellers are paid immediately and any stuck `SETTLEMENT_HOLD` orders are force-released by the worker.
 
 ## Recovery after worker crash
 

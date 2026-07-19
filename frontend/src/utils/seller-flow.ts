@@ -45,6 +45,7 @@ export const PENDING_PAYOUT_ORDER_STATUSES = new Set([
   'PAYMENT_RESERVED',
   'WAITING_TRADE',
   'TRADE_CONFIRMED',
+  'SETTLEMENT_HOLD',
 ]);
 
 export function computeSellerPendingReceiveMinor(

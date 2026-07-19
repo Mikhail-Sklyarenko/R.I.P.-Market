@@ -6,10 +6,10 @@ import {
   parseCatalogLotName,
   parseWearCodeFromMarketHashName,
 } from '../utils/catalog-lot-display';
-import { getSteamItemImageUrl } from '../utils/item-image';
 import { getRarityStyle } from '../utils/rarity-colors';
 import { getCatalogBuyPath, getCatalogItemPath } from '../utils/catalog-navigation';
 import { InventoryPriceStack } from './InventoryPriceStack';
+import { SteamItemImage } from './SteamItemImage';
 
 type CatalogItemCardProps = {
   item: CatalogItem;
@@ -28,7 +28,6 @@ export function CatalogItemCard({
   const name = item.marketHashName;
   const { weapon, skin } = parseCatalogLotName(name);
   const wearBadge = getWearBadgeStyle(parseWearCodeFromMarketHashName(name));
-  const imageUrl = getSteamItemImageUrl(item.iconUrl);
   const itemPath = getCatalogItemPath(item);
   const buyPath = getCatalogBuyPath(item);
   const hasOffers = item.activeLotCount > 0;
@@ -83,7 +82,11 @@ export function CatalogItemCard({
       </div>
 
       <div className="catalog-lot-card-image-wrap">
-        <img src={imageUrl} alt={name} className="catalog-lot-card-image" loading="lazy" />
+        <SteamItemImage
+          iconUrl={item.iconUrl}
+          alt={name}
+          className="catalog-lot-card-image"
+        />
       </div>
 
       <div className="catalog-lot-card-footer">

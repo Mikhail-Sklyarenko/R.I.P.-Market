@@ -5,6 +5,7 @@ import type { SupportTicket } from '../api/types';
 import { useAuth } from '../auth/AuthContext';
 import { ErrorAlert } from '../components/ErrorAlert';
 import { PageHeader } from '../components/PageHeader';
+import { SUPPORT_TICKET_TOPICS } from '../data/support-ticket-topics';
 import { SUPPORT_EMAIL } from '../utils/format';
 
 export function SupportPage() {
@@ -27,7 +28,7 @@ export function SupportPage() {
 
   async function handleSubmit(event: FormEvent) {
     event.preventDefault();
-    if (!token) {
+    if (!token || !subject) {
       return;
     }
     setLoading(true);
@@ -35,7 +36,7 @@ export function SupportPage() {
     setSuccess(null);
     try {
       const ticket = await createSupportTicket(token, {
-        subject: subject.trim(),
+        subject,
         body: body.trim(),
       });
       setTickets((current) => [ticket, ...current]);
@@ -83,14 +84,21 @@ export function SupportPage() {
           <form className="support-ticket-form" onSubmit={(event) => void handleSubmit(event)}>
             <label className="field">
               <span className="field-label">Тема</span>
-              <input
-                type="text"
+              <select
                 value={subject}
                 onChange={(event) => setSubject(event.target.value)}
-                placeholder="Проблема с обменом / выплатой"
                 data-testid="support-ticket-subject"
                 required
-              />
+              >
+                <option value="" disabled>
+                  Выберите тему
+                </option>
+                {SUPPORT_TICKET_TOPICS.map((topic) => (
+                  <option key={topic.id} value={topic.label}>
+                    {topic.label}
+                  </option>
+                ))}
+              </select>
             </label>
             <label className="field">
               <span className="field-label">Описание</span>
@@ -98,9 +106,10 @@ export function SupportPage() {
                 value={body}
                 onChange={(event) => setBody(event.target.value)}
                 rows={5}
-                placeholder="ID сделки, что произошло, скриншоты ошибки…"
+                placeholder="ID сделки, что произошло, что уже пробовали…"
                 data-testid="support-ticket-body"
                 required
+                minLength={10}
               />
             </label>
             <ErrorAlert error={error} />
@@ -108,7 +117,7 @@ export function SupportPage() {
             <button
               type="submit"
               className="button primary"
-              disabled={loading}
+              disabled={loading || !subject}
               data-testid="support-ticket-submit"
             >
               {loading ? 'Отправка…' : 'Отправить тикет'}

@@ -84,12 +84,14 @@ describe('SettlementService hold window', () => {
   beforeEach(() => {
     process.env.ENABLE_SETTLEMENT_HOLD_WINDOW = 'true';
     process.env.ENABLE_EXTENSION_FIRST_TRADE_FLOW = 'true';
+    process.env.ENABLE_REAL_SETTLEMENT = 'true';
     process.env.SETTLEMENT_HOLD_DAYS = '8';
   });
 
   afterEach(() => {
     delete process.env.ENABLE_SETTLEMENT_HOLD_WINDOW;
     delete process.env.ENABLE_EXTENSION_FIRST_TRADE_FLOW;
+    delete process.env.ENABLE_REAL_SETTLEMENT;
     delete process.env.SETTLEMENT_HOLD_DAYS;
   });
 
@@ -114,6 +116,40 @@ describe('SettlementService hold window', () => {
         from: OrderStatus.TRADE_CONFIRMED,
       }),
     );
+  });
+
+  it('pays immediately when hold window is on but real settlement is off', async () => {
+    delete process.env.ENABLE_REAL_SETTLEMENT;
+    const { service, prisma, ledgerService, tx } = buildService();
+    prisma.order.findUnique.mockResolvedValue(baseOrder);
+    tx.order.findUnique.mockResolvedValue(baseOrder);
+
+    await service.settleCompletedOrder(
+      tx as never,
+      baseOrder as never,
+      'trade-success:key-immediate',
+    );
+
+    expect(ledgerService.settleSale).toHaveBeenCalledTimes(1);
+  });
+
+  it('force-releases stuck hold when real settlement is disabled', async () => {
+    delete process.env.ENABLE_REAL_SETTLEMENT;
+    const { service, prisma, ledgerService, tx } = buildService();
+    const heldOrder = {
+      ...baseOrder,
+      status: OrderStatus.SETTLEMENT_HOLD,
+      hold: {
+        ...baseOrder.hold,
+        settlementHoldUntil: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+      },
+    };
+    prisma.order.findUnique.mockResolvedValue(heldOrder);
+    tx.order.findUnique.mockResolvedValue(heldOrder);
+
+    const result = await service.releaseDueSettlementHold('order-1');
+    expect(result.settled).toBe(true);
+    expect(ledgerService.settleSale).toHaveBeenCalledTimes(1);
   });
 
   it('releases hold once when due and is idempotent on duplicate run', async () => {

@@ -3,9 +3,9 @@ import {
   getWearBadgeStyle,
   parseWearCodeFromMarketHashName,
 } from '../utils/catalog-lot-display';
-import { getSteamItemImageUrl } from '../utils/item-image';
 import { getRarityDisplayLabel, getRarityStyle } from '../utils/rarity-colors';
 import { InventoryPriceStack } from './InventoryPriceStack';
+import { SteamItemImage } from './SteamItemImage';
 
 type ItemCompareHeaderProps = {
   item: CatalogItem;
@@ -15,7 +15,6 @@ export function ItemCompareHeader({ item }: ItemCompareHeaderProps) {
   const wearBadge = getWearBadgeStyle(parseWearCodeFromMarketHashName(item.marketHashName));
   const rarityLabel = getRarityDisplayLabel(item.rarity);
   const rarityStyle = getRarityStyle(item.rarity);
-  const imageUrl = getSteamItemImageUrl(item.iconUrl);
   const offerLabel =
     item.activeLotCount > 0
       ? `${item.activeLotCount} ${item.activeLotCount === 1 ? 'предложение' : item.activeLotCount < 5 ? 'предложения' : 'предложений'}`
@@ -25,8 +24,8 @@ export function ItemCompareHeader({ item }: ItemCompareHeaderProps) {
     <section className="card item-compare-header" data-testid="item-compare-header">
       <div className="item-compare-header-main">
         <div className="item-compare-header-image-wrap">
-          <img
-            src={imageUrl}
+          <SteamItemImage
+            iconUrl={item.iconUrl}
             alt={item.marketHashName}
             className="item-compare-header-image"
           />

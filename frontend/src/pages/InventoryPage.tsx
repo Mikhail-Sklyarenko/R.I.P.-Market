@@ -58,7 +58,7 @@ export function InventoryPage() {
   const [sortOption, setSortOption] = useState<InventorySortOption>('price-desc');
   const [showUnavailable, setShowUnavailable] = useState(false);
   const [selectedAssetId, setSelectedAssetId] = useState<string | null>(null);
-  const [bulkListAll, setBulkListAll] = useState(false);
+  const [bulkListCount, setBulkListCount] = useState(1);
   const [priceInput, setPriceInput] = useState('10.00');
   const [preview, setPreview] = useState<PricingPreview | null>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -260,14 +260,13 @@ export function InventoryPage() {
       return;
     }
     setSelectedAssetId(asset.id);
-    const siblings = getBulkListableSiblings(assets, asset);
-    setBulkListAll(siblings.length >= 2);
+    setBulkListCount(1);
     setSellError(null);
   }
 
   const clearSelection = useCallback(() => {
     setSelectedAssetId(null);
-    setBulkListAll(false);
+    setBulkListCount(1);
     setSellError(null);
   }, []);
 
@@ -278,10 +277,13 @@ export function InventoryPage() {
       return;
     }
 
-    const useBulk =
-      bulkListAll && bulkListTargets.length >= 2 && selectedAssetId != null;
+    const quantity = Math.min(
+      Math.max(1, bulkListCount),
+      Math.max(1, bulkListTargets.length),
+    );
+    const useBulk = quantity >= 2 && bulkListTargets.length >= 2;
     const targetIds = useBulk
-      ? bulkListTargets.map((asset) => asset.id)
+      ? bulkListTargets.slice(0, quantity).map((asset) => asset.id)
       : [selectedAssetId];
 
     setSubmitting(true);
@@ -298,16 +300,18 @@ export function InventoryPage() {
       }
 
       if (useBulk) {
-        const refreshedSiblings = getBulkListableSiblings(freshAssets.assets, freshTargets[0]!);
-        if (refreshedSiblings.length !== targetIds.length) {
+        const refreshedSiblings = getBulkListableSiblings(
+          freshAssets.assets,
+          freshTargets[0]!,
+        );
+        const listingIds = refreshedSiblings
+          .slice(0, quantity)
+          .map((asset) => asset.id);
+        if (listingIds.length !== quantity) {
           setSellError(new Error('Bulk listing set changed — refresh and try again'));
           return;
         }
-        await createLotsBulk(
-          token,
-          refreshedSiblings.map((asset) => asset.id),
-          priceMinor,
-        );
+        await createLotsBulk(token, listingIds, priceMinor);
       } else {
         const freshAsset = freshTargets[0];
         if (!freshAsset || !canListAsset(freshAsset)) {
@@ -318,7 +322,7 @@ export function InventoryPage() {
       }
 
       setSelectedAssetId(null);
-      setBulkListAll(false);
+      setBulkListCount(1);
       navigate('/deals?tab=listings');
     } catch (err: unknown) {
       setSellError(err);
@@ -572,7 +576,7 @@ export function InventoryPage() {
                     stack.assets.some((item) => item.id === selectedAssetId);
                   const stackBulkHighlighted =
                     stackSelected &&
-                    bulkListAll &&
+                    bulkListCount >= 2 &&
                     bulkListTargets.length >= 2;
                   return (
                     <InventoryAssetCard
@@ -619,9 +623,9 @@ export function InventoryPage() {
                 submitting={submitting}
                 priceMinor={priceMinor}
                 bulkListableCount={bulkListTargets.length}
-                bulkListAll={bulkListAll}
+                bulkListCount={bulkListCount}
                 stackCount={bulkListTargets.length}
-                onBulkListAllChange={setBulkListAll}
+                onBulkListCountChange={setBulkListCount}
                 onPriceChange={setPriceInput}
                 onSubmit={(event) => void handleSubmitListing(event)}
                 onClose={clearSelection}

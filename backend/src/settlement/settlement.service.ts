@@ -12,7 +12,7 @@ import { OrderStateService } from '../orders/order-state.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { isExtensionFirstTradeFlowEnabled } from '../trades/extension-trade-flow.config';
 import { LedgerService } from '../wallet/ledger.service';
-import { utcDayKey } from './settlement.config';
+import { isRealSettlementEnabled, utcDayKey } from './settlement.config';
 import {
   getSettlementHoldMs,
   isSettlementHoldWindowEnabled,
@@ -150,6 +150,20 @@ export class SettlementService {
             code: 'ORDER_NOT_TRADE_CONFIRMED',
             reason: `Order status is ${order.status}, expected SETTLEMENT_HOLD`,
           },
+        };
+      }
+
+      // Hold window is only for real settlement. If real settlement is off,
+      // immediately credit the seller (recovers orders stuck by misconfig).
+      if (!isRealSettlementEnabled()) {
+        await this.releaseSettlementHold(tx, order, idempotencyKey, undefined, {
+          skipHoldWindowCheck: true,
+          legacyImmediate: true,
+        });
+        return {
+          settled: true,
+          inHold: false,
+          guard: { allowed: true },
         };
       }
 
@@ -551,8 +565,12 @@ export class SettlementService {
   }
 
   private shouldUseHoldWindow(): boolean {
+    // 8-day hold is a real-money protection. Never delay seller payouts when
+    // ENABLE_REAL_SETTLEMENT is off (staging/mock) — that stranded sellers.
     return (
-      isSettlementHoldWindowEnabled() && isExtensionFirstTradeFlowEnabled()
+      isRealSettlementEnabled() &&
+      isSettlementHoldWindowEnabled() &&
+      isExtensionFirstTradeFlowEnabled()
     );
   }
 

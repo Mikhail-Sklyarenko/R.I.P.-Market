@@ -30,6 +30,8 @@ export class LotsController {
     return this.lotsService.create(user.sub, body);
   }
 
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard)
   @Post('bulk')
   async createBulk(
     @CurrentUser() user: AuthUser,

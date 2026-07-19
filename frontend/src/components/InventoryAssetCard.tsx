@@ -5,7 +5,7 @@ import {
   getWearBadgeStyle,
   parseCatalogLotName,
 } from '../utils/catalog-lot-display';
-import { formatPaintSeed, getSteamItemImageUrl } from '../utils/item-image';
+import { formatPaintSeed } from '../utils/item-image';
 import { getRarityStyle } from '../utils/rarity-colors';
 import {
   assetUnavailableReason,
@@ -13,6 +13,7 @@ import {
   formatAssetStatus,
 } from '../utils/seller-flow';
 import { InventoryPriceStack } from './InventoryPriceStack';
+import { SteamItemImage } from './SteamItemImage';
 
 type InventoryAssetCardProps = {
   asset: InventoryAsset;
@@ -53,7 +54,6 @@ export function InventoryAssetCard({
   const { weapon, skin } = parseCatalogLotName(name);
   const wearBadge = getWearBadgeStyle(asset.wear);
   const patternText = formatPaintSeed(asset.paintSeed);
-  const imageUrl = getSteamItemImageUrl(asset.itemDefinition.iconUrl);
   const showStatusBadge = asset.status !== 'AVAILABLE';
   const rarityStyle = getRarityStyle(asset.itemDefinition.rarity);
   const unavailableReason = !listable ? assetUnavailableReason(asset) : null;
@@ -164,11 +164,10 @@ export function InventoryAssetCard({
       </div>
 
       <div className="inventory-asset-card-image-wrap">
-        <img
-          src={imageUrl}
+        <SteamItemImage
+          iconUrl={asset.itemDefinition.iconUrl}
           alt={name}
           className="inventory-asset-card-image"
-          loading="lazy"
         />
       </div>
 

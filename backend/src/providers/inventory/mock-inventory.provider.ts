@@ -8,12 +8,19 @@ import {
   SyncResult,
 } from './inventory-provider.interface';
 
+/**
+ * Steam economy icon hashes for mock catalog skins.
+ * Without these, ItemDefinition.iconUrl stays null and the UI shows an empty placeholder.
+ */
 const DEFAULT_ITEMS = [
   {
     marketHashName: 'AK-47 | Redline (Field-Tested)',
     weapon: 'AK-47',
     rarity: 'Classified',
     wear: 'FT',
+    // Full CDN URL — mock defs historically had null iconUrl and looked "empty" in catalog.
+    iconUrl:
+      'https://community.akamai.steamstatic.com/economy/image/i0CoZ81Ui0m-9KwlBY1L_18myuGuq1wfhWSaZgMttyVfPaERSR0Wqmu7LAocGIGz3UqlXOLrxM-vMGmW8VNxu5Dx60noTyLwlcK3wiFO0POlPPNSI_-RHGavzedxuPUnFniykEtzsWWBzoyuIiifaAchDZUjTOZe4RC_w4buM-6z7wzbgokUyzK-0H08hRGDMA',
     stickers: [
       { name: 'Sticker | Titan (Holo) | Katowice 2014', wearPercent: 12 },
       { name: 'Sticker | Crown (Foil)', wearPercent: 0 },
@@ -24,6 +31,8 @@ const DEFAULT_ITEMS = [
     weapon: 'AWP',
     rarity: 'Covert',
     wear: 'BS',
+    iconUrl:
+      'https://community.akamai.steamstatic.com/economy/image/-9a81dlWLwJ2UUGcVs_nsVtzdOEdtWwKGZZLQHTxDZ7I56KU0Zwwo4NUX4oFJZEHLbXH5ApeO4YmlhxYQknCRvCo04DEVlxkKgpot621FAR17PLfYQJD_9W7m5a0n_L1JbTZk2pH7JYj2O2T9I-i0ALtrUVqY2GhLdSccgM6aAvQ_FW8xOfug5G-vM7XiSw0abc',
     stickers: [],
   },
   {
@@ -31,6 +40,8 @@ const DEFAULT_ITEMS = [
     weapon: 'M4A1-S',
     rarity: 'Covert',
     wear: 'MW',
+    iconUrl:
+      'https://community.akamai.steamstatic.com/economy/image/-9a81dlWLwJ2UUGcVs_nsVtzdOEdtWwKGZZLQHTxDZ7I56KU0Zwwo4NUX4oFJZEHLbXH5ApeO4YmlhxYQknCRvCo04DEVlxkKgpou-6kejhz2v_Nfz5H_uO1gb-Gw_alDL_UlW8u5MKji7-TpN-s2wTm-0o5Ym-lddSWdQY5N1_S-le_xui605e76J_Kz3J9r_M',
     stickers: [],
   },
 ];
@@ -81,8 +92,13 @@ export class MockInventoryProvider implements InventoryProvider {
             game: 'CS2',
             weapon: item.weapon,
             rarity: item.rarity,
+            iconUrl: item.iconUrl,
           },
-          update: {},
+          update: {
+            weapon: item.weapon,
+            rarity: item.rarity,
+            iconUrl: item.iconUrl,
+          },
         });
 
         await this.prisma.inventoryAsset.create({
@@ -97,6 +113,21 @@ export class MockInventoryProvider implements InventoryProvider {
             paintSeed: 100 + i,
             floatValue: (0.05 + i * 0.02).toFixed(6),
             stickers: item.stickers ?? [],
+          },
+        });
+      }
+    } else {
+      // Backfill icons for definitions created before mock items had iconUrl.
+      for (const item of DEFAULT_ITEMS) {
+        await this.prisma.itemDefinition.updateMany({
+          where: {
+            marketHashName: item.marketHashName,
+            OR: [{ iconUrl: null }, { iconUrl: '' }],
+          },
+          data: {
+            iconUrl: item.iconUrl,
+            weapon: item.weapon,
+            rarity: item.rarity,
           },
         });
       }

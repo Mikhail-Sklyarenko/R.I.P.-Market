@@ -5,11 +5,28 @@ export const ITEM_IMAGE_PLACEHOLDER_DATA =
   "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='256' height='192' viewBox='0 0 256 192'%3E%3Crect width='256' height='192' fill='%23111827'/%3E%3Ctext x='50%25' y='50%25' dominant-baseline='middle' text-anchor='middle' fill='%2394a3b8' font-family='system-ui' font-size='14'%3EПредмет CS2%3C/text%3E%3C/svg%3E";
 
 export function getSteamItemImageUrl(iconUrl?: string | null): string {
-  if (!iconUrl) {
+  const trimmed = iconUrl?.trim();
+  if (!trimmed) {
     return ITEM_IMAGE_PLACEHOLDER_DATA;
   }
-  const normalized = iconUrl.replace(/^\//, '');
+  if (/^https?:\/\//i.test(trimmed) || trimmed.startsWith('data:')) {
+    return trimmed;
+  }
+  const normalized = trimmed.replace(/^\//, '');
   return `${STEAM_ITEM_IMAGE_CDN}/${normalized}`;
+}
+
+/** Prefer listing snapshot icon, then live item definition. */
+export function resolveDisplayIconUrl(
+  primary?: string | null,
+  fallback?: string | null,
+): string | null {
+  const first = primary?.trim();
+  if (first) {
+    return first;
+  }
+  const second = fallback?.trim();
+  return second || null;
 }
 
 export function formatFloatValue(value?: string | number | null): string | null {
@@ -46,7 +63,7 @@ export type ItemDisplaySource = {
   };
 };
 
-import { getRarityDisplayLabel } from './rarity-colors';
+import { getRarityDisplayLabel } from './rarity-colors.ts';
 
 export function getItemCategory(item: ItemDisplaySource): string | null {
   if (item.itemDefinition.weapon?.trim()) {

@@ -95,9 +95,29 @@ export function getOrderNextAction(
   role: 'buyer' | 'seller' | 'other',
 ): { title: string; description: string } | null {
   if (order.status === 'COMPLETED') {
+    if (role === 'seller') {
+      return {
+        title: 'Сделка завершена',
+        description:
+          'Оплата зачислена на ваш баланс (цена лота минус комиссия 5%).',
+      };
+    }
     return {
       title: 'Сделка завершена',
       description: 'Средства переведены продавцу. Предмет у вас в инвентаре Steam.',
+    };
+  }
+  if (order.status === 'SETTLEMENT_HOLD') {
+    if (role === 'seller') {
+      return {
+        title: 'Средства на проверке',
+        description:
+          'Обмен подтверждён. Выплата на баланс после окна проверки (до 8 дней).',
+      };
+    }
+    return {
+      title: 'Проверка сделки',
+      description: 'Обмен прошёл. Финальный расчёт — после окна проверки.',
     };
   }
   if (order.status === 'CANCELED') {

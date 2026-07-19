@@ -208,6 +208,8 @@ export function LotPage() {
                   </p>
                 ) : null}
 
+                <DealFlowSteps compact />
+
                 <button
                   type="button"
                   className="button primary lot-purchase-button"
@@ -224,8 +226,6 @@ export function LotPage() {
           {!isUnavailable ? (
             <SimilarLots lots={similarLots} loading={similarLoading} />
           ) : null}
-
-          <DealFlowSteps />
         </>
       ) : null}
 

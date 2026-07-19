@@ -1,7 +1,7 @@
 import type { CSSProperties } from 'react';
 import type { ItemDisplaySource } from '../utils/item-image';
-import { getSteamItemImageUrl } from '../utils/item-image';
 import { getRarityStyle } from '../utils/rarity-colors';
+import { SteamItemImage } from './SteamItemImage';
 
 type LotItemHeroProps = {
   item: ItemDisplaySource;
@@ -10,7 +10,6 @@ type LotItemHeroProps = {
 };
 
 export function LotItemHero({ item, title, size = 'md' }: LotItemHeroProps) {
-  const imageUrl = getSteamItemImageUrl(item.itemDefinition.iconUrl);
   const displayTitle = title ?? item.itemDefinition.marketHashName;
   const rarityStyle = getRarityStyle(item.itemDefinition.rarity);
 
@@ -27,11 +26,10 @@ export function LotItemHero({ item, title, size = 'md' }: LotItemHeroProps) {
       <div className="lot-item-hero-image-wrap" style={imageWrapStyle}>
         <span className="lot-item-hero-rarity-glow" aria-hidden="true" />
         <span className="lot-item-hero-rarity-haze" aria-hidden="true" />
-        <img
-          src={imageUrl}
+        <SteamItemImage
+          iconUrl={item.itemDefinition.iconUrl}
           alt={displayTitle}
           className="lot-item-hero-image"
-          loading="lazy"
           data-testid="item-preview-image"
         />
       </div>

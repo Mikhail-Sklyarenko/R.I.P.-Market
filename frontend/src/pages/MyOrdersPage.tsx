@@ -250,12 +250,41 @@ export function MyOrdersPage({
             <tbody>
               {filteredOrders.map((order) => {
                 const role = getOrderRole(order, user?.id);
+                const itemName =
+                  order.lot.inventoryAsset.itemDefinition.marketHashName;
+                const itemDefinitionId =
+                  order.lot.inventoryAsset.itemDefinitionId ??
+                  order.lot.inventoryAsset.itemDefinition.id;
+                const itemHref = itemDefinitionId
+                  ? `/catalog/items/${itemDefinitionId}`
+                  : `/lots/${order.lotId}`;
                 return (
                   <tr key={order.id} data-testid={`order-row-${order.status}`}>
-                    <td>{order.lot.inventoryAsset.itemDefinition.marketHashName}</td>
+                    <td>
+                      <Link
+                        to={itemHref}
+                        className="my-orders-item-link"
+                        data-testid={`order-item-link-${order.id}`}
+                        title="Открыть страницу предмета"
+                      >
+                        {itemName}
+                      </Link>
+                    </td>
                     <td>{formatOrderRoleLabel(role)}</td>
                     <td>
-                      <MoneyDisplay minor={order.amountMinor} />
+                      <MoneyDisplay
+                        minor={
+                          role === 'seller'
+                            ? order.lot.sellerReceiveMinor
+                            : order.amountMinor
+                        }
+                      />
+                      {role === 'seller' ? (
+                        <span className="muted small my-orders-net-hint">
+                          {' '}
+                          к получению
+                        </span>
+                      ) : null}
                     </td>
                     <td>
                       <StatusBadge
@@ -273,7 +302,7 @@ export function MyOrdersPage({
                         to={`/orders/${order.id}`}
                         data-testid={`open-order-${order.id}`}
                       >
-                        Открыть
+                        Сделка
                       </Link>
                     </td>
                   </tr>

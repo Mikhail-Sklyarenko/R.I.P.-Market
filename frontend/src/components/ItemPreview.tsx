@@ -3,8 +3,8 @@ import {
   formatFloatValue,
   formatPaintSeed,
   getItemCategory,
-  getSteamItemImageUrl,
 } from '../utils/item-image';
+import { SteamItemImage } from './SteamItemImage';
 
 type ItemPreviewProps = {
   item: ItemDisplaySource;
@@ -19,19 +19,18 @@ export function ItemPreview({
   size = 'md',
   showAttrs = true,
 }: ItemPreviewProps) {
-  const imageUrl = getSteamItemImageUrl(item.itemDefinition.iconUrl);
   const floatText = formatFloatValue(item.floatValue);
   const patternText = formatPaintSeed(item.paintSeed);
   const category = getItemCategory(item);
   const wear = item.wear ?? null;
+  const displayTitle = title ?? item.itemDefinition.marketHashName;
 
   return (
     <div className={`item-preview item-preview-${size}`} data-testid="item-preview">
-      <img
-        src={imageUrl}
-        alt={title ?? item.itemDefinition.marketHashName}
+      <SteamItemImage
+        iconUrl={item.itemDefinition.iconUrl}
+        alt={displayTitle}
         className="item-preview-image"
-        loading="lazy"
         data-testid="item-preview-image"
       />
       {title ? <h3 className="item-preview-title">{title}</h3> : null}

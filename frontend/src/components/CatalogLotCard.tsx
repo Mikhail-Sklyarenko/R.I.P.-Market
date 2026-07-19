@@ -5,9 +5,11 @@ import {
   getWearBadgeStyle,
   parseCatalogLotName,
 } from '../utils/catalog-lot-display';
-import { formatPaintSeed, getSteamItemImageUrl } from '../utils/item-image';
+import { formatPaintSeed, resolveDisplayIconUrl } from '../utils/item-image';
+import { resolveLotDisplayItem } from '../utils/lot-display';
 import { getRarityStyle } from '../utils/rarity-colors';
 import { InventoryPriceStack } from './InventoryPriceStack';
+import { SteamItemImage } from './SteamItemImage';
 
 type CatalogLotCardProps = {
   lot: Lot;
@@ -71,15 +73,23 @@ function CatalogLotCartIcon() {
 
 export function CatalogLotCard({ lot, isLoggedIn: _isLoggedIn }: CatalogLotCardProps) {
   const navigate = useNavigate();
+  const displayItem = resolveLotDisplayItem(lot);
   const { inventoryAsset } = lot;
-  const name = inventoryAsset.itemDefinition.marketHashName;
+  const name = displayItem.itemDefinition.marketHashName;
   const { weapon, skin } = parseCatalogLotName(name);
-  const wearBadge = getWearBadgeStyle(inventoryAsset.wear);
-  const patternText = formatPaintSeed(inventoryAsset.paintSeed);
-  const imageUrl = getSteamItemImageUrl(inventoryAsset.itemDefinition.iconUrl);
+  const wearBadge = getWearBadgeStyle(displayItem.wear ?? inventoryAsset.wear);
+  const patternText = formatPaintSeed(
+    displayItem.paintSeed ?? inventoryAsset.paintSeed,
+  );
+  const iconUrl = resolveDisplayIconUrl(
+    displayItem.itemDefinition.iconUrl,
+    inventoryAsset.itemDefinition.iconUrl,
+  );
   const lotPath = `/lots/${lot.id}`;
   const buyPath = lotPath;
-  const rarityStyle = getRarityStyle(inventoryAsset.itemDefinition.rarity);
+  const rarityStyle = getRarityStyle(
+    displayItem.itemDefinition.rarity ?? inventoryAsset.itemDefinition.rarity,
+  );
   const cardStyle = {
     '--lot-rarity-color': rarityStyle.color,
     '--lot-rarity-glow': rarityStyle.glow,
@@ -132,11 +142,10 @@ export function CatalogLotCard({ lot, isLoggedIn: _isLoggedIn }: CatalogLotCardP
       </div>
 
       <div className="catalog-lot-card-image-wrap">
-        <img
-          src={imageUrl}
+        <SteamItemImage
+          iconUrl={iconUrl}
           alt={name}
           className="catalog-lot-card-image"
-          loading="lazy"
         />
       </div>
 
