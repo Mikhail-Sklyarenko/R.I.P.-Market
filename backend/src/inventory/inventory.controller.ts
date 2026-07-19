@@ -50,10 +50,10 @@ export class InventoryController {
 
   @Post('price-hints')
   getPriceHints(@Body() body: InventoryPriceHintsDto) {
-    return this.inventoryService.getPriceHints(
-      body.marketHashNames,
-      body.forceRefresh ?? false,
-    );
+    return this.inventoryService.getPriceHints(body.marketHashNames, {
+      forceRefresh: body.forceRefresh ?? false,
+      cacheOnly: body.cacheOnly ?? false,
+    });
   }
 
   @Post(':assetId/check')

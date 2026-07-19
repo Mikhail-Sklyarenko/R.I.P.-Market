@@ -10,4 +10,9 @@ export class InventoryPriceHintsDto {
   @IsOptional()
   @IsBoolean()
   forceRefresh?: boolean;
+
+  /** Serve DB/memory cache only — no Steam network fetch. */
+  @IsOptional()
+  @IsBoolean()
+  cacheOnly?: boolean;
 }

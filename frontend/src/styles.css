@@ -2740,6 +2740,54 @@ p {
   margin-bottom: 0;
 }
 
+.inventory-sale-flow {
+  margin: 0 0 var(--space-3);
+}
+
+.inventory-grid-skeleton {
+  margin-top: var(--space-3);
+}
+
+.inventory-skeleton-card {
+  width: var(--inventory-card-width);
+  min-height: 220px;
+  border-radius: var(--radius-md, 0.6rem);
+  padding: 0.55rem;
+  background: color-mix(in srgb, var(--color-bg-elevated, #151b28) 88%, #0b1220);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, #94a3b8 12%, transparent);
+}
+
+.inventory-skeleton-image {
+  height: 118px;
+  border-radius: 0.45rem;
+  margin-bottom: 0.65rem;
+  background: linear-gradient(
+    90deg,
+    color-mix(in srgb, #1e293b 80%, transparent) 0%,
+    color-mix(in srgb, #334155 70%, transparent) 50%,
+    color-mix(in srgb, #1e293b 80%, transparent) 100%
+  );
+  background-size: 200% 100%;
+  animation: catalog-price-skeleton-shimmer 1.2s ease-in-out infinite;
+}
+
+.inventory-skeleton-line {
+  height: 0.65rem;
+  border-radius: 999px;
+  margin-bottom: 0.4rem;
+  background: color-mix(in srgb, #334155 55%, transparent);
+  animation: catalog-price-skeleton-shimmer 1.2s ease-in-out infinite;
+}
+
+.inventory-skeleton-line-title {
+  width: 78%;
+}
+
+.inventory-skeleton-line-meta {
+  width: 46%;
+  opacity: 0.7;
+}
+
 @media (max-width: 760px) {
   .inventory-listing-overlay {
     align-items: end;

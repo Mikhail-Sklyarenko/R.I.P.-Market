@@ -38,8 +38,15 @@ export type InventoryListResult = {
   };
 };
 
+type PriceHintFetchOptions = {
+  forceRefresh?: boolean;
+  cacheOnly?: boolean;
+};
+
 @Injectable()
 export class InventoryService {
+  private readonly backgroundSyncInflight = new Map<string, Promise<void>>();
+
   constructor(
     private readonly prisma: PrismaService,
     @Inject(INVENTORY_PROVIDER)
@@ -65,12 +72,113 @@ export class InventoryService {
       );
     }
 
+    if (!force) {
+      const soft = await this.tryServeCachedInventory(ownerId);
+      if (soft) {
+        if (soft.refreshInBackground) {
+          this.scheduleBackgroundSync(ownerId, user.steamId);
+        }
+        return soft.result;
+      }
+    }
+
     const syncResult = await this.inventoryProvider.syncInventory(
       ownerId,
       user.steamId,
       { force },
     );
 
+    return this.buildInventoryResult(ownerId, syncResult);
+  }
+
+  /**
+   * Serve DB assets immediately when we already have a prior sync.
+   * Fresh cache → no Steam wait. Expired cache → stale payload + background refresh.
+   */
+  private async tryServeCachedInventory(
+    ownerId: string,
+  ): Promise<{ result: InventoryListResult; refreshInBackground: boolean } | null> {
+    const latest = await this.prisma.inventorySyncRun.findFirst({
+      where: { userId: ownerId },
+      orderBy: { fetchedAt: 'desc' },
+    });
+    if (!latest) {
+      return null;
+    }
+
+    const assets = await this.prisma.inventoryAsset.findMany({
+      where: {
+        ownerId,
+        status: { not: InventoryAssetStatus.REMOVED },
+      },
+      include: { itemDefinition: true },
+      orderBy: { updatedAt: 'desc' },
+    });
+
+    // Cold account with failed sync and no rows must hit Steam.
+    if (assets.length === 0 && latest.status !== 'SUCCESS') {
+      return null;
+    }
+
+    const now = Date.now();
+    const cacheFresh =
+      latest.status === 'SUCCESS' && latest.expiresAt.getTime() > now;
+
+    const syncResult: SyncResult = {
+      status:
+        latest.status === 'SUCCESS' || latest.status === 'PARTIAL'
+          ? 'CACHE_HIT'
+          : 'FAILED',
+      itemCount: latest.itemCount,
+      fetchedAt: latest.fetchedAt,
+      expiresAt: latest.expiresAt,
+      cacheHit: true,
+      stale: !cacheFresh,
+      warning: cacheFresh
+        ? null
+        : 'Показываем последнюю копию — обновляем из Steam в фоне',
+      errorCode: latest.errorCode,
+    };
+
+    return {
+      result: {
+        assets: toJsonSafe(assets),
+        sync: {
+          lastSyncedAt: syncResult.fetchedAt.toISOString(),
+          expiresAt: syncResult.expiresAt.toISOString(),
+          stale: syncResult.stale,
+          cacheHit: true,
+          status: syncResult.status,
+          itemCount: syncResult.itemCount,
+          warning: syncResult.warning ?? null,
+          errorCode: syncResult.errorCode ?? null,
+        },
+      },
+      refreshInBackground: !cacheFresh,
+    };
+  }
+
+  private scheduleBackgroundSync(
+    ownerId: string,
+    steamId?: string | null,
+  ): void {
+    if (this.backgroundSyncInflight.has(ownerId)) {
+      return;
+    }
+    const task = this.inventoryProvider
+      .syncInventory(ownerId, steamId, { force: false })
+      .then(() => undefined)
+      .catch(() => undefined)
+      .finally(() => {
+        this.backgroundSyncInflight.delete(ownerId);
+      });
+    this.backgroundSyncInflight.set(ownerId, task);
+  }
+
+  private async buildInventoryResult(
+    ownerId: string,
+    syncResult: SyncResult,
+  ): Promise<InventoryListResult> {
     const assets = await this.prisma.inventoryAsset.findMany({
       where: {
         ownerId,
@@ -143,10 +251,16 @@ export class InventoryService {
     return toJsonSafe(asset);
   }
 
-  async getPriceHints(marketHashNames: string[], forceRefresh = false) {
+  async getPriceHints(
+    marketHashNames: string[],
+    options: PriceHintFetchOptions = {},
+  ) {
+    const forceRefresh = options.forceRefresh === true;
+    const cacheOnly = options.cacheOnly === true && !forceRefresh;
     const uniqueNames = [...new Set(marketHashNames.filter(Boolean))];
     const sellPriceOptions = {
       forceRefresh,
+      cacheOnly,
       cacheTtlMs: 3 * 60 * 1000,
       failureCacheTtlMs: 30 * 1000,
     } as const;

@@ -202,7 +202,7 @@ export function getInventory(token: string, options?: { forceRefresh?: boolean }
 export function getInventoryPriceHints(
   token: string,
   marketHashNames: string[],
-  options?: { forceRefresh?: boolean },
+  options?: { forceRefresh?: boolean; cacheOnly?: boolean },
 ) {
   return apiRequest<import('./types').InventoryPriceHintsResponse>('/inventory/price-hints', {
     method: 'POST',
@@ -210,6 +210,7 @@ export function getInventoryPriceHints(
     body: {
       marketHashNames,
       ...(options?.forceRefresh ? { forceRefresh: true } : {}),
+      ...(options?.cacheOnly ? { cacheOnly: true } : {}),
     },
   });
 }

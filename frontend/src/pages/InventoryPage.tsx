@@ -21,8 +21,8 @@ import { useAuth } from '../auth/AuthContext';
 import { EmptyState } from '../components/EmptyState';
 import { ErrorAlert } from '../components/ErrorAlert';
 import { InventoryAssetCard } from '../components/InventoryAssetCard';
+import { InventoryGridSkeleton } from '../components/InventoryGridSkeleton';
 import { InventorySellPanel } from '../components/InventorySellPanel';
-import { LoadingState } from '../components/LoadingState';
 import { PageHeader } from '../components/PageHeader';
 import { SellerSaleInfo } from '../components/SellerSaleInfo';
 import { canShowDevPanels, parseUsdToMinor, ERROR_MESSAGES } from '../utils/format';
@@ -42,6 +42,8 @@ import { profileToAuthUser } from '../utils/user-profile';
 import { hasTradeUrl } from '../utils/trade-url';
 import { formatDataTimestamp } from '../utils/lot-display';
 
+const STALE_INVENTORY_REVALIDATE_MS = 2_500;
+
 export function InventoryPage() {
   const { token, user, updateUser } = useAuth();
   const navigate = useNavigate();
@@ -50,6 +52,7 @@ export function InventoryPage() {
   const [sync, setSync] = useState<InventorySyncMeta | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [backgroundSyncing, setBackgroundSyncing] = useState(false);
   const [resettingDevTrades, setResettingDevTrades] = useState(false);
   const [error, setError] = useState<unknown>(null);
   const [sellError, setSellError] = useState<unknown>(null);
@@ -99,6 +102,15 @@ export function InventoryPage() {
   const priceMinor = useMemo(() => parseUsdToMinor(priceInput), [priceInput]);
   const selectedListable = selectedAsset ? canListAsset(selectedAsset) : false;
 
+  const applyPriceHintsResponse = useCallback(
+    (response: Awaited<ReturnType<typeof getInventoryPriceHints>>) => {
+      setPriceHints(response.hints);
+      setSteamPriceFetchedAt(response.steamPriceFetchedAt ?? null);
+      setSteamPriceMissing(response.steamPriceMissing ?? []);
+    },
+    [],
+  );
+
   const loadPriceHints = useCallback(
     async (inventoryAssets: InventoryAsset[], forceRefresh = false) => {
       if (!token || inventoryAssets.length === 0) {
@@ -113,25 +125,84 @@ export function InventoryPage() {
       const marketHashNames = [
         ...new Set(inventoryAssets.map((asset) => asset.itemDefinition.marketHashName)),
       ];
-      setPricesLoading(true);
       setPricesError(null);
+
+      if (forceRefresh) {
+        setPricesLoading(true);
+        try {
+          const response = await getInventoryPriceHints(token, marketHashNames, {
+            forceRefresh: true,
+          });
+          applyPriceHintsResponse(response);
+        } catch (err: unknown) {
+          setPriceHints({});
+          setSteamPriceFetchedAt(null);
+          setSteamPriceMissing([]);
+          setPricesError(err);
+        } finally {
+          setPricesLoading(false);
+        }
+        return;
+      }
+
+      // Fast path: cached prices only, then fill misses without blocking the grid.
+      setPricesLoading(true);
       try {
-        const response = await getInventoryPriceHints(token, marketHashNames, {
-          forceRefresh,
+        const cached = await getInventoryPriceHints(token, marketHashNames, {
+          cacheOnly: true,
         });
-        setPriceHints(response.hints);
-        setSteamPriceFetchedAt(response.steamPriceFetchedAt ?? null);
-        setSteamPriceMissing(response.steamPriceMissing ?? []);
+        applyPriceHintsResponse(cached);
+        const missing = cached.steamPriceMissing ?? [];
+        if (missing.length === 0) {
+          setPricesLoading(false);
+          return;
+        }
+        const refreshed = await getInventoryPriceHints(token, missing);
+        applyPriceHintsResponse({
+          hints: { ...cached.hints, ...refreshed.hints },
+          steamPriceFetchedAt:
+            refreshed.steamPriceFetchedAt ?? cached.steamPriceFetchedAt,
+          referencePriceFetchedAt:
+            refreshed.referencePriceFetchedAt ?? cached.referencePriceFetchedAt,
+          steamPriceMissing: refreshed.steamPriceMissing ?? [],
+        });
       } catch (err: unknown) {
-        setPriceHints({});
-        setSteamPriceFetchedAt(null);
-        setSteamPriceMissing([]);
         setPricesError(err);
       } finally {
         setPricesLoading(false);
       }
     },
-    [token],
+    [token, applyPriceHintsResponse],
+  );
+
+  const scheduleStaleRevalidate = useCallback(
+    (isStale: boolean) => {
+      if (!token || !isStale) {
+        setBackgroundSyncing(false);
+        return;
+      }
+      setBackgroundSyncing(true);
+      const revalidate = (attempt: number) => {
+        window.setTimeout(() => {
+          void getInventory(token)
+            .then((response) => {
+              setAssets(response.assets);
+              setSync(response.sync);
+              void loadPriceHints(response.assets);
+              if (response.sync.stale && attempt < 2) {
+                revalidate(attempt + 1);
+                return;
+              }
+              setBackgroundSyncing(false);
+            })
+            .catch(() => {
+              setBackgroundSyncing(false);
+            });
+        }, STALE_INVENTORY_REVALIDATE_MS);
+      };
+      revalidate(1);
+    },
+    [token, loadPriceHints],
   );
 
   const loadInventory = useCallback(
@@ -152,6 +223,11 @@ export function InventoryPage() {
         setAssets(response.assets);
         setSync(response.sync);
         void loadPriceHints(response.assets);
+        if (!forceRefresh) {
+          scheduleStaleRevalidate(Boolean(response.sync.stale));
+        } else {
+          setBackgroundSyncing(false);
+        }
       } catch (err: unknown) {
         setError(err);
       } finally {
@@ -159,7 +235,7 @@ export function InventoryPage() {
         setRefreshing(false);
       }
     },
-    [token, steamLinked, loadPriceHints],
+    [token, steamLinked, loadPriceHints, scheduleStaleRevalidate],
   );
 
   useEffect(() => {
@@ -170,13 +246,16 @@ export function InventoryPage() {
     let cancelled = false;
     setLoading(true);
 
-    getUserMe(token)
-      .then(async (profile) => {
+    void (async () => {
+      try {
+        const [profile, authConfig] = await Promise.all([
+          getUserMe(token),
+          getAuthConfig(),
+        ]);
         if (cancelled) {
           return;
         }
         updateUser(profileToAuthUser(profile));
-        const authConfig = await getAuthConfig();
         setConfig(authConfig);
         const linked =
           authConfig.inventoryProvider !== 'steam' ||
@@ -194,22 +273,22 @@ export function InventoryPage() {
         setAssets(response.assets);
         setSync(response.sync);
         void loadPriceHints(response.assets);
-      })
-      .catch((err: unknown) => {
+        scheduleStaleRevalidate(Boolean(response.sync.stale));
+      } catch (err: unknown) {
         if (!cancelled) {
           setError(err);
         }
-      })
-      .finally(() => {
+      } finally {
         if (!cancelled) {
           setLoading(false);
         }
-      });
+      }
+    })();
 
     return () => {
       cancelled = true;
     };
-  }, [token, updateUser, loadPriceHints]);
+  }, [token, updateUser, loadPriceHints, scheduleStaleRevalidate]);
 
   useEffect(() => {
     if (!priceMinor) {
@@ -368,7 +447,7 @@ export function InventoryPage() {
         }
       />
 
-      <SellerSaleInfo />
+      <SellerSaleInfo compact />
 
       {!steamLinked && requiresSteamLink ? (
         <p className="muted small" data-testid="inventory-refresh-hint">
@@ -441,7 +520,16 @@ export function InventoryPage() {
         </div>
       ) : null}
 
-      {loading ? <LoadingState message="Загрузка инвентаря…" /> : null}
+      {loading && steamLinked && tradeUrlReady ? (
+        <div className="inventory-workspace">
+          <div className="inventory-main">
+            <p className="muted small" data-testid="inventory-loading-hint">
+              Загрузка инвентаря…
+            </p>
+            <InventoryGridSkeleton />
+          </div>
+        </div>
+      ) : null}
 
       {steamLinked && tradeUrlReady && !loading && assets.length === 0 ? (
         <EmptyState
@@ -456,9 +544,18 @@ export function InventoryPage() {
       assets.length > 0 ? (
         <div className="inventory-workspace">
           <div className="inventory-main">
+            {backgroundSyncing ? (
+              <p
+                className="muted small inventory-price-inline"
+                data-testid="inventory-background-sync"
+              >
+                Обновляем инвентарь из Steam в фоне…
+              </p>
+            ) : null}
+
             {pricesLoading ? (
               <p className="muted small inventory-price-inline" data-testid="inventory-prices-loading">
-                Загрузка актуальных цен Steam…
+                Уточняем цены Steam…
               </p>
             ) : null}
 

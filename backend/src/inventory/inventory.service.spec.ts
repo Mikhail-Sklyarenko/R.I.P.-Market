@@ -6,6 +6,15 @@ describe('InventoryService', () => {
     lot: {
       findMany: jest.fn(),
     },
+    user: {
+      findUnique: jest.fn(),
+    },
+    inventorySyncRun: {
+      findFirst: jest.fn(),
+    },
+    inventoryAsset: {
+      findMany: jest.fn(),
+    },
   };
 
   const steamMarketPrice = {
@@ -26,6 +35,73 @@ describe('InventoryService', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+  });
+
+  it('serves cached inventory immediately without waiting on Steam', async () => {
+    const fetchedAt = new Date('2026-07-19T10:00:00.000Z');
+    const expiresAt = new Date(Date.now() + 60_000);
+    prisma.user.findUnique.mockResolvedValue({
+      id: 'user-1',
+      steamId: '76561198000000000',
+    });
+    prisma.inventorySyncRun.findFirst.mockResolvedValue({
+      userId: 'user-1',
+      status: 'SUCCESS',
+      itemCount: 1,
+      fetchedAt,
+      expiresAt,
+      errorCode: null,
+    });
+    prisma.inventoryAsset.findMany.mockResolvedValue([
+      {
+        id: 'asset-1',
+        itemDefinition: { marketHashName: 'AK-47 | Redline (Field-Tested)' },
+      },
+    ]);
+
+    const result = await service.getUserInventory('user-1');
+
+    expect(inventoryProvider.syncInventory).not.toHaveBeenCalled();
+    expect(result.sync.cacheHit).toBe(true);
+    expect(result.sync.stale).toBe(false);
+    expect(result.assets).toHaveLength(1);
+  });
+
+  it('returns stale cache and refreshes Steam in the background', async () => {
+    const fetchedAt = new Date('2026-07-19T10:00:00.000Z');
+    const expiresAt = new Date(Date.now() - 60_000);
+    prisma.user.findUnique.mockResolvedValue({
+      id: 'user-1',
+      steamId: '76561198000000000',
+    });
+    prisma.inventorySyncRun.findFirst.mockResolvedValue({
+      userId: 'user-1',
+      status: 'SUCCESS',
+      itemCount: 1,
+      fetchedAt,
+      expiresAt,
+      errorCode: null,
+    });
+    prisma.inventoryAsset.findMany.mockResolvedValue([
+      {
+        id: 'asset-1',
+        itemDefinition: { marketHashName: 'AK-47 | Redline (Field-Tested)' },
+      },
+    ]);
+    inventoryProvider.syncInventory.mockResolvedValue({
+      status: 'SUCCESS',
+      itemCount: 1,
+      fetchedAt: new Date(),
+      expiresAt: new Date(Date.now() + 60_000),
+      cacheHit: false,
+      stale: false,
+    });
+
+    const result = await service.getUserInventory('user-1');
+
+    expect(result.sync.stale).toBe(true);
+    expect(result.sync.cacheHit).toBe(true);
+    expect(inventoryProvider.syncInventory).toHaveBeenCalled();
   });
 
   it('returns steam and marketplace price hints keyed by market hash name', async () => {
@@ -61,7 +137,7 @@ describe('InventoryService', () => {
 
     expect(steamMarketPrice.getPricesWithMeta).toHaveBeenCalledWith(
       ['AK-47 | Redline (Field-Tested)', 'Fever Case'],
-      expect.objectContaining({ forceRefresh: false }),
+      expect.objectContaining({ forceRefresh: false, cacheOnly: false }),
     );
     expect(prisma.lot.findMany).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -105,5 +181,19 @@ describe('InventoryService', () => {
       minMarketplacePriceMinor: null,
     });
     expect(result.steamPriceMissing).toEqual(['Fever Case']);
+  });
+
+  it('passes cacheOnly through to the Steam price service', async () => {
+    steamMarketPrice.getPricesWithMeta.mockResolvedValue({
+      'Fever Case': { priceMinor: 500, fetchedAt: '2026-07-11T12:00:00.000Z' },
+    });
+    prisma.lot.findMany.mockResolvedValue([]);
+
+    await service.getPriceHints(['Fever Case'], { cacheOnly: true });
+
+    expect(steamMarketPrice.getPricesWithMeta).toHaveBeenCalledWith(
+      ['Fever Case'],
+      expect.objectContaining({ cacheOnly: true }),
+    );
   });
 });
