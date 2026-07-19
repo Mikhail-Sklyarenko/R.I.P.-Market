@@ -52,17 +52,32 @@ function resolveSources(): Cs2CatalogSource[] {
 
 async function fetchSourceRows(
   source: Cs2CatalogSource,
+  attempt = 1,
 ): Promise<{ source: Cs2CatalogSource; rows: Cs2ApiCatalogRow[] }> {
+  const maxAttempts = 4;
   console.log(`Fetching ${source.id}: ${source.url}`);
-  const response = await fetch(source.url);
-  if (!response.ok) {
-    throw new Error(`Failed to fetch ${source.id}: HTTP ${response.status}`);
+  try {
+    const response = await fetch(source.url);
+    if (!response.ok) {
+      throw new Error(`Failed to fetch ${source.id}: HTTP ${response.status}`);
+    }
+    const rows = (await response.json()) as Cs2ApiCatalogRow[];
+    if (!Array.isArray(rows)) {
+      throw new Error(`Unexpected payload for ${source.id}: expected array`);
+    }
+    return { source, rows };
+  } catch (error) {
+    if (attempt >= maxAttempts) {
+      throw error;
+    }
+    const delayMs = attempt * 2000;
+    console.warn(
+      `  retry ${attempt}/${maxAttempts - 1} for ${source.id} in ${delayMs}ms…`,
+      error instanceof Error ? error.message : error,
+    );
+    await new Promise((resolve) => setTimeout(resolve, delayMs));
+    return fetchSourceRows(source, attempt + 1);
   }
-  const rows = (await response.json()) as Cs2ApiCatalogRow[];
-  if (!Array.isArray(rows)) {
-    throw new Error(`Unexpected payload for ${source.id}: expected array`);
-  }
-  return { source, rows };
 }
 
 async function main() {
@@ -72,7 +87,12 @@ async function main() {
   const dryRun = hasFlag('dry-run');
   const sources = resolveSources();
 
-  const fetched = await Promise.all(sources.map((source) => fetchSourceRows(source)));
+  // Sequential fetch: VPS → GitHub parallel bursts often time out / 429.
+  const fetched: Array<{ source: Cs2CatalogSource; rows: Cs2ApiCatalogRow[] }> =
+    [];
+  for (const source of sources) {
+    fetched.push(await fetchSourceRows(source));
+  }
   const batches: CatalogSkinCardSeed[][] = [];
   const bySource: Record<string, number> = {};
 
