@@ -4177,18 +4177,103 @@ p {
   gap: var(--space-4);
 }
 
+.item-buy-request-header {
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+.item-buy-request-kicker {
+  margin: 0;
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--color-text-muted);
+}
+
 .item-buy-request-lead {
   margin: 0;
   line-height: 1.45;
 }
 
+.item-buy-request-price-block {
+  display: grid;
+  gap: var(--space-3);
+  padding: var(--space-4);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background:
+    linear-gradient(
+      180deg,
+      color-mix(in srgb, var(--color-primary-from) 10%, transparent),
+      transparent 56%
+    ),
+    var(--color-bg-subtle);
+}
+
+.item-buy-request-suggestion {
+  margin: 0;
+}
+
 .item-buy-request-price-field {
   display: grid;
   gap: var(--space-2);
+  margin: 0;
 }
 
-.item-buy-request-price-field input {
+.item-buy-request-price-control {
+  display: flex;
+  align-items: center;
+  gap: 0.15rem;
+  min-height: 2.75rem;
+  padding: 0 0.85rem;
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-md);
+  background: var(--color-bg-input);
+  transition:
+    border-color 0.15s ease,
+    box-shadow 0.15s ease,
+    background-color 0.15s ease;
+}
+
+.item-buy-request-price-control:focus-within,
+.item-buy-request-price-control.has-value:focus-within {
+  border-color: color-mix(in srgb, var(--color-primary) 70%, white 10%);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-primary) 22%, transparent);
+}
+
+.item-buy-request-price-prefix {
+  flex: 0 0 auto;
+  font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-muted);
+  line-height: 1;
+}
+
+.item-buy-request-price-control input {
+  flex: 1 1 auto;
   width: 100%;
+  min-width: 0;
+  border: 0;
+  outline: none;
+  background: transparent;
+  color: var(--color-text);
+  font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-semibold);
+  font-variant-numeric: tabular-nums;
+  padding: 0.55rem 0;
+  box-shadow: none;
+}
+
+.item-buy-request-price-control input::placeholder {
+  color: color-mix(in srgb, var(--color-text-muted) 70%, transparent);
+  font-weight: var(--font-weight-normal);
+}
+
+.item-buy-request-price-hint {
+  margin: 0;
+  line-height: 1.35;
 }
 
 .item-buy-request-active {
