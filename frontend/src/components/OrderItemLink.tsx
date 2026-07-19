@@ -5,6 +5,8 @@ type OrderItemLinkProps = {
   href: string;
   name: string;
   iconUrl?: string | null;
+  /** Single-line cell without the secondary «Страница предмета» hint. */
+  compact?: boolean;
   testId?: string;
 };
 
@@ -15,12 +17,15 @@ export function OrderItemLink({
   href,
   name,
   iconUrl,
+  compact = false,
   testId,
 }: OrderItemLinkProps) {
   return (
     <Link
       to={href}
-      className="order-item-link"
+      className={['order-item-link', compact ? 'order-item-link-compact' : '']
+        .filter(Boolean)
+        .join(' ')}
       data-testid={testId}
       title={`Открыть ${name}`}
     >
@@ -33,7 +38,9 @@ export function OrderItemLink({
       </span>
       <span className="order-item-link-copy">
         <span className="order-item-link-name">{name}</span>
-        <span className="order-item-link-hint">Страница предмета</span>
+        {!compact ? (
+          <span className="order-item-link-hint">Страница предмета</span>
+        ) : null}
       </span>
     </Link>
   );

@@ -242,7 +242,7 @@ export function MyOrdersPage({
             <thead>
               <tr>
                 <th>Предмет</th>
-                <th>Роль</th>
+                {!sellerOnly && !buyerOnly ? <th>Роль</th> : null}
                 <th>Сумма</th>
                 <th>Статус</th>
                 <th>Дальше</th>
@@ -271,15 +271,18 @@ export function MyOrdersPage({
                           order.lot.listingSnapshot?.iconUrl,
                           order.lot.inventoryAsset.itemDefinition.iconUrl,
                         )}
+                        compact
                         testId={`order-item-link-${order.id}`}
                       />
                     </td>
-                    <td>
-                      <span className="deals-role-label">
-                        {formatOrderRoleLabel(role)}
-                      </span>
-                    </td>
-                    <td>
+                    {!sellerOnly && !buyerOnly ? (
+                      <td>
+                        <span className="deals-role-label">
+                          {formatOrderRoleLabel(role)}
+                        </span>
+                      </td>
+                    ) : null}
+                    <td className="deals-amount-cell">
                       <MoneyDisplay
                         minor={
                           role === 'seller'
@@ -287,12 +290,6 @@ export function MyOrdersPage({
                             : order.amountMinor
                         }
                       />
-                      {role === 'seller' ? (
-                        <span className="muted small my-orders-net-hint">
-                          {' '}
-                          к получению
-                        </span>
-                      ) : null}
                     </td>
                     <td>
                       <StatusBadge
@@ -309,7 +306,13 @@ export function MyOrdersPage({
                       {getDealNextStepShort(order, role)}
                     </td>
                     <td className="deals-date-cell">
-                      {new Date(order.createdAt).toLocaleString('ru-RU')}
+                      {new Date(order.createdAt).toLocaleString('ru-RU', {
+                        day: '2-digit',
+                        month: '2-digit',
+                        year: 'numeric',
+                        hour: '2-digit',
+                        minute: '2-digit',
+                      })}
                     </td>
                     <td>
                       <div className="deals-row-actions">

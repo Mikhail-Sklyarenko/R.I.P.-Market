@@ -15,7 +15,7 @@ test.describe('Seller order visibility', () => {
     await page.goto('/deals?tab=sales');
 
     await expect(page.getByTestId('my-orders-table')).toContainText('WAITING_TRADE');
-    await expect(page.getByTestId('my-orders-table')).toContainText('Продавец');
+    await expect(page.getByTestId(`open-order-${orderId}`)).toBeVisible();
 
     await page.getByRole('link', { name: 'Открыть' }).first().click();
     await expect(page).toHaveURL(new RegExp(`/orders/${orderId}$`));
