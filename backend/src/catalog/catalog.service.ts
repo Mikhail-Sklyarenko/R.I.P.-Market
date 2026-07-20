@@ -19,6 +19,7 @@ import type { ListCatalogItemsQueryDto } from './dto/list-catalog-items-query.dt
 import { catalogLotMatchesWearFloatFilters } from './catalog-lot-filters.util';
 import { applyCatalogSkinTraitFilters } from './catalog-skin-trait-filter.util';
 import { deriveBaseMarketHashName } from '../item-definitions/base-market-hash-name.util';
+import { parseWearIcons } from '../item-definitions/wear-icons.util';
 
 const POPULAR_WINDOW_MS = 30 * 24 * 60 * 60 * 1000;
 
@@ -28,6 +29,7 @@ export type CatalogItemRow = {
   weapon: string | null;
   rarity: string | null;
   iconUrl: string | null;
+  wearIcons: Record<string, string>;
   availableWears: string[];
   catalogSeeded: boolean;
   minMarketplacePriceMinor: string | null;
@@ -58,6 +60,7 @@ type ItemDefinitionRecord = {
   rarity: string | null;
   iconUrl: string | null;
   baseMarketHashName?: string | null;
+  wearIcons?: unknown;
   availableWears?: unknown;
   catalogSeeded?: boolean;
 };
@@ -413,6 +416,7 @@ export class CatalogService {
       weapon: item.weapon,
       rarity: item.rarity,
       iconUrl: item.iconUrl,
+      wearIcons: parseWearIcons(item.wearIcons),
       availableWears: parseAvailableWears(item.availableWears),
       catalogSeeded: Boolean(item.catalogSeeded),
       minMarketplacePriceMinor: stats?.minPriceMinor?.toString() ?? null,

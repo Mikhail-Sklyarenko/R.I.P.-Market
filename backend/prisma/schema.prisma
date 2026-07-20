@@ -273,6 +273,8 @@ model ItemDefinition {
   iconUrl            String?
   /// Wear codes available for buy requests: ["FN","MW","FT",...]
   availableWears     Json?
+  /// Wear-specific preview icons: {"FN":"-9a81...","FT":"-9a81..."}
+  wearIcons          Json?
   /// Imported catalog card — never deleted by orphan inventory cleanup.
   catalogSeeded      Boolean          @default(false)
   createdAt          DateTime         @default(now())

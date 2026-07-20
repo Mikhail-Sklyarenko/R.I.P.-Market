@@ -156,10 +156,42 @@ export type CatalogSkinCardSeed = {
   rarity: string | null;
   iconUrl: string | null;
   availableWears: string[];
+  wearIcons: Record<string, string>;
   sourceKind?: Cs2CatalogSourceKind;
 };
 
 const WEAR_ORDER = ['FN', 'MW', 'FT', 'WW', 'BS'];
+
+function wearIconFromRow(
+  wear: string | null,
+  row: Cs2ApiCatalogRow,
+): Record<string, string> {
+  const image = row.image?.trim();
+  if (!wear || !image) {
+    return {};
+  }
+  return { [wear]: image };
+}
+
+function pickDefaultIconUrl(
+  wearIcons: Record<string, string>,
+  availableWears: string[],
+): string | null {
+  for (const wear of WEAR_ORDER) {
+    const iconUrl = wearIcons[wear];
+    if (iconUrl) {
+      return iconUrl;
+    }
+  }
+  for (const wear of availableWears) {
+    const iconUrl = wearIcons[wear];
+    if (iconUrl) {
+      return iconUrl;
+    }
+  }
+  const first = Object.values(wearIcons)[0];
+  return first ?? null;
+}
 
 export function resolveCatalogMarketHashName(
   row: Cs2ApiCatalogRow,
@@ -236,14 +268,17 @@ export function buildCatalogCardSeeds(
     const weapon = resolveWeaponLabel(row, source);
 
     const existing = byKey.get(cardKey);
+    const rowIcon = row.image?.trim() || null;
     if (!existing) {
+      const wearIcons = wearIconFromRow(wear, row);
       byKey.set(cardKey, {
         marketHashName: cardKey,
         baseMarketHashName: cardKey,
         weapon,
         rarity: row.rarity?.name?.trim() || null,
-        iconUrl: row.image?.trim() || null,
+        iconUrl: pickDefaultIconUrl(wearIcons, wear ? [wear] : []) ?? rowIcon,
         availableWears: wear ? [wear] : [],
+        wearIcons,
         sourceKind: source.id,
       });
       continue;
@@ -252,8 +287,10 @@ export function buildCatalogCardSeeds(
     if (wear && !existing.availableWears.includes(wear)) {
       existing.availableWears.push(wear);
     }
-    if (!existing.iconUrl && row.image?.trim()) {
-      existing.iconUrl = row.image.trim();
+    Object.assign(existing.wearIcons, wearIconFromRow(wear, row));
+    if (!existing.iconUrl) {
+      existing.iconUrl =
+        pickDefaultIconUrl(existing.wearIcons, existing.availableWears) ?? rowIcon;
     }
     if (!existing.weapon && weapon) {
       existing.weapon = weapon;
@@ -269,6 +306,8 @@ export function buildCatalogCardSeeds(
       availableWears: [...seed.availableWears].sort(
         (a, b) => WEAR_ORDER.indexOf(a) - WEAR_ORDER.indexOf(b),
       ),
+
+      iconUrl: pickDefaultIconUrl(seed.wearIcons, seed.availableWears) ?? seed.iconUrl,
     }))
     .sort((a, b) => a.marketHashName.localeCompare(b.marketHashName));
 }
@@ -289,6 +328,7 @@ export function mergeCatalogCardSeeds(
         byName.set(seed.marketHashName, {
           ...seed,
           availableWears: [...seed.availableWears],
+          wearIcons: { ...seed.wearIcons },
         });
         continue;
       }
@@ -297,6 +337,7 @@ export function mergeCatalogCardSeeds(
           existing.availableWears.push(wear);
         }
       }
+      Object.assign(existing.wearIcons, seed.wearIcons);
       if (!existing.iconUrl && seed.iconUrl) {
         existing.iconUrl = seed.iconUrl;
       }
@@ -315,6 +356,8 @@ export function mergeCatalogCardSeeds(
       availableWears: [...seed.availableWears].sort(
         (a, b) => WEAR_ORDER.indexOf(a) - WEAR_ORDER.indexOf(b),
       ),
+
+      iconUrl: pickDefaultIconUrl(seed.wearIcons, seed.availableWears) ?? seed.iconUrl,
     }))
     .sort((a, b) => a.marketHashName.localeCompare(b.marketHashName));
 }
@@ -347,6 +390,7 @@ type PrismaItemDefinitionClient = {
         rarity: string | null;
         iconUrl: string | null;
         availableWears: string[];
+        wearIcons: Record<string, string>;
         catalogSeeded: boolean;
       };
       update: {
@@ -355,6 +399,7 @@ type PrismaItemDefinitionClient = {
         rarity?: string;
         iconUrl?: string;
         availableWears: string[];
+        wearIcons: Record<string, string>;
         catalogSeeded: boolean;
       };
     }) => Promise<unknown>;
@@ -384,6 +429,7 @@ export async function importCs2CatalogSeeds(
           rarity: seed.rarity,
           iconUrl: seed.iconUrl,
           availableWears: seed.availableWears,
+          wearIcons: seed.wearIcons,
           catalogSeeded: true,
         },
         update: {
@@ -392,6 +438,7 @@ export async function importCs2CatalogSeeds(
           rarity: seed.rarity ?? undefined,
           ...(seed.iconUrl ? { iconUrl: seed.iconUrl } : {}),
           availableWears: seed.availableWears,
+          wearIcons: seed.wearIcons,
           catalogSeeded: true,
         },
       });

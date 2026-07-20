@@ -1,5 +1,6 @@
 import type { CatalogItem } from '../api/types';
 import type { ItemDisplaySource } from './item-image';
+import { resolveWearIconUrl } from './wear-icons';
 
 const STEAM_MARKET_APP_ID = 730;
 
@@ -90,15 +91,25 @@ export function buildSteamMarketListingUrl(
   return `https://steamcommunity.com/market/listings/${STEAM_MARKET_APP_ID}/${encodeURIComponent(resolved)}`;
 }
 
-export function toCatalogItemDisplaySource(item: CatalogItem): ItemDisplaySource {
+export function toCatalogItemDisplaySource(
+  item: CatalogItem,
+  wear?: string | null,
+): ItemDisplaySource {
+  const resolvedWear =
+    wear?.trim() ||
+    parseWearCodeFromMarketHashName(item.marketHashName) ||
+    null;
+  const iconUrl =
+    resolveWearIconUrl(item.wearIcons, resolvedWear, item.iconUrl) ?? item.iconUrl;
+
   return {
-    wear: parseWearCodeFromMarketHashName(item.marketHashName),
+    wear: resolvedWear,
     floatValue: null,
     itemDefinition: {
       marketHashName: item.marketHashName,
       weapon: item.weapon,
       rarity: item.rarity,
-      iconUrl: item.iconUrl,
+      iconUrl,
     },
   };
 }

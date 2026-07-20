@@ -35,6 +35,8 @@ import {
   toCatalogItemDisplaySource,
 } from '../utils/steam-market-link';
 import { CATALOG_WEAR_FILTERS } from '../utils/wear-filters';
+import { getSteamItemImageUrl } from '../utils/item-image';
+import { preloadWearIcons } from '../utils/wear-icons';
 
 export function ItemPage() {
   const { id } = useParams();
@@ -57,10 +59,6 @@ export function ItemPage() {
   const isBuyRequestPage = Boolean(item) && !hasOffers;
   const openBuyRequest = buyRequest?.status === 'OPEN' ? buyRequest : null;
   const cheapestLot = lots[0] ?? null;
-  const displayItem = useMemo(
-    () => (item ? toCatalogItemDisplaySource(item) : null),
-    [item],
-  );
   const wearOptions = useMemo(() => {
     if (!item?.availableWears?.length) {
       return [];
@@ -73,6 +71,10 @@ export function ItemPage() {
     selectedWear ||
     parseWearCodeFromMarketHashName(item?.marketHashName ?? '') ||
     '';
+  const displayItem = useMemo(
+    () => (item ? toCatalogItemDisplaySource(item, effectiveWear) : null),
+    [item, effectiveWear],
+  );
 
   useEffect(() => {
     if (!id) {
@@ -115,6 +117,13 @@ export function ItemPage() {
       .catch(() => setLots([]))
       .finally(() => setLotsLoading(false));
   }, [id, selectedWear]);
+
+  useEffect(() => {
+    if (!item?.wearIcons) {
+      return;
+    }
+    preloadWearIcons(item.wearIcons, getSteamItemImageUrl);
+  }, [item?.id, item?.wearIcons]);
 
   useEffect(() => {
     if (!token || !id) {
@@ -287,7 +296,10 @@ export function ItemPage() {
               className={`item-compare-layout${isComparisonPage ? '' : ' item-compare-layout-single'}`}
             >
               <div className="item-compare-main">
-                <ItemCompareHeader item={item} />
+                <ItemCompareHeader
+                  item={item}
+                  iconUrl={displayItem?.itemDefinition.iconUrl ?? item.iconUrl}
+                />
                 {wearOptions.length > 0 ? (
                   <div
                     className="item-page-wear-filters"

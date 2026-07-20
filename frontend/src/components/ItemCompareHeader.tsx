@@ -9,9 +9,10 @@ import { SteamItemImage } from './SteamItemImage';
 
 type ItemCompareHeaderProps = {
   item: CatalogItem;
+  iconUrl?: string | null;
 };
 
-export function ItemCompareHeader({ item }: ItemCompareHeaderProps) {
+export function ItemCompareHeader({ item, iconUrl }: ItemCompareHeaderProps) {
   const wearBadge = item.catalogSeeded
     ? null
     : getWearBadgeStyle(parseWearCodeFromMarketHashName(item.marketHashName));
@@ -27,7 +28,7 @@ export function ItemCompareHeader({ item }: ItemCompareHeaderProps) {
       <div className="item-compare-header-main">
         <div className="item-compare-header-image-wrap">
           <SteamItemImage
-            iconUrl={item.iconUrl}
+            iconUrl={iconUrl ?? item.iconUrl}
             alt={item.marketHashName}
             className="item-compare-header-image"
           />

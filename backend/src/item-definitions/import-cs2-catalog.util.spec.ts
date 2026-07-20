@@ -18,6 +18,7 @@ describe('buildCatalogSkinCardSeeds', () => {
       },
       {
         market_hash_name: 'AK-47 | Redline (Factory New)',
+        image: 'https://example.com/fn.png',
         wear: { name: 'Factory New' },
       },
       {
@@ -34,7 +35,11 @@ describe('buildCatalogSkinCardSeeds', () => {
     expect(seeds).toHaveLength(2);
     expect(seeds[0]?.marketHashName).toBe('AK-47 | Redline');
     expect(seeds[0]?.availableWears).toEqual(['FN', 'FT']);
-    expect(seeds[0]?.iconUrl).toBe('https://example.com/ft.png');
+    expect(seeds[0]?.iconUrl).toBe('https://example.com/fn.png');
+    expect(seeds[0]?.wearIcons).toEqual({
+      FT: 'https://example.com/ft.png',
+      FN: 'https://example.com/fn.png',
+    });
     expect(seeds[1]?.marketHashName).toBe('StatTrak™ AK-47 | Redline');
     expect(seeds[1]?.availableWears).toEqual(['MW']);
   });
@@ -142,6 +147,7 @@ describe('mergeCatalogCardSeeds', () => {
           rarity: 'Classified',
           iconUrl: null,
           availableWears: ['FT'],
+          wearIcons: { FT: 'https://example.com/ft.png' },
         },
       ],
       [
@@ -152,6 +158,7 @@ describe('mergeCatalogCardSeeds', () => {
           rarity: null,
           iconUrl: 'https://example.com/ak.png',
           availableWears: ['FN'],
+          wearIcons: { FN: 'https://example.com/ak.png' },
         },
         {
           marketHashName: 'Sticker | Titan',
@@ -160,6 +167,7 @@ describe('mergeCatalogCardSeeds', () => {
           rarity: null,
           iconUrl: null,
           availableWears: [],
+          wearIcons: {},
         },
       ],
     ]);
@@ -168,6 +176,10 @@ describe('mergeCatalogCardSeeds', () => {
     const skin = merged.find((s) => s.marketHashName === 'AK-47 | Redline');
     expect(skin?.availableWears).toEqual(['FN', 'FT']);
     expect(skin?.iconUrl).toBe('https://example.com/ak.png');
+    expect(skin?.wearIcons).toEqual({
+      FT: 'https://example.com/ft.png',
+      FN: 'https://example.com/ak.png',
+    });
   });
 });
 
