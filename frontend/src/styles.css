@@ -3816,7 +3816,7 @@ p {
 
 @media (min-width: 900px) {
   .catalog-layout {
-    grid-template-columns: minmax(168px, 196px) minmax(0, 1fr);
+    grid-template-columns: minmax(204px, 232px) minmax(0, 1fr);
   }
 }
 
@@ -3896,16 +3896,15 @@ p {
 }
 
 .catalog-range-filter-header {
-  display: flex;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;
-  justify-content: space-between;
   gap: var(--space-2);
   min-height: 2rem;
   padding: 0.45rem var(--space-2);
 }
 
 .catalog-range-filter-title {
-  flex: 1 1 auto;
   min-width: 0;
   padding: 0;
   border: none;
@@ -3915,6 +3914,9 @@ p {
   font-weight: var(--font-weight-medium);
   text-align: left;
   cursor: pointer;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .catalog-range-filter-actions {
@@ -3932,6 +3934,7 @@ p {
   font-size: var(--font-size-xs);
   font-weight: var(--font-weight-medium);
   cursor: pointer;
+  white-space: nowrap;
 }
 
 .catalog-range-filter-reset:hover {
