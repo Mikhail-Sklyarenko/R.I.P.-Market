@@ -8,6 +8,10 @@ import {
 import { formatPaintSeed, resolveDisplayIconUrl } from '../utils/item-image';
 import { resolveLotDisplayItem } from '../utils/lot-display';
 import { getRarityStyle } from '../utils/rarity-colors';
+import {
+  catalogCardImageWrapClass,
+  resolveCatalogCardImageProfile,
+} from '../utils/catalog-card-image';
 import { InventoryPriceStack } from './InventoryPriceStack';
 import { SteamItemImage } from './SteamItemImage';
 
@@ -94,6 +98,11 @@ export function CatalogLotCard({ lot, isLoggedIn: _isLoggedIn }: CatalogLotCardP
     '--lot-rarity-color': rarityStyle.color,
     '--lot-rarity-glow': rarityStyle.glow,
   } as CSSProperties;
+  const imageProfile = resolveCatalogCardImageProfile({
+    weapon: displayItem.itemDefinition.weapon ?? inventoryAsset.itemDefinition.weapon,
+    marketHashName: name,
+  });
+  const imageWrapClass = catalogCardImageWrapClass(imageProfile);
 
   function openLot() {
     navigate(lotPath);
@@ -141,7 +150,9 @@ export function CatalogLotCard({ lot, isLoggedIn: _isLoggedIn }: CatalogLotCardP
         </div>
       </div>
 
-      <div className="catalog-lot-card-image-wrap">
+      <div className={imageWrapClass}>
+        <span className="catalog-lot-card-rarity-glow" aria-hidden="true" />
+        <span className="catalog-lot-card-rarity-haze" aria-hidden="true" />
         <SteamItemImage
           iconUrl={iconUrl}
           alt={name}

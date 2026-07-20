@@ -6,6 +6,8 @@ type PriceStackProps = {
   testIdPrefix: string;
   loading?: boolean;
   requireSteamPrice?: boolean;
+  /** Catalog cards: one price line, no duplicate Steam / empty market hints. */
+  compact?: boolean;
 };
 
 function PriceStackSkeleton({ testIdPrefix }: { testIdPrefix: string }) {
@@ -27,13 +29,44 @@ export function InventoryPriceStack({
   testIdPrefix,
   loading = false,
   requireSteamPrice = false,
+  compact = false,
 }: PriceStackProps) {
   if (loading && !steamPriceMinor && !marketplacePriceMinor) {
+    if (compact) {
+      return (
+        <div className="inventory-price-stack" data-testid={`${testIdPrefix}-prices`}>
+          <p className="inventory-price-primary muted" data-testid={`${testIdPrefix}-primary-price`}>
+            —
+          </p>
+        </div>
+      );
+    }
     return <PriceStackSkeleton testIdPrefix={testIdPrefix} />;
   }
 
   const hasMarket = Boolean(marketplacePriceMinor);
   const hasSteam = Boolean(steamPriceMinor);
+
+  if (compact && hasSteam && !hasMarket) {
+    return (
+      <div className="inventory-price-stack" data-testid={`${testIdPrefix}-prices`}>
+        <p className="inventory-price-primary" data-testid={`${testIdPrefix}-primary-price`}>
+          <MoneyDisplay minor={steamPriceMinor!} strong />
+        </p>
+        <p className="inventory-price-secondary muted small">Ориентир Steam</p>
+      </div>
+    );
+  }
+
+  if (compact && !hasSteam && !hasMarket) {
+    return (
+      <div className="inventory-price-stack" data-testid={`${testIdPrefix}-prices`}>
+        <p className="inventory-price-primary muted" data-testid={`${testIdPrefix}-primary-price`}>
+          —
+        </p>
+      </div>
+    );
+  }
 
   if (hasMarket) {
     return (

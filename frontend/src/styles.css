@@ -3208,16 +3208,16 @@ p {
 .catalog-lot-card::before {
   content: '';
   position: absolute;
-  top: -18px;
+  top: -22px;
   left: 50%;
-  width: 76%;
-  max-width: 148px;
-  height: 42px;
+  width: 90%;
+  max-width: 220px;
+  height: 64px;
   transform: translateX(-50%);
   border-radius: 50%;
   background: var(--lot-rarity-color, #64748b);
-  filter: blur(22px);
-  opacity: 0.36;
+  filter: blur(36px);
+  opacity: 0.44;
   pointer-events: none;
   z-index: 0;
   transition: opacity 0.15s ease, filter 0.15s ease;
@@ -3232,18 +3232,18 @@ p {
   pointer-events: none;
   z-index: 0;
   background: radial-gradient(
-    circle 92px at 50% 0,
+    ellipse 88% 58% at 50% 0%,
     var(--lot-rarity-glow, rgba(100, 116, 139, 0.32)) 0%,
-    transparent 100%
+    transparent 70%
   );
-  opacity: 0.88;
+  opacity: 0.92;
   transition: opacity 0.15s ease;
 }
 
 .inventory-asset-card-listable:hover::before,
 .catalog-lot-card:hover::before {
-  opacity: 0.48;
-  filter: blur(24px);
+  opacity: 0.54;
+  filter: blur(40px);
 }
 
 .inventory-asset-card-listable:hover::after,
@@ -3259,10 +3259,10 @@ p {
   min-height: 252px;
   padding: 0;
   overflow: hidden;
-  border-radius: 8px;
-  background: linear-gradient(180deg, #252b38 0%, #1a1f29 100%);
-  border: 1px solid rgba(255, 255, 255, 0.05);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+  border-radius: var(--radius-lg);
+  background: linear-gradient(180deg, rgba(17, 24, 39, 0.94), rgba(11, 13, 18, 0.98));
+  border: 1px solid rgba(148, 163, 184, 0.12);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.03);
   transition: border-color 0.15s ease, box-shadow 0.15s ease, transform 0.15s ease;
 }
 
@@ -4371,19 +4371,19 @@ p {
 
 .catalog-grid {
   display: grid;
-  gap: 8px;
+  gap: 10px;
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
 @media (min-width: 640px) {
   .catalog-grid {
-    grid-template-columns: repeat(auto-fill, minmax(155px, 1fr));
+    grid-template-columns: repeat(auto-fill, minmax(158px, 1fr));
   }
 }
 
 @media (min-width: 900px) {
   .catalog-grid {
-    grid-template-columns: repeat(auto-fill, minmax(168px, 1fr));
+    grid-template-columns: repeat(auto-fill, minmax(172px, 1fr));
   }
 }
 
@@ -4454,7 +4454,8 @@ p {
 
 .catalog-lot-unlisted {
   display: block;
-  padding: 8px 0;
+  padding: 4px 0 0;
+  font-size: 11px;
 }
 
 .item-offers-card {
@@ -4881,25 +4882,25 @@ p {
   padding: 0;
   cursor: pointer;
   overflow: hidden;
-  border-radius: 8px;
-  background: linear-gradient(180deg, #252b38 0%, #1a1f29 100%);
-  border: 1px solid rgba(255, 255, 255, 0.05);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+  border-radius: var(--radius-lg);
+  background: linear-gradient(180deg, rgba(17, 24, 39, 0.94), rgba(11, 13, 18, 0.98));
+  border: 1px solid rgba(148, 163, 184, 0.12);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.03);
   transition: border-color 0.15s ease, box-shadow 0.15s ease, transform 0.15s ease;
   container-type: inline-size;
+}
+
+.catalog-lot-card:hover {
+  border-color: rgba(148, 163, 184, 0.22);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.05),
+    0 8px 22px rgba(0, 0, 0, 0.38);
+  transform: translateY(-1px);
 }
 
 .catalog-lot-card > * {
   position: relative;
   z-index: 1;
-}
-
-.catalog-lot-card:hover {
-  border-color: rgba(255, 255, 255, 0.12);
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.06),
-    0 6px 18px rgba(0, 0, 0, 0.35);
-  transform: translateY(-1px);
 }
 
 .catalog-lot-card-top {
@@ -4956,14 +4957,91 @@ p {
   display: flex;
   align-items: center;
   justify-content: center;
-  height: 126px;
+  height: 132px;
   padding: 2px 12px 6px;
   overflow: hidden;
+  isolation: isolate;
+  background:
+    radial-gradient(
+      ellipse 88% 58% at 50% 0%,
+      color-mix(in srgb, var(--lot-rarity-glow, rgba(100, 116, 139, 0.28)) 55%, transparent),
+      transparent 72%
+    ),
+    linear-gradient(180deg, rgba(26, 34, 48, 0.5) 0%, transparent 100%);
+}
+
+.catalog-lot-card-rarity-glow {
+  position: absolute;
+  top: -16px;
+  left: 50%;
+  width: 88%;
+  max-width: 200px;
+  height: 56px;
+  transform: translateX(-50%);
+  border-radius: 50%;
+  background: var(--lot-rarity-color, #64748b);
+  filter: blur(32px);
+  opacity: 0.46;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.catalog-lot-card-rarity-haze {
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(
+    ellipse 92% 72% at 50% 8%,
+    var(--lot-rarity-glow, rgba(100, 116, 139, 0.3)) 0%,
+    transparent 76%
+  );
+  pointer-events: none;
+  z-index: 0;
+}
+
+.catalog-lot-card-image-wrap::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-image: radial-gradient(rgba(148, 163, 184, 0.14) 1px, transparent 1px);
+  background-size: 10px 10px;
+  opacity: 0.4;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.catalog-lot-card-image-wrap::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-image: radial-gradient(
+    color-mix(in srgb, var(--lot-rarity-color, #64748b) 70%, white 8%) 1.1px,
+    transparent 1.1px
+  );
+  background-size: 10px 10px;
+  opacity: 0.65;
+  pointer-events: none;
+  z-index: 0;
+  mask-image: radial-gradient(
+    ellipse 90% 78% at 50% 24%,
+    #000 0%,
+    rgba(0, 0, 0, 0.65) 40%,
+    transparent 82%
+  );
+}
+
+.catalog-lot-card-image-wrap--tall .catalog-lot-card-image {
+  max-height: 106px;
+  max-width: 68%;
+}
+
+.catalog-lot-card-image-wrap--square .catalog-lot-card-image {
+  max-height: 94px;
+  max-width: 78%;
 }
 
 @container (max-width: 176px) {
   .catalog-lot-card-image-wrap {
-    height: 112px;
+    height: 118px;
     padding: 2px 8px 4px;
   }
 
@@ -4971,20 +5049,19 @@ p {
     max-height: 104px;
   }
 
+  .catalog-lot-card-image-wrap--tall .catalog-lot-card-image {
+    max-height: 96px;
+    max-width: 72%;
+  }
+
+  .catalog-lot-card-image-wrap--square .catalog-lot-card-image {
+    max-height: 86px;
+    max-width: 84%;
+  }
+
   .catalog-lot-card-footer {
     padding: 0 8px 8px;
   }
-}
-
-.catalog-lot-card-image-wrap::after {
-  content: '';
-  position: absolute;
-  inset: 0;
-  background-image: radial-gradient(rgba(148, 163, 184, 0.1) 1px, transparent 1px);
-  background-size: 10px 10px;
-  opacity: 0.25;
-  pointer-events: none;
-  z-index: 0;
 }
 
 .catalog-lot-card-image {
@@ -5034,8 +5111,16 @@ p {
 
 .catalog-lot-card-bottom {
   position: relative;
-  min-height: 38px;
+  min-height: 34px;
   margin-top: 8px;
+}
+
+.catalog-lot-card-unlisted .catalog-lot-card-bottom {
+  min-height: 28px;
+}
+
+.catalog-lot-card-unlisted .catalog-lot-card-actions {
+  min-height: 0;
 }
 
 .catalog-lot-card-price-row .inventory-price-stack {

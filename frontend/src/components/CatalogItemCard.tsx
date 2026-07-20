@@ -8,6 +8,10 @@ import {
 } from '../utils/catalog-lot-display';
 import { getRarityStyle } from '../utils/rarity-colors';
 import { getCatalogBuyPath, getCatalogItemPath } from '../utils/catalog-navigation';
+import {
+  catalogCardImageWrapClass,
+  resolveCatalogCardImageProfile,
+} from '../utils/catalog-card-image';
 import { InventoryPriceStack } from './InventoryPriceStack';
 import { SteamItemImage } from './SteamItemImage';
 
@@ -40,6 +44,11 @@ export function CatalogItemCard({
     '--lot-rarity-color': rarityStyle.color,
     '--lot-rarity-glow': rarityStyle.glow,
   } as CSSProperties;
+  const imageProfile = resolveCatalogCardImageProfile({
+    weapon: item.weapon,
+    marketHashName: name,
+  });
+  const imageWrapClass = catalogCardImageWrapClass(imageProfile);
 
   function openItem() {
     navigate(itemPath);
@@ -84,7 +93,9 @@ export function CatalogItemCard({
         </div>
       </div>
 
-      <div className="catalog-lot-card-image-wrap">
+      <div className={imageWrapClass}>
+        <span className="catalog-lot-card-rarity-glow" aria-hidden="true" />
+        <span className="catalog-lot-card-rarity-haze" aria-hidden="true" />
         <SteamItemImage
           iconUrl={item.iconUrl}
           alt={name}
@@ -107,6 +118,7 @@ export function CatalogItemCard({
               marketplacePriceMinor={item.minMarketplacePriceMinor}
               testIdPrefix={`catalog-item-${item.id}`}
               loading={pricesLoading && resolvedSteamPrice == null}
+              compact={!hasOffers}
             />
           </div>
 
@@ -120,11 +132,11 @@ export function CatalogItemCard({
               >
                 Купить сейчас
               </Link>
-            ) : (
+            ) : !resolvedSteamPrice && !pricesLoading ? (
               <span className="catalog-lot-unlisted muted small" data-testid={`catalog-item-empty-${item.id}`}>
                 Нет предложений
               </span>
-            )}
+            ) : null}
           </div>
         </div>
       </div>

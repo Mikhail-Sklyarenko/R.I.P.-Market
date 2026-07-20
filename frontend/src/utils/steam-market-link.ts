@@ -1,6 +1,6 @@
 import type { CatalogItem } from '../api/types';
 import type { ItemDisplaySource } from './item-image';
-import { resolveWearIconUrl } from './wear-icons';
+import { resolveWearIconUrl } from './wear-icons.ts';
 
 const STEAM_MARKET_APP_ID = 730;
 
