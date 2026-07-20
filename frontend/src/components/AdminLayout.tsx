@@ -20,6 +20,9 @@ export function AdminLayout() {
           <Link to="/admin/settlement/allowlist">Settlement</Link>
           <Link to="/admin/outbox">Outbox</Link>
           <Link to="/admin/prices">Prices</Link>
+          <Link to="/" className="button secondary sm">
+            На маркет
+          </Link>
           <span className="muted small">{user?.username}</span>
           {user?.steamId ? (
             <span className="muted small" title="Linked Steam ID">

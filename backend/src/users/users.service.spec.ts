@@ -84,6 +84,55 @@ describe('UsersService (Steam identity)', () => {
     expect(result).toEqual(user);
   });
 
+  it('upsertBySteamId promotes OWNER_ADMIN_STEAM_IDS to ADMIN', async () => {
+    process.env.OWNER_ADMIN_STEAM_IDS = '76561198195181115';
+    const user = {
+      id: 'owner-1',
+      steamId: '76561198195181115',
+      username: 'R1ppeR',
+      role: UserRole.ADMIN,
+      status: UserStatus.ACTIVE,
+    };
+    prisma.user.upsert.mockResolvedValue(user);
+
+    const result = await service.upsertBySteamId(
+      '76561198195181115',
+      'R1ppeR',
+    );
+
+    expect(prisma.user.upsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        create: expect.objectContaining({ role: UserRole.ADMIN }),
+        update: expect.objectContaining({ role: UserRole.ADMIN }),
+      }),
+    );
+    expect(result.role).toBe(UserRole.ADMIN);
+    delete process.env.OWNER_ADMIN_STEAM_IDS;
+  });
+
+  it('syncOwnerAdminRole demotes non-owner Steam ADMIN on session resolve', async () => {
+    process.env.OWNER_ADMIN_STEAM_IDS = '76561198195181115';
+    prisma.user.findUnique.mockResolvedValue({
+      id: 'user-x',
+      role: UserRole.ADMIN,
+      steamId: '76561198746622771',
+    });
+    prisma.user.update.mockResolvedValue({
+      id: 'user-x',
+      role: UserRole.BUYER,
+      steamId: '76561198746622771',
+    });
+
+    const session = await service.resolveSessionUser('user-x');
+
+    expect(prisma.user.update).toHaveBeenCalledWith({
+      where: { id: 'user-x' },
+      data: { role: UserRole.BUYER },
+    });
+    expect(session).toEqual({ sub: 'user-x', role: UserRole.BUYER });
+    delete process.env.OWNER_ADMIN_STEAM_IDS;
+  });
+
   it('linkSteamId updates current user when steamId is free', async () => {
     prisma.user.findUnique
       .mockResolvedValueOnce(null)

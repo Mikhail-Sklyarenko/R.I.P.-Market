@@ -7,11 +7,12 @@ import {
 } from '@prisma/client';
 import { AppException } from '../common/errors/app.exception';
 import { ErrorCode } from '../common/errors/error-codes';
-import { isMockSteamId } from '../common/steam-id.util';
+import { isMockSteamId, isRealSteamId } from '../common/steam-id.util';
 import { toJsonSafe } from '../common/json-safe.util';
 import { PrismaService } from '../prisma/prisma.service';
 import { SteamProfileService } from '../providers/auth/steam-profile.service';
 import { LedgerService } from '../wallet/ledger.service';
+import { isOwnerAdminSteamId } from './owner-admin.util';
 import { isValidSteamTradeUrl } from './trade-url.util';
 
 type MockIdentity = {
@@ -137,12 +138,13 @@ export class UsersService {
     username?: string,
     profile?: { personaName?: string | null; avatarUrl?: string | null },
   ) {
+    const ownerAdmin = isOwnerAdminSteamId(steamId);
     const user = await this.prisma.user.upsert({
       where: { steamId },
       create: {
         steamId,
         username: username ?? profile?.personaName ?? `steam_${steamId}`,
-        role: UserRole.BUYER,
+        role: ownerAdmin ? UserRole.ADMIN : UserRole.BUYER,
         status: UserStatus.ACTIVE,
         steamPersonaName: profile?.personaName ?? null,
         steamAvatarUrl: profile?.avatarUrl ?? null,
@@ -153,11 +155,12 @@ export class UsersService {
           ? { steamPersonaName: profile.personaName }
           : {}),
         ...(profile?.avatarUrl ? { steamAvatarUrl: profile.avatarUrl } : {}),
+        ...(ownerAdmin ? { role: UserRole.ADMIN } : {}),
       },
     });
 
     await this.ledgerService.ensureUserWallet(user.id);
-    return user;
+    return this.syncOwnerAdminRole(user);
   }
 
   async linkSteamId(
@@ -193,6 +196,7 @@ export class UsersService {
     );
     const personaName = profile?.personaName ?? null;
 
+    const ownerAdmin = isOwnerAdminSteamId(steamId);
     const user = await this.prisma.user.update({
       where: { id: userId },
       data: {
@@ -202,12 +206,13 @@ export class UsersService {
         ...(personaName && !preserveMockUsername
           ? { username: personaName }
           : {}),
+        ...(ownerAdmin ? { role: UserRole.ADMIN } : {}),
       },
     });
 
     await this.clearInventoryForSteamChange(userId);
     await this.ledgerService.ensureUserWallet(user.id);
-    return user;
+    return this.syncOwnerAdminRole(user);
   }
 
   async unlinkSteamId(userId: string) {
@@ -261,16 +266,17 @@ export class UsersService {
   async resolveSessionUser(userId: string) {
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
-      select: { id: true, role: true },
+      select: { id: true, role: true, steamId: true },
     });
 
     if (!user) {
       return null;
     }
 
+    const synced = await this.syncOwnerAdminRole(user);
     return {
-      sub: user.id,
-      role: user.role,
+      sub: synced.id,
+      role: synced.role,
     };
   }
 
@@ -290,8 +296,38 @@ export class UsersService {
       throw new NotFoundException('User not found');
     }
 
-    const enriched = await this.enrichSteamProfile(user);
+    const synced = await this.syncOwnerAdminRole(user);
+    const enriched = await this.enrichSteamProfile(synced);
     return toJsonSafe(enriched);
+  }
+
+  /**
+   * Keep OWNER_ADMIN_STEAM_IDS as the single source of truth for Steam admins.
+   * Mock/system admins without a real SteamID64 are left untouched.
+   */
+  private async syncOwnerAdminRole<
+    T extends { id: string; role: UserRole; steamId?: string | null },
+  >(user: T): Promise<T> {
+    if (isOwnerAdminSteamId(user.steamId)) {
+      if (user.role === UserRole.ADMIN) {
+        return user;
+      }
+      const updated = await this.prisma.user.update({
+        where: { id: user.id },
+        data: { role: UserRole.ADMIN },
+      });
+      return { ...user, role: updated.role };
+    }
+
+    if (user.role === UserRole.ADMIN && isRealSteamId(user.steamId)) {
+      const updated = await this.prisma.user.update({
+        where: { id: user.id },
+        data: { role: UserRole.BUYER },
+      });
+      return { ...user, role: updated.role };
+    }
+
+    return user;
   }
 
   private async enrichSteamProfile<
