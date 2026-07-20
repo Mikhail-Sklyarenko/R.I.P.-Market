@@ -58,6 +58,10 @@ INVENTORY_SYNC_MIN_INTERVAL_MS=60000
 STEAM_MARKET_PRICE_ENABLED=true
 REFERENCE_PRICE_ENABLED=false
 OWNER_ADMIN_STEAM_IDS=76561198195181115
+# Honest Steam catalog prices (no market.csgo.com fallback for display)
+STEAM_PRICE_FALLBACK_ENABLED=false
+STEAM_CATALOG_PRICE_GAP_MS=150
+CATALOG_PRICE_BULK_REFRESH_ENABLED=true
 
 # Extension-first (staging QA — rollout gating off so any seller can test)
 ENABLE_EXTENSION_CHANNEL=true

@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import {
   getCatalogPriceRefreshStatus,
   refreshCatalogPrices,
+  stopCatalogPriceRefresh,
 } from '../../api/admin';
 import type { CatalogPriceRefreshStatus } from '../../api/types';
 import { useAuth } from '../../auth/AuthContext';
@@ -21,6 +22,7 @@ export function AdminCatalogPricesPage() {
   const [status, setStatus] = useState<CatalogPriceRefreshStatus | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [stopping, setStopping] = useState(false);
   const [error, setError] = useState<unknown>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
@@ -62,7 +64,9 @@ export function AdminCatalogPricesPage() {
       const next = await refreshCatalogPrices(token);
       setStatus(next);
       if (next.status === 'running') {
-        setSuccessMessage('Обновление цен запущено в фоне.');
+        setSuccessMessage(
+          'Прогон Steam запущен в фоне (обычно 3–5 часов). Старые цены остаются на сайте.',
+        );
       }
     } catch (err) {
       setError(err);
@@ -71,22 +75,57 @@ export function AdminCatalogPricesPage() {
     }
   }
 
+  async function handleStop() {
+    if (!token) {
+      return;
+    }
+    setStopping(true);
+    setError(null);
+    try {
+      const next = await stopCatalogPriceRefresh(token);
+      setStatus(next);
+      setSuccessMessage('Остановка запрошена — текущий предмет завершится, затем прогон остановится.');
+      await load();
+    } catch (err) {
+      setError(err);
+    } finally {
+      setStopping(false);
+    }
+  }
+
   const running = status?.status === 'running';
+  const progress = status?.progress;
+  const percent =
+    progress && progress.total > 0
+      ? Math.min(100, Math.round((progress.processed / progress.total) * 100))
+      : null;
 
   return (
     <div className="page">
       <PageHeader
         title="Цены каталога"
-        subtitle="Массовое обновление Steam-цен из снимка market.csgo.com. Авто: 1-е и 15-е число в 04:00."
+        subtitle="Прямые запросы Steam Market → кэш на 2–3 недели. Авто: 1-е и 15-е число в 04:00. Без market.csgo.com."
         actions={
-          <button
-            type="button"
-            className="button primary"
-            disabled={refreshing || running || !token}
-            onClick={() => void handleRefresh()}
-          >
-            {running ? 'Обновление…' : 'Обновить цены'}
-          </button>
+          <div className="stack horizontal">
+            {running ? (
+              <button
+                type="button"
+                className="button secondary"
+                disabled={stopping || !token}
+                onClick={() => void handleStop()}
+              >
+                {stopping ? 'Остановка…' : 'Остановить'}
+              </button>
+            ) : null}
+            <button
+              type="button"
+              className="button primary"
+              disabled={refreshing || running || !token}
+              onClick={() => void handleRefresh()}
+            >
+              {running ? 'Прогон Steam…' : 'Обновить из Steam'}
+            </button>
+          </div>
         }
       />
 
@@ -97,10 +136,18 @@ export function AdminCatalogPricesPage() {
 
       {!loading ? (
         <section className="card">
-          <p className="eyebrow">SteamPriceCache</p>
-          <h3 className="page-header-title" style={{ fontSize: 'var(--font-size-lg)' }}>
-            Статус: {status?.status ?? '—'}
-          </h3>
+          <p className="eyebrow">Steam Market → SteamPriceCache</p>
+          <h3>Статус: {status?.status ?? '—'}</h3>
+          <p className="muted small">
+            {status?.estimatedDurationHint ?? 'Полный прогон обычно занимает 3–5 часов.'}
+          </p>
+
+          {running && percent != null ? (
+            <p className="muted">
+              Прогресс: <strong>{percent}%</strong>
+            </p>
+          ) : null}
+
           <dl className="meta-list">
             <div>
               <dt>Записей в кэше</dt>
@@ -117,29 +164,46 @@ export function AdminCatalogPricesPage() {
                 {formatDateTime(status?.finishedAt ?? status?.startedAt)}
               </dd>
             </div>
+            <div>
+              <dt>Источник</dt>
+              <dd>{status?.source ?? 'steam'}</dd>
+            </div>
             {status?.result ? (
               <>
                 <div>
-                  <dt>Сопоставлено</dt>
+                  <dt>С ценой / всего</dt>
                   <dd>
                     {status.result.matched.toLocaleString('ru-RU')} /{' '}
                     {status.result.catalogTotal.toLocaleString('ru-RU')}
                   </dd>
                 </div>
                 <div>
-                  <dt>Размер снимка</dt>
-                  <dd>{status.result.snapshotSize.toLocaleString('ru-RU')}</dd>
+                  <dt>Без цены (Steam)</dt>
+                  <dd>{status.result.failed.toLocaleString('ru-RU')}</dd>
+                </div>
+                <div>
+                  <dt>Запросов к Steam</dt>
+                  <dd>{status.result.steamRequests.toLocaleString('ru-RU')}</dd>
                 </div>
               </>
             ) : null}
-            {status?.progress && running ? (
-              <div>
-                <dt>Прогресс</dt>
-                <dd>
-                  {status.progress.processed} /{' '}
-                  {status.progress.total || status.progress.matched}
-                </dd>
-              </div>
+            {progress && running ? (
+              <>
+                <div>
+                  <dt>Обработано</dt>
+                  <dd>
+                    {progress.processed.toLocaleString('ru-RU')} /{' '}
+                    {progress.total.toLocaleString('ru-RU')}
+                  </dd>
+                </div>
+                <div>
+                  <dt>Найдено / пусто</dt>
+                  <dd>
+                    {progress.matched.toLocaleString('ru-RU')} /{' '}
+                    {progress.failed.toLocaleString('ru-RU')}
+                  </dd>
+                </div>
+              </>
             ) : null}
           </dl>
           {status?.error ? (

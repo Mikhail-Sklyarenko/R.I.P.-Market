@@ -8,13 +8,15 @@ import {
 } from './catalog-price-bulk-import.service';
 
 export type CatalogPriceRefreshStatus = {
-  status: 'idle' | 'running' | 'completed' | 'failed';
+  status: 'idle' | 'running' | 'completed' | 'failed' | 'stopped';
   trigger?: 'manual' | 'cron';
+  source?: 'steam';
   startedAt?: string;
   finishedAt?: string;
   progress?: CatalogPriceImportProgress;
   result?: CatalogPriceImportResult;
   error?: string;
+  estimatedDurationHint?: string;
   cacheSummary?: {
     cachedItems: number;
     latestFetchedAt: string | null;
@@ -25,7 +27,11 @@ export type CatalogPriceRefreshStatus = {
 export class CatalogPriceRefreshService implements OnModuleInit {
   private readonly logger = new Logger(CatalogPriceRefreshService.name);
   private running = false;
-  private state: CatalogPriceRefreshStatus = { status: 'idle' };
+  private state: CatalogPriceRefreshStatus = {
+    status: 'idle',
+    source: 'steam',
+    estimatedDurationHint: '3–5 часов при полном прогоне каталога',
+  };
 
   constructor(
     private readonly bulkImport: CatalogPriceBulkImportService,
@@ -40,11 +46,19 @@ export class CatalogPriceRefreshService implements OnModuleInit {
     return process.env.CATALOG_PRICE_BULK_REFRESH_ENABLED !== 'false';
   }
 
+  isRunning(): boolean {
+    return this.running;
+  }
+
   async getStatus(): Promise<CatalogPriceRefreshStatus> {
     if (this.state.status !== 'running') {
       await this.refreshCacheSummary();
     }
-    return { ...this.state };
+    return {
+      ...this.state,
+      source: 'steam',
+      estimatedDurationHint: '3–5 часов при полном прогоне каталога',
+    };
   }
 
   startManualRefresh(): Promise<CatalogPriceRefreshStatus> {
@@ -55,6 +69,14 @@ export class CatalogPriceRefreshService implements OnModuleInit {
     return this.getStatus();
   }
 
+  stopRefresh(): CatalogPriceRefreshStatus {
+    if (this.running) {
+      this.bulkImport.requestAbort();
+    }
+    return { ...this.state };
+  }
+
+  /** 1st and 15th of month at 04:00 — bi-weekly Steam refresh. */
   @Cron('0 4 1,15 * *')
   async refreshOnSchedule(): Promise<void> {
     if (!this.isEnabled()) {
@@ -74,11 +96,21 @@ export class CatalogPriceRefreshService implements OnModuleInit {
     }
 
     this.running = true;
+    this.bulkImport.clearAbort();
     this.state = {
       status: 'running',
       trigger,
+      source: 'steam',
       startedAt: new Date().toISOString(),
-      progress: { processed: 0, total: 0, matched: 0 },
+      estimatedDurationHint: '3–5 часов при полном прогоне каталога',
+      progress: {
+        processed: 0,
+        total: 0,
+        matched: 0,
+        failed: 0,
+        steamRequests: 0,
+      },
+      cacheSummary: this.state.cacheSummary,
     };
 
     try {
@@ -88,21 +120,36 @@ export class CatalogPriceRefreshService implements OnModuleInit {
         },
       });
       await this.refreshCacheSummary();
+
+      const status: CatalogPriceRefreshStatus['status'] = result.stoppedEarly
+        ? 'stopped'
+        : 'completed';
+
       this.state = {
-        status: 'completed',
+        status,
         trigger,
+        source: 'steam',
         startedAt: this.state.startedAt,
         finishedAt: new Date().toISOString(),
         result,
         progress: {
-          processed: result.matched,
-          total: result.matched,
+          processed: result.matched + result.failed,
+          total: result.catalogTotal,
           matched: result.matched,
+          failed: result.failed,
+          steamRequests: result.steamRequests,
         },
+        estimatedDurationHint: '3–5 часов при полном прогоне каталога',
         cacheSummary: this.state.cacheSummary,
+        ...(result.stopReason === 'steam_blocked'
+          ? {
+              error:
+                'Steam временно заблокировал IP (403). Кэш сохранён; повторите позже.',
+            }
+          : {}),
       };
       this.logger.log(
-        `Catalog price refresh (${trigger}) completed: ${result.matched}/${result.catalogTotal}`,
+        `Catalog price refresh (${trigger}) ${status}: ${result.matched}/${result.catalogTotal}`,
       );
     } catch (error) {
       const message =
@@ -110,14 +157,17 @@ export class CatalogPriceRefreshService implements OnModuleInit {
       this.state = {
         status: 'failed',
         trigger,
+        source: 'steam',
         startedAt: this.state.startedAt,
         finishedAt: new Date().toISOString(),
         error: message,
+        estimatedDurationHint: '3–5 часов при полном прогоне каталога',
         cacheSummary: this.state.cacheSummary,
       };
       this.logger.error(`Catalog price refresh (${trigger}) failed: ${message}`);
     } finally {
       this.running = false;
+      this.bulkImport.clearAbort();
     }
   }
 

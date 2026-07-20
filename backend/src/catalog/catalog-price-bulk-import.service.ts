@@ -1,73 +1,149 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import {
-  aggregateMinPriceByBaseName,
-  resolveCatalogSteamPriceMinor,
-} from './catalog-price-snapshot.util';
+import { resolveSteamMarketNamesForCatalogCard } from './catalog-steam-price-names.util';
 import { SteamMarketPriceService } from './steam-market-price.service';
 
 export type CatalogPriceImportProgress = {
   processed: number;
   total: number;
   matched: number;
+  failed: number;
+  steamRequests: number;
 };
 
 export type CatalogPriceImportResult = {
   catalogTotal: number;
   matched: number;
-  snapshotSize: number;
+  failed: number;
+  steamRequests: number;
+  source: 'steam';
   fetchedAt: string;
+  stoppedEarly?: boolean;
+  stopReason?: string;
 };
 
-const UPSERT_BATCH_SIZE = 100;
+/** Safer than live warmer gap — full catalog runs for hours. */
+const DEFAULT_CATALOG_STEAM_GAP_MS = 150;
 
 @Injectable()
 export class CatalogPriceBulkImportService {
   private readonly logger = new Logger(CatalogPriceBulkImportService.name);
+  private abortRequested = false;
 
   constructor(
     private readonly prisma: PrismaService,
     private readonly steamPrices: SteamMarketPriceService,
   ) {}
 
+  requestAbort(): void {
+    this.abortRequested = true;
+  }
+
+  clearAbort(): void {
+    this.abortRequested = false;
+  }
+
   async importCatalogPrices(options?: {
     onProgress?: (progress: CatalogPriceImportProgress) => void;
+    shouldAbort?: () => boolean;
   }): Promise<CatalogPriceImportResult> {
+    this.abortRequested = false;
     const startedAt = Date.now();
-    const snapshot = await this.steamPrices.fetchBulkSnapshotPrices({
-      refresh: true,
-    });
-    const basePrices = aggregateMinPriceByBaseName(snapshot);
+    const gapMs = this.resolveGapMs();
 
     const catalogItems = await this.prisma.itemDefinition.findMany({
       where: { game: 'CS2', catalogSeeded: true },
-      select: { marketHashName: true },
+      select: { marketHashName: true, availableWears: true },
+      orderBy: { marketHashName: 'asc' },
     });
 
-    const upserts: Array<{ marketHashName: string; priceMinor: number }> = [];
+    let matched = 0;
+    let failed = 0;
+    let steamRequests = 0;
+    let stoppedEarly = false;
+    let stopReason: string | undefined;
+
+    const progress = (): CatalogPriceImportProgress => ({
+      processed: matched + failed,
+      total: catalogItems.length,
+      matched,
+      failed,
+      steamRequests,
+    });
+
+    options?.onProgress?.(progress());
+
     for (const item of catalogItems) {
-      const priceMinor = resolveCatalogSteamPriceMinor(
+      if (this.abortRequested || options?.shouldAbort?.()) {
+        stoppedEarly = true;
+        stopReason = 'aborted';
+        break;
+      }
+      if (this.steamPrices.isSteamBlocked()) {
+        stoppedEarly = true;
+        stopReason = 'steam_blocked';
+        this.logger.warn(
+          `Catalog Steam price import paused: Steam blocked after ${matched + failed}/${catalogItems.length}`,
+        );
+        break;
+      }
+
+      const namesToTry = resolveSteamMarketNamesForCatalogCard(
         item.marketHashName,
-        snapshot,
-        basePrices,
+        item.availableWears,
       );
+
+      let priceMinor: number | null = null;
+      for (const steamName of namesToTry) {
+        if (this.abortRequested || options?.shouldAbort?.()) {
+          break;
+        }
+        if (this.steamPrices.isSteamBlocked()) {
+          break;
+        }
+        priceMinor = await this.steamPrices.fetchSteamPriceMinorOnly(steamName);
+        steamRequests += 1;
+        await sleep(gapMs);
+        if (priceMinor != null) {
+          break;
+        }
+      }
+
       if (priceMinor != null) {
-        upserts.push({ marketHashName: item.marketHashName, priceMinor });
+        const fetchedAt = new Date();
+        await this.prisma.steamPriceCache.upsert({
+          where: { marketHashName: item.marketHashName },
+          create: {
+            marketHashName: item.marketHashName,
+            priceMinor,
+            fetchedAt,
+          },
+          update: { priceMinor, fetchedAt },
+        });
+        matched += 1;
+      } else {
+        failed += 1;
+      }
+
+      if ((matched + failed) % 25 === 0 || matched + failed === catalogItems.length) {
+        options?.onProgress?.(progress());
       }
     }
 
-    const fetchedAt = new Date();
-    await this.batchUpsertPrices(upserts, fetchedAt, options?.onProgress);
+    options?.onProgress?.(progress());
 
     const result: CatalogPriceImportResult = {
       catalogTotal: catalogItems.length,
-      matched: upserts.length,
-      snapshotSize: snapshot.size,
-      fetchedAt: fetchedAt.toISOString(),
+      matched,
+      failed,
+      steamRequests,
+      source: 'steam',
+      fetchedAt: new Date().toISOString(),
+      ...(stoppedEarly ? { stoppedEarly: true, stopReason } : {}),
     };
 
     this.logger.log(
-      `Catalog price bulk import: matched ${result.matched}/${result.catalogTotal} from snapshot ${result.snapshotSize} in ${
+      `Catalog Steam price import: matched ${result.matched}/${result.catalogTotal} failed=${result.failed} steamRequests=${result.steamRequests} stopped=${stoppedEarly ? stopReason : 'no'} in ${
         Date.now() - startedAt
       }ms`,
     );
@@ -75,29 +151,17 @@ export class CatalogPriceBulkImportService {
     return result;
   }
 
-  private async batchUpsertPrices(
-    items: Array<{ marketHashName: string; priceMinor: number }>,
-    fetchedAt: Date,
-    onProgress?: (progress: CatalogPriceImportProgress) => void,
-  ): Promise<void> {
-    onProgress?.({ processed: 0, total: items.length, matched: items.length });
-
-    for (let offset = 0; offset < items.length; offset += UPSERT_BATCH_SIZE) {
-      const chunk = items.slice(offset, offset + UPSERT_BATCH_SIZE);
-      await this.prisma.$transaction(
-        chunk.map(({ marketHashName, priceMinor }) =>
-          this.prisma.steamPriceCache.upsert({
-            where: { marketHashName },
-            create: { marketHashName, priceMinor, fetchedAt },
-            update: { priceMinor, fetchedAt },
-          }),
-        ),
-      );
-      onProgress?.({
-        processed: Math.min(offset + chunk.length, items.length),
-        total: items.length,
-        matched: items.length,
-      });
+  private resolveGapMs(): number {
+    const raw = Number(process.env.STEAM_CATALOG_PRICE_GAP_MS);
+    if (Number.isFinite(raw) && raw >= 0 && raw <= 5_000) {
+      return Math.round(raw);
     }
+    return DEFAULT_CATALOG_STEAM_GAP_MS;
   }
+}
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => {
+    setTimeout(resolve, ms);
+  });
 }

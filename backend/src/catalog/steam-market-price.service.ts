@@ -42,6 +42,10 @@ const FALLBACK_PRICES_URL =
 const STEAM_USER_AGENT =
   'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36';
 
+function isSteamPriceFallbackEnabled(): boolean {
+  return process.env.STEAM_PRICE_FALLBACK_ENABLED === 'true';
+}
+
 export class SteamRateLimitError extends Error {
   constructor() {
     super('Steam rate limited');
@@ -83,8 +87,32 @@ export class SteamMarketPriceService {
     return process.env.STEAM_MARKET_PRICE_ENABLED !== 'false';
   }
 
+  isSteamBlocked(): boolean {
+    return Date.now() < this.steamBlockedUntil;
+  }
+
   /**
-   * Bulk USD snapshot (market.csgo.com). Used for catalog-wide price refresh.
+   * Direct Steam Market priceoverview — no market.csgo.com fallback.
+   * Used by catalog-wide honest Steam refresh.
+   */
+  async fetchSteamPriceMinorOnly(
+    marketHashName: string,
+  ): Promise<number | null> {
+    if (!this.isEnabled()) {
+      return this.getDevMockPriceMinor(marketHashName);
+    }
+    if (this.isSteamBlocked()) {
+      return null;
+    }
+    try {
+      return await this.fetchPriceMinorWithRetry(marketHashName);
+    } catch {
+      return null;
+    }
+  }
+
+  /**
+   * @deprecated Prefer Steam-direct catalog refresh. Kept for emergency ops only.
    */
   async fetchBulkSnapshotPrices(options?: {
     refresh?: boolean;
@@ -326,6 +354,25 @@ export class SteamMarketPriceService {
     cacheTtlMs: number,
     failureCacheTtlMs: number,
   ): Promise<void> {
+    if (!isSteamPriceFallbackEnabled()) {
+      const fetchedAt = Date.now();
+      for (const name of pending) {
+        const previous = this.memoryCache.get(name);
+        result[name] = {
+          priceMinor: previous?.priceMinor ?? null,
+          fetchedAt: previous
+            ? new Date(previous.fetchedAt).toISOString()
+            : null,
+        };
+        this.memoryCache.set(name, {
+          priceMinor: previous?.priceMinor ?? null,
+          fetchedAt: previous?.fetchedAt ?? fetchedAt,
+          expiresAt: fetchedAt + failureCacheTtlMs,
+        });
+      }
+      return;
+    }
+
     await this.ensureFallbackSnapshot();
     const fetchedAt = Date.now();
     for (const name of pending) {
@@ -360,6 +407,9 @@ export class SteamMarketPriceService {
   private async lookupFallbackPriceMinor(
     marketHashName: string,
   ): Promise<number | null> {
+    if (!isSteamPriceFallbackEnabled()) {
+      return null;
+    }
     const snapshot = await this.ensureFallbackSnapshot();
     return snapshot?.prices.get(marketHashName) ?? null;
   }

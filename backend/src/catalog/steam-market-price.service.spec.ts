@@ -137,6 +137,7 @@ describe('SteamMarketPriceService', () => {
 
   it('uses fallback snapshot prices when Steam is blocked', async () => {
     process.env.STEAM_MARKET_PRICE_ENABLED = 'true';
+    process.env.STEAM_PRICE_FALLBACK_ENABLED = 'true';
     const { service, prisma } = createService();
     (
       service as unknown as { steamBlockedUntil: number }
@@ -168,5 +169,6 @@ describe('SteamMarketPriceService', () => {
     expect(requestMock).not.toHaveBeenCalled();
     expect(result['AK-47 | Redline (Field-Tested)']?.priceMinor).toBe(4140);
     expect(prisma.steamPriceCache.upsert).toHaveBeenCalled();
+    delete process.env.STEAM_PRICE_FALLBACK_ENABLED;
   });
 });

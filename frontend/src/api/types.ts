@@ -570,22 +570,30 @@ export type OutboxEvent = {
 };
 
 export type CatalogPriceRefreshStatus = {
-  status: 'idle' | 'running' | 'completed' | 'failed';
+  status: 'idle' | 'running' | 'completed' | 'failed' | 'stopped';
   trigger?: 'manual' | 'cron';
+  source?: 'steam';
   startedAt?: string;
   finishedAt?: string;
   progress?: {
     processed: number;
     total: number;
     matched: number;
+    failed: number;
+    steamRequests: number;
   };
   result?: {
     catalogTotal: number;
     matched: number;
-    snapshotSize: number;
+    failed: number;
+    steamRequests: number;
+    source: 'steam';
     fetchedAt: string;
+    stoppedEarly?: boolean;
+    stopReason?: string;
   };
   error?: string;
+  estimatedDurationHint?: string;
   cacheSummary?: {
     cachedItems: number;
     latestFetchedAt: string | null;

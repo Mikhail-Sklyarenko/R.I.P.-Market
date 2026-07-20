@@ -7,6 +7,7 @@ import { Cron } from '@nestjs/schedule';
 import { LotStatus, OrderStatus } from '@prisma/client';
 import { isListableMarketHashName } from '../lots/listing-eligibility.util';
 import { PrismaService } from '../prisma/prisma.service';
+import { CatalogPriceRefreshService } from './catalog-price-refresh.service';
 import { SteamMarketPriceService } from './steam-market-price.service';
 
 const POPULAR_WINDOW_MS = 30 * 24 * 60 * 60 * 1000;
@@ -24,6 +25,7 @@ export class SteamPriceWarmerService implements OnModuleInit {
   constructor(
     private readonly prisma: PrismaService,
     private readonly steamMarketPrice: SteamMarketPriceService,
+    private readonly catalogPriceRefresh: CatalogPriceRefreshService,
   ) {}
 
   onModuleInit(): void {
@@ -46,6 +48,12 @@ export class SteamPriceWarmerService implements OnModuleInit {
 
   async warmPriorityItems(trigger: 'startup' | 'cron' | 'manual'): Promise<void> {
     if (!this.steamMarketPrice.isEnabled()) {
+      return;
+    }
+    if (this.catalogPriceRefresh.isRunning()) {
+      this.logger.debug(
+        `Steam price warmup (${trigger}) skipped: catalog Steam refresh running`,
+      );
       return;
     }
 

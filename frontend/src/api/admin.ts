@@ -255,6 +255,14 @@ export function refreshCatalogPrices(token: string) {
   });
 }
 
+export function stopCatalogPriceRefresh(token: string) {
+  return apiRequest<CatalogPriceRefreshStatus>('/admin/catalog/prices/stop', {
+    method: 'POST',
+    token,
+    body: {},
+  });
+}
+
 export function mockTradeFail(
   token: string,
   orderId: string,

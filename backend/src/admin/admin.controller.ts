@@ -416,4 +416,9 @@ export class AdminController {
   async refreshCatalogPrices() {
     return this.catalogPriceRefreshService.startManualRefresh();
   }
+
+  @Post('catalog/prices/stop')
+  stopCatalogPriceRefresh() {
+    return this.catalogPriceRefreshService.stopRefresh();
+  }
 }
