@@ -82,77 +82,68 @@ export function AdminCatalogPricesPage() {
             15-е число месяца в 04:00.
           </p>
         </div>
-        <Link to="/admin/orders" className="button secondary">
-          К заказам
-        </Link>
-      </div>
-
-      {error ? <ErrorAlert error={error} /> : null}
-      {successMessage ? <p className="alert alert-success">{successMessage}</p> : null}
-
-      <section className="card">
-        <div className="page-header">
-          <div>
-            <h3>Кэш SteamPriceCache</h3>
-            <p className="muted small">
-              Статус: {loading ? 'загрузка…' : status?.status ?? '—'}
-            </p>
-          </div>
+        <div className="page-header-actions">
+          <Link to="/admin/orders" className="button secondary">
+            К заказам
+          </Link>
           <button
             type="button"
             className="button"
-            disabled={refreshing || running}
+            disabled={refreshing || running || !token}
             onClick={() => void handleRefresh()}
           >
             {running ? 'Обновление…' : 'Обновить цены'}
           </button>
         </div>
+      </div>
 
-        <dl className="definition-list">
-          <div>
-            <dt>Записей в кэше</dt>
-            <dd>{status?.cacheSummary?.cachedItems ?? '—'}</dd>
-          </div>
-          <div>
-            <dt>Последнее обновление</dt>
-            <dd>{formatDateTime(status?.cacheSummary?.latestFetchedAt)}</dd>
-          </div>
-          <div>
-            <dt>Последний запуск</dt>
-            <dd>
-              {status?.trigger ? `${status.trigger} · ` : ''}
-              {formatDateTime(status?.finishedAt ?? status?.startedAt)}
-            </dd>
-          </div>
+      {error ? <ErrorAlert error={error} /> : null}
+      {successMessage ? <p className="alert alert-success">{successMessage}</p> : null}
+
+      <section className="card admin-card">
+        <h3>Кэш SteamPriceCache</h3>
+        <p className="muted small">
+          Статус: {loading ? 'загрузка…' : status?.status ?? '—'}
+        </p>
+
+        <div className="admin-section">
+          <p>
+            <strong>Записей в кэше:</strong>{' '}
+            {status?.cacheSummary?.cachedItems?.toLocaleString('ru-RU') ?? '—'}
+          </p>
+          <p>
+            <strong>Последнее обновление:</strong>{' '}
+            {formatDateTime(status?.cacheSummary?.latestFetchedAt)}
+          </p>
+          <p>
+            <strong>Последний запуск:</strong>{' '}
+            {status?.trigger ? `${status.trigger} · ` : ''}
+            {formatDateTime(status?.finishedAt ?? status?.startedAt)}
+          </p>
           {status?.result ? (
             <>
-              <div>
-                <dt>Сопоставлено</dt>
-                <dd>
-                  {status.result.matched} / {status.result.catalogTotal}
-                </dd>
-              </div>
-              <div>
-                <dt>Размер снимка</dt>
-                <dd>{status.result.snapshotSize.toLocaleString('ru-RU')}</dd>
-              </div>
+              <p>
+                <strong>Сопоставлено:</strong> {status.result.matched.toLocaleString('ru-RU')} /{' '}
+                {status.result.catalogTotal.toLocaleString('ru-RU')}
+              </p>
+              <p>
+                <strong>Размер снимка:</strong>{' '}
+                {status.result.snapshotSize.toLocaleString('ru-RU')}
+              </p>
             </>
           ) : null}
           {status?.progress && running ? (
-            <div>
-              <dt>Прогресс</dt>
-              <dd>
-                {status.progress.processed} / {status.progress.total || status.progress.matched}
-              </dd>
-            </div>
+            <p>
+              <strong>Прогресс:</strong> {status.progress.processed} /{' '}
+              {status.progress.total || status.progress.matched}
+            </p>
           ) : null}
           {status?.error ? (
-            <div>
-              <dt>Ошибка</dt>
-              <dd className="text-danger">{status.error}</dd>
-            </div>
+            <p className="alert alert-error">
+              <strong>Ошибка:</strong> {status.error}
+            </p>
           ) : null}
-        </dl>
+        </div>
       </section>
     </div>
   );

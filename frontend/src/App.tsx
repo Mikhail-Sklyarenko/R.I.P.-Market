@@ -73,6 +73,7 @@ export function App() {
               <Route path="/admin/users" element={<AdminUsersPage />} />
               <Route path="/admin/settlement/allowlist" element={<AdminAllowlistPage />} />
               <Route path="/admin/outbox" element={<AdminOutboxPage />} />
+              <Route path="/admin/prices" element={<AdminCatalogPricesPage />} />
               <Route path="/admin/catalog/prices" element={<AdminCatalogPricesPage />} />
             </Route>
           </Route>

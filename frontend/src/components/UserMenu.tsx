@@ -121,14 +121,24 @@ export function UserMenu() {
             Сделки
           </Link>
           {isAdmin ? (
-            <Link
-              to="/admin/orders"
-              className="user-menu-item"
-              data-testid="user-menu-admin"
-              onClick={() => setOpen(false)}
-            >
-              Админ
-            </Link>
+            <>
+              <Link
+                to="/admin/orders"
+                className="user-menu-item"
+                data-testid="user-menu-admin"
+                onClick={() => setOpen(false)}
+              >
+                Админ
+              </Link>
+              <Link
+                to="/admin/prices"
+                className="user-menu-item"
+                data-testid="user-menu-admin-prices"
+                onClick={() => setOpen(false)}
+              >
+                Цены каталога
+              </Link>
+            </>
           ) : null}
           <button
             type="button"
