@@ -3,7 +3,10 @@ import { Link } from 'react-router-dom';
 import { getAdminOrders } from '../../api/admin';
 import type { AdminOrderSummary } from '../../api/types';
 import { useAuth } from '../../auth/AuthContext';
+import { EmptyState } from '../../components/EmptyState';
 import { ErrorAlert } from '../../components/ErrorAlert';
+import { LoadingState } from '../../components/LoadingState';
+import { PageHeader } from '../../components/PageHeader';
 import { formatUsdFromMinor } from '../../utils/format';
 
 const ATTENTION_STATUSES = new Set(['DISPUTE', 'WAITING_TRADE', 'TRADE_CONFIRMED']);
@@ -52,42 +55,29 @@ export function AdminOrdersPage() {
 
   return (
     <div className="page">
-      <div className="page-header">
-        <div>
-          <h2>Admin orders</h2>
-          <p className="muted">Review incidents and resolve disputes.</p>
-        </div>
-        <div className="stack horizontal">
-          <Link to="/admin/lots" className="button secondary">
-            Lots
-          </Link>
-          <Link to="/admin/users" className="button secondary">
-            Users
-          </Link>
-          <Link to="/admin/outbox" className="button secondary">
-            Outbox
-          </Link>
-        </div>
-      </div>
+      <PageHeader
+        title="Заказы"
+        subtitle="Инциденты, споры и статусы сделок."
+      />
 
       <ErrorAlert error={error} />
 
       {!loading ? (
         <div className="deals-summary-grid" data-testid="admin-orders-summary">
           <div className="card seller-summary-card">
-            <span className="eyebrow">Orders</span>
+            <span className="eyebrow">Всего</span>
             <strong className="seller-summary-count">{summary.total}</strong>
           </div>
           <div className="card seller-summary-card">
-            <span className="eyebrow">Disputes</span>
+            <span className="eyebrow">Споры</span>
             <strong className="seller-summary-count">{summary.dispute}</strong>
           </div>
           <div className="card seller-summary-card">
-            <span className="eyebrow">Waiting trade</span>
+            <span className="eyebrow">Ожидают трейд</span>
             <strong className="seller-summary-count">{summary.waitingTrade}</strong>
           </div>
           <div className="card seller-summary-card">
-            <span className="eyebrow">Trade confirmed</span>
+            <span className="eyebrow">Трейд подтверждён</span>
             <strong className="seller-summary-count">{summary.tradeConfirmed}</strong>
           </div>
         </div>
@@ -96,13 +86,13 @@ export function AdminOrdersPage() {
       <div className="card catalog-filters" data-testid="admin-orders-filters">
         <div className="catalog-filters-row">
           <label className="field catalog-filter-field">
-            <span className="field-label">Status</span>
+            <span className="field-label">Статус</span>
             <select
               value={statusFilter}
               onChange={(event) => setStatusFilter(event.target.value)}
               data-testid="admin-orders-status-filter"
             >
-              <option value="all">All</option>
+              <option value="all">Все</option>
               <option value="WAITING_TRADE">Waiting trade</option>
               <option value="TRADE_CONFIRMED">Trade confirmed</option>
               <option value="DISPUTE">Dispute</option>
@@ -112,65 +102,74 @@ export function AdminOrdersPage() {
             </select>
           </label>
           <label className="field catalog-filter-field notifications-unread-toggle">
-            <span className="field-label">View</span>
+            <span className="field-label">Вид</span>
             <select
               value={attentionOnly ? 'attention' : 'all'}
               onChange={(event) => setAttentionOnly(event.target.value === 'attention')}
               data-testid="admin-orders-attention-filter"
             >
-              <option value="all">All in filter</option>
-              <option value="attention">Needs attention</option>
+              <option value="all">Все в фильтре</option>
+              <option value="attention">Требуют внимания</option>
             </select>
           </label>
         </div>
       </div>
 
-      {loading ? <p className="muted">Loading orders…</p> : null}
+      {loading ? <LoadingState message="Загрузка заказов…" /> : null}
 
       {!loading && filteredOrders.length === 0 ? (
-        <p className="muted" data-testid="admin-orders-empty">
-          No orders match the current filters.
-        </p>
+        <EmptyState
+          title="Заказов нет"
+          message="Нет заказов по текущим фильтрам."
+        />
       ) : null}
 
-      <div className="table-wrap">
-        <table className="data-table" data-testid="admin-orders-table">
-          <thead>
-            <tr>
-              <th>Item</th>
-              <th>Buyer</th>
-              <th>Seller</th>
-              <th>Status</th>
-              <th>Amount</th>
-              <th />
-            </tr>
-          </thead>
-          <tbody>
-            {filteredOrders.map((order) => (
-              <tr
-                key={order.id}
-                className={needsAttention(order.status) ? 'admin-row-attention' : undefined}
-                data-testid={`admin-order-row-${order.status}`}
-              >
-                <td>{order.lot.inventoryAsset.itemDefinition.marketHashName}</td>
-                <td>{order.buyer.username}</td>
-                <td>{order.seller.username}</td>
-                <td>
-                  <span className={`badge badge-${order.status.toLowerCase()}`}>
-                    {order.status}
-                  </span>
-                </td>
-                <td>{formatUsdFromMinor(order.amountMinor)}</td>
-                <td>
-                  <Link to={`/admin/orders/${order.id}`} data-testid={`admin-order-link-${order.id}`}>
-                    Open
-                  </Link>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+      {!loading && filteredOrders.length > 0 ? (
+        <div className="card table-card">
+          <div className="table-wrap">
+            <table className="data-table" data-testid="admin-orders-table">
+              <thead>
+                <tr>
+                  <th>Предмет</th>
+                  <th>Покупатель</th>
+                  <th>Продавец</th>
+                  <th>Статус</th>
+                  <th>Сумма</th>
+                  <th />
+                </tr>
+              </thead>
+              <tbody>
+                {filteredOrders.map((order) => (
+                  <tr
+                    key={order.id}
+                    className={needsAttention(order.status) ? 'admin-row-attention' : undefined}
+                    data-testid={`admin-order-row-${order.status}`}
+                  >
+                    <td>{order.lot.inventoryAsset.itemDefinition.marketHashName}</td>
+                    <td>{order.buyer.username}</td>
+                    <td>{order.seller.username}</td>
+                    <td>
+                      <span className={`badge badge-${order.status.toLowerCase()}`}>
+                        {order.status}
+                      </span>
+                    </td>
+                    <td>{formatUsdFromMinor(order.amountMinor)}</td>
+                    <td>
+                      <Link
+                        to={`/admin/orders/${order.id}`}
+                        className="button secondary sm"
+                        data-testid={`admin-order-link-${order.id}`}
+                      >
+                        Открыть
+                      </Link>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }

@@ -282,6 +282,12 @@ textarea {
   gap: var(--space-3);
 }
 
+.stack.horizontal {
+  flex-direction: row;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
 .item-preview {
   display: grid;
   gap: var(--space-3);
@@ -1560,21 +1566,32 @@ p {
   margin-bottom: var(--space-4);
 }
 
-.admin-shell {
-  max-width: 1200px;
-}
-
-.admin-card {
+.admin-panel {
   display: grid;
   gap: var(--space-4);
 }
 
-.admin-section {
-  width: 100%;
+.admin-row-attention {
+  background: var(--color-warning-bg);
 }
 
-.admin-row-attention {
-  background: rgba(255, 193, 7, 0.08);
+.card.table-card {
+  padding: 0;
+  overflow: hidden;
+}
+
+.card.table-card .table-wrap {
+  margin: 0;
+}
+
+.card.table-card .data-table th:first-child,
+.card.table-card .data-table td:first-child {
+  padding-left: var(--space-4);
+}
+
+.card.table-card .data-table th:last-child,
+.card.table-card .data-table td:last-child {
+  padding-right: var(--space-4);
 }
 
 .modal-backdrop {

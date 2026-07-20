@@ -1,9 +1,11 @@
 import { useCallback, useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
 import { getOutboxEvents, processOutbox, retryOutboxEvent } from '../../api/admin';
 import type { OutboxEvent } from '../../api/types';
 import { useAuth } from '../../auth/AuthContext';
+import { EmptyState } from '../../components/EmptyState';
 import { ErrorAlert } from '../../components/ErrorAlert';
+import { LoadingState } from '../../components/LoadingState';
+import { PageHeader } from '../../components/PageHeader';
 
 const STATUS_FILTERS = ['DEAD', 'PENDING', 'PROCESSED', ''] as const;
 
@@ -72,15 +74,21 @@ export function AdminOutboxPage() {
 
   return (
     <div className="page">
-      <div className="page-header">
-        <div>
-          <h2>Outbox</h2>
-          <p className="muted">Failed or stuck notification events.</p>
-        </div>
-        <Link to="/admin/orders" className="button secondary">
-          Orders
-        </Link>
-      </div>
+      <PageHeader
+        title="Outbox"
+        subtitle="Застрявшие и failed события уведомлений."
+        actions={
+          <button
+            type="button"
+            className="button primary"
+            disabled={processing}
+            data-testid="outbox-process-pending"
+            onClick={() => void handleProcess()}
+          >
+            {processing ? 'Processing…' : 'Process pending'}
+          </button>
+        }
+      />
 
       <div className="segmented segmented-4">
         {STATUS_FILTERS.map((status) => (
@@ -96,67 +104,68 @@ export function AdminOutboxPage() {
         ))}
       </div>
 
-      <div className="page-header">
-        <p className="muted">{loading ? 'Loading…' : `${events.length} event(s)`}</p>
-        <button
-          type="button"
-          className="button primary"
-          disabled={processing}
-          data-testid="outbox-process-pending"
-          onClick={() => void handleProcess()}
-        >
-          {processing ? 'Processing…' : 'Process pending'}
-        </button>
-      </div>
-
       {successMessage ? (
-        <p className="success-text" data-testid="outbox-success-message">
+        <p className="alert alert-success" data-testid="outbox-success-message">
           {successMessage}
         </p>
       ) : null}
 
       <ErrorAlert error={error} />
 
-      <div className="table-wrap">
-        <table className="data-table" data-testid="admin-outbox-list">
-          <thead>
-            <tr>
-              <th>Event</th>
-              <th>Aggregate</th>
-              <th>Status</th>
-              <th>Retries</th>
-              <th />
-            </tr>
-          </thead>
-          <tbody>
-            {events.map((event) => (
-              <tr key={event.id} data-testid={`outbox-row-${event.status}`}>
-                <td>{event.eventType}</td>
-                <td>
-                  {event.aggregateType}:{event.aggregateId.slice(0, 8)}…
-                </td>
-                <td>{event.status}</td>
-                <td>{event.retryCount}</td>
-                <td>
-                  {event.status === 'DEAD' || event.status === 'PENDING' ? (
-                    <button
-                      type="button"
-                      className="link-button"
-                      disabled={retryingId === event.id}
-                      data-testid={`outbox-retry-${event.id}`}
-                      onClick={() => void handleRetry(event.id)}
-                    >
-                      {retryingId === event.id ? 'Retrying…' : 'Retry'}
-                    </button>
-                  ) : (
-                    '—'
-                  )}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+      {loading ? <LoadingState message="Загрузка outbox…" /> : null}
+
+      {!loading && events.length === 0 ? (
+        <EmptyState title="Событий нет" message="Outbox пуст для выбранного фильтра." />
+      ) : null}
+
+      {!loading && events.length > 0 ? (
+        <div className="card table-card">
+          <div className="table-wrap">
+            <table className="data-table" data-testid="admin-outbox-list">
+              <thead>
+                <tr>
+                  <th>Event</th>
+                  <th>Aggregate</th>
+                  <th>Status</th>
+                  <th>Retries</th>
+                  <th />
+                </tr>
+              </thead>
+              <tbody>
+                {events.map((event) => (
+                  <tr key={event.id} data-testid={`outbox-row-${event.status}`}>
+                    <td>{event.eventType}</td>
+                    <td>
+                      {event.aggregateType}:{event.aggregateId.slice(0, 8)}…
+                    </td>
+                    <td>
+                      <span className={`badge badge-${event.status.toLowerCase()}`}>
+                        {event.status}
+                      </span>
+                    </td>
+                    <td>{event.retryCount}</td>
+                    <td>
+                      {event.status === 'DEAD' || event.status === 'PENDING' ? (
+                        <button
+                          type="button"
+                          className="button secondary sm"
+                          disabled={retryingId === event.id}
+                          data-testid={`outbox-retry-${event.id}`}
+                          onClick={() => void handleRetry(event.id)}
+                        >
+                          {retryingId === event.id ? 'Retrying…' : 'Retry'}
+                        </button>
+                      ) : (
+                        '—'
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }

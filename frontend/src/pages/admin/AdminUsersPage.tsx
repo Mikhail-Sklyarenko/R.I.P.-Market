@@ -9,7 +9,10 @@ import {
 import type { AdminUserSummary } from '../../api/types';
 import { useAuth } from '../../auth/AuthContext';
 import { AdminReasonModal } from '../../components/AdminReasonModal';
+import { EmptyState } from '../../components/EmptyState';
 import { ErrorAlert } from '../../components/ErrorAlert';
+import { LoadingState } from '../../components/LoadingState';
+import { PageHeader } from '../../components/PageHeader';
 import { formatUsdFromMinor } from '../../utils/format';
 
 type RestrictAction = {
@@ -112,31 +115,29 @@ export function AdminUsersPage() {
 
   return (
     <div className="page">
-      <div className="page-header">
-        <div>
-          <h2>Admin users</h2>
-          <p className="muted">Accounts, restrictions, and wallet overview.</p>
-        </div>
-      </div>
+      <PageHeader
+        title="Пользователи"
+        subtitle="Аккаунты, ограничения и кошельки."
+      />
 
       <ErrorAlert error={error} />
 
       {!loading ? (
         <div className="deals-summary-grid" data-testid="admin-users-summary">
           <div className="card seller-summary-card">
-            <span className="eyebrow">Users</span>
+            <span className="eyebrow">Всего</span>
             <strong className="seller-summary-count">{summary.total}</strong>
           </div>
           <div className="card seller-summary-card">
-            <span className="eyebrow">Restricted</span>
+            <span className="eyebrow">Ограничены</span>
             <strong className="seller-summary-count">{summary.restricted}</strong>
           </div>
           <div className="card seller-summary-card">
-            <span className="eyebrow">Sellers</span>
+            <span className="eyebrow">Продавцы</span>
             <strong className="seller-summary-count">{summary.sellers}</strong>
           </div>
           <div className="card seller-summary-card">
-            <span className="eyebrow">Buyers</span>
+            <span className="eyebrow">Покупатели</span>
             <strong className="seller-summary-count">{summary.buyers}</strong>
           </div>
         </div>
@@ -144,15 +145,15 @@ export function AdminUsersPage() {
 
       <div className="card catalog-filters" data-testid="admin-users-filters">
         <label className="field catalog-filter-field">
-          <span className="field-label">Status</span>
+          <span className="field-label">Статус</span>
           <select
             value={statusFilter}
             onChange={(event) => setStatusFilter(event.target.value)}
             data-testid="admin-users-status-filter"
           >
-            <option value="all">All</option>
+            <option value="all">Все</option>
             <option value="ACTIVE">Active</option>
-            <option value="restricted">Any restriction</option>
+            <option value="restricted">Любое ограничение</option>
             <option value="SELL_BLOCK">Sell blocked</option>
             <option value="BUY_BLOCK">Buy blocked</option>
             <option value="SUSPENDED">Suspended</option>
@@ -160,70 +161,81 @@ export function AdminUsersPage() {
         </label>
       </div>
 
-      {loading ? <p className="muted">Loading users…</p> : null}
+      {loading ? <LoadingState message="Загрузка пользователей…" /> : null}
 
-      <div className="table-wrap">
-        <table className="data-table" data-testid="admin-users-table">
-          <thead>
-            <tr>
-              <th>User</th>
-              <th>Role</th>
-              <th>Status</th>
-              <th>Available</th>
-              <th>Lots</th>
-              <th>Orders</th>
-              <th />
-            </tr>
-          </thead>
-          <tbody>
-            {filteredUsers.map((user) => (
-              <tr
-                key={user.id}
-                className={user.status !== 'ACTIVE' ? 'admin-row-attention' : undefined}
-                data-testid={`admin-user-row-${user.status}`}
-              >
-                <td>{user.username}</td>
-                <td>{user.role}</td>
-                <td>
-                  <span className={`badge badge-${user.status.toLowerCase()}`}>
-                    {user.status}
-                  </span>
-                </td>
-                <td>{walletAvailable(user.wallet)}</td>
-                <td>{user._count?.lots ?? 0}</td>
-                <td>
-                  {(user._count?.buyOrders ?? 0) + (user._count?.sellOrders ?? 0)}
-                </td>
-                <td>
-                  <button
-                    type="button"
-                    className="link-button"
-                    data-testid={`admin-user-open-${user.id}`}
-                    onClick={() => setSelectedUserId(user.id)}
+      {!loading && filteredUsers.length === 0 ? (
+        <EmptyState
+          title="Пользователей нет"
+          message="Нет пользователей по текущему фильтру."
+        />
+      ) : null}
+
+      {!loading && filteredUsers.length > 0 ? (
+        <div className="card table-card">
+          <div className="table-wrap">
+            <table className="data-table" data-testid="admin-users-table">
+              <thead>
+                <tr>
+                  <th>Пользователь</th>
+                  <th>Роль</th>
+                  <th>Статус</th>
+                  <th>Баланс</th>
+                  <th>Лоты</th>
+                  <th>Заказы</th>
+                  <th />
+                </tr>
+              </thead>
+              <tbody>
+                {filteredUsers.map((user) => (
+                  <tr
+                    key={user.id}
+                    className={user.status !== 'ACTIVE' ? 'admin-row-attention' : undefined}
+                    data-testid={`admin-user-row-${user.status}`}
                   >
-                    Details
-                  </button>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+                    <td>{user.username}</td>
+                    <td>{user.role}</td>
+                    <td>
+                      <span className={`badge badge-${user.status.toLowerCase()}`}>
+                        {user.status}
+                      </span>
+                    </td>
+                    <td>{walletAvailable(user.wallet)}</td>
+                    <td>{user._count?.lots ?? 0}</td>
+                    <td>
+                      {(user._count?.buyOrders ?? 0) + (user._count?.sellOrders ?? 0)}
+                    </td>
+                    <td>
+                      <button
+                        type="button"
+                        className="button secondary sm"
+                        data-testid={`admin-user-open-${user.id}`}
+                        onClick={() => setSelectedUserId(user.id)}
+                      >
+                        Детали
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      ) : null}
 
       {selectedDetail ? (
-        <section className="card admin-section" data-testid="admin-user-detail">
+        <section className="card" data-testid="admin-user-detail">
           <h3>{selectedDetail.user.username}</h3>
           <dl className="meta-list">
             <div>
-              <dt>Status</dt>
+              <dt>Статус</dt>
               <dd>{selectedDetail.user.status}</dd>
             </div>
             <div>
-              <dt>Open orders</dt>
+              <dt>Открытые заказы</dt>
               <dd>{selectedDetail.openOrderCount}</dd>
             </div>
             <div>
-              <dt>Lots / buy / sell</dt>
+              <dt>Лоты / покупки / продажи</dt>
               <dd>
                 {selectedDetail.user._count?.lots ?? 0} /{' '}
                 {selectedDetail.user._count?.buyOrders ?? 0} /{' '}
@@ -231,7 +243,7 @@ export function AdminUsersPage() {
               </dd>
             </div>
             <div>
-              <dt>Available balance</dt>
+              <dt>Доступный баланс</dt>
               <dd>{walletAvailable(selectedDetail.user.wallet)}</dd>
             </div>
           </dl>
@@ -298,7 +310,7 @@ export function AdminUsersPage() {
               </button>
             )}
             <Link to="/admin/orders" className="button secondary sm">
-              View orders
+              К заказам
             </Link>
           </div>
 

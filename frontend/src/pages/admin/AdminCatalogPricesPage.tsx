@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
 import {
   getCatalogPriceRefreshStatus,
   refreshCatalogPrices,
@@ -7,6 +6,8 @@ import {
 import type { CatalogPriceRefreshStatus } from '../../api/types';
 import { useAuth } from '../../auth/AuthContext';
 import { ErrorAlert } from '../../components/ErrorAlert';
+import { LoadingState } from '../../components/LoadingState';
+import { PageHeader } from '../../components/PageHeader';
 
 function formatDateTime(value?: string | null): string {
   if (!value) {
@@ -74,77 +75,80 @@ export function AdminCatalogPricesPage() {
 
   return (
     <div className="page">
-      <div className="page-header">
-        <div>
-          <h2>Цены каталога</h2>
-          <p className="muted">
-            Массовое обновление Steam-цен из снимка market.csgo.com. Автообновление: 1-е и
-            15-е число месяца в 04:00.
-          </p>
-        </div>
-        <div className="page-header-actions">
-          <Link to="/admin/orders" className="button secondary">
-            К заказам
-          </Link>
+      <PageHeader
+        title="Цены каталога"
+        subtitle="Массовое обновление Steam-цен из снимка market.csgo.com. Авто: 1-е и 15-е число в 04:00."
+        actions={
           <button
             type="button"
-            className="button"
+            className="button primary"
             disabled={refreshing || running || !token}
             onClick={() => void handleRefresh()}
           >
             {running ? 'Обновление…' : 'Обновить цены'}
           </button>
-        </div>
-      </div>
+        }
+      />
 
       {error ? <ErrorAlert error={error} /> : null}
       {successMessage ? <p className="alert alert-success">{successMessage}</p> : null}
 
-      <section className="card admin-card">
-        <h3>Кэш SteamPriceCache</h3>
-        <p className="muted small">
-          Статус: {loading ? 'загрузка…' : status?.status ?? '—'}
-        </p>
+      {loading ? <LoadingState message="Загрузка статуса…" /> : null}
 
-        <div className="admin-section">
-          <p>
-            <strong>Записей в кэше:</strong>{' '}
-            {status?.cacheSummary?.cachedItems?.toLocaleString('ru-RU') ?? '—'}
-          </p>
-          <p>
-            <strong>Последнее обновление:</strong>{' '}
-            {formatDateTime(status?.cacheSummary?.latestFetchedAt)}
-          </p>
-          <p>
-            <strong>Последний запуск:</strong>{' '}
-            {status?.trigger ? `${status.trigger} · ` : ''}
-            {formatDateTime(status?.finishedAt ?? status?.startedAt)}
-          </p>
-          {status?.result ? (
-            <>
-              <p>
-                <strong>Сопоставлено:</strong> {status.result.matched.toLocaleString('ru-RU')} /{' '}
-                {status.result.catalogTotal.toLocaleString('ru-RU')}
-              </p>
-              <p>
-                <strong>Размер снимка:</strong>{' '}
-                {status.result.snapshotSize.toLocaleString('ru-RU')}
-              </p>
-            </>
-          ) : null}
-          {status?.progress && running ? (
-            <p>
-              <strong>Прогресс:</strong> {status.progress.processed} /{' '}
-              {status.progress.total || status.progress.matched}
-            </p>
-          ) : null}
+      {!loading ? (
+        <section className="card">
+          <p className="eyebrow">SteamPriceCache</p>
+          <h3 className="page-header-title" style={{ fontSize: 'var(--font-size-lg)' }}>
+            Статус: {status?.status ?? '—'}
+          </h3>
+          <dl className="meta-list">
+            <div>
+              <dt>Записей в кэше</dt>
+              <dd>{status?.cacheSummary?.cachedItems?.toLocaleString('ru-RU') ?? '—'}</dd>
+            </div>
+            <div>
+              <dt>Последнее обновление</dt>
+              <dd>{formatDateTime(status?.cacheSummary?.latestFetchedAt)}</dd>
+            </div>
+            <div>
+              <dt>Последний запуск</dt>
+              <dd>
+                {status?.trigger ? `${status.trigger} · ` : ''}
+                {formatDateTime(status?.finishedAt ?? status?.startedAt)}
+              </dd>
+            </div>
+            {status?.result ? (
+              <>
+                <div>
+                  <dt>Сопоставлено</dt>
+                  <dd>
+                    {status.result.matched.toLocaleString('ru-RU')} /{' '}
+                    {status.result.catalogTotal.toLocaleString('ru-RU')}
+                  </dd>
+                </div>
+                <div>
+                  <dt>Размер снимка</dt>
+                  <dd>{status.result.snapshotSize.toLocaleString('ru-RU')}</dd>
+                </div>
+              </>
+            ) : null}
+            {status?.progress && running ? (
+              <div>
+                <dt>Прогресс</dt>
+                <dd>
+                  {status.progress.processed} /{' '}
+                  {status.progress.total || status.progress.matched}
+                </dd>
+              </div>
+            ) : null}
+          </dl>
           {status?.error ? (
             <p className="alert alert-error">
               <strong>Ошибка:</strong> {status.error}
             </p>
           ) : null}
-        </div>
-      </section>
+        </section>
+      ) : null}
     </div>
   );
 }

@@ -5,6 +5,8 @@ import type { AdminOrderCard } from '../../api/types';
 import { useAuth } from '../../auth/AuthContext';
 import { AdminConfirmModal } from '../../components/AdminConfirmModal';
 import { ErrorAlert } from '../../components/ErrorAlert';
+import { LoadingState } from '../../components/LoadingState';
+import { PageHeader } from '../../components/PageHeader';
 import { formatTradeStatus, formatUsdFromMinor, OPEN_DISPUTE_STATUSES } from '../../utils/format';
 
 function walletBalance(
@@ -270,21 +272,21 @@ export function AdminOrderCardPage() {
 
   return (
     <div className="page">
-      <div className="page-header">
-        <div>
-          <h2>Order card</h2>
-          <p className="muted">Ops view: parties, ledger, audit, and actions.</p>
-        </div>
-        <Link to="/admin/orders" className="button secondary">
-          All orders
-        </Link>
-      </div>
+      <PageHeader
+        title="Карточка заказа"
+        subtitle="Стороны, ledger, audit и действия."
+        actions={
+          <Link to="/admin/orders" className="button secondary">
+            Все заказы
+          </Link>
+        }
+      />
 
-      {loading ? <p className="muted">Loading order card…</p> : null}
+      {loading ? <LoadingState message="Загрузка карточки…" /> : null}
 
       {order ? (
-        <div className="admin-card" data-testid="admin-order-card">
-          <section className="card admin-section">
+        <div className="admin-panel" data-testid="admin-order-card">
+          <section className="card">
             <div className="item-card-header">
               <h3>{order.lot.inventoryAsset.itemDefinition.marketHashName}</h3>
               <div className="stack horizontal">
@@ -326,7 +328,7 @@ export function AdminOrderCardPage() {
             </dl>
           </section>
 
-          <section className="card admin-section">
+          <section className="card">
             <h3>Parties</h3>
             <div className="grid">
               <div>
@@ -352,7 +354,7 @@ export function AdminOrderCardPage() {
             </div>
           </section>
 
-          <section className="card admin-section">
+          <section className="card">
             <h3>Trade & hold</h3>
             <dl className="meta-list">
               <div>
@@ -411,7 +413,7 @@ export function AdminOrderCardPage() {
           </section>
 
           {card?.tradePollEvents && card.tradePollEvents.length > 0 ? (
-            <section className="card admin-section">
+            <section className="card">
               <h3>Trade poll history</h3>
               <div className="table-wrap">
                 <table className="data-table" data-testid="trade-poll-history">
@@ -441,7 +443,7 @@ export function AdminOrderCardPage() {
           ) : null}
 
           {isShadowOrder && card?.verificationSnapshots ? (
-            <section className="card admin-section" data-testid="shadow-verification">
+            <section className="card" data-testid="shadow-verification">
               <h3>Shadow verification</h3>
               <div className="table-wrap">
                 <table className="data-table" data-testid="shadow-snapshots-table">
@@ -500,7 +502,7 @@ export function AdminOrderCardPage() {
 
           {card ? (
             <>
-              <section className="card admin-section">
+              <section className="card">
                 <h3>Ledger</h3>
                 <div className="table-wrap">
                   <table className="data-table" data-testid="admin-ledger-table">
@@ -524,7 +526,7 @@ export function AdminOrderCardPage() {
                 </div>
               </section>
 
-              <section className="card admin-section">
+              <section className="card">
                 <h3>Timeline</h3>
                 <ul className="simple-list" data-testid="admin-order-timeline">
                   {timelineEvents.map((event) => (
@@ -540,7 +542,7 @@ export function AdminOrderCardPage() {
                 </ul>
               </section>
 
-              <section className="card admin-section">
+              <section className="card">
                 <h3>Audit</h3>
                 <div className="table-wrap">
                   <table className="data-table" data-testid="admin-audit-table">
@@ -568,7 +570,7 @@ export function AdminOrderCardPage() {
                 </div>
               </section>
 
-              <section className="card admin-section">
+              <section className="card">
                 <h3>Outbox (order)</h3>
                 <div className="table-wrap">
                   <table className="data-table" data-testid="admin-outbox-table">
@@ -594,7 +596,7 @@ export function AdminOrderCardPage() {
             </>
           ) : null}
 
-          <section className="card admin-section" data-testid="admin-actions-panel">
+          <section className="card" data-testid="admin-actions-panel">
             <h3>Actions</h3>
             <label className="field">
               <span>Reason</span>

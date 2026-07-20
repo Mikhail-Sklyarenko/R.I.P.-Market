@@ -8,7 +8,10 @@ import {
 import type { AdminLotSummary } from '../../api/types';
 import { useAuth } from '../../auth/AuthContext';
 import { AdminReasonModal } from '../../components/AdminReasonModal';
+import { EmptyState } from '../../components/EmptyState';
 import { ErrorAlert } from '../../components/ErrorAlert';
+import { LoadingState } from '../../components/LoadingState';
+import { PageHeader } from '../../components/PageHeader';
 import { formatUsdFromMinor } from '../../utils/format';
 
 type LotAction = 'block' | 'unblock' | 'cancel';
@@ -91,31 +94,29 @@ export function AdminLotsPage() {
 
   return (
     <div className="page">
-      <div className="page-header">
-        <div>
-          <h2>Admin lots</h2>
-          <p className="muted">Moderate listings with audit trail.</p>
-        </div>
-      </div>
+      <PageHeader
+        title="Лоты"
+        subtitle="Модерация объявлений с записью в audit log."
+      />
 
       <ErrorAlert error={error} />
 
       {!loading ? (
         <div className="deals-summary-grid" data-testid="admin-lots-summary">
           <div className="card seller-summary-card">
-            <span className="eyebrow">Total</span>
+            <span className="eyebrow">Всего</span>
             <strong className="seller-summary-count">{summary.total}</strong>
           </div>
           <div className="card seller-summary-card">
-            <span className="eyebrow">Active</span>
+            <span className="eyebrow">Активные</span>
             <strong className="seller-summary-count">{summary.active}</strong>
           </div>
           <div className="card seller-summary-card">
-            <span className="eyebrow">Blocked</span>
+            <span className="eyebrow">Заблокированы</span>
             <strong className="seller-summary-count">{summary.blocked}</strong>
           </div>
           <div className="card seller-summary-card">
-            <span className="eyebrow">Reserved</span>
+            <span className="eyebrow">В резерве</span>
             <strong className="seller-summary-count">{summary.reserved}</strong>
           </div>
         </div>
@@ -124,22 +125,23 @@ export function AdminLotsPage() {
       <div className="card catalog-filters" data-testid="admin-lots-filters">
         <div className="catalog-filters-row">
           <label className="field catalog-filter-field">
-            <span className="field-label">Search</span>
+            <span className="field-label">Поиск</span>
             <input
               type="search"
               value={search}
               onChange={(event) => setSearch(event.target.value)}
               data-testid="admin-lots-search"
+              placeholder="Название предмета…"
             />
           </label>
           <label className="field catalog-filter-field">
-            <span className="field-label">Status</span>
+            <span className="field-label">Статус</span>
             <select
               value={statusFilter}
               onChange={(event) => setStatusFilter(event.target.value)}
               data-testid="admin-lots-status-filter"
             >
-              <option value="all">All</option>
+              <option value="all">Все</option>
               <option value="ACTIVE">Active</option>
               <option value="BLOCKED">Blocked</option>
               <option value="RESERVED">Reserved</option>
@@ -150,81 +152,89 @@ export function AdminLotsPage() {
         </div>
       </div>
 
-      {loading ? <p className="muted">Loading lots…</p> : null}
+      {loading ? <LoadingState message="Загрузка лотов…" /> : null}
 
-      <div className="table-wrap">
-        <table className="data-table" data-testid="admin-lots-table">
-          <thead>
-            <tr>
-              <th>Item</th>
-              <th>Seller</th>
-              <th>Status</th>
-              <th>Price</th>
-              <th>Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {lots.map((lot) => (
-              <tr
-                key={lot.id}
-                className={
-                  lot.status === 'BLOCKED' ? 'admin-row-attention' : undefined
-                }
-                data-testid={`admin-lot-row-${lot.status}`}
-              >
-                <td>{lot.inventoryAsset.itemDefinition.marketHashName}</td>
-                <td>{lot.seller.username}</td>
-                <td>
-                  <span className={`badge badge-${lot.status.toLowerCase()}`}>
-                    {lot.status}
-                  </span>
-                </td>
-                <td>{formatUsdFromMinor(lot.priceMinor)}</td>
-                <td>
-                  <div className="stack horizontal">
-                    {lot.status === 'ACTIVE' ? (
-                      <>
-                        <button
-                          type="button"
-                          className="button secondary sm"
-                          data-testid={`admin-lot-block-${lot.id}`}
-                          onClick={() =>
-                            setPendingAction({ lotId: lot.id, action: 'block' })
-                          }
-                        >
-                          Block
-                        </button>
-                        <button
-                          type="button"
-                          className="button secondary sm"
-                          data-testid={`admin-lot-cancel-${lot.id}`}
-                          onClick={() =>
-                            setPendingAction({ lotId: lot.id, action: 'cancel' })
-                          }
-                        >
-                          Cancel
-                        </button>
-                      </>
-                    ) : null}
-                    {lot.status === 'BLOCKED' ? (
-                      <button
-                        type="button"
-                        className="button primary sm"
-                        data-testid={`admin-lot-unblock-${lot.id}`}
-                        onClick={() =>
-                          setPendingAction({ lotId: lot.id, action: 'unblock' })
-                        }
-                      >
-                        Unblock
-                      </button>
-                    ) : null}
-                  </div>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+      {!loading && lots.length === 0 ? (
+        <EmptyState title="Лотов нет" message="Нет лотов по текущим фильтрам." />
+      ) : null}
+
+      {!loading && lots.length > 0 ? (
+        <div className="card table-card">
+          <div className="table-wrap">
+            <table className="data-table" data-testid="admin-lots-table">
+              <thead>
+                <tr>
+                  <th>Предмет</th>
+                  <th>Продавец</th>
+                  <th>Статус</th>
+                  <th>Цена</th>
+                  <th>Действия</th>
+                </tr>
+              </thead>
+              <tbody>
+                {lots.map((lot) => (
+                  <tr
+                    key={lot.id}
+                    className={
+                      lot.status === 'BLOCKED' ? 'admin-row-attention' : undefined
+                    }
+                    data-testid={`admin-lot-row-${lot.status}`}
+                  >
+                    <td>{lot.inventoryAsset.itemDefinition.marketHashName}</td>
+                    <td>{lot.seller.username}</td>
+                    <td>
+                      <span className={`badge badge-${lot.status.toLowerCase()}`}>
+                        {lot.status}
+                      </span>
+                    </td>
+                    <td>{formatUsdFromMinor(lot.priceMinor)}</td>
+                    <td>
+                      <div className="stack horizontal">
+                        {lot.status === 'ACTIVE' ? (
+                          <>
+                            <button
+                              type="button"
+                              className="button secondary sm"
+                              data-testid={`admin-lot-block-${lot.id}`}
+                              onClick={() =>
+                                setPendingAction({ lotId: lot.id, action: 'block' })
+                              }
+                            >
+                              Block
+                            </button>
+                            <button
+                              type="button"
+                              className="button secondary sm"
+                              data-testid={`admin-lot-cancel-${lot.id}`}
+                              onClick={() =>
+                                setPendingAction({ lotId: lot.id, action: 'cancel' })
+                              }
+                            >
+                              Cancel
+                            </button>
+                          </>
+                        ) : null}
+                        {lot.status === 'BLOCKED' ? (
+                          <button
+                            type="button"
+                            className="button primary sm"
+                            data-testid={`admin-lot-unblock-${lot.id}`}
+                            onClick={() =>
+                              setPendingAction({ lotId: lot.id, action: 'unblock' })
+                            }
+                          >
+                            Unblock
+                          </button>
+                        ) : null}
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      ) : null}
 
       <AdminReasonModal
         open={pendingAction !== null}
