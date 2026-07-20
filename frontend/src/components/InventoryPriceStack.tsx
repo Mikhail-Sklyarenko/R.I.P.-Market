@@ -53,7 +53,6 @@ export function InventoryPriceStack({
         <p className="inventory-price-primary" data-testid={`${testIdPrefix}-primary-price`}>
           <MoneyDisplay minor={steamPriceMinor!} strong />
         </p>
-        <p className="inventory-price-secondary muted small">Ориентир Steam</p>
       </div>
     );
   }

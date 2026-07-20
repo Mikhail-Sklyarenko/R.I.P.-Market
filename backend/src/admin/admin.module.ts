@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { CatalogModule } from '../catalog/catalog.module';
 import { LotsModule } from '../lots/lots.module';
 import { OrdersModule } from '../orders/orders.module';
 import { OutboxModule } from '../outbox/outbox.module';
@@ -13,6 +14,7 @@ import { RolesGuard } from '../auth/roles.guard';
 
 @Module({
   imports: [
+    CatalogModule,
     WalletModule,
     LotsModule,
     OrdersModule,

@@ -10,6 +10,7 @@ import type {
   ListAdminLotsParams,
   ListAdminOrdersParams,
   OutboxEvent,
+  CatalogPriceRefreshStatus,
   SettlementAllowlistEntry,
   SettlementAllowlistResponse,
 } from './types';
@@ -236,6 +237,18 @@ export function retryOutboxEvent(token: string, eventId: string) {
 
 export function processOutbox(token: string) {
   return apiRequest<{ processed: number; failed: number }>('/admin/outbox/process', {
+    method: 'POST',
+    token,
+    body: {},
+  });
+}
+
+export function getCatalogPriceRefreshStatus(token: string) {
+  return apiRequest<CatalogPriceRefreshStatus>('/admin/catalog/prices/status', { token });
+}
+
+export function refreshCatalogPrices(token: string) {
+  return apiRequest<CatalogPriceRefreshStatus>('/admin/catalog/prices/refresh', {
     method: 'POST',
     token,
     body: {},

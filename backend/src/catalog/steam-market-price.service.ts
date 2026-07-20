@@ -83,6 +83,19 @@ export class SteamMarketPriceService {
     return process.env.STEAM_MARKET_PRICE_ENABLED !== 'false';
   }
 
+  /**
+   * Bulk USD snapshot (market.csgo.com). Used for catalog-wide price refresh.
+   */
+  async fetchBulkSnapshotPrices(options?: {
+    refresh?: boolean;
+  }): Promise<Map<string, number>> {
+    if (options?.refresh) {
+      this.fallbackSnapshot = null;
+    }
+    const snapshot = await this.ensureFallbackSnapshot();
+    return new Map(snapshot?.prices ?? []);
+  }
+
   async getPriceMinor(marketHashName: string): Promise<number | null> {
     const meta = await this.getPriceMeta(marketHashName);
     return meta.priceMinor;

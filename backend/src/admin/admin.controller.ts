@@ -18,6 +18,7 @@ import { RolesGuard } from '../auth/roles.guard';
 import { CurrentUser } from '../common/current-user.decorator';
 import type { AuthUser } from '../common/auth-user.interface';
 import { AdminService } from './admin.service';
+import { CatalogPriceRefreshService } from '../catalog/catalog-price-refresh.service';
 import { OutboxProcessorService } from '../outbox/outbox-processor.service';
 import { AdminReasonDto } from './dto/admin-reason.dto';
 import { ListAdminLotsQueryDto } from './dto/list-admin-lots-query.dto';
@@ -38,6 +39,7 @@ export class AdminController {
   constructor(
     private readonly adminService: AdminService,
     private readonly outboxProcessorService: OutboxProcessorService,
+    private readonly catalogPriceRefreshService: CatalogPriceRefreshService,
   ) {}
 
   @Get('disputes/reason-codes')
@@ -403,5 +405,15 @@ export class AdminController {
     @Param('id') eventId: string,
   ) {
     return this.adminService.retryOutboxEvent(eventId, actor.sub);
+  }
+
+  @Get('catalog/prices/status')
+  async getCatalogPriceRefreshStatus() {
+    return this.catalogPriceRefreshService.getStatus();
+  }
+
+  @Post('catalog/prices/refresh')
+  async refreshCatalogPrices() {
+    return this.catalogPriceRefreshService.startManualRefresh();
   }
 }

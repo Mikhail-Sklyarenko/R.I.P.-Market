@@ -569,6 +569,29 @@ export type OutboxEvent = {
   payload?: Record<string, unknown>;
 };
 
+export type CatalogPriceRefreshStatus = {
+  status: 'idle' | 'running' | 'completed' | 'failed';
+  trigger?: 'manual' | 'cron';
+  startedAt?: string;
+  finishedAt?: string;
+  progress?: {
+    processed: number;
+    total: number;
+    matched: number;
+  };
+  result?: {
+    catalogTotal: number;
+    matched: number;
+    snapshotSize: number;
+    fetchedAt: string;
+  };
+  error?: string;
+  cacheSummary?: {
+    cachedItems: number;
+    latestFetchedAt: string | null;
+  };
+};
+
 export type AdminOrderCard = {
   order: AdminOrderDetails;
   ledgerEntries: LedgerEntryDetails[];

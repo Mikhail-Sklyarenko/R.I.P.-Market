@@ -6,6 +6,7 @@ import { ProtectedRoute } from './auth/ProtectedRoute';
 import { AdminLayout } from './components/AdminLayout';
 import { Layout } from './components/Layout';
 import { AdminAllowlistPage } from './pages/admin/AdminAllowlistPage';
+import { AdminCatalogPricesPage } from './pages/admin/AdminCatalogPricesPage';
 import { AdminLotsPage } from './pages/admin/AdminLotsPage';
 import { AdminOrderCardPage } from './pages/admin/AdminOrderCardPage';
 import { AdminOrdersPage } from './pages/admin/AdminOrdersPage';
@@ -72,6 +73,7 @@ export function App() {
               <Route path="/admin/users" element={<AdminUsersPage />} />
               <Route path="/admin/settlement/allowlist" element={<AdminAllowlistPage />} />
               <Route path="/admin/outbox" element={<AdminOutboxPage />} />
+              <Route path="/admin/catalog/prices" element={<AdminCatalogPricesPage />} />
             </Route>
           </Route>
         </Route>
