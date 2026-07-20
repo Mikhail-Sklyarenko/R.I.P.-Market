@@ -56,7 +56,7 @@
   --radius-full: 999px;
 
   /* Layout */
-  --shell-max-width: 1280px;
+  --shell-max-width: 1400px;
   --grid-card-min: 220px;
 
   font-family: var(--font-family);
@@ -4348,12 +4348,21 @@ p {
 }
 
 .catalog-grid {
-  --catalog-lot-width: 194px;
   display: grid;
-  margin-bottom: 0;
-  grid-template-columns: repeat(auto-fill, var(--catalog-lot-width));
-  justify-content: start;
   gap: 8px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+@media (min-width: 640px) {
+  .catalog-grid {
+    grid-template-columns: repeat(auto-fill, minmax(155px, 1fr));
+  }
+}
+
+@media (min-width: 900px) {
+  .catalog-grid {
+    grid-template-columns: repeat(auto-fill, minmax(168px, 1fr));
+  }
 }
 
 .catalog-popular-section {
@@ -4836,7 +4845,7 @@ p {
   position: relative;
   display: flex;
   flex-direction: column;
-  width: var(--catalog-lot-width);
+  width: 100%;
   min-height: 252px;
   padding: 0;
   cursor: pointer;
@@ -4846,6 +4855,7 @@ p {
   border: 1px solid rgba(255, 255, 255, 0.05);
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
   transition: border-color 0.15s ease, box-shadow 0.15s ease, transform 0.15s ease;
+  container-type: inline-size;
 }
 
 .catalog-lot-card > * {
@@ -4918,6 +4928,21 @@ p {
   height: 126px;
   padding: 2px 12px 6px;
   overflow: hidden;
+}
+
+@container (max-width: 176px) {
+  .catalog-lot-card-image-wrap {
+    height: 112px;
+    padding: 2px 8px 4px;
+  }
+
+  .catalog-lot-card-image {
+    max-height: 104px;
+  }
+
+  .catalog-lot-card-footer {
+    padding: 0 8px 8px;
+  }
 }
 
 .catalog-lot-card-image-wrap::after {
