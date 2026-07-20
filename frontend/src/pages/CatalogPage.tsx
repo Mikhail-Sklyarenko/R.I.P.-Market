@@ -191,6 +191,10 @@ export function CatalogPage() {
     }) || Boolean(rarityFilter);
 
   const filtersActive = showResetFilters;
+  const isInitialLoading = loading && items.length === 0;
+  const isRefreshing = loading && items.length > 0;
+  const showPopularSection =
+    (!filtersActive || loading) && !popularLoading && popularItems.length > 0;
 
   useEffect(() => {
     setLoading(true);
@@ -210,7 +214,9 @@ export function CatalogPage() {
 
   useEffect(() => {
     if (filtersActive) {
-      setPopularItems([]);
+      if (!loading) {
+        setPopularItems([]);
+      }
       setPopularLoading(false);
       return;
     }
@@ -237,7 +243,7 @@ export function CatalogPage() {
     return () => {
       cancelled = true;
     };
-  }, [filtersActive]);
+  }, [filtersActive, loading]);
 
   useEffect(() => {
     const allItems = [...items, ...popularItems];
@@ -485,18 +491,19 @@ export function CatalogPage() {
           </label>
         </div>
 
-        {showResetFilters ? (
-          <div className="catalog-filters-actions">
-            <button
-              type="button"
-              className="button secondary sm"
-              data-testid="catalog-reset-filters"
-              onClick={handleResetFilters}
-            >
-              Сбросить фильтры
-            </button>
-          </div>
-        ) : null}
+        <div className="catalog-filters-actions">
+          <button
+            type="button"
+            className={`button secondary sm catalog-reset-filters-btn${showResetFilters ? '' : ' is-hidden'}`}
+            data-testid="catalog-reset-filters"
+            onClick={handleResetFilters}
+            tabIndex={showResetFilters ? 0 : -1}
+            aria-hidden={!showResetFilters}
+            disabled={!showResetFilters}
+          >
+            Сбросить фильтры
+          </button>
+        </div>
       </div>
 
       <div className="catalog-category-strip card" data-testid="catalog-category-strip">
@@ -548,12 +555,19 @@ export function CatalogPage() {
           </div>
         </aside>
 
-        <div className="catalog-main">
+        <div className={`catalog-main${isRefreshing ? ' is-refreshing' : ''}`}>
           <ErrorAlert error={error} />
 
-          {loading ? <LoadingState message="Загрузка каталога…" /> : null}
+          {isRefreshing ? (
+            <div className="catalog-refresh-indicator" role="status" aria-live="polite">
+              <span className="loading-spinner" aria-hidden="true" />
+              <span>Обновление…</span>
+            </div>
+          ) : null}
 
-          {!loading ? (
+          {isInitialLoading ? <LoadingState message="Загрузка каталога…" /> : null}
+
+          {!isInitialLoading ? (
             <>
               <p className="catalog-total" data-testid="catalog-total">
                 Найдено скинов: {total}
@@ -566,13 +580,13 @@ export function CatalogPage() {
             </>
           ) : null}
 
-          {!loading && popularLoading ? (
+          {!isInitialLoading && popularLoading ? (
             <p className="muted small" data-testid="catalog-popular-loading">
               Загрузка популярных предметов…
             </p>
           ) : null}
 
-          {!loading && !popularLoading && popularItems.length > 0 ? (
+          {!isInitialLoading && showPopularSection ? (
             <section className="catalog-popular-section" data-testid="catalog-popular-section">
               <h2 className="catalog-section-title">Популярные и покупаемые</h2>
               <div className="catalog-grid catalog-grid-compact">
@@ -589,14 +603,14 @@ export function CatalogPage() {
             </section>
           ) : null}
 
-          {!loading && items.length === 0 ? (
+          {!isInitialLoading && !loading && items.length === 0 ? (
             <EmptyState
               title="Ничего не найдено"
               message="Измените фильтры или дождитесь появления новых предметов в каталоге."
             />
           ) : null}
 
-          {!loading && items.length > 0 ? (
+          {!isInitialLoading && items.length > 0 ? (
             <div className="catalog-grid" data-testid="catalog-grid">
               {items.map((item) => (
                 <CatalogItemCard
@@ -610,7 +624,7 @@ export function CatalogPage() {
             </div>
           ) : null}
 
-          {!loading && total > CATALOG_PAGE_LIMIT ? (
+          {!isInitialLoading && !loading && total > CATALOG_PAGE_LIMIT ? (
             <div className="catalog-pagination" data-testid="catalog-pagination">
               <button
                 type="button"

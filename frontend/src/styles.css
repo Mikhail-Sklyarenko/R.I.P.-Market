@@ -78,6 +78,10 @@ body {
     var(--color-bg);
 }
 
+html {
+  scrollbar-gutter: stable;
+}
+
 a {
   color: var(--color-link);
   text-decoration: none;
@@ -3778,7 +3782,47 @@ p {
 .catalog-filters-actions {
   display: flex;
   justify-content: flex-end;
+  align-items: center;
+  min-height: calc(var(--space-2) + 2rem);
   margin-top: var(--space-2);
+}
+
+.catalog-reset-filters-btn.is-hidden {
+  visibility: hidden;
+  pointer-events: none;
+}
+
+.catalog-main {
+  min-width: 0;
+  position: relative;
+}
+
+.catalog-main.is-refreshing .catalog-grid,
+.catalog-main.is-refreshing .catalog-popular-section {
+  opacity: 0.72;
+  pointer-events: none;
+  transition: opacity 0.15s ease;
+}
+
+.catalog-refresh-indicator {
+  position: absolute;
+  top: 0;
+  right: 0;
+  z-index: 2;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-1) var(--space-2);
+  border-radius: var(--radius-sm);
+  background: rgba(11, 13, 18, 0.88);
+  border: 1px solid var(--color-border-strong);
+  color: var(--color-text-muted);
+  font-size: var(--font-size-xs);
+}
+
+.catalog-refresh-indicator .loading-spinner {
+  width: 14px;
+  height: 14px;
 }
 
 .catalog-total {
@@ -4301,10 +4345,6 @@ p {
 .catalog-checkbox-souvenir.is-checked .catalog-checkbox-option-box {
   border-color: rgba(234, 179, 8, 0.75);
   background: rgba(234, 179, 8, 0.45);
-}
-
-.catalog-main {
-  min-width: 0;
 }
 
 .catalog-grid {
