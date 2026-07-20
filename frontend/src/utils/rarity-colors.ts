@@ -20,6 +20,16 @@ const RARITY_STYLES: Record<string, RarityStyle> = {
   Extraordinary: { color: '#e4ae39', glow: 'rgba(228, 174, 57, 0.55)' },
   'Exceedingly Rare': { color: '#e4ae39', glow: 'rgba(228, 174, 57, 0.55)' },
   'Base Grade': { color: '#b0c3d9', glow: 'rgba(176, 195, 217, 0.35)' },
+  // Agent quality tiers (same palette as weapon skins in Steam).
+  Distinguished: { color: '#4b69ff', glow: 'rgba(75, 105, 255, 0.5)' },
+  Exceptional: { color: '#8847ff', glow: 'rgba(136, 71, 255, 0.5)' },
+  Superior: { color: '#d32ce6', glow: 'rgba(211, 44, 230, 0.5)' },
+  Master: { color: '#eb4b4b', glow: 'rgba(235, 75, 75, 0.5)' },
+  // Stickers, patches, charms, graffiti, and other collectibles.
+  'High Grade': { color: '#4b69ff', glow: 'rgba(75, 105, 255, 0.5)' },
+  Remarkable: { color: '#8847ff', glow: 'rgba(136, 71, 255, 0.5)' },
+  Exotic: { color: '#d32ce6', glow: 'rgba(211, 44, 230, 0.5)' },
+  Default: { color: '#ded6cc', glow: 'rgba(222, 214, 204, 0.45)' },
 };
 
 export const RARITY_DISPLAY_LABELS: Record<string, string> = {
@@ -34,6 +44,14 @@ export const RARITY_DISPLAY_LABELS: Record<string, string> = {
   'Exceedingly Rare': 'Скрытое',
   Contraband: 'Контрабанда',
   'Base Grade': 'Базовый тип',
+  Distinguished: 'Выдающийся',
+  Exceptional: 'Исключительный',
+  Superior: 'Превосходный',
+  Master: 'Мастерский',
+  'High Grade': 'Высокое качество',
+  Remarkable: 'Примечательное',
+  Exotic: 'Экзотическое',
+  Default: 'Обычное',
 };
 
 export const CATALOG_RARITY_FILTERS = [

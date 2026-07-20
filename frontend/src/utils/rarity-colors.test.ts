@@ -21,6 +21,17 @@ describe('rarity-colors utils', () => {
     assert.equal(getRarityStyle('Extraordinary').color, '#e4ae39');
   });
 
+  it('maps agent and sticker rarities to Steam-aligned colors', () => {
+    assert.equal(getRarityStyle('Distinguished').color, '#4b69ff');
+    assert.equal(getRarityStyle('Exceptional').color, '#8847ff');
+    assert.equal(getRarityStyle('Superior').color, '#d32ce6');
+    assert.equal(getRarityStyle('Master').color, '#eb4b4b');
+    assert.equal(getRarityStyle('High Grade').color, '#4b69ff');
+    assert.equal(getRarityStyle('Remarkable').color, '#8847ff');
+    assert.equal(getRarityStyle('Exotic').color, '#d32ce6');
+    assert.equal(getRarityStyle('Default').color, '#ded6cc');
+  });
+
   it('returns fallback style for unknown or empty rarity', () => {
     assert.equal(getRarityStyle('Unknown Rarity').color, '#64748b');
     assert.equal(getRarityStyle(null).color, '#64748b');
@@ -45,5 +56,8 @@ describe('rarity-colors utils', () => {
     assert.equal(getRarityDisplayLabel('Mil-Spec Grade'), 'Армейское качество');
     assert.equal(getRarityDisplayLabel('Extraordinary'), 'Скрытое');
     assert.equal(getRarityDisplayLabel('Consumer Grade'), 'Ширпотреб');
+    assert.equal(getRarityDisplayLabel('Exceptional'), 'Исключительный');
+    assert.equal(getRarityDisplayLabel('Master'), 'Мастерский');
+    assert.equal(getRarityDisplayLabel('Remarkable'), 'Примечательное');
   });
 });
