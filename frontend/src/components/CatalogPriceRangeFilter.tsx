@@ -15,7 +15,7 @@ export function CatalogPriceRangeFilter({
   maxPrice,
   onMinPriceChange,
   onMaxPriceChange,
-  defaultOpen = true,
+  defaultOpen = false,
 }: CatalogPriceRangeFilterProps) {
   const [open, setOpen] = useState(defaultOpen);
 

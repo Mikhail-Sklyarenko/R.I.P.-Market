@@ -7,6 +7,9 @@ import { CatalogCategoryBar } from '../components/CatalogCategoryBar';
 import { CatalogFloatRangeFilter } from '../components/CatalogFloatRangeFilter';
 import { CatalogItemCard } from '../components/CatalogItemCard';
 import { CatalogPriceRangeFilter } from '../components/CatalogPriceRangeFilter';
+import { CatalogRarityFilter } from '../components/CatalogRarityFilter';
+import { CatalogSkinTraitsFilter } from '../components/CatalogSkinTraitsFilter';
+import { CatalogWearFilter } from '../components/CatalogWearFilter';
 import { ErrorAlert } from '../components/ErrorAlert';
 import { EmptyState } from '../components/EmptyState';
 import { LoadingState } from '../components/LoadingState';
@@ -19,15 +22,12 @@ import {
   hasActiveCatalogFilters,
   resolveCatalogFilter,
 } from '../utils/catalog-filters';
+import {
+  EMPTY_SKIN_TRAIT_FILTERS,
+  skinTraitFiltersToQuery,
+  type SkinTraitCheckboxState,
+} from '../utils/catalog-skin-trait-filters';
 import { parseUsdToMinor } from '../utils/format';
-import {
-  CATALOG_RARITY_FILTERS,
-  getRarityStyle,
-} from '../utils/rarity-colors';
-import {
-  CATALOG_WEAR_FILTERS,
-  getWearFilterTestId,
-} from '../utils/wear-filters';
 import { formatDataTimestamp } from '../utils/lot-display';
 
 type SortOption = 'newest' | 'price-asc' | 'price-desc' | 'popular';
@@ -120,6 +120,8 @@ export function CatalogPage() {
   const [maxPrice, setMaxPrice] = useState('');
   const [rarityFilter, setRarityFilter] = useState('');
   const [wearFilter, setWearFilter] = useState('');
+  const [skinTraitFilters, setSkinTraitFilters] =
+    useState<SkinTraitCheckboxState>(EMPTY_SKIN_TRAIT_FILTERS);
   const [floatMin, setFloatMin] = useState('');
   const [floatMax, setFloatMax] = useState('');
   const [page, setPage] = useState(1);
@@ -147,6 +149,7 @@ export function CatalogPage() {
       weapon: categoryFilter.weapon,
       rarity: rarityFilter || categoryFilter.rarity,
       wear: wearFilter || undefined,
+      ...skinTraitFiltersToQuery(skinTraitFilters),
       floatMin:
         parsedFloatMin !== undefined && Number.isFinite(parsedFloatMin)
           ? parsedFloatMin
@@ -159,19 +162,33 @@ export function CatalogPage() {
       page,
       limit: CATALOG_PAGE_LIMIT,
     };
-  }, [search, sort, minPrice, maxPrice, rarityFilter, wearFilter, floatMin, floatMax, page, categoryFilter]);
-
-  const showResetFilters = hasActiveCatalogFilters({
+  }, [
     search,
     sort,
     minPrice,
     maxPrice,
-    activeTabId,
-    categoryValue,
+    rarityFilter,
     wearFilter,
+    skinTraitFilters,
     floatMin,
     floatMax,
-  }) || Boolean(rarityFilter);
+    page,
+    categoryFilter,
+  ]);
+
+  const showResetFilters =
+    hasActiveCatalogFilters({
+      search,
+      sort,
+      minPrice,
+      maxPrice,
+      activeTabId,
+      categoryValue,
+      wearFilter,
+      floatMin,
+      floatMax,
+      skinTraitFilters,
+    }) || Boolean(rarityFilter);
 
   const filtersActive = showResetFilters;
 
@@ -375,7 +392,7 @@ export function CatalogPage() {
 
   useEffect(() => {
     setPage(1);
-  }, [search, sort, minPrice, maxPrice, rarityFilter, wearFilter, floatMin, floatMax, activeTabId, categoryValue]);
+  }, [search, sort, minPrice, maxPrice, rarityFilter, wearFilter, skinTraitFilters, floatMin, floatMax, activeTabId, categoryValue]);
 
   useEffect(() => {
     if (!weaponParam) {
@@ -423,6 +440,7 @@ export function CatalogPage() {
     setMaxPrice('');
     setRarityFilter('');
     setWearFilter('');
+    setSkinTraitFilters(EMPTY_SKIN_TRAIT_FILTERS);
     setFloatMin('');
     setFloatMax('');
     setActiveTabId('all');
@@ -512,38 +530,7 @@ export function CatalogPage() {
               onMaxPriceChange={setMaxPrice}
             />
 
-            <fieldset className="catalog-sidebar-section">
-              <legend className="field-label">Редкость</legend>
-              <div className="catalog-rarity-filters" role="group" aria-label="Фильтр редкости">
-                <button
-                  type="button"
-                  className={`catalog-rarity-filter${rarityFilter === '' ? ' active' : ''}`}
-                  data-testid="catalog-rarity-all"
-                  onClick={() => setRarityFilter('')}
-                >
-                  Все
-                </button>
-                {CATALOG_RARITY_FILTERS.map((option) => {
-                  const style = getRarityStyle(option.value);
-                  return (
-                    <button
-                      key={option.value}
-                      type="button"
-                      className={`catalog-rarity-filter${rarityFilter === option.value ? ' active' : ''}`}
-                      data-testid={`catalog-rarity-${option.value.replace(/\s+/g, '-').toLowerCase()}`}
-                      onClick={() => setRarityFilter(option.value)}
-                    >
-                      <span
-                        className="catalog-rarity-dot"
-                        style={{ backgroundColor: style.color, boxShadow: `0 0 8px ${style.glow}` }}
-                        aria-hidden="true"
-                      />
-                      {option.label}
-                    </button>
-                  );
-                })}
-              </div>
-            </fieldset>
+            <CatalogRarityFilter value={rarityFilter} onChange={setRarityFilter} />
 
             <CatalogFloatRangeFilter
               floatMin={floatMin}
@@ -552,35 +539,12 @@ export function CatalogPage() {
               onFloatMaxChange={setFloatMax}
             />
 
-            <fieldset className="catalog-sidebar-section">
-              <legend className="field-label">Износ</legend>
-              <div className="catalog-rarity-filters" role="group" aria-label="Фильтр износа">
-                <button
-                  type="button"
-                  className={`catalog-rarity-filter${wearFilter === '' ? ' active' : ''}`}
-                  data-testid="catalog-wear-all"
-                  onClick={() => setWearFilter('')}
-                >
-                  Все
-                </button>
-                {CATALOG_WEAR_FILTERS.map((option) => (
-                  <button
-                    key={option.value}
-                    type="button"
-                    className={`catalog-rarity-filter${wearFilter === option.value ? ' active' : ''}`}
-                    data-testid={getWearFilterTestId(option.value)}
-                    onClick={() => setWearFilter(option.value)}
-                  >
-                    <span
-                      className="catalog-rarity-dot"
-                      style={{ backgroundColor: option.color, boxShadow: `0 0 8px ${option.color}88` }}
-                      aria-hidden="true"
-                    />
-                    {option.label}
-                  </button>
-                ))}
-              </div>
-            </fieldset>
+            <CatalogWearFilter value={wearFilter} onChange={setWearFilter} />
+
+            <CatalogSkinTraitsFilter
+              value={skinTraitFilters}
+              onChange={setSkinTraitFilters}
+            />
           </div>
         </aside>
 

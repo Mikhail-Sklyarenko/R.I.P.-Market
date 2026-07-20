@@ -1,3 +1,8 @@
+import {
+  hasActiveSkinTraitFilters,
+  type SkinTraitCheckboxState,
+} from './catalog-skin-trait-filters.ts';
+
 export type WeaponCategoryIconId =
   | 'all'
   | 'knife'
@@ -331,6 +336,7 @@ export function hasActiveCatalogFilters(input: {
   wearFilter?: string;
   floatMin?: string;
   floatMax?: string;
+  skinTraitFilters?: SkinTraitCheckboxState;
 }): boolean {
   return Boolean(
     input.search.trim() ||
@@ -341,6 +347,9 @@ export function hasActiveCatalogFilters(input: {
       input.categoryValue ||
       input.wearFilter ||
       input.floatMin?.trim() ||
-      input.floatMax?.trim(),
+      input.floatMax?.trim() ||
+      (input.skinTraitFilters
+        ? hasActiveSkinTraitFilters(input.skinTraitFilters)
+        : false),
   );
 }

@@ -4206,6 +4206,100 @@ p {
   flex-shrink: 0;
 }
 
+.catalog-filter-chip-panel {
+  display: grid;
+  gap: 0.35rem;
+  padding: var(--space-2);
+}
+
+.catalog-checkbox-list {
+  display: grid;
+  gap: 0.35rem;
+  padding: var(--space-2);
+}
+
+.catalog-checkbox-option {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  width: 100%;
+  border: 1px solid var(--color-border-strong);
+  background: var(--color-bg-input);
+  color: var(--color-text-muted);
+  border-radius: var(--radius-sm);
+  padding: 0.35rem 0.55rem;
+  font-size: var(--font-size-xs);
+  cursor: pointer;
+  text-align: left;
+  transition: color 0.15s, background 0.15s, border-color 0.15s;
+}
+
+.catalog-checkbox-option:hover {
+  color: var(--color-text);
+  border-color: rgba(125, 211, 252, 0.35);
+}
+
+.catalog-checkbox-option.is-checked {
+  color: var(--color-text);
+  border-color: rgba(125, 211, 252, 0.5);
+  background: rgba(37, 99, 235, 0.2);
+}
+
+.catalog-checkbox-option-input {
+  position: absolute;
+  opacity: 0;
+  width: 1px;
+  height: 1px;
+  pointer-events: none;
+}
+
+.catalog-checkbox-option-box {
+  width: 0.85rem;
+  height: 0.85rem;
+  border: 1px solid var(--color-border-strong);
+  border-radius: 0.2rem;
+  background: var(--color-bg);
+  flex-shrink: 0;
+  position: relative;
+}
+
+.catalog-checkbox-option.is-checked .catalog-checkbox-option-box {
+  border-color: rgba(125, 211, 252, 0.65);
+  background: rgba(37, 99, 235, 0.35);
+}
+
+.catalog-checkbox-option.is-checked .catalog-checkbox-option-box::after {
+  content: '';
+  position: absolute;
+  left: 0.18rem;
+  top: 0.02rem;
+  width: 0.28rem;
+  height: 0.48rem;
+  border: solid #ffffff;
+  border-width: 0 2px 2px 0;
+  transform: rotate(45deg);
+}
+
+.catalog-checkbox-stattrak.is-checked {
+  border-color: rgba(249, 115, 22, 0.55);
+  background: rgba(249, 115, 22, 0.15);
+}
+
+.catalog-checkbox-stattrak.is-checked .catalog-checkbox-option-box {
+  border-color: rgba(249, 115, 22, 0.75);
+  background: rgba(249, 115, 22, 0.45);
+}
+
+.catalog-checkbox-souvenir.is-checked {
+  border-color: rgba(234, 179, 8, 0.55);
+  background: rgba(234, 179, 8, 0.15);
+}
+
+.catalog-checkbox-souvenir.is-checked .catalog-checkbox-option-box {
+  border-color: rgba(234, 179, 8, 0.75);
+  background: rgba(234, 179, 8, 0.45);
+}
+
 .catalog-main {
   min-width: 0;
 }

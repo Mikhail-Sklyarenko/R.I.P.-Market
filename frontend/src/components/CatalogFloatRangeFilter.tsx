@@ -40,7 +40,7 @@ export function CatalogFloatRangeFilter({
   floatMax,
   onFloatMinChange,
   onFloatMaxChange,
-  defaultOpen = true,
+  defaultOpen = false,
 }: CatalogFloatRangeFilterProps) {
   const [open, setOpen] = useState(defaultOpen);
   const { minValue, maxValue } = useMemo(

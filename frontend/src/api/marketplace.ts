@@ -110,6 +110,8 @@ export type ListCatalogItemsParams = {
   weapon?: string;
   rarity?: string;
   wear?: string;
+  stattrak?: 'only' | 'exclude';
+  souvenir?: 'only' | 'exclude';
   floatMin?: number;
   floatMax?: number;
   minPriceMinor?: number;
@@ -125,6 +127,8 @@ export function listCatalogItems(params: ListCatalogItemsParams) {
     weapon: params.weapon,
     rarity: params.rarity,
     wear: params.wear,
+    stattrak: params.stattrak,
+    souvenir: params.souvenir,
     floatMin: params.floatMin,
     floatMax: params.floatMax,
     minPriceMinor: params.minPriceMinor,

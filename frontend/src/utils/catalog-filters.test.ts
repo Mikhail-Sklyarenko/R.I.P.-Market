@@ -82,5 +82,22 @@ describe('catalog-filters utils', () => {
       }),
       true,
     );
+    assert.equal(
+      hasActiveCatalogFilters({
+        search: '',
+        sort: 'newest',
+        minPrice: '',
+        maxPrice: '',
+        activeTabId: 'all',
+        categoryValue: '',
+        skinTraitFilters: {
+          includeStatTrak: true,
+          excludeStatTrak: false,
+          includeSouvenir: false,
+          excludeSouvenir: false,
+        },
+      }),
+      true,
+    );
   });
 });

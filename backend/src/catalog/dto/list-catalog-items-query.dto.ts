@@ -82,4 +82,14 @@ export class ListCatalogItemsQueryDto {
   @Min(1)
   @Max(100)
   limit?: number = 24;
+
+  @ApiPropertyOptional({ enum: ['only', 'exclude'] })
+  @IsOptional()
+  @IsIn(['only', 'exclude'])
+  stattrak?: 'only' | 'exclude';
+
+  @ApiPropertyOptional({ enum: ['only', 'exclude'] })
+  @IsOptional()
+  @IsIn(['only', 'exclude'])
+  souvenir?: 'only' | 'exclude';
 }

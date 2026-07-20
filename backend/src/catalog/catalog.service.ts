@@ -17,6 +17,7 @@ import { ItemIconService } from './item-icon.service';
 import { SteamMarketPriceService } from './steam-market-price.service';
 import type { ListCatalogItemsQueryDto } from './dto/list-catalog-items-query.dto';
 import { catalogLotMatchesWearFloatFilters } from './catalog-lot-filters.util';
+import { applyCatalogSkinTraitFilters } from './catalog-skin-trait-filter.util';
 import { deriveBaseMarketHashName } from '../item-definitions/base-market-hash-name.util';
 
 const POPULAR_WINDOW_MS = 30 * 24 * 60 * 60 * 1000;
@@ -460,6 +461,10 @@ export class CatalogService {
       NOT: this.buildNonListableMarketHashNameFilter(),
     };
     this.applyMarketHashNameQuery(where, query.q);
+    applyCatalogSkinTraitFilters(where, {
+      stattrak: query.stattrak,
+      souvenir: query.souvenir,
+    });
     if (query.weapon) {
       where.weapon = { equals: query.weapon, mode: 'insensitive' };
     }
