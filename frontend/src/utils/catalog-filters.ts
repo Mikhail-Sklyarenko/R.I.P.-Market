@@ -247,6 +247,22 @@ export const CATALOG_CATEGORY_OPTIONS: readonly CatalogCategoryOption[] = [
     modelIcon: 'galil-ar',
   },
   {
+    value: 'AUG',
+    label: 'AUG',
+    weapon: 'AUG',
+    tabId: 'rifles',
+    icon: 'rifle',
+    modelIcon: 'aug',
+  },
+  {
+    value: 'FAMAS',
+    label: 'FAMAS',
+    weapon: 'FAMAS',
+    tabId: 'rifles',
+    icon: 'rifle',
+    modelIcon: 'famas',
+  },
+  {
     value: 'AWP',
     label: 'AWP',
     weapon: 'AWP',

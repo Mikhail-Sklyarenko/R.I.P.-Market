@@ -5,7 +5,10 @@ import {
   WEAPON_CATEGORY_TABS,
 } from '../utils/catalog-filters';
 import { WeaponCategoryIcon } from './WeaponCategoryIcon';
-import { WeaponModelIcon } from './WeaponModelIcon';
+import {
+  prefetchCatalogModelPreviews,
+  WeaponModelIcon,
+} from './WeaponModelIcon';
 
 type CatalogCategoryBarProps = {
   activeTabId: string;
@@ -81,6 +84,19 @@ export function CatalogCategoryBar({
     }
     updateDropdownPosition();
   }, [openTabId, updateDropdownPosition, categoryValue]);
+
+  useEffect(() => {
+    if (!openTabId) {
+      return;
+    }
+    const options = getCategoryOptionsForTab(openTabId);
+    if (options.length === 0) {
+      return;
+    }
+    prefetchCatalogModelPreviews(
+      options.map((option) => option.weapon ?? option.value).filter(Boolean),
+    );
+  }, [openTabId]);
 
   useLayoutEffect(() => {
     if (!openTabId || !menuRef.current) {
@@ -204,8 +220,10 @@ export function CatalogCategoryBar({
                 onClick={() => handleModelSelect(option.value)}
               >
                 <WeaponModelIcon
+                  weapon={option.weapon ?? option.value}
                   slug={option.modelIcon}
                   fallbackIcon={option.icon ?? openTab.icon}
+                  loading="eager"
                 />
                 <span>{option.label}</span>
               </button>
@@ -253,6 +271,7 @@ export function CatalogCategoryBar({
                 >
                   {tabSelectedOption?.modelIcon ? (
                     <WeaponModelIcon
+                      weapon={tabSelectedOption.weapon ?? tabSelectedOption.value}
                       slug={tabSelectedOption.modelIcon}
                       fallbackIcon={tab.icon}
                     />

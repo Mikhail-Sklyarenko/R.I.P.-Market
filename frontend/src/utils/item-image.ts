@@ -4,16 +4,38 @@ export const STEAM_ITEM_IMAGE_CDN =
 export const ITEM_IMAGE_PLACEHOLDER_DATA =
   "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='256' height='192' viewBox='0 0 256 192'%3E%3Crect width='256' height='192' fill='%23111827'/%3E%3Ctext x='50%25' y='50%25' dominant-baseline='middle' text-anchor='middle' fill='%2394a3b8' font-family='system-ui' font-size='14'%3EПредмет CS2%3C/text%3E%3C/svg%3E";
 
-export function getSteamItemImageUrl(iconUrl?: string | null): string {
+export type SteamItemImageOptions = {
+  /** Steam CDN thumbnail size, e.g. 64 → `/64fx64f`. */
+  sizePx?: number;
+};
+
+export function getSteamItemImageUrl(
+  iconUrl?: string | null,
+  options?: SteamItemImageOptions,
+): string {
   const trimmed = iconUrl?.trim();
   if (!trimmed) {
     return ITEM_IMAGE_PLACEHOLDER_DATA;
   }
-  if (/^https?:\/\//i.test(trimmed) || trimmed.startsWith('data:')) {
+  if (trimmed.startsWith('data:')) {
     return trimmed;
   }
-  const normalized = trimmed.replace(/^\//, '');
-  return `${STEAM_ITEM_IMAGE_CDN}/${normalized}`;
+
+  const sizePx = options?.sizePx;
+  const sizeSuffix =
+    typeof sizePx === 'number' && Number.isFinite(sizePx) && sizePx > 0
+      ? `/${Math.round(sizePx)}fx${Math.round(sizePx)}f`
+      : '';
+
+  if (/^https?:\/\//i.test(trimmed)) {
+    if (!sizeSuffix || /\/\d+fx\d+f(?:\/|$)/i.test(trimmed)) {
+      return trimmed;
+    }
+    return `${trimmed.replace(/\/$/, '')}${sizeSuffix}`;
+  }
+
+  const normalized = trimmed.replace(/^\//, '').replace(/\/$/, '');
+  return `${STEAM_ITEM_IMAGE_CDN}/${normalized}${sizeSuffix}`;
 }
 
 /** Prefer listing snapshot icon, then live item definition. */

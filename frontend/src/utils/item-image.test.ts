@@ -29,6 +29,20 @@ describe('item-image', () => {
     );
   });
 
+  it('appends steam CDN size suffix for thumbs', () => {
+    assert.equal(
+      getSteamItemImageUrl('abc123', { sizePx: 64 }),
+      'https://community.cloudflare.steamstatic.com/economy/image/abc123/64fx64f',
+    );
+    assert.equal(
+      getSteamItemImageUrl(
+        'https://community.cloudflare.steamstatic.com/economy/image/abc123',
+        { sizePx: 64 },
+      ),
+      'https://community.cloudflare.steamstatic.com/economy/image/abc123/64fx64f',
+    );
+  });
+
   it('prefers primary icon when resolving display url', () => {
     assert.equal(resolveDisplayIconUrl('a', 'b'), 'a');
     assert.equal(resolveDisplayIconUrl(null, 'b'), 'b');
