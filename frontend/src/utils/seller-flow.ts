@@ -103,6 +103,7 @@ export function filterInventoryAssets<
 
 type InventoryPriceHintLike = {
   steamPriceMinor?: number | null;
+  minMarketplacePriceMinor?: string | number | null;
 };
 
 export type InventorySortOption = 'price-desc' | 'price-asc' | 'name';
@@ -111,10 +112,35 @@ export const INVENTORY_SORT_OPTIONS: Array<{
   id: InventorySortOption;
   label: string;
 }> = [
-  { id: 'price-desc', label: 'Цена ↓' },
-  { id: 'price-asc', label: 'Цена ↑' },
+  { id: 'price-desc', label: 'Сначала дорогие' },
+  { id: 'price-asc', label: 'Сначала дешёвые' },
   { id: 'name', label: 'По названию' },
 ];
+
+/**
+ * Same price the inventory card shows as primary:
+ * marketplace min when present, otherwise Steam.
+ */
+export function resolveInventorySortPriceMinor(
+  hint?: InventoryPriceHintLike | null,
+): number | null {
+  if (!hint) {
+    return null;
+  }
+  if (
+    hint.minMarketplacePriceMinor != null &&
+    hint.minMarketplacePriceMinor !== ''
+  ) {
+    const marketMinor = Number(hint.minMarketplacePriceMinor);
+    if (Number.isFinite(marketMinor) && marketMinor > 0) {
+      return marketMinor;
+    }
+  }
+  if (hint.steamPriceMinor != null && hint.steamPriceMinor > 0) {
+    return hint.steamPriceMinor;
+  }
+  return null;
+}
 
 export function sortInventoryAssets<
   T extends { itemDefinition: { marketHashName: string } },
@@ -131,15 +157,28 @@ export function sortInventoryAssets<
       );
     }
 
-    const leftPrice =
-      priceHints[left.itemDefinition.marketHashName]?.steamPriceMinor ?? null;
-    const rightPrice =
-      priceHints[right.itemDefinition.marketHashName]?.steamPriceMinor ?? null;
-    const leftValue = leftPrice ?? -1;
-    const rightValue = rightPrice ?? -1;
+    const leftPrice = resolveInventorySortPriceMinor(
+      priceHints[left.itemDefinition.marketHashName],
+    );
+    const rightPrice = resolveInventorySortPriceMinor(
+      priceHints[right.itemDefinition.marketHashName],
+    );
+    // Missing prices go last for both asc and desc.
+    if (leftPrice == null && rightPrice == null) {
+      return left.itemDefinition.marketHashName.localeCompare(
+        right.itemDefinition.marketHashName,
+        'ru',
+      );
+    }
+    if (leftPrice == null) {
+      return 1;
+    }
+    if (rightPrice == null) {
+      return -1;
+    }
 
-    if (rightValue !== leftValue) {
-      return sort === 'price-asc' ? leftValue - rightValue : rightValue - leftValue;
+    if (rightPrice !== leftPrice) {
+      return sort === 'price-asc' ? leftPrice - rightPrice : rightPrice - leftPrice;
     }
 
     return left.itemDefinition.marketHashName.localeCompare(

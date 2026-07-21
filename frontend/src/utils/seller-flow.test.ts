@@ -48,12 +48,17 @@ describe('seller-flow utils', () => {
     assert.equal(filterInventoryAssets(assets, '', 'all', true).length, 3);
   });
 
-  it('sorts inventory assets by Steam price descending', () => {
+  it('sorts inventory assets by display price (market over Steam)', () => {
     const assets = [
       {
         status: 'AVAILABLE',
         tradable: true,
         itemDefinition: { marketHashName: 'AK-47 | Redline (Field-Tested)' },
+      },
+      {
+        status: 'AVAILABLE',
+        tradable: true,
+        itemDefinition: { marketHashName: 'UMP-45 | Green Swirl (Field-Tested)' },
       },
       {
         status: 'AVAILABLE',
@@ -68,6 +73,11 @@ describe('seller-flow utils', () => {
     ];
     const priceHints = {
       'AK-47 | Redline (Field-Tested)': { steamPriceMinor: 2500 },
+      // Card shows $10 market primary while Steam is $0.03 — must sort by $10.
+      'UMP-45 | Green Swirl (Field-Tested)': {
+        steamPriceMinor: 3,
+        minMarketplacePriceMinor: '1000',
+      },
       'AWP | Asiimov (Field-Tested)': { steamPriceMinor: 9900 },
       'Glock-18 | Water Elemental (Field-Tested)': { steamPriceMinor: 450 },
     };
@@ -79,6 +89,7 @@ describe('seller-flow utils', () => {
       [
         'AWP | Asiimov (Field-Tested)',
         'AK-47 | Redline (Field-Tested)',
+        'UMP-45 | Green Swirl (Field-Tested)',
         'Glock-18 | Water Elemental (Field-Tested)',
       ],
     );
@@ -89,9 +100,35 @@ describe('seller-flow utils', () => {
       ),
       [
         'Glock-18 | Water Elemental (Field-Tested)',
+        'UMP-45 | Green Swirl (Field-Tested)',
         'AK-47 | Redline (Field-Tested)',
         'AWP | Asiimov (Field-Tested)',
       ],
+    );
+  });
+
+  it('keeps assets without prices at the end for price sorts', () => {
+    const assets = [
+      {
+        itemDefinition: { marketHashName: 'No Price Skin' },
+      },
+      {
+        itemDefinition: { marketHashName: 'Cheap Skin' },
+      },
+      {
+        itemDefinition: { marketHashName: 'Pricey Skin' },
+      },
+    ];
+    const priceHints = {
+      'Cheap Skin': { steamPriceMinor: 100 },
+      'Pricey Skin': { steamPriceMinor: 5000 },
+    };
+
+    assert.deepEqual(
+      sortInventoryAssets(assets, priceHints, 'price-desc').map(
+        (asset) => asset.itemDefinition.marketHashName,
+      ),
+      ['Pricey Skin', 'Cheap Skin', 'No Price Skin'],
     );
   });
 
