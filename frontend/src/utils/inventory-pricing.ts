@@ -2,35 +2,27 @@ import type { InventoryPriceHint } from '../api/types';
 
 const STEAM_DISCOUNT = 0.95;
 
+/**
+ * Listing suggestion for sellers: always Steam −5%.
+ * Marketplace min is competition context only — never the recommended list price
+ * (avoids outliers like $10 lots on $0.03 Steam skins).
+ */
 export function getRecommendedPriceMinor(
   hint?: InventoryPriceHint | null,
 ): number | null {
-  if (!hint) {
+  if (!hint?.steamPriceMinor || hint.steamPriceMinor <= 0) {
     return null;
   }
-  if (hint.minMarketplacePriceMinor) {
-    const marketMinor = Number(hint.minMarketplacePriceMinor);
-    return Number.isFinite(marketMinor) && marketMinor > 0 ? marketMinor : null;
-  }
-  if (hint.steamPriceMinor && hint.steamPriceMinor > 0) {
-    return Math.round(hint.steamPriceMinor * STEAM_DISCOUNT);
-  }
-  return null;
+  return Math.round(hint.steamPriceMinor * STEAM_DISCOUNT);
 }
 
 export function getRecommendedPriceSource(
   hint?: InventoryPriceHint | null,
-): 'market' | 'steam' | null {
-  if (!hint) {
+): 'steam' | null {
+  if (!hint?.steamPriceMinor || hint.steamPriceMinor <= 0) {
     return null;
   }
-  if (hint.minMarketplacePriceMinor) {
-    return 'market';
-  }
-  if (hint.steamPriceMinor && hint.steamPriceMinor > 0) {
-    return 'steam';
-  }
-  return null;
+  return 'steam';
 }
 
 export function minorToPriceInput(minor: number): string {

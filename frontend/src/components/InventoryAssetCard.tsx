@@ -185,6 +185,7 @@ export function InventoryAssetCard({
           testIdPrefix={`inventory-asset-${asset.id}`}
           loading={pricesLoading}
           requireSteamPrice={requireSteamPrice}
+          context="seller"
         />
       </div>
     </article>

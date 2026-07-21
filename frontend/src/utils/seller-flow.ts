@@ -118,23 +118,13 @@ export const INVENTORY_SORT_OPTIONS: Array<{
 ];
 
 /**
- * Same price the inventory card shows as primary:
- * marketplace min when present, otherwise Steam.
+ * Inventory sort price = Steam (same signal as the card primary in seller context).
  */
 export function resolveInventorySortPriceMinor(
   hint?: InventoryPriceHintLike | null,
 ): number | null {
   if (!hint) {
     return null;
-  }
-  if (
-    hint.minMarketplacePriceMinor != null &&
-    hint.minMarketplacePriceMinor !== ''
-  ) {
-    const marketMinor = Number(hint.minMarketplacePriceMinor);
-    if (Number.isFinite(marketMinor) && marketMinor > 0) {
-      return marketMinor;
-    }
   }
   if (hint.steamPriceMinor != null && hint.steamPriceMinor > 0) {
     return hint.steamPriceMinor;

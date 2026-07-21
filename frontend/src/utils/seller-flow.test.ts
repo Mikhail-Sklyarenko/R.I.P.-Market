@@ -48,7 +48,7 @@ describe('seller-flow utils', () => {
     assert.equal(filterInventoryAssets(assets, '', 'all', true).length, 3);
   });
 
-  it('sorts inventory assets by display price (market over Steam)', () => {
+  it('sorts inventory assets by Steam price (card primary)', () => {
     const assets = [
       {
         status: 'AVAILABLE',
@@ -73,7 +73,7 @@ describe('seller-flow utils', () => {
     ];
     const priceHints = {
       'AK-47 | Redline (Field-Tested)': { steamPriceMinor: 2500 },
-      // Card shows $10 market primary while Steam is $0.03 — must sort by $10.
+      // Outlier market lot must not affect sort — Steam is $0.03.
       'UMP-45 | Green Swirl (Field-Tested)': {
         steamPriceMinor: 3,
         minMarketplacePriceMinor: '1000',
@@ -89,8 +89,8 @@ describe('seller-flow utils', () => {
       [
         'AWP | Asiimov (Field-Tested)',
         'AK-47 | Redline (Field-Tested)',
-        'UMP-45 | Green Swirl (Field-Tested)',
         'Glock-18 | Water Elemental (Field-Tested)',
+        'UMP-45 | Green Swirl (Field-Tested)',
       ],
     );
 
@@ -99,8 +99,8 @@ describe('seller-flow utils', () => {
         (asset) => asset.itemDefinition.marketHashName,
       ),
       [
-        'Glock-18 | Water Elemental (Field-Tested)',
         'UMP-45 | Green Swirl (Field-Tested)',
+        'Glock-18 | Water Elemental (Field-Tested)',
         'AK-47 | Redline (Field-Tested)',
         'AWP | Asiimov (Field-Tested)',
       ],

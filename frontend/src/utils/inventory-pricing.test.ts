@@ -7,41 +7,42 @@ import {
 } from '../utils/inventory-pricing.ts';
 
 describe('inventory-pricing utils', () => {
-  it('prefers marketplace min price over steam discount', () => {
+  it('recommends steam minus five percent even when marketplace min exists', () => {
     const minor = getRecommendedPriceMinor({
       steamPriceMinor: 2000,
+      buffPriceMinor: null,
+      csfloatPriceMinor: null,
       minMarketplacePriceMinor: '1500',
     });
-    assert.equal(minor, 1500);
+    assert.equal(minor, 1900);
     assert.equal(
       getRecommendedPriceSource({
         steamPriceMinor: 2000,
+        buffPriceMinor: null,
+        csfloatPriceMinor: null,
         minMarketplacePriceMinor: '1500',
-      }),
-      'market',
-    );
-  });
-
-  it('falls back to steam price minus five percent', () => {
-    const minor = getRecommendedPriceMinor({
-      steamPriceMinor: 1000,
-      minMarketplacePriceMinor: null,
-    });
-    assert.equal(minor, 950);
-    assert.equal(
-      getRecommendedPriceSource({
-        steamPriceMinor: 1000,
-        minMarketplacePriceMinor: null,
       }),
       'steam',
     );
   });
 
-  it('returns null when no hints are available', () => {
+  it('ignores outlier marketplace lots for recommendations', () => {
+    const minor = getRecommendedPriceMinor({
+      steamPriceMinor: 3,
+      buffPriceMinor: null,
+      csfloatPriceMinor: null,
+      minMarketplacePriceMinor: '1000',
+    });
+    assert.equal(minor, 3);
+  });
+
+  it('falls back to null without steam', () => {
     assert.equal(
       getRecommendedPriceMinor({
         steamPriceMinor: null,
-        minMarketplacePriceMinor: null,
+        buffPriceMinor: null,
+        csfloatPriceMinor: null,
+        minMarketplacePriceMinor: '1500',
       }),
       null,
     );

@@ -4,7 +4,6 @@ import { formatUsdFromMinor } from '../utils/format';
 import { formatPaintSeed } from '../utils/item-image';
 import {
   getRecommendedPriceMinor,
-  getRecommendedPriceSource,
   minorToPriceInput,
 } from '../utils/inventory-pricing';
 import { ErrorAlert } from './ErrorAlert';
@@ -67,7 +66,6 @@ export function InventorySellPanel({
 }: InventorySellPanelProps) {
   const patternText = formatPaintSeed(asset.paintSeed);
   const recommendedMinor = getRecommendedPriceMinor(priceHint);
-  const recommendedSource = getRecommendedPriceSource(priceHint);
   const hasFloat =
     asset.floatValue !== null &&
     asset.floatValue !== undefined &&
@@ -164,6 +162,16 @@ export function InventorySellPanel({
               Цена Steam недоступна — выставление лота временно заблокировано.
             </p>
           ) : null}
+
+          {priceHint?.minMarketplacePriceMinor ? (
+            <p
+              className="inventory-sell-market-price muted small"
+              data-testid="inventory-sell-market-price"
+            >
+              На R.I.P. от{' '}
+              <MoneyDisplay minor={priceHint.minMarketplacePriceMinor} />
+            </p>
+          ) : null}
         </section>
 
         <section className="inventory-listing-modal-action">
@@ -174,9 +182,7 @@ export function InventorySellPanel({
             >
               <p className="muted small">
                 Рекомендуем от <strong>{formatUsdFromMinor(recommendedMinor)}</strong>
-                {recommendedSource === 'market'
-                  ? ' — мин. на маркете'
-                  : ' — Steam −5%'}
+                {' — Steam −5%'}
               </p>
               <button
                 type="button"
