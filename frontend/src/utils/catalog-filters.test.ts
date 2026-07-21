@@ -70,18 +70,49 @@ describe('catalog-filters utils', () => {
     assert.equal(otherOptions.find((option) => option.value === 'other-sticker')?.label, 'Наклейки');
   });
 
-  it('resolves other subcategory filters by market hash query', () => {
-    assert.deepEqual(resolveCatalogFilter('other', 'other-charm'), { q: 'Charm' });
-    assert.deepEqual(resolveCatalogFilter('other', ''), {
-      q: 'Sticker|Charm|Patch|Graffiti|Agent|Music Kit| Case|Capsule|Package|Collectible|Pin|Key|Name Tag|Storage Unit',
+  it('resolves other subcategory filters by exact weapon, not name substrings', () => {
+    assert.deepEqual(resolveCatalogFilter('other', 'other-charm'), {
+      weapon: 'Charm',
     });
-    assert.deepEqual(resolveCatalogFilter('other', 'other-capsule'), { q: 'Capsule' });
-    assert.deepEqual(resolveCatalogFilter('other', 'other-key'), { q: 'Key' });
+    assert.deepEqual(resolveCatalogFilter('other', 'other-graffiti'), {
+      weapon: 'Graffiti',
+    });
+    assert.deepEqual(resolveCatalogFilter('other', 'other-agent'), {
+      weapon: 'Agent',
+    });
+    assert.deepEqual(resolveCatalogFilter('other', 'other-case'), {
+      weapon: 'Case',
+    });
+    assert.deepEqual(resolveCatalogFilter('other', 'other-key'), {
+      weapon: 'Key',
+    });
+    assert.deepEqual(resolveCatalogFilter('other', 'other-patch'), {
+      weapon: 'Patch|Patch Capsule',
+    });
+    assert.deepEqual(resolveCatalogFilter('other', 'other-sticker'), {
+      weapon: 'Sticker|Sticker Slab',
+    });
+    assert.deepEqual(resolveCatalogFilter('other', 'other-capsule'), {
+      weapon: 'Sticker Capsule|Patch Capsule|Autograph Capsule',
+    });
+    assert.deepEqual(resolveCatalogFilter('other', 'other-pin'), {
+      weapon: 'Collectible',
+      q: 'Pin',
+    });
+
+    const allOther = resolveCatalogFilter('other', '');
+    assert.equal(allOther.q, undefined);
+    assert.equal(allOther.weapon?.includes('Charm'), true);
+    assert.equal(allOther.weapon?.includes('Case'), true);
+    assert.equal(allOther.weapon?.includes('Key'), true);
+    assert.equal(allOther.weapon?.includes('Agent'), true);
   });
 
-  it('maps other category values to the other tab', () => {
+  it('maps other category values and weapon labels to the other tab', () => {
     assert.equal(findTabForWeapon('other-sticker'), 'other');
     assert.equal(findTabForWeapon('other-charm'), 'other');
+    assert.equal(findTabForWeapon('Charm'), 'other');
+    assert.equal(findTabForWeapon('Graffiti'), 'other');
     assert.equal(findTabForWeapon('Sport Gloves'), 'gloves');
     assert.equal(findTabForWeapon('Karambit'), 'knives');
   });

@@ -241,6 +241,29 @@ describe('CatalogService', () => {
     );
   });
 
+  it('combines weapon and marketHashName filters for pin-style queries', async () => {
+    prisma.lot.findMany.mockResolvedValue([]);
+    prisma.itemDefinition.findMany.mockResolvedValue([]);
+
+    await service.listItems({
+      page: 1,
+      limit: 24,
+      weapon: 'Collectible',
+      q: 'Pin',
+    });
+
+    expect(prisma.itemDefinition.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          game: 'CS2',
+          catalogSeeded: true,
+          weapon: { equals: 'Collectible', mode: 'insensitive' },
+          marketHashName: { contains: 'Pin', mode: 'insensitive' },
+        }),
+      }),
+    );
+  });
+
   it('matches any other-tab item type when q contains pipe-separated terms', async () => {
     prisma.lot.findMany.mockResolvedValue([]);
     prisma.itemDefinition.findMany.mockResolvedValue([]);

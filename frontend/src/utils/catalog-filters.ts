@@ -38,6 +38,34 @@ export type CatalogCategoryOption = {
   q?: string;
 };
 
+/**
+ * Exact ItemDefinition.weapon labels for the «Другое» tab.
+ * Never use marketHashName substring search here — it false-matches
+ * Dispatch→Patch, Calligraffiti→Graffiti, Monkey Business→Key, etc.
+ */
+export const OTHER_CATEGORY_WEAPONS = {
+  sticker: ['Sticker', 'Sticker Slab'],
+  charm: ['Charm'],
+  patch: ['Patch', 'Patch Capsule'],
+  graffiti: ['Graffiti'],
+  agent: ['Agent'],
+  musicKit: ['Music Kit', 'Music Kit Box'],
+  case: ['Case'],
+  capsule: ['Sticker Capsule', 'Patch Capsule', 'Autograph Capsule'],
+  key: ['Key'],
+  collectible: ['Collectible'],
+  /** Pins are Collectibles whose Steam name ends with " Pin". */
+  pin: ['Collectible'],
+  tool: ['Tool'],
+  crate: ['Crate'],
+  souvenir: ['Souvenir'],
+} as const;
+
+export const OTHER_CATALOG_WEAPON_NAMES = [
+  ...new Set(Object.values(OTHER_CATEGORY_WEAPONS).flat()),
+] as const;
+
+/** @deprecated Prefer OTHER_CATALOG_WEAPON_NAMES — kept for older tests/docs. */
 export const OTHER_CATALOG_SEARCH_TERMS = [
   'Sticker',
   'Charm',
@@ -55,7 +83,14 @@ export const OTHER_CATALOG_SEARCH_TERMS = [
   'Storage Unit',
 ] as const;
 
+/** @deprecated Prefer weapon OR from OTHER_CATALOG_WEAPON_NAMES. */
 export const OTHER_CATALOG_ALL_Q = OTHER_CATALOG_SEARCH_TERMS.join('|');
+
+function otherWeaponFilter(
+  weapons: readonly string[],
+): CatalogCategoryFilter {
+  return { weapon: [...weapons].join('|') };
+}
 
 /** Exact ItemDefinition.weapon labels for glove cards (CSGO-API). */
 export const GLOVE_WEAPON_NAMES = [
@@ -137,7 +172,12 @@ export const WEAPON_CATEGORY_TABS: readonly WeaponCategoryTab[] = [
     icon: 'gloves',
     filter: { weapon: GLOVE_WEAPON_NAMES.join('|') },
   },
-  { id: 'other', label: 'Другое', icon: 'other', filter: { q: OTHER_CATALOG_ALL_Q } },
+  {
+    id: 'other',
+    label: 'Другое',
+    icon: 'other',
+    filter: { weapon: OTHER_CATALOG_WEAPON_NAMES.join('|') },
+  },
 ];
 
 export const CATALOG_CATEGORY_OPTIONS: readonly CatalogCategoryOption[] = [
@@ -261,77 +301,106 @@ export const CATALOG_CATEGORY_OPTIONS: readonly CatalogCategoryOption[] = [
     label: 'Наклейки',
     tabId: 'other',
     icon: 'other',
-    q: 'Sticker',
+    modelIcon: 'other-sticker',
+    ...otherWeaponFilter(OTHER_CATEGORY_WEAPONS.sticker),
   },
   {
     value: 'other-charm',
     label: 'Брелки',
     tabId: 'other',
     icon: 'other',
-    q: 'Charm',
+    modelIcon: 'other-charm',
+    ...otherWeaponFilter(OTHER_CATEGORY_WEAPONS.charm),
   },
   {
     value: 'other-patch',
     label: 'Нашивки',
     tabId: 'other',
     icon: 'other',
-    q: 'Patch',
+    modelIcon: 'other-patch',
+    ...otherWeaponFilter(OTHER_CATEGORY_WEAPONS.patch),
   },
   {
     value: 'other-graffiti',
     label: 'Графити',
     tabId: 'other',
     icon: 'other',
-    q: 'Graffiti',
+    modelIcon: 'other-graffiti',
+    ...otherWeaponFilter(OTHER_CATEGORY_WEAPONS.graffiti),
   },
   {
     value: 'other-agent',
     label: 'Агенты',
     tabId: 'other',
     icon: 'other',
-    q: 'Agent',
+    modelIcon: 'other-agent',
+    ...otherWeaponFilter(OTHER_CATEGORY_WEAPONS.agent),
   },
   {
     value: 'other-music-kit',
     label: 'Музыкальные наборы',
     tabId: 'other',
     icon: 'other',
-    q: 'Music Kit',
+    modelIcon: 'other-music-kit',
+    ...otherWeaponFilter(OTHER_CATEGORY_WEAPONS.musicKit),
   },
   {
     value: 'other-case',
     label: 'Кейсы',
     tabId: 'other',
     icon: 'other',
-    q: ' Case',
+    modelIcon: 'other-case',
+    ...otherWeaponFilter(OTHER_CATEGORY_WEAPONS.case),
   },
   {
     value: 'other-capsule',
     label: 'Капсулы',
     tabId: 'other',
     icon: 'other',
-    q: 'Capsule',
+    modelIcon: 'other-capsule',
+    ...otherWeaponFilter(OTHER_CATEGORY_WEAPONS.capsule),
   },
   {
     value: 'other-key',
     label: 'Ключи',
     tabId: 'other',
     icon: 'other',
-    q: 'Key',
+    modelIcon: 'other-key',
+    ...otherWeaponFilter(OTHER_CATEGORY_WEAPONS.key),
   },
   {
     value: 'other-collectible',
     label: 'Коллекционные',
     tabId: 'other',
     icon: 'other',
-    q: 'Collectible',
+    modelIcon: 'other-collectible',
+    ...otherWeaponFilter(OTHER_CATEGORY_WEAPONS.collectible),
   },
   {
     value: 'other-pin',
     label: 'Значки',
     tabId: 'other',
     icon: 'other',
+    modelIcon: 'other-pin',
+    // Collectible + "Pin" in name — safe with weapon gate (not P2000 | Dispatch).
+    weapon: OTHER_CATEGORY_WEAPONS.pin.join('|'),
     q: 'Pin',
+  },
+  {
+    value: 'other-souvenir',
+    label: 'Сувениры',
+    tabId: 'other',
+    icon: 'other',
+    modelIcon: 'other-souvenir',
+    ...otherWeaponFilter(OTHER_CATEGORY_WEAPONS.souvenir),
+  },
+  {
+    value: 'other-tool',
+    label: 'Инструменты',
+    tabId: 'other',
+    icon: 'other',
+    modelIcon: 'other-tool',
+    ...otherWeaponFilter(OTHER_CATEGORY_WEAPONS.tool),
   },
 ];
 
@@ -342,7 +411,10 @@ export function getCategoryOptionsForTab(tabId: string): CatalogCategoryOption[]
 }
 
 export function findCategoryOption(value: string): CatalogCategoryOption | undefined {
-  return CATALOG_CATEGORY_OPTIONS.find((option) => option.value === value);
+  return (
+    CATALOG_CATEGORY_OPTIONS.find((option) => option.value === value) ??
+    CATALOG_CATEGORY_OPTIONS.find((option) => option.weapon === value)
+  );
 }
 
 export function findTabForWeapon(weapon: string): string {
@@ -350,14 +422,19 @@ export function findTabForWeapon(weapon: string): string {
   if (option) {
     return option.tabId;
   }
-  const byWeapon = CATALOG_CATEGORY_OPTIONS.find((entry) => entry.weapon === weapon);
+  const byWeapon = CATALOG_CATEGORY_OPTIONS.find((entry) => {
+    if (!entry.weapon) {
+      return false;
+    }
+    return entry.weapon.split('|').some((part) => part.trim() === weapon);
+  });
   return byWeapon?.tabId ?? 'all';
 }
 
 /**
  * Resolve API filter for the category bar.
- * Specific dropdown option wins; otherwise "Все: …" uses every weapon/q in that tab
- * (so pistols show all listed pistols, not only Glock-18).
+ * Specific dropdown option wins; otherwise "Все: …" uses every weapon in that tab
+ * (exact weapon match — never fragile marketHashName substrings for categories).
  */
 export function resolveCatalogFilter(
   activeTabId: string,
@@ -374,19 +451,24 @@ export function resolveCatalogFilter(
     }
   }
 
+  const tab = WEAPON_CATEGORY_TABS.find((entry) => entry.id === activeTabId);
+  if (tab?.filter && (tab.filter.weapon || tab.filter.q || tab.filter.rarity)) {
+    return { ...tab.filter };
+  }
+
   const tabOptions = getCategoryOptionsForTab(activeTabId);
   const weapons = [
     ...new Set(
       tabOptions
-        .map((option) => option.weapon?.trim())
-        .filter((value): value is string => Boolean(value)),
+        .flatMap((option) => (option.weapon ? option.weapon.split('|') : []))
+        .map((value) => value.trim())
+        .filter(Boolean),
     ),
   ];
   if (weapons.length > 0) {
     return { weapon: weapons.join('|') };
   }
 
-  const tab = WEAPON_CATEGORY_TABS.find((entry) => entry.id === activeTabId);
   return tab?.filter ?? {};
 }
 
