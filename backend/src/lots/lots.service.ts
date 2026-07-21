@@ -761,6 +761,85 @@ export class LotsService {
     return toJsonSafe(lots);
   }
 
+  /**
+   * Change listing price for an ACTIVE lot owned by the seller.
+   * RESERVED / other statuses are rejected — deal already in progress.
+   */
+  async updatePrice(sellerId: string, lotId: string, priceMinor: number) {
+    if (!Number.isInteger(priceMinor) || priceMinor <= 0) {
+      throw new AppException(
+        ErrorCode.VALIDATION_ERROR,
+        'priceMinor must be a positive integer',
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+
+    const lot = await this.prisma.lot.findUnique({
+      where: { id: lotId },
+      include: {
+        inventoryAsset: { include: { itemDefinition: true } },
+      },
+    });
+    if (!lot) {
+      throw new AppException(
+        ErrorCode.LOT_NOT_FOUND,
+        'Lot not found',
+        HttpStatus.NOT_FOUND,
+      );
+    }
+    if (lot.sellerId !== sellerId) {
+      throw new AppException(
+        ErrorCode.FORBIDDEN,
+        'Only the lot seller can update this listing',
+        HttpStatus.FORBIDDEN,
+      );
+    }
+    if (lot.status !== LotStatus.ACTIVE) {
+      throw new AppException(
+        ErrorCode.LOT_NOT_ACTIVE,
+        'Only active listings can change price',
+        HttpStatus.BAD_REQUEST,
+        { status: lot.status },
+      );
+    }
+
+    const commissionMinor = calculateCommissionMinor(priceMinor);
+    const sellerReceiveMinor = priceMinor - commissionMinor;
+
+    const updated = await this.prisma.$transaction(async (tx) => {
+      const updatedLot = await tx.lot.update({
+        where: { id: lot.id },
+        data: {
+          priceMinor: BigInt(priceMinor),
+          commissionMinor: BigInt(commissionMinor),
+          sellerReceiveMinor: BigInt(sellerReceiveMinor),
+        },
+        include: {
+          inventoryAsset: { include: { itemDefinition: true } },
+          listingSnapshot: true,
+        },
+      });
+
+      await tx.lotStatusEvent.create({
+        data: {
+          lotId: lot.id,
+          fromStatus: LotStatus.ACTIVE,
+          toStatus: LotStatus.ACTIVE,
+          actorUserId: sellerId,
+          reason: `price_updated:${lot.priceMinor.toString()}->${priceMinor}`,
+        },
+      });
+
+      return updatedLot;
+    });
+
+    void this.buyRequestMatching
+      .matchLotActivated(updated.id)
+      .catch(() => undefined);
+
+    return toJsonSafe(updated);
+  }
+
   async cancel(sellerId: string, lotId: string) {
     const lot = await this.prisma.lot.findUnique({
       where: { id: lotId },

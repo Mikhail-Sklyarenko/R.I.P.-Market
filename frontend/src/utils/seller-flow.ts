@@ -379,6 +379,25 @@ export function canListAsset(asset: {
   return true;
 }
 
+/** LISTED asset with an ACTIVE lot — open the same overlay to edit/cancel. */
+export function canEditListedAsset(asset: {
+  status: string;
+  activeLotId?: string | null;
+}): boolean {
+  return asset.status === 'LISTED' && Boolean(asset.activeLotId);
+}
+
+export function canOpenInventorySellPanel(asset: {
+  status: string;
+  tradable: boolean;
+  marketable?: boolean;
+  tradeLockUntil?: string | null;
+  activeLotId?: string | null;
+  itemDefinition: { marketHashName: string };
+}): boolean {
+  return canListAsset(asset) || canEditListedAsset(asset);
+}
+
 export function isInventoryAssetVisible(
   asset: {
     status: string;

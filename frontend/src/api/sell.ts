@@ -15,5 +15,6 @@ export {
   listMyOrders,
   mockLogin,
   resetDevTrades,
+  updateLotPrice,
   updateTradeUrl,
 } from './marketplace';

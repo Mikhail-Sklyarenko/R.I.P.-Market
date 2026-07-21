@@ -182,6 +182,10 @@ export type InventoryAsset = {
   floatValue?: string | null;
   paintSeed?: number | null;
   stickers?: ListingSticker[] | null;
+  /** Present when status is LISTED and an ACTIVE lot exists for this asset. */
+  activeLotId?: string | null;
+  /** Listing price of the ACTIVE lot (minor units), if any. */
+  listedPriceMinor?: string | null;
   itemDefinition: ItemDefinition;
 };
 

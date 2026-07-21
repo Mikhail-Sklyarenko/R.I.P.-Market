@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { cancelLot, getMyLots, listMyOrders } from '../api/sell';
+import { cancelLot, getMyLots, listMyOrders, updateLotPrice } from '../api/sell';
 import type { Lot, Order } from '../api/types';
 import { useAuth } from '../auth/AuthContext';
 import { EmptyState } from '../components/EmptyState';
@@ -10,6 +10,8 @@ import { MoneyDisplay } from '../components/MoneyDisplay';
 import { PageHeader } from '../components/PageHeader';
 import { SellerSaleInfo } from '../components/SellerSaleInfo';
 import { StatusBadge } from '../components/StatusBadge';
+import { parseUsdToMinor } from '../utils/format';
+import { minorToPriceInput } from '../utils/inventory-pricing';
 import {
   filterSellerLots,
   formatLotStatus,
@@ -31,6 +33,9 @@ export function MyLotsPage({ embedded = false }: MyLotsPageProps) {
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
   const [cancelingId, setCancelingId] = useState<string | null>(null);
+  const [editingLotId, setEditingLotId] = useState<string | null>(null);
+  const [editPriceInput, setEditPriceInput] = useState('');
+  const [savingPriceId, setSavingPriceId] = useState<string | null>(null);
   const [error, setError] = useState<unknown>(null);
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<LotStatusFilter>('all');
@@ -98,6 +103,39 @@ export function MyLotsPage({ embedded = false }: MyLotsPageProps) {
     return map;
   }, [orders]);
 
+  function startEditPrice(lot: Lot) {
+    setEditingLotId(lot.id);
+    setEditPriceInput(minorToPriceInput(Number(lot.priceMinor)));
+    setError(null);
+  }
+
+  function cancelEditPrice() {
+    setEditingLotId(null);
+    setEditPriceInput('');
+  }
+
+  async function handleSavePrice(lotId: string) {
+    if (!token) {
+      return;
+    }
+    const priceMinor = parseUsdToMinor(editPriceInput);
+    if (!priceMinor) {
+      setError(new Error('Enter a valid price greater than zero.'));
+      return;
+    }
+    setSavingPriceId(lotId);
+    setError(null);
+    try {
+      await updateLotPrice(token, lotId, priceMinor);
+      cancelEditPrice();
+      await loadData();
+    } catch (err) {
+      setError(err);
+    } finally {
+      setSavingPriceId(null);
+    }
+  }
+
   async function handleCancel(lotId: string) {
     if (!token) {
       return;
@@ -106,6 +144,9 @@ export function MyLotsPage({ embedded = false }: MyLotsPageProps) {
     setError(null);
     try {
       await cancelLot(token, lotId);
+      if (editingLotId === lotId) {
+        cancelEditPrice();
+      }
       await loadData();
     } catch (err) {
       setError(err);
@@ -218,6 +259,7 @@ export function MyLotsPage({ embedded = false }: MyLotsPageProps) {
                 <tbody>
                   {filteredLots.map((lot) => {
                     const linkedOrder = orderByLotId.get(lot.id);
+                    const isEditing = editingLotId === lot.id;
                     return (
                       <tr key={lot.id} data-testid={`lot-row-${lot.status}`}>
                         <td>{lot.inventoryAsset.itemDefinition.marketHashName}</td>
@@ -225,7 +267,21 @@ export function MyLotsPage({ embedded = false }: MyLotsPageProps) {
                           <StatusBadge status={lot.status} label={formatLotStatus(lot.status)} />
                         </td>
                         <td>
-                          <MoneyDisplay minor={lot.priceMinor} />
+                          {isEditing ? (
+                            <label className="field my-lots-edit-price">
+                              <span className="sr-only">Новая цена ($)</span>
+                              <input
+                                type="text"
+                                inputMode="decimal"
+                                value={editPriceInput}
+                                onChange={(event) => setEditPriceInput(event.target.value)}
+                                data-testid={`edit-lot-price-input-${lot.id}`}
+                                autoFocus
+                              />
+                            </label>
+                          ) : (
+                            <MoneyDisplay minor={lot.priceMinor} />
+                          )}
                         </td>
                         <td>
                           <MoneyDisplay minor={lot.commissionMinor} />
@@ -235,24 +291,57 @@ export function MyLotsPage({ embedded = false }: MyLotsPageProps) {
                         </td>
                         <td>
                           {lot.status === 'ACTIVE' ? (
-                            <>
-                              <Link
-                                to={`/lots/${lot.id}`}
-                                className="link-button"
-                                data-testid={`view-catalog-lot-${lot.id}`}
-                              >
-                                В каталоге
-                              </Link>
-                              <button
-                                type="button"
-                                className="link-button"
-                                disabled={cancelingId === lot.id}
-                                data-testid={`cancel-lot-${lot.id}`}
-                                onClick={() => void handleCancel(lot.id)}
-                              >
-                                {cancelingId === lot.id ? 'Отмена…' : 'Отменить'}
-                              </button>
-                            </>
+                            <div className="my-lots-actions">
+                              {isEditing ? (
+                                <>
+                                  <button
+                                    type="button"
+                                    className="link-button"
+                                    disabled={savingPriceId === lot.id}
+                                    data-testid={`save-lot-price-${lot.id}`}
+                                    onClick={() => void handleSavePrice(lot.id)}
+                                  >
+                                    {savingPriceId === lot.id ? 'Сохранение…' : 'Сохранить'}
+                                  </button>
+                                  <button
+                                    type="button"
+                                    className="link-button"
+                                    disabled={savingPriceId === lot.id}
+                                    data-testid={`cancel-edit-lot-price-${lot.id}`}
+                                    onClick={cancelEditPrice}
+                                  >
+                                    Отмена
+                                  </button>
+                                </>
+                              ) : (
+                                <>
+                                  <Link
+                                    to={`/lots/${lot.id}`}
+                                    className="link-button"
+                                    data-testid={`view-catalog-lot-${lot.id}`}
+                                  >
+                                    В каталоге
+                                  </Link>
+                                  <button
+                                    type="button"
+                                    className="link-button"
+                                    data-testid={`edit-lot-price-${lot.id}`}
+                                    onClick={() => startEditPrice(lot)}
+                                  >
+                                    Изменить цену
+                                  </button>
+                                  <button
+                                    type="button"
+                                    className="link-button"
+                                    disabled={cancelingId === lot.id}
+                                    data-testid={`cancel-lot-${lot.id}`}
+                                    onClick={() => void handleCancel(lot.id)}
+                                  >
+                                    {cancelingId === lot.id ? 'Отмена…' : 'Снять с продажи'}
+                                  </button>
+                                </>
+                              )}
+                            </div>
                           ) : null}
                           {(lot.status === 'RESERVED' || lot.status === 'SOLD') && linkedOrder ? (
                             <Link

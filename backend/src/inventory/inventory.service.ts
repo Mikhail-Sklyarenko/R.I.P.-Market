@@ -142,7 +142,7 @@ export class InventoryService {
 
     return {
       result: {
-        assets: toJsonSafe(assets),
+        assets: toJsonSafe(await this.attachActiveLotFields(assets)),
         sync: {
           lastSyncedAt: syncResult.fetchedAt.toISOString(),
           expiresAt: syncResult.expiresAt.toISOString(),
@@ -189,7 +189,7 @@ export class InventoryService {
     });
 
     return {
-      assets: toJsonSafe(assets),
+      assets: toJsonSafe(await this.attachActiveLotFields(assets)),
       sync: {
         lastSyncedAt: syncResult.fetchedAt.toISOString(),
         expiresAt: syncResult.expiresAt.toISOString(),
@@ -201,6 +201,55 @@ export class InventoryService {
         errorCode: syncResult.errorCode ?? null,
       },
     };
+  }
+
+  /**
+   * Attach the seller's ACTIVE lot id/price so inventory UI can edit listings.
+   */
+  private async attachActiveLotFields<
+    T extends { id: string; status: InventoryAssetStatus },
+  >(
+    assets: T[],
+  ): Promise<
+    Array<T & { activeLotId: string | null; listedPriceMinor: string | null }>
+  > {
+    const listedIds = assets
+      .filter((asset) => asset.status === InventoryAssetStatus.LISTED)
+      .map((asset) => asset.id);
+    if (listedIds.length === 0) {
+      return assets.map((asset) => ({
+        ...asset,
+        activeLotId: null,
+        listedPriceMinor: null,
+      }));
+    }
+
+    const lots = await this.prisma.lot.findMany({
+      where: {
+        inventoryAssetId: { in: listedIds },
+        status: LotStatus.ACTIVE,
+      },
+      select: {
+        id: true,
+        inventoryAssetId: true,
+        priceMinor: true,
+      },
+    });
+    const lotByAssetId = new Map(
+      lots.map((lot) => [
+        lot.inventoryAssetId,
+        { id: lot.id, priceMinor: lot.priceMinor.toString() },
+      ]),
+    );
+
+    return assets.map((asset) => {
+      const active = lotByAssetId.get(asset.id);
+      return {
+        ...asset,
+        activeLotId: active?.id ?? null,
+        listedPriceMinor: active?.priceMinor ?? null,
+      };
+    });
   }
 
   async syncForListing(ownerId: string, steamId?: string | null) {

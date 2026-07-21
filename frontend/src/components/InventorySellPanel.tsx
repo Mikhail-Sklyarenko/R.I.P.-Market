@@ -11,7 +11,10 @@ import { LotItemHero } from './LotItemHero';
 import { MoneyDisplay } from './MoneyDisplay';
 import { WearBar } from './WearBar';
 
+export type InventorySellPanelMode = 'create' | 'edit';
+
 type InventorySellPanelProps = {
+  mode?: InventorySellPanelMode;
   asset: InventoryAsset;
   priceHint?: InventoryPriceHint | null;
   steamPriceMissing?: boolean;
@@ -20,6 +23,7 @@ type InventorySellPanelProps = {
   preview: PricingPreview | null;
   sellError: unknown;
   submitting: boolean;
+  canceling?: boolean;
   priceMinor: number | null;
   bulkListableCount?: number;
   /** How many identical items to list (1..bulkListableCount). */
@@ -28,6 +32,7 @@ type InventorySellPanelProps = {
   onBulkListCountChange?: (value: number) => void;
   onPriceChange: (value: string) => void;
   onSubmit: (event: FormEvent) => void;
+  onCancelListing?: () => void;
   onClose: () => void;
 };
 
@@ -47,6 +52,7 @@ function formatLotCountLabel(count: number): string {
 }
 
 export function InventorySellPanel({
+  mode = 'create',
   asset,
   priceHint,
   steamPriceMissing = false,
@@ -55,6 +61,7 @@ export function InventorySellPanel({
   preview,
   sellError,
   submitting,
+  canceling = false,
   priceMinor,
   bulkListableCount = 1,
   bulkListCount = 1,
@@ -62,15 +69,17 @@ export function InventorySellPanel({
   onBulkListCountChange,
   onPriceChange,
   onSubmit,
+  onCancelListing,
   onClose,
 }: InventorySellPanelProps) {
+  const isEdit = mode === 'edit';
   const patternText = formatPaintSeed(asset.paintSeed);
   const recommendedMinor = getRecommendedPriceMinor(priceHint);
   const hasFloat =
     asset.floatValue !== null &&
     asset.floatValue !== undefined &&
     asset.floatValue !== '';
-  const showQuantityPicker = bulkListableCount >= 2;
+  const showQuantityPicker = !isEdit && bulkListableCount >= 2;
   const listingCount = showQuantityPicker
     ? Math.min(Math.max(1, bulkListCount), bulkListableCount)
     : 1;
@@ -82,6 +91,8 @@ export function InventorySellPanel({
           sellerReceiveMinor: String(Number(preview.sellerReceiveMinor) * listingCount),
         }
       : preview;
+  const busy = submitting || canceling;
+  const blockOnMissingSteam = !isEdit && steamPriceMissing;
 
   useEffect(() => {
     function onKeyDown(event: KeyboardEvent) {
@@ -102,6 +113,7 @@ export function InventorySellPanel({
     <form
       className="card inventory-listing-modal"
       data-testid="inventory-sell-panel"
+      data-mode={mode}
       role="dialog"
       aria-modal="true"
       aria-labelledby="inventory-listing-modal-title"
@@ -109,7 +121,7 @@ export function InventorySellPanel({
     >
       <div className="inventory-listing-modal-header">
         <h2 id="inventory-listing-modal-title" className="inventory-listing-modal-title">
-          Выставить лот
+          {isEdit ? 'Изменить лот' : 'Выставить лот'}
         </h2>
         <button
           type="button"
@@ -159,7 +171,9 @@ export function InventorySellPanel({
             </p>
           ) : steamPriceMissing ? (
             <p className="field-error small" data-testid="inventory-sell-steam-price-missing">
-              Цена Steam недоступна — выставление лота временно заблокировано.
+              {isEdit
+                ? 'Цена Steam недоступна — ориентируйтесь на конкуренцию на R.I.P.'
+                : 'Цена Steam недоступна — выставление лота временно заблокировано.'}
             </p>
           ) : null}
 
@@ -287,15 +301,31 @@ export function InventorySellPanel({
           <button
             type="submit"
             className="button primary inventory-listing-modal-submit"
-            disabled={submitting || !priceMinor || !!priceError || steamPriceMissing}
+            disabled={busy || !priceMinor || !!priceError || blockOnMissingSteam}
             data-testid="submit-listing"
           >
             {submitting
-              ? 'Публикация…'
-              : listingCount > 1
-                ? `Выставить ${formatLotCountLabel(listingCount)}`
-                : 'Выставить лот'}
+              ? isEdit
+                ? 'Сохранение…'
+                : 'Публикация…'
+              : isEdit
+                ? 'Сохранить'
+                : listingCount > 1
+                  ? `Выставить ${formatLotCountLabel(listingCount)}`
+                  : 'Выставить лот'}
           </button>
+
+          {isEdit && onCancelListing ? (
+            <button
+              type="button"
+              className="button secondary inventory-listing-modal-cancel"
+              disabled={busy}
+              data-testid="cancel-listing"
+              onClick={onCancelListing}
+            >
+              {canceling ? 'Снимаем…' : 'Снять с продажи'}
+            </button>
+          ) : null}
         </section>
       </div>
     </form>

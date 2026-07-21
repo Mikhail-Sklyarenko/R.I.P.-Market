@@ -4,6 +4,7 @@ import {
   Controller,
   Get,
   Param,
+  Patch,
   Post,
   Query,
   UseGuards,
@@ -14,6 +15,7 @@ import { CurrentUser } from '../common/current-user.decorator';
 import type { AuthUser } from '../common/auth-user.interface';
 import { CreateLotDto } from './dto/create-lot.dto';
 import { CreateBulkLotsDto } from './dto/create-bulk-lots.dto';
+import { UpdateLotPriceDto } from './dto/update-lot-price.dto';
 import { ListLotsQueryDto } from './dto/list-lots-query.dto';
 import { hasLotsListFilters } from './lots-list.util';
 import { LotsService } from './lots.service';
@@ -59,6 +61,17 @@ export class LotsController {
       return this.lotsService.listActiveFiltered(query);
     }
     return this.lotsService.listActive();
+  }
+
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard)
+  @Patch(':id/price')
+  async updatePrice(
+    @CurrentUser() user: AuthUser,
+    @Param('id') lotId: string,
+    @Body() body: UpdateLotPriceDto,
+  ) {
+    return this.lotsService.updatePrice(user.sub, lotId, body.priceMinor);
   }
 
   @ApiBearerAuth()

@@ -1,6 +1,9 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import {
+  canEditListedAsset,
+  canListAsset,
+  canOpenInventorySellPanel,
   filterInventoryAssets,
   filterSellerLots,
   formatLotStatus,
@@ -15,6 +18,27 @@ describe('seller-flow utils', () => {
   it('formats lot status labels in Russian', () => {
     assert.equal(formatLotStatus('ACTIVE'), 'Активен');
     assert.equal(formatLotStatus('UNKNOWN'), 'UNKNOWN');
+  });
+
+  it('allows editing LISTED assets with an active lot id', () => {
+    const listed = {
+      status: 'LISTED',
+      tradable: true,
+      activeLotId: 'lot-1',
+      itemDefinition: { marketHashName: 'AK-47 | Redline' },
+    };
+    assert.equal(canListAsset(listed), false);
+    assert.equal(canEditListedAsset(listed), true);
+    assert.equal(canOpenInventorySellPanel(listed), true);
+
+    assert.equal(
+      canEditListedAsset({ status: 'LISTED', activeLotId: null }),
+      false,
+    );
+    assert.equal(
+      canEditListedAsset({ status: 'RESERVED', activeLotId: 'lot-2' }),
+      false,
+    );
   });
 
   it('filters inventory assets by status and search', () => {

@@ -9,7 +9,8 @@ import { formatPaintSeed } from '../utils/item-image';
 import { getRarityStyle } from '../utils/rarity-colors';
 import {
   assetUnavailableReason,
-  canListAsset,
+  canEditListedAsset,
+  canOpenInventorySellPanel,
   formatAssetStatus,
 } from '../utils/seller-flow';
 import { InventoryPriceStack } from './InventoryPriceStack';
@@ -49,14 +50,15 @@ export function InventoryAssetCard({
   requireSteamPrice = false,
   onSelect,
 }: InventoryAssetCardProps) {
-  const listable = canListAsset(asset);
+  const editable = canEditListedAsset(asset);
+  const interactive = canOpenInventorySellPanel(asset);
   const name = asset.itemDefinition.marketHashName;
   const { weapon, skin } = parseCatalogLotName(name);
   const wearBadge = getWearBadgeStyle(asset.wear);
   const patternText = formatPaintSeed(asset.paintSeed);
   const showStatusBadge = asset.status !== 'AVAILABLE';
   const rarityStyle = getRarityStyle(asset.itemDefinition.rarity);
-  const unavailableReason = !listable ? assetUnavailableReason(asset) : null;
+  const unavailableReason = !interactive ? assetUnavailableReason(asset) : null;
   const showStackBadge = stackCount > 1;
 
   const cardStyle = {
@@ -65,13 +67,13 @@ export function InventoryAssetCard({
   } as CSSProperties;
 
   function handleSelect() {
-    if (listable) {
+    if (interactive) {
       onSelect(asset);
     }
   }
 
   function handleKeyDown(event: KeyboardEvent<HTMLElement>) {
-    if (!listable) {
+    if (!interactive) {
       return;
     }
     if (event.key === 'Enter' || event.key === ' ') {
@@ -82,7 +84,7 @@ export function InventoryAssetCard({
 
   const cardClass = [
     'inventory-asset-card',
-    listable ? 'inventory-asset-card-listable' : 'inventory-asset-card-locked',
+    interactive ? 'inventory-asset-card-listable' : 'inventory-asset-card-locked',
     isSelected ? 'inventory-asset-card-selected' : '',
     isBulkHighlighted && !isSelected ? 'inventory-asset-card-bulk-highlight' : '',
     showStackBadge ? 'inventory-asset-card-stacked' : '',
@@ -90,17 +92,23 @@ export function InventoryAssetCard({
     .filter(Boolean)
     .join(' ');
 
-  const interactiveProps = listable
+  const interactiveProps = interactive
     ? {
         role: 'button' as const,
         tabIndex: 0,
-        'data-testid': `list-asset-${asset.id}`,
+        'data-testid': editable
+          ? `edit-listed-asset-${asset.id}`
+          : `list-asset-${asset.id}`,
         onClick: handleSelect,
         onKeyDown: handleKeyDown,
         'aria-pressed': isSelected,
-        'aria-label': showStackBadge
-          ? `Выбрать ${name}, ${stackCount} шт.`
-          : `Выбрать ${name}`,
+        'aria-label': editable
+          ? showStackBadge
+            ? `Изменить лот ${name}, ${stackCount} шт.`
+            : `Изменить лот ${name}`
+          : showStackBadge
+            ? `Выбрать ${name}, ${stackCount} шт.`
+            : `Выбрать ${name}`,
       }
     : {
         'data-testid': `asset-${asset.id}`,
@@ -145,7 +153,7 @@ export function InventoryAssetCard({
             </span>
           ) : null}
           {showStatusBadge ? (
-            asset.status === 'LISTED' ? (
+            asset.status === 'LISTED' && !editable ? (
               <Link
                 className={statusBadgeClass(asset.status)}
                 to="/deals?tab=listings"

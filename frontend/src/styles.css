@@ -2897,6 +2897,27 @@ a.button.primary {
   margin-top: var(--space-1);
 }
 
+.inventory-listing-modal-cancel {
+  width: 100%;
+  margin-top: var(--space-2);
+}
+
+.my-lots-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  align-items: center;
+}
+
+.my-lots-edit-price {
+  margin: 0;
+  min-width: 5.5rem;
+}
+
+.my-lots-edit-price input {
+  width: 100%;
+}
+
 .inventory-price-inline {
   margin: 0;
 }

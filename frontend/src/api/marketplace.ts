@@ -393,6 +393,14 @@ export function cancelOrder(token: string, orderId: string, idempotencyKey?: str
   });
 }
 
+export function updateLotPrice(token: string, lotId: string, priceMinor: number) {
+  return apiRequest<Lot>(`/lots/${lotId}/price`, {
+    method: 'PATCH',
+    token,
+    body: { priceMinor },
+  });
+}
+
 export function cancelLot(token: string, lotId: string) {
   return apiRequest<Lot>(`/lots/${lotId}/cancel`, {
     method: 'POST',

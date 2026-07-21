@@ -1,6 +1,7 @@
 import { type FormEvent, useCallback, useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import {
+  cancelLot,
   createLot,
   createLotsBulk,
   getAuthConfig,
@@ -9,6 +10,7 @@ import {
   getPricingPreview,
   getUserMe,
   resetDevTrades,
+  updateLotPrice,
 } from '../api/sell';
 import type {
   AuthConfig,
@@ -26,9 +28,12 @@ import { InventorySellPanel } from '../components/InventorySellPanel';
 import { PageHeader } from '../components/PageHeader';
 import { SellerSaleInfo } from '../components/SellerSaleInfo';
 import { canShowDevPanels, parseUsdToMinor, ERROR_MESSAGES } from '../utils/format';
+import { minorToPriceInput } from '../utils/inventory-pricing';
 import { hasLinkedSteamId } from '../utils/steam-id';
 import {
+  canEditListedAsset,
   canListAsset,
+  canOpenInventorySellPanel,
   filterInventoryAssets,
   getBulkListableSiblings,
   groupInventoryAssetsForDisplay,
@@ -66,6 +71,7 @@ export function InventoryPage() {
   const [priceInput, setPriceInput] = useState('10.00');
   const [preview, setPreview] = useState<PricingPreview | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [canceling, setCanceling] = useState(false);
   const [priceError, setPriceError] = useState<string | null>(null);
   const [priceHints, setPriceHints] = useState<Record<string, InventoryPriceHint>>({});
   const [steamPriceFetchedAt, setSteamPriceFetchedAt] = useState<string | null>(null);
@@ -104,6 +110,10 @@ export function InventoryPage() {
 
   const priceMinor = useMemo(() => parseUsdToMinor(priceInput), [priceInput]);
   const selectedListable = selectedAsset ? canListAsset(selectedAsset) : false;
+  const selectedEditable = selectedAsset ? canEditListedAsset(selectedAsset) : false;
+  const sellPanelMode = selectedEditable ? 'edit' : 'create';
+  const sellPanelOpen =
+    Boolean(selectedAsset) && (selectedListable || selectedEditable);
 
   const mergePriceHints = useCallback(
     (response: Awaited<ReturnType<typeof getInventoryPriceHints>>) => {
@@ -357,24 +367,51 @@ export function InventoryPage() {
   );
 
   function selectAsset(asset: InventoryAsset) {
-    if (!canListAsset(asset)) {
+    if (!canOpenInventorySellPanel(asset)) {
       return;
     }
     setSelectedAssetId(asset.id);
     setBulkListCount(1);
     setSellError(null);
+    if (canEditListedAsset(asset) && asset.listedPriceMinor) {
+      const listedMinor = Number(asset.listedPriceMinor);
+      if (Number.isFinite(listedMinor) && listedMinor > 0) {
+        setPriceInput(minorToPriceInput(listedMinor));
+      }
+    }
   }
 
   const clearSelection = useCallback(() => {
     setSelectedAssetId(null);
     setBulkListCount(1);
     setSellError(null);
+    setCanceling(false);
   }, []);
 
   async function handleSubmitListing(event: FormEvent) {
     event.preventDefault();
-    if (!token || !selectedAssetId || !priceMinor) {
+    if (!token || !selectedAsset || !priceMinor) {
       setPriceError('Enter a valid price greater than zero.');
+      return;
+    }
+
+    if (canEditListedAsset(selectedAsset)) {
+      const lotId = selectedAsset.activeLotId;
+      if (!lotId) {
+        setSellError(new Error('Active listing not found for this item'));
+        return;
+      }
+      setSubmitting(true);
+      setSellError(null);
+      try {
+        await updateLotPrice(token, lotId, priceMinor);
+        clearSelection();
+        await loadInventory(false);
+      } catch (err: unknown) {
+        setSellError(err);
+      } finally {
+        setSubmitting(false);
+      }
       return;
     }
 
@@ -385,7 +422,7 @@ export function InventoryPage() {
     const useBulk = quantity >= 2 && bulkListTargets.length >= 2;
     const targetIds = useBulk
       ? bulkListTargets.slice(0, quantity).map((asset) => asset.id)
-      : [selectedAssetId];
+      : [selectedAsset.id];
 
     setSubmitting(true);
     setSellError(null);
@@ -432,6 +469,23 @@ export function InventoryPage() {
     }
   }
 
+  async function handleCancelListing() {
+    if (!token || !selectedAsset?.activeLotId) {
+      return;
+    }
+    setCanceling(true);
+    setSellError(null);
+    try {
+      await cancelLot(token, selectedAsset.activeLotId);
+      clearSelection();
+      await loadInventory(false);
+    } catch (err: unknown) {
+      setSellError(err);
+    } finally {
+      setCanceling(false);
+    }
+  }
+
   async function handleResetDevTrades() {
     if (!token) {
       return;
@@ -455,7 +509,7 @@ export function InventoryPage() {
     <div className="page inventory-page">
       <PageHeader
         title="Инвентарь"
-        subtitle="Выберите предмет в сетке — откроется окно выставления лота."
+        subtitle="Выберите предмет — выставить лот или изменить уже выставленный."
         actions={
           <button
             type="button"
@@ -725,7 +779,7 @@ export function InventoryPage() {
         </div>
       ) : null}
 
-      {selectedAsset && selectedListable ? (
+      {sellPanelOpen && selectedAsset ? (
         <>
           <button
             type="button"
@@ -740,6 +794,7 @@ export function InventoryPage() {
           >
             <div className="inventory-listing-overlay-dialog">
               <InventorySellPanel
+                mode={sellPanelMode}
                 asset={selectedAsset}
                 priceHint={selectedPriceHint}
                 steamPriceMissing={selectedSteamPriceMissing}
@@ -748,13 +803,21 @@ export function InventoryPage() {
                 preview={preview}
                 sellError={sellError}
                 submitting={submitting}
+                canceling={canceling}
                 priceMinor={priceMinor}
-                bulkListableCount={bulkListTargets.length}
+                bulkListableCount={
+                  sellPanelMode === 'edit' ? 1 : bulkListTargets.length
+                }
                 bulkListCount={bulkListCount}
-                stackCount={bulkListTargets.length}
+                stackCount={sellPanelMode === 'edit' ? 1 : bulkListTargets.length}
                 onBulkListCountChange={setBulkListCount}
                 onPriceChange={setPriceInput}
                 onSubmit={(event) => void handleSubmitListing(event)}
+                onCancelListing={
+                  sellPanelMode === 'edit'
+                    ? () => void handleCancelListing()
+                    : undefined
+                }
                 onClose={clearSelection}
               />
             </div>
