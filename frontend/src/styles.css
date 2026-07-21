@@ -4929,16 +4929,34 @@ p {
   border-radius: var(--radius-lg);
   background: linear-gradient(180deg, rgba(17, 24, 39, 0.94), rgba(11, 13, 18, 0.98));
   border: 1px solid rgba(148, 163, 184, 0.12);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.03);
+  box-shadow: none;
   transition: border-color 0.15s ease, box-shadow 0.15s ease, transform 0.15s ease;
   container-type: inline-size;
 }
 
+.catalog-lot-card::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  z-index: 0;
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--lot-rarity-color, #64748b) 14%, transparent) 0%,
+    color-mix(in srgb, var(--lot-rarity-glow, rgba(100, 116, 139, 0.28)) 7%, transparent) 46%,
+    transparent 68%
+  );
+  transition: opacity 0.15s ease;
+}
+
+.catalog-lot-card:hover::before {
+  filter: brightness(1.1);
+}
+
 .catalog-lot-card:hover {
   border-color: rgba(148, 163, 184, 0.22);
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.05),
-    0 8px 22px rgba(0, 0, 0, 0.38);
+  box-shadow: 0 8px 22px rgba(0, 0, 0, 0.38);
   transform: translateY(-1px);
 }
 
@@ -4954,6 +4972,7 @@ p {
   gap: var(--space-2);
   min-height: 28px;
   padding: 8px 8px 0;
+  background: transparent;
 }
 
 .catalog-lot-card-top-start {
@@ -5004,12 +5023,6 @@ p {
   height: 132px;
   padding: 2px 12px 6px;
   overflow: hidden;
-  background: linear-gradient(
-    180deg,
-    color-mix(in srgb, var(--lot-rarity-color, #64748b) 18%, transparent) 0%,
-    color-mix(in srgb, var(--lot-rarity-glow, rgba(100, 116, 139, 0.28)) 10%, transparent) 42%,
-    transparent 100%
-  );
 }
 
 .catalog-lot-card-image-wrap--tall .catalog-lot-card-image {
@@ -5066,6 +5079,7 @@ p {
   justify-content: flex-end;
   gap: 0;
   padding: 0 10px 10px;
+  background: transparent;
 }
 
 .catalog-lot-card-titles {
