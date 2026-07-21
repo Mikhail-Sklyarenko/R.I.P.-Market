@@ -94,8 +94,6 @@ export function CatalogItemCard({
       </div>
 
       <div className={imageWrapClass}>
-        <span className="catalog-lot-card-rarity-glow" aria-hidden="true" />
-        <span className="catalog-lot-card-rarity-haze" aria-hidden="true" />
         <SteamItemImage
           iconUrl={item.iconUrl}
           alt={name}

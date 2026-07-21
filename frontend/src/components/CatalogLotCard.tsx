@@ -151,8 +151,6 @@ export function CatalogLotCard({ lot, isLoggedIn: _isLoggedIn }: CatalogLotCardP
       </div>
 
       <div className={imageWrapClass}>
-        <span className="catalog-lot-card-rarity-glow" aria-hidden="true" />
-        <span className="catalog-lot-card-rarity-haze" aria-hidden="true" />
         <SteamItemImage
           iconUrl={iconUrl}
           alt={name}

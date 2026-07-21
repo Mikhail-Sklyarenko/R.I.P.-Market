@@ -3251,9 +3251,8 @@ p {
   }
 }
 
-/* Symmetric top-center rarity glow (inventory + catalog cards) */
-.inventory-asset-card::before,
-.catalog-lot-card::before {
+/* Symmetric top-center rarity glow (inventory cards) */
+.inventory-asset-card::before {
   content: '';
   position: absolute;
   top: -22px;
@@ -3271,8 +3270,7 @@ p {
   transition: opacity 0.15s ease, filter 0.15s ease;
 }
 
-.inventory-asset-card::after,
-.catalog-lot-card::after {
+.inventory-asset-card::after {
   content: '';
   position: absolute;
   inset: 0;
@@ -3288,14 +3286,12 @@ p {
   transition: opacity 0.15s ease;
 }
 
-.inventory-asset-card-listable:hover::before,
-.catalog-lot-card:hover::before {
+.inventory-asset-card-listable:hover::before {
   opacity: 0.54;
   filter: blur(40px);
 }
 
-.inventory-asset-card-listable:hover::after,
-.catalog-lot-card:hover::after {
+.inventory-asset-card-listable:hover::after {
   opacity: 1;
 }
 
@@ -5008,72 +5004,11 @@ p {
   height: 132px;
   padding: 2px 12px 6px;
   overflow: hidden;
-  isolation: isolate;
-  background:
-    radial-gradient(
-      ellipse 88% 58% at 50% 0%,
-      color-mix(in srgb, var(--lot-rarity-glow, rgba(100, 116, 139, 0.28)) 55%, transparent),
-      transparent 72%
-    ),
-    linear-gradient(180deg, rgba(26, 34, 48, 0.5) 0%, transparent 100%);
-}
-
-.catalog-lot-card-rarity-glow {
-  position: absolute;
-  top: -16px;
-  left: 50%;
-  width: 88%;
-  max-width: 200px;
-  height: 56px;
-  transform: translateX(-50%);
-  border-radius: 50%;
-  background: var(--lot-rarity-color, #64748b);
-  filter: blur(32px);
-  opacity: 0.46;
-  pointer-events: none;
-  z-index: 0;
-}
-
-.catalog-lot-card-rarity-haze {
-  position: absolute;
-  inset: 0;
-  background: radial-gradient(
-    ellipse 92% 72% at 50% 8%,
-    var(--lot-rarity-glow, rgba(100, 116, 139, 0.3)) 0%,
-    transparent 76%
-  );
-  pointer-events: none;
-  z-index: 0;
-}
-
-.catalog-lot-card-image-wrap::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  background-image: radial-gradient(rgba(148, 163, 184, 0.14) 1px, transparent 1px);
-  background-size: 10px 10px;
-  opacity: 0.4;
-  pointer-events: none;
-  z-index: 0;
-}
-
-.catalog-lot-card-image-wrap::after {
-  content: '';
-  position: absolute;
-  inset: 0;
-  background-image: radial-gradient(
-    color-mix(in srgb, var(--lot-rarity-color, #64748b) 70%, white 8%) 1.1px,
-    transparent 1.1px
-  );
-  background-size: 10px 10px;
-  opacity: 0.65;
-  pointer-events: none;
-  z-index: 0;
-  mask-image: radial-gradient(
-    ellipse 90% 78% at 50% 24%,
-    #000 0%,
-    rgba(0, 0, 0, 0.65) 40%,
-    transparent 82%
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--lot-rarity-color, #64748b) 18%, transparent) 0%,
+    color-mix(in srgb, var(--lot-rarity-glow, rgba(100, 116, 139, 0.28)) 10%, transparent) 42%,
+    transparent 100%
   );
 }
 
