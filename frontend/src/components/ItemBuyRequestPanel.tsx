@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom';
 import type { BuyRequest, CatalogItem } from '../api/types';
 import { formatUsdFromMinor } from '../utils/format';
+import { formatSteamPriceAge, isSteamPriceStale } from '../utils/steam-price-age';
 import {
   CATALOG_WEAR_FILTERS,
   getWearDisplayLabel,
@@ -16,6 +17,7 @@ type ItemBuyRequestPanelProps = {
   selectedWear: string;
   onWearChange: (wear: string) => void;
   steamPriceMinor: number | null;
+  steamPriceFetchedAt?: string | null;
   steamPriceLoading?: boolean;
   maxPriceInput: string;
   submitting: boolean;
@@ -43,6 +45,7 @@ export function ItemBuyRequestPanel({
   selectedWear,
   onWearChange,
   steamPriceMinor,
+  steamPriceFetchedAt = null,
   steamPriceLoading = false,
   maxPriceInput,
   submitting,
@@ -82,6 +85,21 @@ export function ItemBuyRequestPanel({
             testIdPrefix="item"
             loading={steamPriceLoading}
           />
+          {steamPriceMinor != null && steamPriceFetchedAt ? (
+            <p
+              className={`muted small item-steam-price-age${
+                isSteamPriceStale(steamPriceFetchedAt)
+                  ? ' item-steam-price-age-stale'
+                  : ''
+              }`}
+              data-testid="item-steam-price-age"
+            >
+              Steam · обновлено {formatSteamPriceAge(steamPriceFetchedAt)}
+              {isSteamPriceStale(steamPriceFetchedAt)
+                ? ' · цена может быть устаревшей'
+                : ''}
+            </p>
+          ) : null}
         </div>
 
         <p className="item-buy-request-lead muted small">

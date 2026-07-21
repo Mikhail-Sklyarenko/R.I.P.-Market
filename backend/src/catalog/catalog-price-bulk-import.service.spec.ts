@@ -16,10 +16,12 @@ describe('CatalogPriceBulkImportService (Steam-direct)', () => {
     }
   });
 
-  it('fetches Steam prices for catalog cards and upserts cache', async () => {
+  it('fetches Steam prices for all wears and upserts cache', async () => {
     const fetchSteamPriceMinorOnly = jest
       .fn()
       .mockResolvedValueOnce(14783)
+      .mockResolvedValueOnce(16000)
+      .mockResolvedValueOnce(18000)
       .mockResolvedValueOnce(5000);
     const steamPrices = {
       fetchSteamPriceMinorOnly,
@@ -53,6 +55,18 @@ describe('CatalogPriceBulkImportService (Steam-direct)', () => {
     expect(result.failed).toBe(0);
     expect(fetchSteamPriceMinorOnly).toHaveBeenCalledWith(
       'AK-47 | Bloodsport (Field-Tested)',
+    );
+    expect(fetchSteamPriceMinorOnly).toHaveBeenCalledWith(
+      'AK-47 | Bloodsport (Minimal Wear)',
+    );
+    expect(fetchSteamPriceMinorOnly).toHaveBeenCalledWith(
+      'AK-47 | Bloodsport (Factory New)',
+    );
+    expect(upsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { marketHashName: 'AK-47 | Bloodsport (Field-Tested)' },
+        create: expect.objectContaining({ priceMinor: 14783 }),
+      }),
     );
     expect(upsert).toHaveBeenCalledWith(
       expect.objectContaining({

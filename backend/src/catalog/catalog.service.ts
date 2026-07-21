@@ -20,6 +20,7 @@ import { catalogLotMatchesWearFloatFilters } from './catalog-lot-filters.util';
 import { applyCatalogSkinTraitFilters } from './catalog-skin-trait-filter.util';
 import { deriveBaseMarketHashName } from '../item-definitions/base-market-hash-name.util';
 import { parseWearIcons } from '../item-definitions/wear-icons.util';
+import { resolveCatalogCardDisplaySteamPriceName } from './catalog-steam-price-names.util';
 
 const POPULAR_WINDOW_MS = 30 * 24 * 60 * 60 * 1000;
 
@@ -301,16 +302,33 @@ export class CatalogService {
       return { rows, steamPriceFetchedAt: null };
     }
 
+    const steamLookupByRowId = new Map(
+      rows.map((row) => [
+        row.id,
+        resolveCatalogCardDisplaySteamPriceName(
+          row.marketHashName,
+          row.availableWears,
+        ),
+      ]),
+    );
+    const steamLookupNames = [
+      ...new Set(steamLookupByRowId.values()),
+    ];
+
     const steamPrices = await this.steamMarketPrice.getPricesWithMeta(
-      rows.map((row) => row.marketHashName),
+      steamLookupNames,
       { cacheOnly: true },
     );
 
-    const hydratedRows = rows.map((row) => ({
-      ...row,
-      steamPriceMinor: steamPrices[row.marketHashName]?.priceMinor ?? null,
-      steamPriceFetchedAt: steamPrices[row.marketHashName]?.fetchedAt ?? null,
-    }));
+    const hydratedRows = rows.map((row) => {
+      const lookupName = steamLookupByRowId.get(row.id) ?? row.marketHashName;
+      const steamEntry = steamPrices[lookupName];
+      return {
+        ...row,
+        steamPriceMinor: steamEntry?.priceMinor ?? null,
+        steamPriceFetchedAt: steamEntry?.fetchedAt ?? null,
+      };
+    });
 
     const latestSteamPriceFetch =
       Object.values(steamPrices)
@@ -366,7 +384,12 @@ export class CatalogService {
           row.steamPriceMinor == null &&
           row.activeLotCount > 0,
       )
-      .map((row) => row.marketHashName);
+      .map((row) =>
+        resolveCatalogCardDisplaySteamPriceName(
+          row.marketHashName,
+          row.availableWears,
+        ),
+      );
     if (missing.length === 0) {
       return;
     }

@@ -4,10 +4,15 @@ import { resolveSteamMarketHashName } from '../utils/steam-market-link';
 
 const WEAR_PRICE_DEBOUNCE_MS = 350;
 
+type WearSteamPriceCacheEntry = {
+  priceMinor: number | null;
+  fetchedAt: string | null;
+};
+
+const sessionWearPriceCache = new Map<string, WearSteamPriceCacheEntry>();
+
 type UseWearSteamPriceOptions = {
   enabled?: boolean;
-  /** When true, bypass cache and query Steam directly (wear changes on item page). */
-  forceRefresh?: boolean;
 };
 
 export function useWearSteamPrice(
@@ -17,7 +22,6 @@ export function useWearSteamPrice(
   options?: UseWearSteamPriceOptions,
 ) {
   const enabled = options?.enabled !== false;
-  const forceRefresh = options?.forceRefresh === true;
 
   const steamMarketName = useMemo(() => {
     if (!marketHashName?.trim()) {
@@ -26,14 +30,33 @@ export function useWearSteamPrice(
     return resolveSteamMarketHashName(marketHashName, wear || null);
   }, [marketHashName, wear]);
 
+  const sessionEntry = steamMarketName
+    ? sessionWearPriceCache.get(steamMarketName)
+    : undefined;
+
   const [steamPriceMinor, setSteamPriceMinor] = useState<number | null>(
-    fallbackPriceMinor ?? null,
+    sessionEntry?.priceMinor ?? fallbackPriceMinor ?? null,
+  );
+  const [steamPriceFetchedAt, setSteamPriceFetchedAt] = useState<string | null>(
+    sessionEntry?.fetchedAt ?? null,
   );
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
+    if (!steamMarketName) {
+      setSteamPriceMinor(fallbackPriceMinor ?? null);
+      setSteamPriceFetchedAt(null);
+      return;
+    }
+    const cached = sessionWearPriceCache.get(steamMarketName);
+    if (cached) {
+      setSteamPriceMinor(cached.priceMinor);
+      setSteamPriceFetchedAt(cached.fetchedAt);
+      return;
+    }
     setSteamPriceMinor(fallbackPriceMinor ?? null);
-  }, [marketHashName, fallbackPriceMinor]);
+    setSteamPriceFetchedAt(null);
+  }, [marketHashName, fallbackPriceMinor, steamMarketName]);
 
   useEffect(() => {
     if (!enabled || !steamMarketName) {
@@ -41,24 +64,34 @@ export function useWearSteamPrice(
       return;
     }
 
-    let cancelled = false;
-    setLoading(true);
-    if (forceRefresh) {
-      setSteamPriceMinor(null);
+    const cached = sessionWearPriceCache.get(steamMarketName);
+    if (cached) {
+      setSteamPriceMinor(cached.priceMinor);
+      setSteamPriceFetchedAt(cached.fetchedAt);
+      setLoading(false);
+      return;
     }
 
+    let cancelled = false;
+    setLoading(true);
+
     const timer = window.setTimeout(() => {
-      void getCatalogSteamPrices([steamMarketName], { forceRefresh })
+      void getCatalogSteamPrices([steamMarketName])
         .then((response) => {
           if (cancelled) {
             return;
           }
           const entry = response.prices[steamMarketName];
-          setSteamPriceMinor(entry?.priceMinor ?? null);
+          const priceMinor = entry?.priceMinor ?? null;
+          const fetchedAt = entry?.fetchedAt ?? null;
+          sessionWearPriceCache.set(steamMarketName, { priceMinor, fetchedAt });
+          setSteamPriceMinor(priceMinor);
+          setSteamPriceFetchedAt(fetchedAt);
         })
         .catch(() => {
           if (!cancelled) {
             setSteamPriceMinor(fallbackPriceMinor ?? null);
+            setSteamPriceFetchedAt(null);
           }
         })
         .finally(() => {
@@ -72,11 +105,12 @@ export function useWearSteamPrice(
       cancelled = true;
       window.clearTimeout(timer);
     };
-  }, [enabled, steamMarketName, forceRefresh, fallbackPriceMinor]);
+  }, [enabled, steamMarketName, fallbackPriceMinor]);
 
   return {
     steamMarketName,
     steamPriceMinor,
-    loading,
+    steamPriceFetchedAt,
+    loading: loading && steamPriceMinor == null,
   };
 }

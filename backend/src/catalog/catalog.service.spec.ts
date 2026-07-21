@@ -172,7 +172,7 @@ describe('CatalogService', () => {
     ]);
     prisma.itemDefinition.count = jest.fn().mockResolvedValue(1);
     steamMarketPrice.getPricesWithMeta.mockResolvedValue({
-      'AK-47 | Redline': {
+      'AK-47 | Redline (Field-Tested)': {
         priceMinor: 1250,
         fetchedAt: '2026-07-11T12:00:00.000Z',
       },
@@ -183,7 +183,7 @@ describe('CatalogService', () => {
     expect(result.items).toHaveLength(1);
     expect(result.items[0]?.steamPriceMinor).toBe(1250);
     expect(steamMarketPrice.getPricesWithMeta).toHaveBeenCalledWith(
-      ['AK-47 | Redline'],
+      ['AK-47 | Redline (Field-Tested)'],
       { cacheOnly: true },
     );
     // No bulk live Steam refresh for empty seeded cards.

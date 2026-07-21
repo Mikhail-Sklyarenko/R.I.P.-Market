@@ -4,10 +4,11 @@ import {
   OnModuleInit,
 } from '@nestjs/common';
 import { Cron } from '@nestjs/schedule';
-import { LotStatus, OrderStatus } from '@prisma/client';
+import { LotStatus, OrderStatus, BuyRequestStatus } from '@prisma/client';
 import { isListableMarketHashName } from '../lots/listing-eligibility.util';
 import { PrismaService } from '../prisma/prisma.service';
 import { CatalogPriceRefreshService } from './catalog-price-refresh.service';
+import { resolveCatalogCardDisplaySteamPriceName } from './catalog-steam-price-names.util';
 import { SteamMarketPriceService } from './steam-market-price.service';
 
 const POPULAR_WINDOW_MS = 30 * 24 * 60 * 60 * 1000;
@@ -75,7 +76,8 @@ export class SteamPriceWarmerService implements OnModuleInit {
 
   private async collectPriorityMarketHashNames(): Promise<string[]> {
     const since = new Date(Date.now() - POPULAR_WINDOW_MS);
-    const [activeLots, recentOrders, catalogBatch] = await Promise.all([
+    const [activeLots, recentOrders, openBuyRequests, catalogBatch] =
+      await Promise.all([
       this.prisma.lot.findMany({
         where: { status: LotStatus.ACTIVE },
         select: {
@@ -115,8 +117,18 @@ export class SteamPriceWarmerService implements OnModuleInit {
         },
         take: WARMUP_PRIORITY_MAX,
       }),
+      this.prisma.buyRequest.findMany({
+        where: { status: BuyRequestStatus.OPEN },
+        select: {
+          itemDefinition: {
+            select: { marketHashName: true },
+          },
+        },
+        take: WARMUP_PRIORITY_MAX,
+      }),
       this.prisma.itemDefinition.findMany({
-        select: { marketHashName: true },
+        where: { game: 'CS2', catalogSeeded: true },
+        select: { marketHashName: true, availableWears: true },
         orderBy: { marketHashName: 'asc' },
         skip: this.catalogWarmOffset,
         take: WARMUP_CATALOG_BATCH,
@@ -146,6 +158,9 @@ export class SteamPriceWarmerService implements OnModuleInit {
     for (const order of recentOrders) {
       pushName(order.lot.inventoryAsset.itemDefinition.marketHashName);
     }
+    for (const buyRequest of openBuyRequests) {
+      pushName(buyRequest.itemDefinition.marketHashName);
+    }
 
     const skinBatch = catalogBatch.filter(
       (item) =>
@@ -158,7 +173,12 @@ export class SteamPriceWarmerService implements OnModuleInit {
         !item.marketHashName.includes(' | '),
     );
     for (const item of [...skinBatch, ...otherBatch]) {
-      pushName(item.marketHashName);
+      pushName(
+        resolveCatalogCardDisplaySteamPriceName(
+          item.marketHashName,
+          item.availableWears,
+        ),
+      );
     }
 
     return names.slice(0, WARMUP_TOTAL_MAX);

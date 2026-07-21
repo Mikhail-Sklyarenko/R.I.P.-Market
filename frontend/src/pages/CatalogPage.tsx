@@ -29,6 +29,7 @@ import {
 } from '../utils/catalog-skin-trait-filters';
 import { parseUsdToMinor } from '../utils/format';
 import { formatDataTimestamp } from '../utils/lot-display';
+import { resolveCatalogCardDisplaySteamPriceName } from '../utils/steam-market-link';
 
 type SortOption = 'newest' | 'price-asc' | 'price-desc' | 'popular';
 
@@ -89,13 +90,17 @@ function buildPriceStateFromItems(items: CatalogItem[]) {
   return { steamPrices, pending };
 }
 
-function mergeSteamPrices(
+function mergeSteamPricesForItems(
   response: Awaited<ReturnType<typeof getCatalogSteamPrices>>,
-  names: string[],
+  catalogItems: CatalogItem[],
 ): Record<string, number | null> {
   const next: Record<string, number | null> = {};
-  for (const name of names) {
-    next[name] = response.prices[name]?.priceMinor ?? null;
+  for (const item of catalogItems) {
+    const lookupName = resolveCatalogCardDisplaySteamPriceName(
+      item.marketHashName,
+      item.availableWears,
+    );
+    next[item.marketHashName] = response.prices[lookupName]?.priceMinor ?? null;
   }
   return next;
 }
@@ -291,12 +296,21 @@ export function CatalogPage() {
     const batches = chunkArray(missing, STEAM_PRICE_CHUNK_SIZE);
 
     async function refreshChunk(chunk: string[]) {
-      const response = await getCatalogSteamPrices(chunk);
+      const catalogItems = chunk
+        .map((name) => allItems.find((entry) => entry.marketHashName === name))
+        .filter((entry): entry is CatalogItem => Boolean(entry));
+      const lookupNames = catalogItems.map((item) =>
+        resolveCatalogCardDisplaySteamPriceName(
+          item.marketHashName,
+          item.availableWears,
+        ),
+      );
+      const response = await getCatalogSteamPrices(lookupNames);
       if (cancelled) {
         return {};
       }
 
-      const chunkPrices = mergeSteamPrices(response, chunk);
+      const chunkPrices = mergeSteamPricesForItems(response, catalogItems);
       Object.assign(loadedPrices, chunkPrices);
       setSteamPrices((prev) => ({ ...prev, ...chunkPrices }));
       if (response.steamPriceFetchedAt) {

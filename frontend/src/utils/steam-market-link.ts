@@ -83,6 +83,22 @@ export function resolveSteamMarketHashName(
   return trimmed;
 }
 
+const WEAR_DISPLAY_PRIORITY = ['FT', 'MW', 'FN', 'WW', 'BS'] as const;
+
+/** Catalog grid Steam lookup — FT (most liquid) when item has wears. */
+export function resolveCatalogCardDisplaySteamPriceName(
+  marketHashName: string,
+  availableWears?: string[] | null,
+): string {
+  if (!availableWears?.length) {
+    return marketHashName.trim();
+  }
+  const code =
+    WEAR_DISPLAY_PRIORITY.find((wear) => availableWears.includes(wear)) ??
+    availableWears[0];
+  return resolveSteamMarketHashName(marketHashName, code);
+}
+
 export function buildSteamMarketListingUrl(
   marketHashName: string,
   wear?: string | null,

@@ -1,4 +1,6 @@
 import {
+  resolveAllWearSteamMarketNames,
+  resolveCatalogCardDisplaySteamPriceName,
   resolveSteamMarketNamesForCatalogCard,
 } from './catalog-steam-price-names.util';
 
@@ -12,7 +14,7 @@ describe('resolveSteamMarketNamesForCatalogCard', () => {
     ).toEqual(['3rd Commando Company | KSK']);
   });
 
-  it('prefers FT then MW for skins with available wears', () => {
+  it('returns all wears ordered by liquidity for skins', () => {
     expect(
       resolveSteamMarketNamesForCatalogCard('AK-47 | Bloodsport', [
         'FN',
@@ -23,6 +25,29 @@ describe('resolveSteamMarketNamesForCatalogCard', () => {
     ).toEqual([
       'AK-47 | Bloodsport (Field-Tested)',
       'AK-47 | Bloodsport (Minimal Wear)',
+      'AK-47 | Bloodsport (Factory New)',
+      'AK-47 | Bloodsport (Well-Worn)',
     ]);
+  });
+});
+
+describe('resolveCatalogCardDisplaySteamPriceName', () => {
+  it('prefers FT for catalog grid display', () => {
+    expect(
+      resolveCatalogCardDisplaySteamPriceName('AK-47 | Bloodsport', [
+        'FN',
+        'MW',
+        'FT',
+      ]),
+    ).toBe('AK-47 | Bloodsport (Field-Tested)');
+  });
+});
+
+describe('resolveAllWearSteamMarketNames', () => {
+  it('aliases resolveSteamMarketNamesForCatalogCard', () => {
+    const wears = ['BS', 'FN'];
+    expect(resolveAllWearSteamMarketNames('M4A4 | Neo-Noir', wears)).toEqual(
+      resolveSteamMarketNamesForCatalogCard('M4A4 | Neo-Noir', wears),
+    );
   });
 });

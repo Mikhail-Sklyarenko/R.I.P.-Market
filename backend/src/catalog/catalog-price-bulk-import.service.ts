@@ -1,6 +1,9 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { resolveSteamMarketNamesForCatalogCard } from './catalog-steam-price-names.util';
+import {
+  resolveAllWearSteamMarketNames,
+  resolveCatalogCardDisplaySteamPriceName,
+} from './catalog-steam-price-names.util';
 import { SteamMarketPriceService } from './steam-market-price.service';
 
 export type CatalogPriceImportProgress = {
@@ -88,38 +91,60 @@ export class CatalogPriceBulkImportService {
         break;
       }
 
-      const namesToTry = resolveSteamMarketNamesForCatalogCard(
+      const namesToFetch = resolveAllWearSteamMarketNames(
+        item.marketHashName,
+        item.availableWears,
+      );
+      const displayName = resolveCatalogCardDisplaySteamPriceName(
         item.marketHashName,
         item.availableWears,
       );
 
-      let priceMinor: number | null = null;
-      for (const steamName of namesToTry) {
+      const wearPrices = new Map<string, number>();
+      for (const steamName of namesToFetch) {
         if (this.abortRequested || options?.shouldAbort?.()) {
           break;
         }
         if (this.steamPrices.isSteamBlocked()) {
           break;
         }
-        priceMinor = await this.steamPrices.fetchSteamPriceMinorOnly(steamName);
+        const priceMinor =
+          await this.steamPrices.fetchSteamPriceMinorOnly(steamName);
         steamRequests += 1;
         await sleep(gapMs);
         if (priceMinor != null) {
-          break;
+          wearPrices.set(steamName, priceMinor);
         }
       }
 
-      if (priceMinor != null) {
+      if (wearPrices.size > 0) {
         const fetchedAt = new Date();
-        await this.prisma.steamPriceCache.upsert({
-          where: { marketHashName: item.marketHashName },
-          create: {
-            marketHashName: item.marketHashName,
-            priceMinor,
-            fetchedAt,
-          },
-          update: { priceMinor, fetchedAt },
-        });
+        for (const [steamName, priceMinor] of wearPrices) {
+          await this.prisma.steamPriceCache.upsert({
+            where: { marketHashName: steamName },
+            create: {
+              marketHashName: steamName,
+              priceMinor,
+              fetchedAt,
+            },
+            update: { priceMinor, fetchedAt },
+          });
+        }
+
+        const displayPrice =
+          wearPrices.get(displayName) ?? wearPrices.values().next().value;
+        if (displayPrice != null) {
+          await this.prisma.steamPriceCache.upsert({
+            where: { marketHashName: item.marketHashName },
+            create: {
+              marketHashName: item.marketHashName,
+              priceMinor: displayPrice,
+              fetchedAt,
+            },
+            update: { priceMinor: displayPrice, fetchedAt },
+          });
+        }
+
         matched += 1;
       } else {
         failed += 1;

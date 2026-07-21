@@ -26,6 +26,10 @@ import {
   resolveSingleLotId,
   shouldRedirectItemPageToLot,
 } from '../utils/catalog-navigation';
+import {
+  formatSteamPriceAge,
+  isSteamPriceStale,
+} from '../utils/steam-price-age';
 import { getRarityDisplayLabel } from '../utils/rarity-colors';
 import { parseUsdToMinor } from '../utils/format';
 import { startSteamLogin } from '../utils/start-steam-login';
@@ -77,11 +81,13 @@ export function ItemPage() {
     [item, effectiveWear],
   );
   const wearForSteamPrice = isBuyRequestPage ? selectedWear || effectiveWear : selectedWear;
-  const { steamPriceMinor: wearSteamPrice, loading: wearSteamPriceLoading } =
-    useWearSteamPrice(item?.marketHashName, wearForSteamPrice, item?.steamPriceMinor, {
-      enabled: Boolean(item),
-      forceRefresh: Boolean(wearForSteamPrice),
-    });
+  const {
+    steamPriceMinor: wearSteamPrice,
+    steamPriceFetchedAt: wearSteamPriceFetchedAt,
+    loading: wearSteamPriceLoading,
+  } = useWearSteamPrice(item?.marketHashName, wearForSteamPrice, item?.steamPriceMinor, {
+    enabled: Boolean(item),
+  });
 
   useEffect(() => {
     if (!id) {
@@ -284,6 +290,7 @@ export function ItemPage() {
                     selectedWear={selectedWear}
                     onWearChange={setSelectedWear}
                     steamPriceMinor={wearSteamPrice}
+                    steamPriceFetchedAt={wearSteamPriceFetchedAt}
                     steamPriceLoading={wearSteamPriceLoading}
                     maxPriceInput={maxPriceInput}
                     submitting={submitting}
@@ -356,6 +363,21 @@ export function ItemPage() {
                         testIdPrefix="item"
                         loading={wearSteamPriceLoading}
                       />
+                      {wearSteamPrice != null && wearSteamPriceFetchedAt ? (
+                        <p
+                          className={`muted small item-steam-price-age${
+                            isSteamPriceStale(wearSteamPriceFetchedAt)
+                              ? ' item-steam-price-age-stale'
+                              : ''
+                          }`}
+                          data-testid="item-steam-price-age"
+                        >
+                          Steam · обновлено {formatSteamPriceAge(wearSteamPriceFetchedAt)}
+                          {isSteamPriceStale(wearSteamPriceFetchedAt)
+                            ? ' · цена может быть устаревшей'
+                            : ''}
+                        </p>
+                      ) : null}
                     </div>
 
                     {cheapestLot ? (
