@@ -194,12 +194,6 @@ textarea {
   opacity: 0.9;
 }
 
-.header-wallet-pill-label {
-  font-size: var(--font-size-xs);
-  color: var(--color-text-muted);
-  letter-spacing: 0.01em;
-}
-
 .app-nav {
   display: flex;
   gap: var(--space-1);
@@ -6237,10 +6231,6 @@ p {
 
   .app-header-actions {
     justify-content: flex-start;
-  }
-
-  .header-wallet-pill-label {
-    display: none;
   }
 
   .support-widget {

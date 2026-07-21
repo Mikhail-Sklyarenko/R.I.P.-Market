@@ -79,7 +79,6 @@ export function HeaderWalletBalance({ summary, loading }: HeaderWalletBalancePro
             >
               <SnowflakeIcon />
               <MoneyDisplay minor={lockedMinor} strong />
-              <span className="header-wallet-pill-label">заморожено</span>
             </span>
           ) : null}
           <span
@@ -88,7 +87,6 @@ export function HeaderWalletBalance({ summary, loading }: HeaderWalletBalancePro
           >
             <WalletIcon />
             <MoneyDisplay minor={availableMinor} strong />
-            <span className="header-wallet-pill-label">доступно</span>
           </span>
         </>
       )}
