@@ -146,21 +146,58 @@ textarea {
   justify-content: flex-end;
 }
 
-.header-wallet-balance {
+.header-wallet-balances {
   display: inline-flex;
-  align-items: center;
-  padding: var(--space-2) var(--space-3);
+  align-items: stretch;
   border-radius: var(--radius-sm);
   border: 1px solid var(--color-border-strong);
   background: var(--color-bg-input);
   color: inherit;
   font-size: var(--font-size-sm);
   white-space: nowrap;
+  overflow: hidden;
 }
 
-.header-wallet-balance:hover {
+.header-wallet-balances:hover {
   color: var(--color-link);
   border-color: var(--color-link);
+}
+
+.header-wallet-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+}
+
+.header-wallet-pill + .header-wallet-pill {
+  border-left: 1px solid var(--color-border-strong);
+}
+
+.header-wallet-pill-frozen {
+  color: #7dd3fc;
+}
+
+.header-wallet-pill-available {
+  color: inherit;
+}
+
+.header-wallet-pill-loading {
+  min-width: 4rem;
+  justify-content: center;
+}
+
+.header-wallet-pill-icon {
+  width: 14px;
+  height: 14px;
+  flex-shrink: 0;
+  opacity: 0.9;
+}
+
+.header-wallet-pill-label {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+  letter-spacing: 0.01em;
 }
 
 .app-nav {
@@ -6200,6 +6237,10 @@ p {
 
   .app-header-actions {
     justify-content: flex-start;
+  }
+
+  .header-wallet-pill-label {
+    display: none;
   }
 
   .support-widget {

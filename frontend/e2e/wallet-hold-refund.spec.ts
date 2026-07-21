@@ -44,6 +44,7 @@ test.describe('Wallet hold and refund', () => {
     }).format(priceMinor / 100);
     await expect(page.getByTestId('wallet-hold')).toContainText(expectedHold);
     await expect(page.getByTestId('wallet-hold-info')).toBeVisible();
+    await expect(page.getByTestId('header-wallet-frozen')).toContainText(expectedHold);
 
     await page.goto(orderUrl);
     await page.getByTestId('cancel-order-button').click();
@@ -52,5 +53,6 @@ test.describe('Wallet hold and refund', () => {
     await page.goto('/wallet');
     await expect(page.getByTestId('wallet-hold')).toContainText('$0.00');
     await expect(page.getByTestId('wallet-available')).toContainText('$2,000.00');
+    await expect(page.getByTestId('header-wallet-frozen')).toHaveCount(0);
   });
 });

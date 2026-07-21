@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Link, NavLink, Outlet, useLocation } from 'react-router-dom';
 import { useAuth } from '../auth/AuthContext';
 import { useWalletSummary } from '../hooks/useWalletSummary';
-import { MoneyDisplay } from './MoneyDisplay';
+import { HeaderWalletBalance } from './HeaderWalletBalance';
 import { TradeUrlBanner } from './TradeUrlBanner';
 import { UserMenu } from './UserMenu';
 import { NotificationsWidget } from './NotificationsWidget';
@@ -52,18 +52,7 @@ export function Layout() {
 
         <div className="app-header-actions">
           {isAuthenticated ? (
-            <Link
-              to="/wallet"
-              className="header-wallet-balance"
-              data-testid="header-wallet-balance"
-              title="Кошелёк"
-            >
-              {walletLoading && !walletSummary ? (
-                <span className="muted small">…</span>
-              ) : (
-                <MoneyDisplay minor={walletSummary?.availableMinor ?? '0'} strong />
-              )}
-            </Link>
+            <HeaderWalletBalance summary={walletSummary} loading={walletLoading} />
           ) : null}
 
           <UserMenu />

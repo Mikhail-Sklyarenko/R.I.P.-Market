@@ -17,6 +17,8 @@ test.describe('Main navigation', () => {
     await expect(page.getByTestId('nav-orders')).toHaveCount(0);
     await expect(page.getByTestId('nav-wallet')).toHaveCount(0);
     await expect(page.getByTestId('header-wallet-balance')).toBeVisible();
+    await expect(page.getByTestId('header-wallet-available')).toBeVisible();
+    await expect(page.getByTestId('header-wallet-frozen')).toHaveCount(0);
     await expect(page.getByTestId('header-wallet-deposit')).toHaveCount(0);
     await expect(page.getByTestId('user-menu-deposit')).toHaveCount(0);
     await expect(page.getByTestId('user-menu-withdraw')).toHaveCount(0);
