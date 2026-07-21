@@ -4943,15 +4943,15 @@ p {
   z-index: 0;
   background: linear-gradient(
     180deg,
-    color-mix(in srgb, var(--lot-rarity-color, #64748b) 14%, transparent) 0%,
-    color-mix(in srgb, var(--lot-rarity-glow, rgba(100, 116, 139, 0.28)) 7%, transparent) 46%,
-    transparent 68%
+    color-mix(in srgb, var(--lot-rarity-color, #64748b) 20%, transparent) 0%,
+    color-mix(in srgb, var(--lot-rarity-glow, rgba(100, 116, 139, 0.28)) 12%, transparent) 46%,
+    transparent 72%
   );
   transition: opacity 0.15s ease;
 }
 
 .catalog-lot-card:hover::before {
-  filter: brightness(1.1);
+  filter: brightness(1.06);
 }
 
 .catalog-lot-card:hover {
