@@ -24,7 +24,20 @@ const CATEGORY_TILT: Partial<Record<WeaponCategoryIconId, WeaponIconTiltId>> = {
 const MODEL_TILT: Partial<Record<string, WeaponIconTiltId>> = {
   karambit: 'knife',
   bayonet: 'knife',
-  'gloves-extraordinary': 'none',
+  'm9-bayonet': 'knife',
+  'butterfly-knife': 'knife',
+  'bowie-knife': 'knife',
+  'shadow-daggers': 'knife',
+  'talon-knife': 'knife',
+  'skeleton-knife': 'knife',
+  'sport-gloves': 'none',
+  'hand-wraps': 'none',
+  'driver-gloves': 'none',
+  'specialist-gloves': 'none',
+  'moto-gloves': 'none',
+  'hydra-gloves': 'none',
+  'bloodhound-gloves': 'none',
+  'broken-fang-gloves': 'none',
 };
 
 export function resolveWeaponIconTilt(input: {

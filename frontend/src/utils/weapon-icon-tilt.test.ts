@@ -11,7 +11,7 @@ describe('weapon icon tilt', () => {
   it('keeps gloves upright', () => {
     assert.equal(resolveWeaponIconTilt({ icon: 'gloves' }), 'none');
     assert.equal(
-      resolveWeaponIconTilt({ slug: 'gloves-extraordinary', fallbackIcon: 'gloves' }),
+      resolveWeaponIconTilt({ slug: 'sport-gloves', fallbackIcon: 'gloves' }),
       'none',
     );
   });

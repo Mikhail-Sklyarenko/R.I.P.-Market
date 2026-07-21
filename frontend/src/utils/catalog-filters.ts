@@ -57,17 +57,86 @@ export const OTHER_CATALOG_SEARCH_TERMS = [
 
 export const OTHER_CATALOG_ALL_Q = OTHER_CATALOG_SEARCH_TERMS.join('|');
 
+/** Exact ItemDefinition.weapon labels for glove cards (CSGO-API). */
+export const GLOVE_WEAPON_NAMES = [
+  'Bloodhound Gloves',
+  'Broken Fang Gloves',
+  'Driver Gloves',
+  'Hand Wraps',
+  'Hydra Gloves',
+  'Moto Gloves',
+  'Specialist Gloves',
+  'Sport Gloves',
+] as const;
+
+/** Exact ItemDefinition.weapon labels for knife cards (CSGO-API). */
+export const KNIFE_WEAPON_NAMES = [
+  'Bayonet',
+  'Bowie Knife',
+  'Butterfly Knife',
+  'Classic Knife',
+  'Falchion Knife',
+  'Flip Knife',
+  'Gut Knife',
+  'Huntsman Knife',
+  'Karambit',
+  'Kukri Knife',
+  'M9 Bayonet',
+  'Navaja Knife',
+  'Nomad Knife',
+  'Paracord Knife',
+  'Shadow Daggers',
+  'Skeleton Knife',
+  'Stiletto Knife',
+  'Survival Knife',
+  'Talon Knife',
+  'Ursus Knife',
+] as const;
+
 export const CATALOG_PAGE_LIMIT = 24;
+
+function slugifyWeaponLabel(label: string): string {
+  return label
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-|-$/g, '');
+}
+
+function weaponOptionsForTab(
+  tabId: string,
+  icon: WeaponCategoryIconId,
+  weapons: readonly string[],
+): CatalogCategoryOption[] {
+  return weapons.map((weapon) => ({
+    value: weapon,
+    label: weapon,
+    weapon,
+    tabId,
+    icon,
+    modelIcon: slugifyWeaponLabel(weapon),
+  }));
+}
 
 export const WEAPON_CATEGORY_TABS: readonly WeaponCategoryTab[] = [
   { id: 'all', label: 'Все', icon: 'all', filter: {} },
-  { id: 'knives', label: 'Ножи', icon: 'knife', filter: { q: 'Knife' } },
-  { id: 'pistols', label: 'Пистолеты', icon: 'pistol', filter: { q: 'Glock-18' } },
-  { id: 'rifles', label: 'Винтовки', icon: 'rifle', filter: { weapon: 'AK-47' } },
-  { id: 'snipers', label: 'Снайперские', icon: 'sniper', filter: { weapon: 'AWP' } },
-  { id: 'smg', label: 'ПП', icon: 'smg', filter: { q: 'MP9' } },
-  { id: 'shotguns', label: 'Дробовики', icon: 'shotgun', filter: { q: 'Nova' } },
-  { id: 'gloves', label: 'Перчатки', icon: 'gloves', filter: { q: 'Gloves' } },
+  {
+    id: 'knives',
+    label: 'Ножи',
+    icon: 'knife',
+    filter: { weapon: KNIFE_WEAPON_NAMES.join('|') },
+  },
+  { id: 'pistols', label: 'Пистолеты', icon: 'pistol', filter: {} },
+  { id: 'rifles', label: 'Винтовки', icon: 'rifle', filter: {} },
+  { id: 'snipers', label: 'Снайперские', icon: 'sniper', filter: {} },
+  { id: 'smg', label: 'ПП', icon: 'smg', filter: {} },
+  { id: 'shotguns', label: 'Дробовики', icon: 'shotgun', filter: {} },
+  {
+    id: 'gloves',
+    label: 'Перчатки',
+    icon: 'gloves',
+    filter: { weapon: GLOVE_WEAPON_NAMES.join('|') },
+  },
   { id: 'other', label: 'Другое', icon: 'other', filter: { q: OTHER_CATALOG_ALL_Q } },
 ];
 
@@ -185,30 +254,8 @@ export const CATALOG_CATEGORY_OPTIONS: readonly CatalogCategoryOption[] = [
     icon: 'shotgun',
     modelIcon: 'xm1014',
   },
-  {
-    value: 'Karambit',
-    label: 'Karambit',
-    weapon: 'Karambit',
-    tabId: 'knives',
-    icon: 'knife',
-    modelIcon: 'karambit',
-  },
-  {
-    value: 'Bayonet',
-    label: 'Bayonet',
-    weapon: 'Bayonet',
-    tabId: 'knives',
-    icon: 'knife',
-    modelIcon: 'bayonet',
-  },
-  {
-    value: 'gloves-extraordinary',
-    label: 'Перчатки',
-    rarity: 'Extraordinary',
-    tabId: 'gloves',
-    icon: 'gloves',
-    modelIcon: 'gloves-extraordinary',
-  },
+  ...weaponOptionsForTab('knives', 'knife', KNIFE_WEAPON_NAMES),
+  ...weaponOptionsForTab('gloves', 'gloves', GLOVE_WEAPON_NAMES),
   {
     value: 'other-sticker',
     label: 'Наклейки',
@@ -307,6 +354,11 @@ export function findTabForWeapon(weapon: string): string {
   return byWeapon?.tabId ?? 'all';
 }
 
+/**
+ * Resolve API filter for the category bar.
+ * Specific dropdown option wins; otherwise "Все: …" uses every weapon/q in that tab
+ * (so pistols show all listed pistols, not only Glock-18).
+ */
 export function resolveCatalogFilter(
   activeTabId: string,
   categoryValue: string,
@@ -320,6 +372,18 @@ export function resolveCatalogFilter(
         ...(option.rarity ? { rarity: option.rarity } : {}),
       };
     }
+  }
+
+  const tabOptions = getCategoryOptionsForTab(activeTabId);
+  const weapons = [
+    ...new Set(
+      tabOptions
+        .map((option) => option.weapon?.trim())
+        .filter((value): value is string => Boolean(value)),
+    ),
+  ];
+  if (weapons.length > 0) {
+    return { weapon: weapons.join('|') };
   }
 
   const tab = WEAPON_CATEGORY_TABS.find((entry) => entry.id === activeTabId);

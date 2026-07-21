@@ -495,13 +495,55 @@ export class CatalogService {
       stattrak: query.stattrak,
       souvenir: query.souvenir,
     });
-    if (query.weapon) {
-      where.weapon = { equals: query.weapon, mode: 'insensitive' };
-    }
+    this.applyWeaponFilter(where, query.weapon);
     if (query.rarity) {
       where.rarity = { equals: query.rarity, mode: 'insensitive' };
     }
     return where;
+  }
+
+  /**
+   * Exact weapon match. Pipe-separated values = OR (e.g. gloves / knives "all").
+   * Merges with an existing marketHashName OR via AND so both filters can apply.
+   */
+  private applyWeaponFilter(
+    where: Prisma.ItemDefinitionWhereInput,
+    weapon?: string,
+  ): void {
+    if (!weapon?.trim()) {
+      return;
+    }
+
+    const terms = weapon
+      .split('|')
+      .map((term) => term.trim())
+      .filter(Boolean);
+    if (terms.length === 0) {
+      return;
+    }
+
+    if (terms.length === 1) {
+      where.weapon = { equals: terms[0], mode: 'insensitive' };
+      return;
+    }
+
+    const weaponOr: Prisma.ItemDefinitionWhereInput[] = terms.map((term) => ({
+      weapon: { equals: term, mode: 'insensitive' as const },
+    }));
+
+    if (where.OR) {
+      const marketOr = where.OR;
+      delete where.OR;
+      const existingAnd = where.AND
+        ? Array.isArray(where.AND)
+          ? where.AND
+          : [where.AND]
+        : [];
+      where.AND = [...existingAnd, { OR: marketOr }, { OR: weaponOr }];
+      return;
+    }
+
+    where.OR = weaponOr;
   }
 
   /** Prisma mirror of isListableMarketHashName — keep fragments/names in sync via shared constants. */

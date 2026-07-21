@@ -7,6 +7,8 @@ import {
   WEAPON_CATEGORY_TABS,
   findTabForWeapon,
   CATALOG_PAGE_LIMIT,
+  GLOVE_WEAPON_NAMES,
+  KNIFE_WEAPON_NAMES,
 } from './catalog-filters.ts';
 
 describe('catalog-filters utils', () => {
@@ -14,15 +16,50 @@ describe('catalog-filters utils', () => {
     assert.deepEqual(resolveCatalogFilter('snipers', 'AK-47'), { weapon: 'AK-47' });
   });
 
-  it('falls back to tab filter when dropdown is empty', () => {
-    assert.deepEqual(resolveCatalogFilter('snipers', ''), { weapon: 'AWP' });
-    assert.deepEqual(resolveCatalogFilter('rifles', ''), { weapon: 'AK-47' });
+  it('falls back to all tab weapons when dropdown is empty', () => {
+    const snipers = resolveCatalogFilter('snipers', '');
+    assert.equal(snipers.weapon?.includes('AWP'), true);
+    assert.equal(snipers.weapon?.includes('SSG 08'), true);
+    const rifles = resolveCatalogFilter('rifles', '');
+    assert.equal(rifles.weapon?.includes('AK-47'), true);
+    assert.equal(rifles.weapon?.includes('M4A4'), true);
+  });
+
+  it('filters gloves by weapon types, never by Extraordinary rarity', () => {
+    const allGloves = resolveCatalogFilter('gloves', '');
+    assert.equal(allGloves.rarity, undefined);
+    assert.equal(allGloves.q, undefined);
+    for (const weapon of GLOVE_WEAPON_NAMES) {
+      assert.equal(allGloves.weapon?.includes(weapon), true, weapon);
+    }
+    assert.deepEqual(resolveCatalogFilter('gloves', 'Sport Gloves'), {
+      weapon: 'Sport Gloves',
+    });
+    assert.deepEqual(resolveCatalogFilter('gloves', 'Hand Wraps'), {
+      weapon: 'Hand Wraps',
+    });
+  });
+
+  it('filters knives by weapon types, not fragile q=Knife text search', () => {
+    const allKnives = resolveCatalogFilter('knives', '');
+    assert.equal(allKnives.q, undefined);
+    for (const weapon of KNIFE_WEAPON_NAMES) {
+      assert.equal(allKnives.weapon?.includes(weapon), true, weapon);
+    }
+    assert.deepEqual(resolveCatalogFilter('knives', 'Karambit'), {
+      weapon: 'Karambit',
+    });
   });
 
   it('returns model options for a weapon tab', () => {
     const rifleOptions = getCategoryOptionsForTab('rifles');
     assert.ok(rifleOptions.some((option) => option.value === 'AK-47'));
     assert.ok(rifleOptions.every((option) => option.tabId === 'rifles'));
+  });
+
+  it('returns glove and knife subtype options', () => {
+    assert.ok(getCategoryOptionsForTab('gloves').length >= GLOVE_WEAPON_NAMES.length);
+    assert.ok(getCategoryOptionsForTab('knives').length >= KNIFE_WEAPON_NAMES.length);
   });
 
   it('returns other-tab subcategories for stickers, charms, and more', () => {
@@ -45,6 +82,8 @@ describe('catalog-filters utils', () => {
   it('maps other category values to the other tab', () => {
     assert.equal(findTabForWeapon('other-sticker'), 'other');
     assert.equal(findTabForWeapon('other-charm'), 'other');
+    assert.equal(findTabForWeapon('Sport Gloves'), 'gloves');
+    assert.equal(findTabForWeapon('Karambit'), 'knives');
   });
 
   it('uses a fixed catalog page size', () => {

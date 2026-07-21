@@ -198,7 +198,7 @@ describe('CatalogService', () => {
         id: 'item-knife',
         marketHashName: '★ Karambit | Doppler',
         baseMarketHashName: '★ Karambit | Doppler',
-        weapon: 'Knife',
+        weapon: 'Karambit',
         rarity: 'Covert',
         iconUrl: null,
         availableWears: ['FN'],
@@ -209,12 +209,36 @@ describe('CatalogService', () => {
     const result = await service.listItems({
       page: 1,
       limit: 24,
-      weapon: 'Knife',
+      weapon: 'Karambit',
     });
 
     expect(prisma.itemDefinition.findMany).toHaveBeenCalled();
     expect(result.items).toHaveLength(1);
     expect(result.items[0]?.activeLotCount).toBe(0);
+  });
+
+  it('matches any listed weapon when weapon contains pipe-separated terms', async () => {
+    prisma.lot.findMany.mockResolvedValue([]);
+    prisma.itemDefinition.findMany.mockResolvedValue([]);
+
+    await service.listItems({
+      page: 1,
+      limit: 24,
+      weapon: 'Sport Gloves|Hand Wraps',
+    });
+
+    expect(prisma.itemDefinition.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          game: 'CS2',
+          catalogSeeded: true,
+          OR: [
+            { weapon: { equals: 'Sport Gloves', mode: 'insensitive' } },
+            { weapon: { equals: 'Hand Wraps', mode: 'insensitive' } },
+          ],
+        }),
+      }),
+    );
   });
 
   it('matches any other-tab item type when q contains pipe-separated terms', async () => {
