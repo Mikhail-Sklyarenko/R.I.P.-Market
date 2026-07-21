@@ -70,7 +70,7 @@ export function CatalogItemCard({
       onKeyDown={handleCardKeyDown}
       role="link"
       tabIndex={0}
-      aria-label={hasOffers ? `Открыть ${name}` : `${name} — нет предложений`}
+      aria-label={hasOffers ? `Открыть ${name}` : `${name} — оставить заявку на покупку`}
     >
       <div className="catalog-lot-card-top">
         <div className="catalog-lot-card-top-start">
@@ -130,11 +130,16 @@ export function CatalogItemCard({
               >
                 Купить сейчас
               </Link>
-            ) : !resolvedSteamPrice && !pricesLoading ? (
-              <span className="catalog-lot-unlisted muted small" data-testid={`catalog-item-empty-${item.id}`}>
-                Нет предложений
-              </span>
-            ) : null}
+            ) : (
+              <Link
+                to={itemPath}
+                className="catalog-lot-buy-btn"
+                data-testid={`catalog-item-request-${item.id}`}
+                onClick={(event) => event.stopPropagation()}
+              >
+                Оставить заявку
+              </Link>
+            )}
           </div>
         </div>
       </div>
