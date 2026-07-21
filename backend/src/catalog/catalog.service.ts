@@ -259,11 +259,14 @@ export class CatalogService {
 
   async getSteamPrices(
     marketHashNames: string[],
-    options?: { cacheOnly?: boolean },
+    options?: { cacheOnly?: boolean; forceRefresh?: boolean },
   ) {
     const prices = await this.steamMarketPrice.getPricesWithMeta(
       marketHashNames,
-      options?.cacheOnly ? { cacheOnly: true } : undefined,
+      {
+        ...(options?.cacheOnly ? { cacheOnly: true } : {}),
+        ...(options?.forceRefresh ? { forceRefresh: true } : {}),
+      },
     );
     const latestSteamPriceFetch =
       Object.values(prices)

@@ -9,6 +9,7 @@ import {
 } from '../api/marketplace';
 import type { BuyRequest, CatalogItem, Lot } from '../api/types';
 import { useAuth } from '../auth/AuthContext';
+import { useWearSteamPrice } from '../hooks/useWearSteamPrice';
 import { DealFlowSteps } from '../components/DealFlowSteps';
 import { BUY_REQUEST_FLOW_STEP_ITEMS } from '../utils/order-flow';
 import { ErrorAlert } from '../components/ErrorAlert';
@@ -75,6 +76,12 @@ export function ItemPage() {
     () => (item ? toCatalogItemDisplaySource(item, effectiveWear) : null),
     [item, effectiveWear],
   );
+  const wearForSteamPrice = isBuyRequestPage ? selectedWear || effectiveWear : selectedWear;
+  const { steamPriceMinor: wearSteamPrice, loading: wearSteamPriceLoading } =
+    useWearSteamPrice(item?.marketHashName, wearForSteamPrice, item?.steamPriceMinor, {
+      enabled: Boolean(item),
+      forceRefresh: Boolean(wearForSteamPrice),
+    });
 
   useEffect(() => {
     if (!id) {
@@ -276,6 +283,8 @@ export function ItemPage() {
                     openBuyRequest={openBuyRequest}
                     selectedWear={selectedWear}
                     onWearChange={setSelectedWear}
+                    steamPriceMinor={wearSteamPrice}
+                    steamPriceLoading={wearSteamPriceLoading}
                     maxPriceInput={maxPriceInput}
                     submitting={submitting}
                     requestError={requestError}
@@ -340,11 +349,12 @@ export function ItemPage() {
                     <p className="item-purchase-label muted small">Лучшее предложение</p>
                     <div data-testid="item-market-price">
                       <InventoryPriceStack
-                        steamPriceMinor={item.steamPriceMinor}
+                        steamPriceMinor={wearSteamPrice}
                         marketplacePriceMinor={
                           cheapestLot?.priceMinor ?? item.minMarketplacePriceMinor
                         }
                         testIdPrefix="item"
+                        loading={wearSteamPriceLoading}
                       />
                     </div>
 

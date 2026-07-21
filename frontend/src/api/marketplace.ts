@@ -183,7 +183,7 @@ export function listPopularCatalogItems(limit = 12) {
 
 export function getCatalogSteamPrices(
   marketHashNames: string[],
-  options?: { cacheOnly?: boolean },
+  options?: { cacheOnly?: boolean; forceRefresh?: boolean },
 ) {
   return apiRequest<{
     prices: Record<string, { priceMinor: number | null; fetchedAt?: string | null }>;
@@ -193,6 +193,7 @@ export function getCatalogSteamPrices(
     body: {
       marketHashNames,
       cacheOnly: options?.cacheOnly === true ? true : undefined,
+      forceRefresh: options?.forceRefresh === true ? true : undefined,
     },
   });
 }

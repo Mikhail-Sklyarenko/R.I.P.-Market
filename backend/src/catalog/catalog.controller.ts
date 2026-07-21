@@ -39,7 +39,12 @@ export class CatalogController {
 
   @Post('steam-prices')
   getSteamPrices(
-    @Body() body: { marketHashNames?: string[]; cacheOnly?: boolean },
+    @Body()
+    body: {
+      marketHashNames?: string[];
+      cacheOnly?: boolean;
+      forceRefresh?: boolean;
+    },
   ) {
     const names = body.marketHashNames ?? [];
     if (!Array.isArray(names) || names.length === 0) {
@@ -52,6 +57,7 @@ export class CatalogController {
     }
     return this.catalogService.getSteamPrices(names, {
       cacheOnly: body.cacheOnly === true,
+      forceRefresh: body.forceRefresh === true,
     });
   }
 

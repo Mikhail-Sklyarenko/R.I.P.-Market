@@ -15,6 +15,8 @@ type ItemBuyRequestPanelProps = {
   openBuyRequest: BuyRequest | null;
   selectedWear: string;
   onWearChange: (wear: string) => void;
+  steamPriceMinor: number | null;
+  steamPriceLoading?: boolean;
   maxPriceInput: string;
   submitting: boolean;
   requestError: unknown;
@@ -40,6 +42,8 @@ export function ItemBuyRequestPanel({
   openBuyRequest,
   selectedWear,
   onWearChange,
+  steamPriceMinor,
+  steamPriceLoading = false,
   maxPriceInput,
   submitting,
   requestError,
@@ -47,7 +51,7 @@ export function ItemBuyRequestPanel({
   onSubmit,
   onCancel,
 }: ItemBuyRequestPanelProps) {
-  const steamSuggestion = steamSuggestionInput(item.steamPriceMinor);
+  const steamSuggestion = steamSuggestionInput(steamPriceMinor);
   const hasTypedPrice = maxPriceInput.trim().length > 0;
   const wearOptions = (item.availableWears?.length
     ? CATALOG_WEAR_FILTERS.filter((option) =>
@@ -73,9 +77,10 @@ export function ItemBuyRequestPanel({
       <div className="item-buy-request-body">
         <div className="lot-purchase-price" data-testid="item-market-price">
           <InventoryPriceStack
-            steamPriceMinor={item.steamPriceMinor}
+            steamPriceMinor={steamPriceMinor}
             marketplacePriceMinor={null}
             testIdPrefix="item"
+            loading={steamPriceLoading}
           />
         </div>
 
@@ -149,7 +154,7 @@ export function ItemBuyRequestPanel({
                 >
                   <p className="muted small">
                     Ориентир Steam:{' '}
-                    <strong>{formatUsdFromMinor(item.steamPriceMinor!)}</strong>
+                    <strong>{formatUsdFromMinor(steamPriceMinor!)}</strong>
                   </p>
                   <button
                     type="button"
