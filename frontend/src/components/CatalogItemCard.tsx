@@ -124,7 +124,7 @@ export function CatalogItemCard({
             {buyPath ? (
               <Link
                 to={buyPath}
-                className="catalog-lot-buy-btn"
+                className="button primary sm catalog-lot-card-action"
                 data-testid={`catalog-item-buy-${item.id}`}
                 onClick={(event) => event.stopPropagation()}
               >
@@ -133,7 +133,7 @@ export function CatalogItemCard({
             ) : (
               <Link
                 to={itemPath}
-                className="catalog-lot-buy-btn"
+                className="button secondary sm catalog-lot-card-action"
                 data-testid={`catalog-item-request-${item.id}`}
                 onClick={(event) => event.stopPropagation()}
               >

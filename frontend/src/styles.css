@@ -404,7 +404,16 @@ p {
   cursor: pointer;
   font-size: var(--font-size-sm);
   font-weight: var(--font-weight-medium);
-  transition: opacity 0.15s, background 0.15s;
+  transition: opacity 0.15s, background 0.15s, border-color 0.15s, filter 0.15s;
+}
+
+a.button {
+  text-decoration: none;
+  color: inherit;
+}
+
+a.button.primary {
+  color: #fff;
 }
 
 .button:hover:not(:disabled),
@@ -415,6 +424,11 @@ p {
 .button.primary {
   background: linear-gradient(135deg, var(--color-primary-from), var(--color-primary-to));
   border-color: transparent;
+}
+
+.button.primary:hover:not(:disabled) {
+  opacity: 1;
+  filter: brightness(1.06);
 }
 
 .button.secondary,
@@ -5150,37 +5164,33 @@ p {
 
 .catalog-lot-card-actions {
   display: flex;
-  gap: 4px;
+  gap: var(--space-2);
+  align-items: stretch;
   opacity: 0;
   pointer-events: none;
 }
 
-.catalog-lot-buy-btn {
-  display: flex;
+.catalog-lot-card-action {
   flex: 1;
-  align-items: center;
-  justify-content: center;
   min-width: 0;
-  height: 38px;
-  padding: 0 6px;
-  border: none;
-  border-radius: 6px;
-  background: #f7931e;
-  color: #1a1206;
-  font-size: 10px;
-  font-weight: var(--font-weight-bold);
-  letter-spacing: 0.02em;
+  height: 34px;
+  padding-inline: var(--space-2);
+  border-radius: var(--radius-sm);
+  font-size: 11px;
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: 0.01em;
   line-height: 1.1;
-  text-align: center;
-  text-decoration: none;
-  text-transform: uppercase;
   white-space: nowrap;
-  transition: background 0.15s ease;
 }
 
-.catalog-lot-buy-btn:hover {
-  background: #ff9f2e;
-  color: #1a1206;
+.catalog-lot-card-action.button.secondary {
+  background: color-mix(in srgb, var(--color-bg-input) 88%, transparent);
+}
+
+.catalog-lot-card-action.button.secondary:hover:not(:disabled) {
+  opacity: 1;
+  border-color: color-mix(in srgb, var(--color-link) 45%, var(--color-border-strong));
+  color: var(--color-link);
 }
 
 .catalog-lot-cart-btn {
@@ -5188,18 +5198,20 @@ p {
   flex-shrink: 0;
   align-items: center;
   justify-content: center;
-  width: 38px;
-  height: 38px;
-  border-radius: 6px;
-  background: #2d3444;
-  color: #d5dbe7;
+  width: 34px;
+  height: 34px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--color-border-strong);
+  background: color-mix(in srgb, var(--color-bg-input) 88%, transparent);
+  color: var(--color-text-muted);
   text-decoration: none;
-  transition: background 0.15s ease, color 0.15s ease;
+  transition: border-color 0.15s ease, color 0.15s ease, background 0.15s ease;
 }
 
 .catalog-lot-cart-btn:hover {
-  background: #383f51;
-  color: #fff;
+  border-color: color-mix(in srgb, var(--color-link) 45%, var(--color-border-strong));
+  background: color-mix(in srgb, var(--color-bg-input) 100%, transparent);
+  color: var(--color-link);
 }
 
 @media (hover: hover) {

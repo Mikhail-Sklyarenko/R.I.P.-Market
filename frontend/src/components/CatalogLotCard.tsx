@@ -183,7 +183,7 @@ export function CatalogLotCard({ lot, isLoggedIn: _isLoggedIn }: CatalogLotCardP
           <div className="catalog-lot-card-actions">
             <Link
               to={buyPath}
-              className="catalog-lot-buy-btn"
+              className="button primary sm catalog-lot-card-action"
               data-testid={`catalog-buy-now-${lot.id}`}
               onClick={(event) => event.stopPropagation()}
             >
