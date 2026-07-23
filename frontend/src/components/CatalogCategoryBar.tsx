@@ -38,7 +38,7 @@ function getDropdownPosition(
   return {
     top: anchor.bottom + DROPDOWN_GAP_PX,
     left,
-    minWidth: Math.max(180, anchor.width),
+    minWidth: Math.max(220, anchor.width),
   };
 }
 
@@ -59,6 +59,8 @@ export function CatalogCategoryBar({
 
   const openTab = WEAPON_CATEGORY_TABS.find((tab) => tab.id === openTabId);
   const openOptions = openTab ? getCategoryOptionsForTab(openTab.id) : [];
+  const selectAllActive =
+    Boolean(openTab) && activeTabId === openTab?.id && !categoryValue;
 
   const updateDropdownPosition = useCallback(() => {
     if (!openTabId) {
@@ -70,7 +72,7 @@ export function CatalogCategoryBar({
       return;
     }
 
-    const menuWidth = menuRef.current?.offsetWidth ?? 220;
+    const menuWidth = menuRef.current?.offsetWidth ?? 240;
     const alignRight = openTabId === 'other';
     setDropdownPosition(
       getDropdownPosition(anchor.getBoundingClientRect(), menuWidth, alignRight),
@@ -110,15 +112,28 @@ export function CatalogCategoryBar({
       return;
     }
 
-    function handleViewportChange() {
+    function handleResize() {
       updateDropdownPosition();
     }
 
-    window.addEventListener('resize', handleViewportChange);
-    window.addEventListener('scroll', handleViewportChange, true);
+    /** Close on page/container scroll so the menu stays fixed — never "chases" the tab. */
+    function handleScroll(event: Event) {
+      const target = event.target;
+      if (
+        target instanceof Node &&
+        menuRef.current &&
+        (target === menuRef.current || menuRef.current.contains(target))
+      ) {
+        return;
+      }
+      setOpenTabId(null);
+    }
+
+    window.addEventListener('resize', handleResize);
+    window.addEventListener('scroll', handleScroll, true);
     return () => {
-      window.removeEventListener('resize', handleViewportChange);
-      window.removeEventListener('scroll', handleViewportChange, true);
+      window.removeEventListener('resize', handleResize);
+      window.removeEventListener('scroll', handleScroll, true);
     };
   }, [openTabId, updateDropdownPosition]);
 
@@ -170,6 +185,14 @@ export function CatalogCategoryBar({
     setOpenTabId(null);
   }
 
+  function handleSelectAll() {
+    if (!openTab) {
+      return;
+    }
+    onTabChange(openTab.id);
+    setOpenTabId(null);
+  }
+
   function setTabButtonRef(tabId: string, node: HTMLButtonElement | null) {
     if (node) {
       tabButtonRefs.current.set(tabId, node);
@@ -191,28 +214,34 @@ export function CatalogCategoryBar({
                     left: dropdownPosition.left,
                     minWidth: dropdownPosition.minWidth,
                   }
-                : { visibility: 'hidden', top: 0, left: 0, minWidth: 220 }
+                : { visibility: 'hidden', top: 0, left: 0, minWidth: 240 }
             }
             data-testid={`catalog-category-dropdown-${openTab.id}`}
             role="menu"
           >
             <button
               type="button"
-              className="catalog-category-dropdown-item"
+              className={`catalog-category-dropdown-item catalog-category-dropdown-select-all${
+                selectAllActive ? ' active' : ''
+              }`}
               role="menuitem"
-              onClick={() => {
-                onTabChange(openTab.id);
-                setOpenTabId(null);
-              }}
+              data-testid={`catalog-category-select-all-${openTab.id}`}
+              onClick={handleSelectAll}
             >
-              <WeaponCategoryIcon icon={openTab.icon} />
-              <span>Все: {openTab.label}</span>
+              <span className="catalog-category-dropdown-select-all-label">
+                Выбрать все
+              </span>
             </button>
+            <div
+              className="catalog-category-dropdown-divider"
+              role="separator"
+              aria-hidden="true"
+            />
             {openOptions.map((option) => (
               <button
                 key={option.value}
                 type="button"
-                className={`catalog-category-dropdown-item${
+                className={`catalog-category-dropdown-item catalog-category-dropdown-model${
                   categoryValue === option.value ? ' active' : ''
                 }`}
                 role="menuitem"

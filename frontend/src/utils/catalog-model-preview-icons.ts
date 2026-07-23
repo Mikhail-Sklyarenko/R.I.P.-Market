@@ -1,7 +1,7 @@
 /**
  * Curated Steam economy image hashes for catalog model-filter previews.
  * Keys are ItemDefinition.weapon labels (same as CATALOG_CATEGORY_OPTIONS).
- * Hashes are stable CDN paths — append /64fx64f for lightweight thumbs.
+ * Hashes are stable CDN paths — append /96fx96f for lightweight thumbs.
  */
 export const CATALOG_MODEL_PREVIEW_ICON_HASHES: Readonly<Record<string, string>> =
   {
@@ -51,7 +51,7 @@ export const CATALOG_MODEL_PREVIEW_ICON_HASHES: Readonly<Record<string, string>>
     'Sport Gloves': 'i0CoZ81Ui0m-9KwlBY1L_18myuGuq1wfhWSaZgMttyVfPaERSR0Wqmu7LAocGIGz3UqlXOLrxM-vMGmW8VNxu5Tk5UvzWCL2kpn2-DFk_OKherB0H-CcB3Sfz9Fwou5ucCu_gBgYpDWMjorGLSLANkI-W5R4E7JZtxbskNWxZeLi4QPejdgTmSn62iwbvyw957kDAqog_fXWjBaBb-Pahe96zA', // ★ Sport Gloves | Amphibious
   } as const;
 
-export const CATALOG_MODEL_PREVIEW_SIZE_PX = 64;
+export const CATALOG_MODEL_PREVIEW_SIZE_PX = 96;
 
 export function getCatalogModelPreviewHash(weapon?: string | null): string | null {
   if (!weapon) {
