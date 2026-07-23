@@ -273,7 +273,7 @@ export function MyLotsPage({ embedded = false }: MyLotsPageProps) {
                         <td>
                           {isEditing ? (
                             <label className="field my-lots-edit-price">
-                              <span className="sr-only">Новая цена ($)</span>
+                              <span className="sr-only">{t('lots.newPriceAria')}</span>
                               <input
                                 type="text"
                                 inputMode="decimal"
