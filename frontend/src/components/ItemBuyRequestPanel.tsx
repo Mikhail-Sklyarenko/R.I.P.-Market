@@ -118,7 +118,7 @@ export function ItemBuyRequestPanel({
                   До <MoneyDisplay minor={openBuyRequest.maxPriceMinor} strong />
                 </>
               ) : (
-                'Без ограничения цены'
+                t('item.noPriceLimit')
               )}
               {openBuyRequest.itemDefinition?.marketHashName ? (
                 <span className="muted small item-buy-request-active-wear">

@@ -163,7 +163,7 @@ export function WalletPage() {
   function validateDepositAmount(): number | null {
     const amountMinor = parseUsdToMinor(amountInput);
     if (!amountMinor) {
-      setFieldError('Укажите корректную сумму пополнения.');
+      setFieldError(t('wallet.invalidDeposit'));
       return null;
     }
     if (amountMinor < minDepositMinor) {
@@ -224,7 +224,7 @@ export function WalletPage() {
 
     const amountMinor = parseUsdToMinor(withdrawAmountInput);
     if (!amountMinor) {
-      setWithdrawError('Укажите корректную сумму вывода.');
+      setWithdrawError(t('wallet.invalidWithdraw'));
       return;
     }
     if (amountMinor < minWithdrawMinor) {
@@ -232,7 +232,7 @@ export function WalletPage() {
       return;
     }
     if (amountMinor <= withdrawFeeMinor) {
-      setWithdrawError('Сумма вывода должна быть больше комиссии.');
+      setWithdrawError(t('wallet.withdrawFeeError'));
       return;
     }
 
@@ -247,7 +247,7 @@ export function WalletPage() {
       setWithdrawAmountInput('');
       await Promise.all([refresh(), loadCryptoData()]);
     } catch (err) {
-      setWithdrawError(err instanceof Error ? err.message : 'Не удалось создать заявку на вывод.');
+      setWithdrawError(err instanceof Error ? err.message : t('wallet.withdrawFailed'));
     } finally {
       setWithdrawSubmitting(false);
     }
@@ -267,7 +267,7 @@ export function WalletPage() {
     <div className="page">
       <PageHeader
         title={t('wallet.title')}
-        subtitle="Пополнение, вывод и история операций — переключайтесь вкладками ниже."
+        subtitle={t('wallet.subtitle')}
         actions={
           wallet || loading ? (
             <div className="wallet-header-balance" data-testid="wallet-header-available">
@@ -291,7 +291,7 @@ export function WalletPage() {
       {neededMinor ? (
         <ErrorAlert
           variant="info"
-          title="Нужно пополнить кошелёк"
+          title={t('wallet.needDepositTitle')}
           data-testid="deposit-needed-banner"
         >
           Для покупки нужно минимум {formatUsdtFromMinor(neededMinor)} на балансе.
@@ -308,7 +308,7 @@ export function WalletPage() {
         </p>
       </div>
 
-      {loading ? <LoadingState message="Загрузка кошелька…" /> : null}
+      {loading ? <LoadingState message={t('wallet.loading')} /> : null}
 
       {!loading && error && !wallet ? <ErrorAlert error={error} /> : null}
 
@@ -347,7 +347,7 @@ export function WalletPage() {
             </div>
           </div>
 
-          <nav className="wallet-tabs" aria-label="Разделы кошелька" data-testid="wallet-tabs">
+          <nav className="wallet-tabs" aria-label={t('wallet.tabsAria')} data-testid="wallet-tabs">
             {WALLET_TABS.map((tab) => (
               <button
                 key={tab.id}
@@ -391,7 +391,7 @@ export function WalletPage() {
                       data-testid="deposit-qr"
                     />
                   </div>
-                  <FormField label="Ваш адрес для пополнения" htmlFor="deposit-trc20-address">
+                  <FormField label={t('wallet.depositAddress')} htmlFor="deposit-trc20-address">
                     <div className="wallet-address-row">
                       <input
                         id="deposit-trc20-address"
@@ -406,7 +406,7 @@ export function WalletPage() {
                         onClick={() => void handleCopyAddress()}
                         data-testid="deposit-address-copy"
                       >
-                        {addressCopied ? 'Скопировано' : 'Копировать'}
+                        {addressCopied ? t('wallet.copied') : t('wallet.copy')}
                       </button>
                     </div>
                   </FormField>
@@ -441,7 +441,7 @@ export function WalletPage() {
                   data-testid="withdraw-address-input"
                 />
               </FormField>
-              <FormField label="Сумма (USDT)" htmlFor="withdraw-amount-input">
+              <FormField label={t('wallet.amountUsdt')} htmlFor="withdraw-amount-input">
                 <input
                   id="withdraw-amount-input"
                   type="text"
@@ -506,7 +506,7 @@ export function WalletPage() {
                 disabled={withdrawSubmitting}
                 data-testid="withdraw-submit"
               >
-                {withdrawSubmitting ? 'Отправка…' : 'Вывести USDT'}
+                {withdrawSubmitting ? t('wallet.withdrawSending') : t('wallet.withdrawSubmit')}
               </button>
             </form>
           ) : null}
@@ -524,7 +524,7 @@ export function WalletPage() {
             Зачисляет USDT на баланс для проверки покупок на staging. Не настоящие деньги.
           </p>
 
-          <FormField label="Сумма (USDT)" htmlFor="deposit-amount-input">
+          <FormField label={t('wallet.amountUsdt')} htmlFor="deposit-amount-input">
             <input
               id="deposit-amount-input"
               type="text"
@@ -547,7 +547,7 @@ export function WalletPage() {
             disabled={submitting}
             data-testid="deposit-submit"
           >
-            {submitting ? 'Пополняем…' : 'Пополнить баланс'}
+            {submitting ? t('wallet.depositSubmitting') : t('wallet.depositSubmit')}
           </button>
         </form>
       ) : null}

@@ -5,7 +5,7 @@ import { PageHeader } from '../components/PageHeader';
 import {
   findFaqArticle,
   getDefaultFaqSelection,
-  SUPPORT_FAQ_CATEGORIES,
+  getSupportFaqCategories,
   type SupportFaqCategoryId,
 } from '../data/support-faq';
 
@@ -18,7 +18,8 @@ function renderFaqBody(body: string) {
 }
 
 export function FaqPage() {
-  const { t } = useLocale();
+  const { locale, t } = useLocale();
+  const categories = useMemo(() => getSupportFaqCategories(locale), [locale]);
   const defaultSelection = useMemo(() => getDefaultFaqSelection(), []);
   const [selectedCategoryId, setSelectedCategoryId] = useState<SupportFaqCategoryId>(
     defaultSelection.categoryId,
@@ -28,11 +29,11 @@ export function FaqPage() {
     defaultSelection.categoryId,
   );
 
-  const selectedCategory = SUPPORT_FAQ_CATEGORIES.find(
+  const selectedCategory = categories.find(
     (category) => category.id === selectedCategoryId,
   );
   const selectedArticle =
-    findFaqArticle(selectedCategoryId, selectedArticleId) ??
+    findFaqArticle(selectedCategoryId, selectedArticleId, locale) ??
     selectedCategory?.articles[0] ??
     null;
 
@@ -42,7 +43,7 @@ export function FaqPage() {
       return;
     }
 
-    const category = SUPPORT_FAQ_CATEGORIES.find((item) => item.id === categoryId);
+    const category = categories.find((item) => item.id === categoryId);
     const firstArticle = category?.articles[0];
     setExpandedCategoryId(categoryId);
     setSelectedCategoryId(categoryId);
@@ -55,12 +56,12 @@ export function FaqPage() {
     <div className="page faq-page">
       <PageHeader
         title={t('faq.title')}
-        subtitle="Полная база знаний R.I.P. Market — покупка, продажа, кошелёк и безопасность."
+        subtitle={t('faq.subtitle')}
       />
 
       <div className="card support-faq-layout" data-testid="support-faq-section">
-        <nav className="support-faq-sidebar" aria-label="Разделы FAQ">
-          {SUPPORT_FAQ_CATEGORIES.map((category) => {
+        <nav className="support-faq-sidebar" aria-label={t('faq.sectionsAria')}>
+          {categories.map((category) => {
             const isExpanded = expandedCategoryId === category.id;
             const isActive = category.id === selectedCategoryId;
             return (
@@ -117,21 +118,17 @@ export function FaqPage() {
               </div>
             </>
           ) : (
-            <p className="muted">Выберите вопрос в меню слева.</p>
+            <p className="muted">{t('faq.selectPrompt')}</p>
           )}
         </article>
       </div>
 
       <section className="card faq-support-cta" data-testid="faq-support-cta">
-        <h2 className="support-section-title">Не нашли ответ?</h2>
-        <p className="muted small">
-          Напишите в поддержку — укажите ID сделки (Сделки → клик по ID или
-          «Скопировать» на странице сделки) и опишите проблему. Можно создать тикет на
-          сайте или отправить письмо.
-        </p>
+        <h2 className="support-section-title">{t('faq.ctaTitle')}</h2>
+        <p className="muted small">{t('faq.ctaBody')}</p>
         <div className="faq-support-cta-actions">
           <Link to="/support" className="button primary sm" data-testid="faq-open-support">
-            Обратиться в поддержку
+            {t('faq.ctaButton')}
           </Link>
         </div>
       </section>

@@ -10,4 +10,5 @@ export {
   lotSummaryLabel,
   assetStatusLabel,
   formatLotCountLabel,
+  formatOfferCountLabel,
 } from './cs2-labels';

@@ -195,11 +195,11 @@ export function ItemPage() {
       return;
     }
     if (wearOptions.length > 0 && !selectedWear) {
-      setRequestError(new Error('Выберите состояние скина.'));
+      setRequestError(new Error(t('item.selectWear')));
       return;
     }
     if (maxPriceInput.trim() && !maxPriceMinor) {
-      setRequestError(new Error('Укажите корректную максимальную цену в USD.'));
+      setRequestError(new Error(t('item.invalidMaxPrice')));
       return;
     }
 
@@ -246,12 +246,12 @@ export function ItemPage() {
     Boolean(resolveSingleLotId(item, lots));
 
   if (redirectingToSingleLot) {
-    return <LoadingState message="Открываем предложение…" />;
+    return <LoadingState message={t('item.openingOffer')} />;
   }
 
   return (
     <div className="page item-page" data-testid="item-page">
-      {loading ? <LoadingState message="Загрузка предмета…" /> : null}
+      {loading ? <LoadingState message={t('item.loading')} /> : null}
       <ErrorAlert error={error} />
 
       {item && displayItem ? (
@@ -305,7 +305,7 @@ export function ItemPage() {
               </div>
 
               <DealFlowSteps
-                title="Как работает заявка"
+                title={t('item.howRequestWorks')}
                 steps={BUY_REQUEST_FLOW_STEP_ITEMS}
               />
             </>

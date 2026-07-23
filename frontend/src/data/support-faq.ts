@@ -1,3 +1,6 @@
+import type { Locale } from '../i18n/types.ts';
+import { SUPPORT_FAQ_CATEGORIES_EN } from './support-faq-en.ts';
+
 export type SupportFaqCategoryId =
   | 'general'
   | 'security'
@@ -208,7 +211,7 @@ export const SUPPORT_FAQ_CATEGORIES: readonly SupportFaqCategory[] = [
         keywords: ['цена', 'комиссия', 'steam', 'маркет'],
         body:
           'В каталоге отображаются цены Steam и маркетплейса — ориентируйтесь на них при выставлении лота. Комиссия площадки — 5%, итоговая выплата показывается при создании лота.\n\n' +
-          'Цена указывается в USD/USDT. После продажи изменить цену активного лота нельзя — отмените лот и создайте новый.',
+          'Цена указывается в USD/USDT. Цену активного лота можно изменить или снять с продажи из инвентаря или раздела «Мои лоты».',
       },
     ],
   },
@@ -271,8 +274,20 @@ export const SUPPORT_FAQ_CATEGORIES: readonly SupportFaqCategory[] = [
   },
 ];
 
+export function getSupportFaqCategories(
+  locale: Locale = 'ru',
+): readonly SupportFaqCategory[] {
+  return locale === 'en' ? SUPPORT_FAQ_CATEGORIES_EN : SUPPORT_FAQ_CATEGORIES;
+}
+
 export const SUPPORT_FAQ_ARTICLES: readonly SupportFaqArticle[] =
   SUPPORT_FAQ_CATEGORIES.flatMap((category) => category.articles);
+
+export function getSupportFaqArticles(
+  locale: Locale = 'ru',
+): readonly SupportFaqArticle[] {
+  return getSupportFaqCategories(locale).flatMap((category) => category.articles);
+}
 
 export function getDefaultFaqSelection(): {
   categoryId: SupportFaqCategoryId;
@@ -289,18 +304,25 @@ export function getDefaultFaqSelection(): {
 export function findFaqArticle(
   categoryId: SupportFaqCategoryId,
   articleId: string,
+  locale: Locale = 'ru',
 ): SupportFaqArticle | null {
-  const category = SUPPORT_FAQ_CATEGORIES.find((item) => item.id === categoryId);
+  const category = getSupportFaqCategories(locale).find(
+    (item) => item.id === categoryId,
+  );
   return category?.articles.find((article) => article.id === articleId) ?? null;
 }
 
-export function filterSupportFaq(query: string): SupportFaqArticle[] {
+export function filterSupportFaq(
+  query: string,
+  locale: Locale = 'ru',
+): SupportFaqArticle[] {
   const normalized = query.trim().toLowerCase();
+  const articles = getSupportFaqArticles(locale);
   if (!normalized) {
-    return [...SUPPORT_FAQ_ARTICLES];
+    return [...articles];
   }
 
-  return SUPPORT_FAQ_ARTICLES.filter((article) => {
+  return articles.filter((article) => {
     const haystack = [article.title, article.body, ...article.keywords]
       .join(' ')
       .toLowerCase();
@@ -310,19 +332,23 @@ export function filterSupportFaq(query: string): SupportFaqArticle[] {
 
 export function filterSupportFaqByCategory(
   query: string,
+  locale: Locale = 'ru',
 ): readonly SupportFaqCategory[] {
   const normalized = query.trim().toLowerCase();
+  const categories = getSupportFaqCategories(locale);
   if (!normalized) {
-    return SUPPORT_FAQ_CATEGORIES;
+    return categories;
   }
 
-  return SUPPORT_FAQ_CATEGORIES.map((category) => ({
-    ...category,
-    articles: category.articles.filter((article) => {
-      const haystack = [article.title, article.body, ...article.keywords]
-        .join(' ')
-        .toLowerCase();
-      return haystack.includes(normalized);
-    }),
-  })).filter((category) => category.articles.length > 0);
+  return categories
+    .map((category) => ({
+      ...category,
+      articles: category.articles.filter((article) => {
+        const haystack = [article.title, article.body, ...article.keywords]
+          .join(' ')
+          .toLowerCase();
+        return haystack.includes(normalized);
+      }),
+    }))
+    .filter((category) => category.articles.length > 0);
 }

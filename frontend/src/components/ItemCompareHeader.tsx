@@ -1,5 +1,5 @@
 import type { CatalogItem } from '../api/types';
-import { useLocale } from '../i18n';
+import { formatOfferCountLabel, useLocale } from '../i18n';
 import {
   getWearBadgeStyle,
   parseWearCodeFromMarketHashName,
@@ -14,7 +14,7 @@ type ItemCompareHeaderProps = {
 };
 
 export function ItemCompareHeader({ item, iconUrl }: ItemCompareHeaderProps) {
-  const { locale } = useLocale();
+  const { locale, t } = useLocale();
   const wearBadge = item.catalogSeeded
     ? null
     : getWearBadgeStyle(parseWearCodeFromMarketHashName(item.marketHashName));
@@ -22,8 +22,8 @@ export function ItemCompareHeader({ item, iconUrl }: ItemCompareHeaderProps) {
   const rarityStyle = getRarityStyle(item.rarity);
   const offerLabel =
     item.activeLotCount > 0
-      ? `${item.activeLotCount} ${item.activeLotCount === 1 ? 'предложение' : item.activeLotCount < 5 ? 'предложения' : 'предложений'}`
-      : 'Нет активных предложений';
+      ? formatOfferCountLabel(item.activeLotCount, locale)
+      : t('item.noActiveOffers');
 
   return (
     <section className="card item-compare-header" data-testid="item-compare-header">

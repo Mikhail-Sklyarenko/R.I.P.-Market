@@ -103,7 +103,7 @@ export function CatalogFloatRangeFilter({
             max={FLOAT_BOUND_MAX}
             step={FLOAT_STEP}
             value={minValue}
-            aria-label="Флоат от"
+            aria-label={t('catalog.floatFrom')}
             data-testid="catalog-float-slider-min"
             onChange={(event) => handleMinSliderChange(Number(event.target.value))}
           />
@@ -114,7 +114,7 @@ export function CatalogFloatRangeFilter({
             max={FLOAT_BOUND_MAX}
             step={FLOAT_STEP}
             value={maxValue}
-            aria-label="Флоат до"
+            aria-label={t('catalog.floatTo')}
             data-testid="catalog-float-slider-max"
             onChange={(event) => handleMaxSliderChange(Number(event.target.value))}
           />
@@ -122,7 +122,7 @@ export function CatalogFloatRangeFilter({
 
         <div className="catalog-range-field-row catalog-float-range-row">
           <CatalogRangeFieldCell
-            label="Флоат от"
+            label={t('catalog.floatFrom')}
             value={floatMin}
             onChange={onFloatMinChange}
             testId="catalog-float-min"
@@ -130,7 +130,7 @@ export function CatalogFloatRangeFilter({
           />
           <div className="catalog-range-field-divider" aria-hidden="true" />
           <CatalogRangeFieldCell
-            label="Флоат до"
+            label={t('catalog.floatTo')}
             value={floatMax}
             onChange={onFloatMaxChange}
             testId="catalog-float-max"

@@ -3,7 +3,9 @@ import { describe, it } from 'node:test';
 import {
   filterSupportFaq,
   filterSupportFaqByCategory,
+  findFaqArticle,
   getDefaultFaqSelection,
+  getSupportFaqCategories,
   SUPPORT_FAQ_ARTICLES,
   SUPPORT_FAQ_CATEGORIES,
 } from '../data/support-faq.ts';
@@ -32,10 +34,15 @@ describe('support-faq data', () => {
     assert.ok(results.some((category) => category.id === 'withdrawal'));
   });
 
-  it('provides default FAQ selection', () => {
-    const selection = getDefaultFaqSelection();
-    assert.equal(selection.categoryId, 'general');
-    assert.ok(selection.articleId);
+  it('serves English FAQ content by locale', () => {
+    const en = getSupportFaqCategories('en');
+    assert.equal(en.length, 7);
+    assert.equal(en[0]?.title, 'General');
+    assert.equal(
+      findFaqArticle('general', 'what-is-rip', 'en')?.title,
+      'What is R.I.P. Market?',
+    );
+    assert.ok(filterSupportFaq('dispute', 'en').some((a) => a.id === 'dispute'));
   });
 });
 

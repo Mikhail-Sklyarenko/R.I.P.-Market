@@ -93,3 +93,23 @@ export function formatLotCountLabel(count: number, locale: Locale): string {
   }
   return t('plural.lot_many', locale, { count });
 }
+
+/** Russian-style plural for offers; English uses one/many. */
+export function formatOfferCountLabel(count: number, locale: Locale): string {
+  if (locale === 'en') {
+    const key = count === 1 ? 'item.offers_one' : 'item.offers_many';
+    return t(key, locale, { count });
+  }
+  const mod100 = count % 100;
+  const mod10 = count % 10;
+  if (mod100 >= 11 && mod100 <= 14) {
+    return t('item.offers_many', locale, { count });
+  }
+  if (mod10 === 1) {
+    return t('item.offers_one', locale, { count });
+  }
+  if (mod10 >= 2 && mod10 <= 4) {
+    return t('item.offers_few', locale, { count });
+  }
+  return t('item.offers_many', locale, { count });
+}

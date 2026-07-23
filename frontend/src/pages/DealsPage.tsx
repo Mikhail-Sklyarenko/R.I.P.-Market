@@ -27,7 +27,7 @@ export function DealsPage() {
     <div className="page seller-activity-page" data-testid="deals-page">
       <PageHeader
         title={t('deals.title')}
-        subtitle="Покупки, продажи, заявки на покупку и ваши лоты в одном разделе."
+        subtitle={t('deals.subtitle')}
         actions={
           <Link to="/sell/inventory" className="button secondary">
             {t('lots.newLot')}
@@ -35,7 +35,7 @@ export function DealsPage() {
         }
       />
 
-      <div className="seller-activity-tabs" role="tablist" aria-label="Раздел сделок">
+      <div className="seller-activity-tabs" role="tablist" aria-label={t('deals.tabsAria')}>
         <button
           type="button"
           role="tab"
@@ -64,7 +64,7 @@ export function DealsPage() {
           data-testid="deals-tab-requests"
           onClick={() => selectTab('requests')}
         >
-          Заявки
+          {t('deals.requests')}
         </button>
         <button
           type="button"

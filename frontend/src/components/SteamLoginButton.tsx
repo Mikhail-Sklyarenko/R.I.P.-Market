@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useLocation } from 'react-router-dom';
+import { useLocale } from '../i18n';
 import { startSteamLogin } from '../utils/start-steam-login';
 
 type SteamLoginButtonProps = {
@@ -37,8 +38,9 @@ export function SteamLoginButton({
   className,
   size = 'sm',
   testId = 'nav-login-steam',
-  label = 'Войти через Steam',
+  label,
 }: SteamLoginButtonProps) {
+  const { t } = useLocale();
   const location = useLocation();
   const [loading, setLoading] = useState(false);
 
@@ -73,7 +75,7 @@ export function SteamLoginButton({
       onClick={() => void handleClick()}
     >
       <SteamMark className="steam-login-button-icon" />
-      <span>{loading ? 'Переход в Steam…' : label}</span>
+      <span>{loading ? t('auth.steamRedirect') : (label ?? t('auth.steamLogin'))}</span>
     </button>
   );
 }

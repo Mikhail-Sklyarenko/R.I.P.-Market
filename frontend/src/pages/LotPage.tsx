@@ -26,7 +26,7 @@ import { startSteamLogin } from '../utils/start-steam-login';
 
 export function LotPage() {
   const { id } = useParams();
-  const { locale } = useLocale();
+  const { locale, t } = useLocale();
   const { token, user } = useAuth();
   const navigate = useNavigate();
   const [lot, setLot] = useState<Lot | null>(null);
@@ -112,7 +112,7 @@ export function LotPage() {
 
   return (
     <div className="page lot-page" data-testid="lot-page">
-      {loading ? <LoadingState message="Загрузка лота…" /> : null}
+      {loading ? <LoadingState message={t('lot.loading')} /> : null}
 
       {lot && asset && displayItem ? (
         <>
@@ -226,7 +226,7 @@ export function LotPage() {
                   data-testid="buy-lot-button"
                   onClick={handleProceedToCheckout}
                 >
-                  {!token ? 'Войти для покупки' : 'Купить сейчас'}
+                  {!token ? t('lot.loginToBuy') : t('lot.buyNow')}
                 </button>
               </div>
             </aside>

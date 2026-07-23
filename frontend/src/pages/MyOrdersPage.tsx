@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { listMyOrders } from '../api/marketplace';
 import type { Order } from '../api/types';
 import { useAuth } from '../auth/AuthContext';
+import { useLocale } from '../i18n';
 import { CopyableDealId } from '../components/CopyableDealId';
 import { EmptyState } from '../components/EmptyState';
 import { ErrorAlert } from '../components/ErrorAlert';
@@ -38,6 +39,7 @@ export function MyOrdersPage({
   buyerOnly = false,
   emptyStateMode = 'default',
 }: MyOrdersPageProps) {
+  const { t } = useLocale();
   const navigate = useNavigate();
   const { token, user } = useAuth();
   const { summary: walletSummary } = useWalletSummary();
@@ -108,8 +110,8 @@ export function MyOrdersPage({
     <div className={embedded ? 'seller-activity-panel' : 'page'}>
       {!embedded ? (
         <PageHeader
-          title="Мои сделки"
-          subtitle="Покупки и продажи в одном списке."
+          title={t('orders.title')}
+          subtitle={t('orders.subtitle')}
         />
       ) : null}
 
@@ -140,7 +142,7 @@ export function MyOrdersPage({
         </div>
       ) : null}
 
-      {loading ? <LoadingState message="Загрузка сделок…" /> : null}
+      {loading ? <LoadingState message={t('orders.loading')} /> : null}
 
       {!loading && summaryOrders.length > 0 ? (
         <div className="deals-summary-grid" data-testid="my-orders-summary">
@@ -206,17 +208,17 @@ export function MyOrdersPage({
         <EmptyState
           title={
             emptyStateMode === 'purchases'
-              ? 'Покупок пока нет'
+              ? t('orders.emptyPurchasesTitle')
               : emptyStateMode === 'sales'
-                ? 'Продаж пока нет'
-                : 'Сделок пока нет'
+                ? t('orders.emptySalesTitle')
+                : t('orders.emptyTitle')
           }
           message={
             emptyStateMode === 'purchases'
-              ? 'Выберите лот в каталоге и оформите первую покупку.'
+              ? t('orders.emptyPurchasesMessage')
               : emptyStateMode === 'sales'
-                ? 'Выставьте предмет из инвентаря, чтобы начать продавать.'
-                : 'Купите лот в каталоге или выставьте предмет на продажу.'
+                ? t('orders.emptySalesMessage')
+                : t('orders.emptyMessage')
           }
           action={
             emptyStateMode === 'purchases' ? (

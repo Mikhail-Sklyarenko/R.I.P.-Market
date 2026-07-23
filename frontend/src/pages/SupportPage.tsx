@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { createSupportTicket, listMySupportTickets } from '../api/marketplace';
 import type { SupportTicket } from '../api/types';
 import { useAuth } from '../auth/AuthContext';
+import { useLocale } from '../i18n';
 import { ErrorAlert } from '../components/ErrorAlert';
 import { PageHeader } from '../components/PageHeader';
 import { ThemeSelect } from '../components/ThemeSelect';
@@ -18,6 +19,7 @@ const TOPIC_OPTIONS = SUPPORT_TICKET_TOPICS.map((topic) => ({
 }));
 
 export function SupportPage() {
+  const { t } = useLocale();
   const { token } = useAuth();
   const [tickets, setTickets] = useState<SupportTicket[]>([]);
   const [topicId, setTopicId] = useState<SupportTicketTopicId | ''>('');
@@ -67,8 +69,8 @@ export function SupportPage() {
   return (
     <div className="page support-page">
       <PageHeader
-        title="Поддержка"
-        subtitle="Опишите проблему — команда ответит здесь или на email. Ответы на типовые вопросы — в разделе FAQ."
+        title={t('support.title')}
+        subtitle={t('support.subtitle')}
       />
 
       <p className="muted small support-page-faq-link">

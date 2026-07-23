@@ -147,37 +147,80 @@ textarea {
 }
 
 .language-switcher {
+  position: relative;
   display: inline-flex;
-  align-items: stretch;
+  align-items: center;
+}
+
+.language-switcher-trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.28rem;
   border: 1px solid var(--color-border-strong);
-  border-radius: var(--radius-sm);
-  overflow: hidden;
+  border-radius: 999px;
   background: var(--color-bg-input);
-}
-
-.language-switcher-btn {
-  border: none;
-  background: transparent;
-  color: var(--color-text-muted);
-  font: inherit;
-  font-size: var(--font-size-xs);
-  font-weight: 600;
-  letter-spacing: 0.04em;
-  padding: 0.35rem 0.55rem;
-  cursor: pointer;
-}
-
-.language-switcher-btn + .language-switcher-btn {
-  border-left: 1px solid var(--color-border-strong);
-}
-
-.language-switcher-btn.active {
-  background: rgba(37, 99, 235, 0.22);
   color: inherit;
+  font: inherit;
+  padding: 0.28rem 0.55rem 0.28rem 0.4rem;
+  cursor: pointer;
+  line-height: 1;
 }
 
-.language-switcher-btn:hover:not(.active) {
+.language-switcher-trigger:hover,
+.language-switcher.is-open .language-switcher-trigger {
+  border-color: rgba(148, 163, 184, 0.55);
   background: rgba(148, 163, 184, 0.12);
+}
+
+.language-switcher-flag {
+  font-size: 1.05rem;
+  line-height: 1;
+}
+
+.language-switcher-chevron {
+  font-size: 0.65rem;
+  color: var(--color-text-muted);
+  transform: translateY(1px);
+}
+
+.language-switcher-menu {
+  position: absolute;
+  top: calc(100% + 0.35rem);
+  right: 0;
+  z-index: 60;
+  min-width: 11.5rem;
+  padding: 0.35rem;
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-md);
+  background: var(--color-bg-elevated, var(--color-bg-card, #1a1f2b));
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.35);
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+
+.language-switcher-option {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  width: 100%;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-size: var(--font-size-sm);
+  padding: 0.45rem 0.55rem;
+  cursor: pointer;
+  text-align: left;
+}
+
+.language-switcher-option:hover {
+  background: rgba(148, 163, 184, 0.14);
+}
+
+.language-switcher-option.active {
+  background: rgba(37, 99, 235, 0.22);
 }
 
 .header-wallet-balances {
