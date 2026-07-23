@@ -37,7 +37,7 @@ export function ItemCompareHeader({ item, iconUrl }: ItemCompareHeaderProps) {
         </div>
 
         <div className="item-compare-header-copy">
-          <p className="item-compare-header-eyebrow muted small">Сравнение предложений</p>
+          <p className="item-compare-header-eyebrow muted small">{t('itemCompareHeader.eyebrow')}</p>
           <h1 className="item-compare-header-title">{item.marketHashName}</h1>
 
           <div className="item-compare-header-meta">

@@ -355,7 +355,7 @@ export function ItemPage() {
               {isComparisonPage || cheapestLot ? (
                 <aside className="item-compare-sidebar">
                   <div className="card lot-purchase-card item-purchase-card">
-                    <p className="item-purchase-label muted small">Лучшее предложение</p>
+                    <p className="item-purchase-label muted small">{t('item.bestOffer')}</p>
                     <div data-testid="item-market-price">
                       <InventoryPriceStack
                         steamPriceMinor={wearSteamPrice}
@@ -374,9 +374,11 @@ export function ItemPage() {
                           }`}
                           data-testid="item-steam-price-age"
                         >
-                          Steam · обновлено {formatSteamPriceAge(wearSteamPriceFetchedAt)}
+                          {t('item.steamUpdated', {
+                            age: formatSteamPriceAge(wearSteamPriceFetchedAt, locale) ?? '',
+                          })}
                           {isSteamPriceStale(wearSteamPriceFetchedAt)
-                            ? ' · цена может быть устаревшей'
+                            ? ` · ${t('item.priceMaybeStale')}`
                             : ''}
                         </p>
                       ) : null}
@@ -388,7 +390,7 @@ export function ItemPage() {
                         className="button primary lot-purchase-button"
                         data-testid="item-open-cheapest"
                       >
-                        Открыть лучшее предложение
+                        {t('item.openBestOffer')}
                       </Link>
                     ) : null}
 
@@ -406,7 +408,7 @@ export function ItemPage() {
                     </a>
 
                     <p className="muted small">
-                      Float, стикеры и inspect доступны на странице конкретного лота.
+                      {t('item.floatStickersHint')}
                     </p>
                   </div>
                 </aside>

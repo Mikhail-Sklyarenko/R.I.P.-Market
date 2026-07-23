@@ -3,6 +3,7 @@ import { Link, Navigate, useNavigate, useSearchParams } from 'react-router-dom';
 import { getAuthConfig, getUserMe, mockLogin } from '../api/marketplace';
 import type { AuthConfig } from '../api/types';
 import { useAuth } from '../auth/AuthContext';
+import { useLocale } from '../i18n';
 import { ErrorAlert } from '../components/ErrorAlert';
 import { getHomePathForRole } from '../utils/format';
 import {
@@ -18,6 +19,7 @@ type MockRole = 'SELLER' | 'BUYER' | 'ADMIN';
  * This page remains only for QA mock login via /login?dev=1.
  */
 export function LoginPage() {
+  const { t } = useLocale();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const returnUrl = safeAppReturnPath(searchParams.get('returnUrl'));
@@ -72,7 +74,7 @@ export function LoginPage() {
       <div className="card login-card" data-testid="dev-login-page">
         <p className="eyebrow">R.I.P. Market · Dev</p>
         <h1>Mock login</h1>
-        <p className="muted">Только для QA и локальной разработки (`/login?dev=1`).</p>
+        <p className="muted">{t('login.devOnlyHint')}</p>
 
         <ErrorAlert error={error} />
 
@@ -108,15 +110,15 @@ export function LoginPage() {
               data-testid={`login-${role.toLowerCase()}`}
               onClick={() => void handleMockLogin()}
             >
-              {loading ? 'Вход…' : `Continue as mock ${role.toLowerCase()}`}
+              {loading ? t('login.loggingIn') : `Continue as mock ${role.toLowerCase()}`}
             </button>
           </>
         ) : (
-          <p className="muted">Mock login недоступен на этом окружении.</p>
+          <p className="muted">{t('login.mockUnavailable')}</p>
         )}
 
         <p className="muted small login-back-link">
-          <Link to="/">В каталог</Link>
+          <Link to="/">{t('login.toCatalog')}</Link>
         </p>
       </div>
     </div>

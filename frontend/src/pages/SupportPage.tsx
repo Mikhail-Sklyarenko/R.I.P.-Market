@@ -8,18 +8,14 @@ import { ErrorAlert } from '../components/ErrorAlert';
 import { PageHeader } from '../components/PageHeader';
 import { ThemeSelect } from '../components/ThemeSelect';
 import {
-  SUPPORT_TICKET_TOPICS,
+  SUPPORT_TICKET_TOPIC_IDS,
+  supportTicketTopicLabel,
   type SupportTicketTopicId,
 } from '../data/support-ticket-topics';
 import { SUPPORT_EMAIL } from '../utils/format';
 
-const TOPIC_OPTIONS = SUPPORT_TICKET_TOPICS.map((topic) => ({
-  value: topic.id,
-  label: topic.label,
-}));
-
 export function SupportPage() {
-  const { t } = useLocale();
+  const { locale, t } = useLocale();
   const { token } = useAuth();
   const [tickets, setTickets] = useState<SupportTicket[]>([]);
   const [topicId, setTopicId] = useState<SupportTicketTopicId | ''>('');
@@ -28,9 +24,18 @@ export function SupportPage() {
   const [error, setError] = useState<unknown>(null);
   const [success, setSuccess] = useState<string | null>(null);
 
+  const topicOptions = useMemo(
+    () =>
+      SUPPORT_TICKET_TOPIC_IDS.map((id) => ({
+        value: id,
+        label: supportTicketTopicLabel(id, locale),
+      })),
+    [locale],
+  );
+
   const subject = useMemo(
-    () => SUPPORT_TICKET_TOPICS.find((topic) => topic.id === topicId)?.label ?? '',
-    [topicId],
+    () => (topicId ? supportTicketTopicLabel(topicId, locale) : ''),
+    [topicId, locale],
   );
 
   useEffect(() => {
@@ -58,7 +63,7 @@ export function SupportPage() {
       setTickets((current) => [ticket, ...current]);
       setTopicId('');
       setBody('');
-      setSuccess('Тикет создан. Команда поддержки ответит в этом разделе.');
+      setSuccess(t('support.success'));
     } catch (err: unknown) {
       setError(err);
     } finally {
@@ -75,7 +80,7 @@ export function SupportPage() {
 
       <p className="muted small support-page-faq-link">
         <Link to="/faq" data-testid="support-faq-link">
-          Открыть FAQ
+          {t('support.openFaq')}
         </Link>
       </p>
 
@@ -84,39 +89,36 @@ export function SupportPage() {
         className="card support-ticket-section"
         data-testid="support-page"
       >
-        <h2 className="support-section-title">Создать тикет</h2>
+        <h2 className="support-section-title">{t('support.createTicket')}</h2>
         <p className="muted small">
-          Опишите проблему. Если речь о покупке или продаже — вставьте ID сделки
-          (Сделки → клик по ID в списке или «Скопировать» на странице сделки). Email:{' '}
+          {t('support.formHint')}{' '}
           <a href={`mailto:${SUPPORT_EMAIL}`} data-testid="support-email-link">
             {SUPPORT_EMAIL}
           </a>
         </p>
 
         {!token ? (
-          <p className="muted">
-            Войдите через Steam в шапке сайта, чтобы создать тикет.
-          </p>
+          <p className="muted">{t('support.loginRequired')}</p>
         ) : (
           <form className="support-ticket-form" onSubmit={(event) => void handleSubmit(event)}>
             <label className="field">
-              <span className="field-label">Тема</span>
+              <span className="field-label">{t('support.topicLabel')}</span>
               <ThemeSelect
                 value={topicId}
-                options={TOPIC_OPTIONS}
-                placeholder="Выберите тему"
+                options={topicOptions}
+                placeholder={t('support.topicPlaceholder')}
                 required
                 data-testid="support-ticket-subject"
                 onChange={(value) => setTopicId(value as SupportTicketTopicId | '')}
               />
             </label>
             <label className="field">
-              <span className="field-label">Описание</span>
+              <span className="field-label">{t('support.bodyLabel')}</span>
               <textarea
                 value={body}
                 onChange={(event) => setBody(event.target.value)}
                 rows={5}
-                placeholder="ID сделки (из страницы сделки), что произошло, что уже пробовали…"
+                placeholder={t('support.bodyPlaceholder')}
                 data-testid="support-ticket-body"
                 required
                 minLength={10}
@@ -130,14 +132,14 @@ export function SupportPage() {
               disabled={loading || !subject}
               data-testid="support-ticket-submit"
             >
-              {loading ? 'Отправка…' : 'Отправить тикет'}
+              {loading ? t('support.submitting') : t('support.submit')}
             </button>
           </form>
         )}
 
         {token && tickets.length > 0 ? (
           <div className="support-ticket-list" data-testid="support-ticket-list">
-            <h3 className="support-subsection-title">Мои тикеты</h3>
+            <h3 className="support-subsection-title">{t('support.myTickets')}</h3>
             {tickets.map((ticket) => (
               <article
                 key={ticket.id}
@@ -147,13 +149,15 @@ export function SupportPage() {
                 <div className="support-ticket-card-header">
                   <strong>{ticket.subject}</strong>
                   <span className="muted small">
-                    {ticket.status === 'OPEN' ? 'Открыт' : 'Решён'}
+                    {ticket.status === 'OPEN'
+                      ? t('support.statusOpen')
+                      : t('support.statusResolved')}
                   </span>
                 </div>
                 <p className="muted small">{ticket.body}</p>
                 {ticket.adminReply ? (
                   <p className="support-ticket-reply" data-testid="support-ticket-reply">
-                    <strong>Ответ поддержки:</strong> {ticket.adminReply}
+                    <strong>{t('support.adminReply')}</strong> {ticket.adminReply}
                   </p>
                 ) : null}
               </article>

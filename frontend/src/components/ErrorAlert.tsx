@@ -1,6 +1,8 @@
 import type { ReactNode } from 'react';
 import { ApiError } from '../api/types';
-import { ERROR_MESSAGES } from '../utils/format';
+import { useLocale } from '../i18n';
+import { formatApiErrorMessage } from '../utils/format';
+import type { Locale } from '../i18n/types.ts';
 
 type ErrorAlertVariant = 'error' | 'info' | 'warning';
 
@@ -12,19 +14,23 @@ type ErrorAlertProps = {
   'data-testid'?: string;
 };
 
-function resolveError(error: unknown): {
+function resolveError(
+  error: unknown,
+  locale: Locale,
+  genericMessage: string,
+): {
   message: string;
   code?: string;
   requestId?: string | null;
 } {
-  let message = 'Что-то пошло не так. Попробуйте ещё раз.';
+  let message = genericMessage;
   let code: string | undefined;
   let requestId: string | null | undefined;
 
   if (error instanceof ApiError) {
     code = error.code;
     requestId = error.requestId;
-    message = ERROR_MESSAGES[error.code] ?? error.message;
+    message = formatApiErrorMessage(error.code, locale) ?? error.message;
   } else if (error instanceof Error) {
     message = error.message;
   }
@@ -39,11 +45,14 @@ export function ErrorAlert({
   children,
   'data-testid': testId,
 }: ErrorAlertProps) {
+  const { t, locale } = useLocale();
   if (!error && !children && !title) {
     return null;
   }
 
-  const resolved = error ? resolveError(error) : null;
+  const resolved = error
+    ? resolveError(error, locale, t('errorAlert.genericMessage'))
+    : null;
   const alertClass =
     variant === 'info'
       ? 'alert alert-info'
@@ -57,10 +66,12 @@ export function ErrorAlert({
       {resolved ? <strong>{resolved.message}</strong> : null}
       {children ? <div className="alert-body">{children}</div> : null}
       {resolved?.code ? (
-        <div className="alert-meta">Код: {resolved.code}</div>
+        <div className="alert-meta">{t('errorAlert.codeLabel', { code: resolved.code })}</div>
       ) : null}
       {resolved?.requestId ? (
-        <div className="alert-meta">ID запроса: {resolved.requestId}</div>
+        <div className="alert-meta">
+          {t('errorAlert.requestIdLabel', { id: resolved.requestId })}
+        </div>
       ) : null}
     </div>
   );

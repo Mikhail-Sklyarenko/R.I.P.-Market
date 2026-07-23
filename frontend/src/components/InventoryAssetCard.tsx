@@ -51,7 +51,7 @@ export function InventoryAssetCard({
   requireSteamPrice = false,
   onSelect,
 }: InventoryAssetCardProps) {
-  const { locale } = useLocale();
+  const { locale, t } = useLocale();
   const editable = canEditListedAsset(asset);
   const interactive = canOpenInventorySellPanel(asset);
   const name = asset.itemDefinition.marketHashName;
@@ -106,11 +106,11 @@ export function InventoryAssetCard({
         'aria-pressed': isSelected,
         'aria-label': editable
           ? showStackBadge
-            ? `Изменить лот ${name}, ${stackCount} шт.`
-            : `Изменить лот ${name}`
+            ? t('inventoryAssetCardAria.editLotWithCount', { name, count: stackCount })
+            : t('inventoryAssetCardAria.editLot', { name })
           : showStackBadge
-            ? `Выбрать ${name}, ${stackCount} шт.`
-            : `Выбрать ${name}`,
+            ? t('inventoryAssetCardAria.selectWithCount', { name, count: stackCount })
+            : t('inventoryAssetCardAria.select', { name }),
       }
     : {
         'data-testid': `asset-${asset.id}`,

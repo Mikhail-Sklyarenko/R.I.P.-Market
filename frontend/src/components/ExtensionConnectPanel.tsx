@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
+import { useLocale } from '../i18n';
 import {
   disconnectExtension,
   getExtensionRuntimeStatus,
@@ -13,6 +14,7 @@ type ExtensionConnectPanelProps = {
 };
 
 export function ExtensionConnectPanel({ token, compact = false }: ExtensionConnectPanelProps) {
+  const { t, locale } = useLocale();
   const [status, setStatus] = useState<ExtensionRuntimeStatus>({ connected: false });
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
@@ -36,10 +38,10 @@ export function ExtensionConnectPanel({ token, compact = false }: ExtensionConne
     setLoading(true);
     setError(null);
     setMessage(null);
-    const result = await pairExtension(token);
+    const result = await pairExtension(token, locale);
     setLoading(false);
     if (result.ok) {
-      setMessage('Расширение подключено. Сделки будут обрабатываться автоматически.');
+      setMessage(t('extension.connectSuccess'));
       await refresh();
       return;
     }
@@ -58,14 +60,11 @@ export function ExtensionConnectPanel({ token, compact = false }: ExtensionConne
     if (compact) {
       return (
         <div className="extension-panel extension-panel-compact" data-testid="extension-install-hint">
-          <h3 className="extension-panel-title">Расширение для автообмена</h3>
-          <p className="muted small">Опционально — ускоряет отправку trade offer при продаже.</p>
+          <h3 className="extension-panel-title">{t('extension.titleFull')}</h3>
+          <p className="muted small">{t('extension.compactSubtitle')}</p>
           <details className="extension-install-details">
-            <summary>Как установить</summary>
-            <p className="muted small">
-              Загрузите папку <code>browser-extension/dist</code> в Chrome → Расширения → Режим
-              разработчика и укажите <code>VITE_EXTENSION_ID</code> во frontend <code>.env</code>.
-            </p>
+            <summary>{t('extension.installHow')}</summary>
+            <p className="muted small">{t('extension.installBodyCompact')}</p>
           </details>
         </div>
       );
@@ -73,12 +72,8 @@ export function ExtensionConnectPanel({ token, compact = false }: ExtensionConne
 
     return (
       <div className="card extension-panel" data-testid="extension-install-hint">
-        <h3 className="extension-panel-title">Расширение для автообмена</h3>
-        <p className="muted small">
-          Установите расширение R.I.P Market (папка <code>browser-extension/dist</code> в
-          Chrome → Расширения → Режим разработчика) и укажите{' '}
-          <code>VITE_EXTENSION_ID</code> во frontend <code>.env</code>.
-        </p>
+        <h3 className="extension-panel-title">{t('extension.titleFull')}</h3>
+        <p className="muted small">{t('extension.installBodyFull')}</p>
       </div>
     );
   }
@@ -89,20 +84,24 @@ export function ExtensionConnectPanel({ token, compact = false }: ExtensionConne
       data-testid="extension-connect-panel"
     >
       <h3 className="extension-panel-title">
-        {compact ? 'Расширение' : 'Расширение для автообмена'}
+        {compact ? t('extension.titleCompact') : t('extension.titleFull')}
       </h3>
       <p className="muted small" data-testid="extension-connection-status">
         {status.connected
-          ? `Подключено${status.expiresAt ? ` до ${new Date(status.expiresAt).toLocaleTimeString()}` : ''}`
-          : 'Не подключено — автоотправка trade offer недоступна'}
+          ? status.expiresAt
+            ? t('extension.connectedUntil', {
+                time: new Date(status.expiresAt).toLocaleTimeString(),
+              })
+            : t('extension.connected')
+          : t('extension.notConnected')}
       </p>
       {!compact ? (
         <p className="muted small" data-testid="extension-browser-hint">
-          Используйте Chrome с тем же профилем, где открыт{' '}
+          {t('extension.browserHint')}{' '}
           <a href="https://steamcommunity.com" target="_blank" rel="noreferrer">
             steamcommunity.com
           </a>{' '}
-          и вы залогинены под продавцом.
+          {t('extension.browserHintSuffix')}
         </p>
       ) : null}
       {message ? <p className="alert alert-success">{message}</p> : null}
@@ -115,7 +114,7 @@ export function ExtensionConnectPanel({ token, compact = false }: ExtensionConne
             disabled={loading}
             onClick={() => void handleDisconnect()}
           >
-            Отключить
+            {t('extension.disconnect')}
           </button>
         ) : (
           <button
@@ -125,7 +124,7 @@ export function ExtensionConnectPanel({ token, compact = false }: ExtensionConne
             data-testid="extension-connect-button"
             onClick={() => void handleConnect()}
           >
-            {loading ? 'Подключаем…' : 'Подключить расширение'}
+            {loading ? t('extension.connecting') : t('extension.connect')}
           </button>
         )}
       </div>

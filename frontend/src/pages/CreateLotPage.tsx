@@ -7,6 +7,7 @@ import {
 } from '../api/sell';
 import type { InventoryAsset, PricingPreview } from '../api/types';
 import { useAuth } from '../auth/AuthContext';
+import { useLocale } from '../i18n';
 import { ErrorAlert } from '../components/ErrorAlert';
 import { FormField } from '../components/FormField';
 import { ItemPreview } from '../components/ItemPreview';
@@ -18,6 +19,7 @@ import { parseUsdToMinor } from '../utils/format';
 import { canListAsset } from '../utils/seller-flow';
 
 export function CreateLotPage() {
+  const { t } = useLocale();
   const { token } = useAuth();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
@@ -85,7 +87,7 @@ export function CreateLotPage() {
   if (!assetId) {
     return (
       <div className="page">
-        <EmptyStateMissingAsset />
+        <EmptyStateMissingAsset t={t} />
       </div>
     );
   }
@@ -93,16 +95,16 @@ export function CreateLotPage() {
   return (
     <div className="page">
       <PageHeader
-        title="Установка цены"
-        subtitle="Укажите цену и проверьте комиссию перед публикацией."
+        title={t('createLot.title')}
+        subtitle={t('createLot.subtitle')}
         actions={
           <Link to="/sell/inventory" className="button secondary">
-            Назад
+            {t('createLot.back')}
           </Link>
         }
       />
 
-      {loading ? <LoadingState message="Загрузка предмета…" /> : null}
+      {loading ? <LoadingState message={t('createLot.loading')} /> : null}
 
       {asset ? (
         <form className="card form-card" onSubmit={(event) => void handleSubmit(event)}>
@@ -114,16 +116,15 @@ export function CreateLotPage() {
 
           {!listable ? (
             <p className="field-error" data-testid="asset-not-listable">
-              This item cannot be listed right now (not tradable or trade-locked).
+              {t('createLot.notListable')}
             </p>
           ) : null}
 
           <p className="muted small" data-testid="price-hint">
-            Подсказка: в staging популярный тестовый диапазон — $500–$2,000. Комиссия
-            маркетплейса фиксирована: 5%.
+            {t('createLot.priceHint')}
           </p>
 
-          <FormField label="Price (USD)" htmlFor="price-input">
+          <FormField label={t('createLot.priceLabel')} htmlFor="price-input">
             <input
               id="price-input"
               type="text"
@@ -139,15 +140,15 @@ export function CreateLotPage() {
           {preview ? (
             <div className="pricing-preview" data-testid="pricing-preview">
               <div>
-                <span>List price</span>
+                <span>{t('createLot.listPrice')}</span>
                 <MoneyDisplay minor={preview.priceMinor} strong />
               </div>
               <div>
-                <span>Commission (5%)</span>
+                <span>{t('createLot.commission')}</span>
                 <MoneyDisplay minor={preview.commissionMinor} strong />
               </div>
               <div>
-                <span>You receive</span>
+                <span>{t('createLot.youReceive')}</span>
                 <MoneyDisplay minor={preview.sellerReceiveMinor} strong />
               </div>
             </div>
@@ -161,7 +162,7 @@ export function CreateLotPage() {
             disabled={submitting || !priceMinor || !!fieldError || !listable}
             data-testid="submit-listing"
           >
-            {submitting ? 'Publishing…' : 'Publish listing'}
+            {submitting ? t('createLot.publishing') : t('createLot.publish')}
           </button>
         </form>
       ) : null}
@@ -171,15 +172,13 @@ export function CreateLotPage() {
   );
 }
 
-function EmptyStateMissingAsset() {
+function EmptyStateMissingAsset({ t }: { t: (key: string) => string }) {
   return (
     <div className="card empty-state">
-      <h3 className="empty-state-title">Предмет не выбран</h3>
-      <p className="empty-state-message">
-        Вернитесь в инвентарь и выберите предмет для продажи.
-      </p>
+      <h3 className="empty-state-title">{t('createLot.emptyTitle')}</h3>
+      <p className="empty-state-message">{t('createLot.emptyMessage')}</p>
       <Link to="/sell/inventory" className="button primary">
-        К инвентарю
+        {t('createLot.toInventory')}
       </Link>
     </div>
   );

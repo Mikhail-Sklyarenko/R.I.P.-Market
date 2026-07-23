@@ -1,16 +1,18 @@
+import { useLocale } from '../i18n';
+
 export function EscrowNotice({ compact = false }: { compact?: boolean }) {
+  const { t } = useLocale();
   if (compact) {
     return (
       <p className="checkout-footnote" data-testid="escrow-notice">
-        Средства резервируются до подтверждения обмена в Steam.
+        {t('escrow.compact')}
       </p>
     );
   }
 
   return (
     <p className="escrow-notice" data-testid="escrow-notice">
-      Деньги будут зарезервированы до подтверждения передачи предмета в Steam. После
-      подтверждения средства переводятся продавцу.
+      {t('escrow.full')}
     </p>
   );
 }

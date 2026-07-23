@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { createOrder, getAuthConfig, getLot } from '../api/marketplace';
 import { useAuth } from '../auth/AuthContext';
+import { useLocale } from '../i18n';
 import { DealFlowSteps } from '../components/DealFlowSteps';
 import { ErrorAlert } from '../components/ErrorAlert';
 import { EscrowNotice } from '../components/EscrowNotice';
@@ -19,6 +20,7 @@ import { formatUsdtFromMinor } from '../utils/format';
 
 export function CheckoutPage() {
   const { id } = useParams();
+  const { t } = useLocale();
   const { token, user } = useAuth();
   const navigate = useNavigate();
   const { summary, availableMinor, loading: walletLoading, refresh } = useWalletSummary();
@@ -91,19 +93,19 @@ export function CheckoutPage() {
     return (
       <div className="page checkout-page">
         <PageHeader
-          title="Подтверждение покупки"
+          title={t('checkout.title')}
           subtitle={
             <Link to={`/lots/${id}`} className="muted">
-              Назад к лоту
+              {t('checkout.backToLot')}
             </Link>
           }
         />
         <div className="card">
           <p className="muted" data-testid="checkout-unavailable">
-            Лот недоступен для покупки ({lot.status}).
+            {t('checkout.unavailable', { status: lot.status })}
           </p>
           <Link to="/catalog" className="button secondary">
-            В каталог
+            {t('checkout.toCatalog')}
           </Link>
         </div>
       </div>
@@ -113,15 +115,15 @@ export function CheckoutPage() {
   return (
     <div className="page checkout-page">
       <PageHeader
-        title="Подтверждение покупки"
+        title={t('checkout.title')}
         subtitle={
           <Link to={`/lots/${id}`} className="muted">
-            Назад к лоту
+            {t('checkout.backToLot')}
           </Link>
         }
       />
 
-      {loading || walletLoading ? <LoadingState message="Загрузка…" /> : null}
+      {loading || walletLoading ? <LoadingState message={t('checkout.loading')} /> : null}
 
       {lot && asset ? (
         <div className="checkout-page-grid" data-testid="checkout-page">
@@ -141,7 +143,7 @@ export function CheckoutPage() {
           <aside className="checkout-page-sidebar">
             <div className="card checkout-purchase-card">
               <div className="checkout-pricing" data-testid="checkout-pricing">
-                <p className="checkout-pay-label">К оплате</p>
+                <p className="checkout-pay-label">{t('checkout.payLabel')}</p>
                 <p className="checkout-pay-price">
                   <MoneyDisplay minor={lot.priceMinor} strong />
                 </p>
@@ -150,18 +152,18 @@ export function CheckoutPage() {
               {summary ? (
                 <div className="checkout-wallet-summary" data-testid="checkout-wallet">
                   <div className="checkout-wallet-row">
-                    <span>Доступно</span>
+                    <span>{t('checkout.available')}</span>
                     <MoneyDisplay minor={summary.availableMinor} strong />
                   </div>
                   {insufficient && shortfallMinor > 0 ? (
                     <div className="checkout-wallet-row checkout-wallet-shortfall">
-                      <span>Не хватает</span>
+                      <span>{t('checkout.shortfall')}</span>
                       <MoneyDisplay minor={shortfallMinor} strong />
                     </div>
                   ) : null}
                   {Number(summary.holdMinor) > 0 ? (
                     <div className="checkout-wallet-row checkout-wallet-muted">
-                      <span>На hold</span>
+                      <span>{t('checkout.hold')}</span>
                       <MoneyDisplay minor={summary.holdMinor} />
                     </div>
                   ) : null}
@@ -170,7 +172,7 @@ export function CheckoutPage() {
 
               {isOwnLot ? (
                 <p className="muted small" data-testid="own-lot-message">
-                  Вы не можете купить свой лот.
+                  {t('checkout.ownLot')}
                 </p>
               ) : null}
 
@@ -187,7 +189,7 @@ export function CheckoutPage() {
               />
 
               <p className="checkout-footnote" data-testid="purchase-trade-hint">
-                После покупки примите trade offer в Steam.
+                {t('checkout.tradeHint')}
               </p>
               <EscrowNotice compact />
 
@@ -202,7 +204,7 @@ export function CheckoutPage() {
                     className="button primary"
                     data-testid="checkout-deposit-link"
                   >
-                    Пополнить кошелёк
+                    {t('checkout.depositButton')}
                     {shortfallMinor > 0
                       ? ` · ${formatUsdtFromMinor(shortfallMinor)}`
                       : ''}
@@ -215,7 +217,7 @@ export function CheckoutPage() {
                     data-testid="confirm-purchase-button"
                     onClick={() => void handleConfirm()}
                   >
-                    {confirming ? 'Создаём сделку…' : 'Подтвердить покупку'}
+                    {confirming ? t('checkout.confirming') : t('checkout.confirmButton')}
                   </button>
                 )}
               </div>

@@ -1,3 +1,17 @@
+import { enMessages } from '../i18n/messages/en.ts';
+import { ruMessages } from '../i18n/messages/ru.ts';
+import { translate } from '../i18n/translate.ts';
+import type { Locale } from '../i18n/types.ts';
+
+const messagesByLocale = {
+  ru: ruMessages,
+  en: enMessages,
+} as const;
+
+function t(key: string, locale: Locale, params?: Record<string, string | number>) {
+  return translate(messagesByLocale[locale], key, params);
+}
+
 export function formatUsdFromMinor(minor: string | number): string {
   const value = typeof minor === 'string' ? Number(minor) : minor;
   return new Intl.NumberFormat('en-US', {
@@ -35,6 +49,7 @@ export function getErrorMessage(error: unknown, fallback: string): string {
   return fallback;
 }
 
+/** @deprecated Prefer formatApiErrorMessage(code, locale) — RU snapshot kept for older callers/tests. */
 export const ERROR_MESSAGES: Record<string, string> = {
   VALIDATION_ERROR: 'Проверьте форму и повторите попытку.',
   UNAUTHORIZED: 'Сессия устарела. Выйдите и войдите снова.',
@@ -73,32 +88,55 @@ export const ERROR_MESSAGES: Record<string, string> = {
     'Аккаунт с VAC-баном не может торговать на площадке.',
 };
 
+/** Locale-aware API error formatter — falls back to raw code if no translation exists. */
+export function formatApiErrorMessage(code: string, locale: Locale = 'ru'): string {
+  const key = `apiError.${code}`;
+  const translated = t(key, locale);
+  if (translated !== key) {
+    return translated;
+  }
+  return ERROR_MESSAGES[code] ?? code;
+}
+
+/** @deprecated Prefer formatUserRole(role, locale) */
 export const USER_ROLE_LABELS: Record<string, string> = {
   BUYER: 'Покупатель',
   SELLER: 'Продавец',
   ADMIN: 'Админ',
 };
 
+/** @deprecated Prefer formatUserStatus(status, locale) */
 export const USER_STATUS_LABELS: Record<string, string> = {
   ACTIVE: 'Активен',
   SUSPENDED: 'Приостановлен',
   BANNED: 'Заблокирован',
 };
 
-export function formatUserRole(role?: string | null): string {
+export function formatUserRole(role?: string | null, locale: Locale = 'ru'): string {
   if (!role) {
     return '—';
+  }
+  const key = `userRole.${role}`;
+  const translated = t(key, locale);
+  if (translated !== key) {
+    return translated;
   }
   return USER_ROLE_LABELS[role] ?? role;
 }
 
-export function formatUserStatus(status?: string | null): string {
+export function formatUserStatus(status?: string | null, locale: Locale = 'ru'): string {
   if (!status) {
     return '—';
+  }
+  const key = `userStatus.${status}`;
+  const translated = t(key, locale);
+  if (translated !== key) {
+    return translated;
   }
   return USER_STATUS_LABELS[status] ?? status;
 }
 
+/** @deprecated Prefer formatTradeStatus(status, locale) */
 export const TRADE_STATUS_LABELS: Record<string, string> = {
   WAITING: 'Ожидание обмена',
   CONFIRMED: 'Обмен подтверждён',
@@ -114,9 +152,14 @@ export const SUPPORT_EMAIL =
   (typeof viteEnv?.VITE_SUPPORT_EMAIL === 'string' && viteEnv.VITE_SUPPORT_EMAIL.trim()) ||
   'support@ripmarket.example';
 
-export function formatTradeStatus(status?: string | null): string {
+export function formatTradeStatus(status?: string | null, locale: Locale = 'ru'): string {
   if (!status) {
     return '—';
+  }
+  const key = `tradeStatus.${status}`;
+  const translated = t(key, locale);
+  if (translated !== key) {
+    return translated;
   }
   return TRADE_STATUS_LABELS[status] ?? status;
 }
@@ -144,13 +187,15 @@ export const OPEN_DISPUTE_STATUSES = new Set([
 export function getSteamCallbackMessage(
   errorCode: string | null,
   messageParam: string | null,
+  locale: Locale = 'ru',
 ): string {
-  // Prefer server-provided Russian messages (e.g. IP block) over the generic map.
-  if (messageParam && /[А-Яа-яЁё]/.test(messageParam)) {
+  // Prefer server-provided Russian messages (e.g. IP block) over the generic map,
+  // but only when the UI itself is in Russian.
+  if (locale === 'ru' && messageParam && /[А-Яа-яЁё]/.test(messageParam)) {
     return messageParam;
   }
-  if (errorCode && ERROR_MESSAGES[errorCode]) {
-    return ERROR_MESSAGES[errorCode];
+  if (errorCode && (t(`apiError.${errorCode}`, locale) !== `apiError.${errorCode}` || ERROR_MESSAGES[errorCode])) {
+    return formatApiErrorMessage(errorCode, locale);
   }
   if (messageParam) {
     return messageParam;
@@ -158,7 +203,7 @@ export function getSteamCallbackMessage(
   if (errorCode) {
     return errorCode;
   }
-  return 'Не удалось завершить вход через Steam.';
+  return t('steamCallback.defaultError', locale);
 }
 
 export type SteamCallbackAction = {
@@ -166,15 +211,18 @@ export type SteamCallbackAction = {
   href: string;
 };
 
-export function getSteamCallbackActions(errorCode: string | null): SteamCallbackAction[] {
+export function getSteamCallbackActions(
+  errorCode: string | null,
+  locale: Locale = 'ru',
+): SteamCallbackAction[] {
   if (errorCode === 'STEAM_ALREADY_LINKED') {
     return [
-      { label: 'На главную', href: '/' },
-      { label: 'Открыть аккаунт', href: '/account' },
+      { label: t('steamCallback.homeAction', locale), href: '/' },
+      { label: t('steamCallback.accountAction', locale), href: '/account' },
     ];
   }
 
-  return [{ label: 'Вернуться в каталог', href: '/' }];
+  return [{ label: t('steamCallback.catalogAction', locale), href: '/' }];
 }
 
 export const MOCK_TRADE_ENABLED = viteEnv?.VITE_ENABLE_MOCK_TRADE !== 'false';

@@ -1,3 +1,4 @@
+import { useLocale } from '../i18n';
 import { MoneyDisplay } from './MoneyDisplay';
 
 type PriceStackProps = {
@@ -37,6 +38,7 @@ export function InventoryPriceStack({
   compact = false,
   context = 'buyer',
 }: PriceStackProps) {
+  const { t } = useLocale();
   if (loading && !steamPriceMinor && !marketplacePriceMinor) {
     if (compact) {
       return (
@@ -82,20 +84,20 @@ export function InventoryPriceStack({
             <MoneyDisplay minor={steamPriceMinor!} strong />
           </p>
           <p className="inventory-price-secondary muted small">
-            Steam{' '}
+            {t('inventoryPriceStack.steam')}{' '}
             <span data-testid={`${testIdPrefix}-steam-price`}>
               <MoneyDisplay minor={steamPriceMinor!} />
             </span>
           </p>
           <p className="inventory-price-secondary muted small">
-            На R.I.P.{' '}
+            {t('inventoryPriceStack.onRip')}{' '}
             <span data-testid={`${testIdPrefix}-market-price`}>
               {hasMarket ? (
                 <>
-                  от <MoneyDisplay minor={marketplacePriceMinor!} />
+                  {t('inventoryPriceStack.from')} <MoneyDisplay minor={marketplacePriceMinor!} />
                 </>
               ) : (
-                'нет лотов'
+                t('inventoryPriceStack.noLots')
               )}
             </span>
           </p>
@@ -113,11 +115,12 @@ export function InventoryPriceStack({
             className="inventory-price-secondary muted small"
             data-testid={`${testIdPrefix}-steam-price`}
           >
-            Steam н/д · На R.I.P.{' '}
+            {t('inventoryPriceStack.steam')} {t('inventoryPriceStack.na')} ·{' '}
+            {t('inventoryPriceStack.onRip')}{' '}
             <span data-testid={`${testIdPrefix}-market-price`}>
               {hasMarket ? (
                 <>
-                  от <MoneyDisplay minor={marketplacePriceMinor!} />
+                  {t('inventoryPriceStack.from')} <MoneyDisplay minor={marketplacePriceMinor!} />
                 </>
               ) : (
                 '—'
@@ -134,11 +137,12 @@ export function InventoryPriceStack({
           —
         </p>
         <p className="inventory-price-secondary muted small" data-testid={`${testIdPrefix}-steam-price`}>
-          Steam н/д · На R.I.P.{' '}
+          {t('inventoryPriceStack.steam')} {t('inventoryPriceStack.na')} ·{' '}
+          {t('inventoryPriceStack.onRip')}{' '}
           <span data-testid={`${testIdPrefix}-market-price`}>
             {hasMarket ? (
               <>
-                от <MoneyDisplay minor={marketplacePriceMinor!} />
+                {t('inventoryPriceStack.from')} <MoneyDisplay minor={marketplacePriceMinor!} />
               </>
             ) : (
               '—'
@@ -156,9 +160,9 @@ export function InventoryPriceStack({
           <MoneyDisplay minor={marketplacePriceMinor!} strong />
         </p>
         <p className="inventory-price-secondary muted small">
-          Steam{' '}
+          {t('inventoryPriceStack.steam')}{' '}
           <span data-testid={`${testIdPrefix}-steam-price`}>
-            {hasSteam ? <MoneyDisplay minor={steamPriceMinor!} /> : 'н/д'}
+            {hasSteam ? <MoneyDisplay minor={steamPriceMinor!} /> : t('inventoryPriceStack.na')}
           </span>
         </p>
         <span className="sr-only" data-testid={`${testIdPrefix}-market-price`}>
@@ -175,14 +179,14 @@ export function InventoryPriceStack({
           <MoneyDisplay minor={steamPriceMinor!} strong />
         </p>
         <p className="inventory-price-secondary muted small">
-          Steam{' '}
+          {t('inventoryPriceStack.steam')}{' '}
           <span data-testid={`${testIdPrefix}-steam-price`}>
             <MoneyDisplay minor={steamPriceMinor!} />
           </span>
         </p>
         <p className="inventory-price-secondary muted small">
-          Маркет{' '}
-          <span data-testid={`${testIdPrefix}-market-price`}>нет лотов</span>
+          {t('inventoryPriceStack.market')}{' '}
+          <span data-testid={`${testIdPrefix}-market-price`}>{t('inventoryPriceStack.noLots')}</span>
         </p>
       </div>
     );
@@ -195,7 +199,8 @@ export function InventoryPriceStack({
           —
         </p>
         <p className="inventory-price-secondary muted small" data-testid={`${testIdPrefix}-steam-price`}>
-          Steam н/д · Маркет <span data-testid={`${testIdPrefix}-market-price`}>—</span>
+          {t('inventoryPriceStack.steam')} {t('inventoryPriceStack.na')} ·{' '}
+          {t('inventoryPriceStack.market')} <span data-testid={`${testIdPrefix}-market-price`}>—</span>
         </p>
       </div>
     );
@@ -207,7 +212,8 @@ export function InventoryPriceStack({
         —
       </p>
       <p className="inventory-price-secondary muted small" data-testid={`${testIdPrefix}-steam-price`}>
-        Steam н/д · Маркет <span data-testid={`${testIdPrefix}-market-price`}>—</span>
+        {t('inventoryPriceStack.steam')} {t('inventoryPriceStack.na')} ·{' '}
+        {t('inventoryPriceStack.market')} <span data-testid={`${testIdPrefix}-market-price`}>—</span>
       </p>
     </div>
   );

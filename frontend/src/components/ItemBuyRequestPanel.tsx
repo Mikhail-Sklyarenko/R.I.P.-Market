@@ -73,7 +73,7 @@ export function ItemBuyRequestPanel({
       data-testid="item-buy-request-panel"
     >
       <div className="item-buy-request-header">
-        <p className="item-buy-request-kicker">Заявка на покупку</p>
+        <p className="item-buy-request-kicker">{t('buyRequestPanel.kicker')}</p>
         <span className="badge badge-inactive" data-testid="item-buy-request-status">
           {t('item.noLots')}
         </span>
@@ -96,26 +96,27 @@ export function ItemBuyRequestPanel({
               }`}
               data-testid="item-steam-price-age"
             >
-              Steam · обновлено {formatSteamPriceAge(steamPriceFetchedAt)}
+              {t('item.steamUpdated', {
+                age: formatSteamPriceAge(steamPriceFetchedAt, locale) ?? '',
+              })}
               {isSteamPriceStale(steamPriceFetchedAt)
-                ? ' · цена может быть устаревшей'
+                ? ` · ${t('item.priceMaybeStale')}`
                 : ''}
             </p>
           ) : null}
         </div>
 
         <p className="item-buy-request-lead muted small">
-          Сейчас этот скин никто не продаёт. Оставьте заявку — пришлём уведомление, когда появится
-          подходящее предложение.
+          {t('buyRequestPanel.lead')}
         </p>
 
         {openBuyRequest ? (
           <div className="item-buy-request-active" data-testid="item-buy-request-active">
-            <p className="item-buy-request-active-title">Заявка активна</p>
+            <p className="item-buy-request-active-title">{t('buyRequestPanel.active')}</p>
             <p className="item-buy-request-active-price">
               {openBuyRequest.maxPriceMinor ? (
                 <>
-                  До <MoneyDisplay minor={openBuyRequest.maxPriceMinor} strong />
+                  {t('buyRequestPanel.upTo')} <MoneyDisplay minor={openBuyRequest.maxPriceMinor} strong />
                 </>
               ) : (
                 t('item.noPriceLimit')
@@ -139,14 +140,14 @@ export function ItemBuyRequestPanel({
               data-testid="item-buy-request-cancel"
               onClick={onCancel}
             >
-              Отменить заявку
+              {t('buyRequestPanel.cancel')}
             </button>
           </div>
         ) : (
           <>
             {requiresWear ? (
               <fieldset className="item-buy-request-wear" data-testid="item-buy-request-wear">
-                <legend className="field-label">Состояние</legend>
+                <legend className="field-label">{t('buyRequestPanel.stateLabel')}</legend>
                 <div className="item-buy-request-wear-options">
                   {wearOptions.map((option) => (
                     <button
@@ -173,7 +174,7 @@ export function ItemBuyRequestPanel({
                   data-testid="item-buy-request-suggestion"
                 >
                   <p className="muted small">
-                    Ориентир Steam:{' '}
+                    {t('buyRequestPanel.steamGuide')}{' '}
                     <strong>{formatUsdFromMinor(steamPriceMinor!)}</strong>
                   </p>
                   <button
@@ -188,7 +189,7 @@ export function ItemBuyRequestPanel({
               ) : null}
 
               <label className="field item-buy-request-price-field" htmlFor="item-buy-request-max-price">
-                <span className="field-label">Максимальная цена</span>
+                <span className="field-label">{t('buyRequestPanel.maxPriceLabel')}</span>
                 <div
                   className={`item-buy-request-price-control${
                     hasTypedPrice ? ' has-value' : ''
@@ -209,7 +210,7 @@ export function ItemBuyRequestPanel({
                   />
                 </div>
                 <span className="muted small item-buy-request-price-hint">
-                  Необязательно — можно следить за любыми предложениями
+                  {t('buyRequestPanel.maxPriceHint')}
                 </span>
               </label>
             </div>
@@ -229,8 +230,8 @@ export function ItemBuyRequestPanel({
         )}
 
         <p className="muted small item-buy-request-footer">
-          Активные заявки — во вкладке{' '}
-          <Link to="/deals?tab=requests">Сделки → Заявки</Link>.
+          {t('buyRequestPanel.footerPrefix')}{' '}
+          <Link to="/deals?tab=requests">{t('buyRequestPanel.footerLink')}</Link>.
         </p>
       </div>
     </div>

@@ -38,8 +38,9 @@ import {
   filterInventoryAssets,
   getBulkListableSiblings,
   groupInventoryAssetsForDisplay,
-  INVENTORY_SORT_OPTIONS,
+  INVENTORY_SORT_OPTION_IDS,
   INVENTORY_STATUS_FILTER_IDS,
+  inventorySortOptionLabelKey,
   sortInventoryAssets,
   type InventorySortOption,
   type InventoryStatusFilter,
@@ -553,16 +554,13 @@ export function InventoryPage() {
 
       {!steamLinked && requiresSteamLink ? (
         <p className="muted small" data-testid="inventory-refresh-hint">
-          Обновление недоступно: сначала привяжите Steam в настройках аккаунта.
+          {t('inventory.steamRequiredMessage')}
         </p>
       ) : null}
 
       {showDevReset && token ? (
         <div className="dev-panel" data-testid="inventory-dev-reset-panel">
-          <p className="muted small">
-            После тестовых mock-сделок предметы могут остаться в статусе «Продан».
-            Сброс вернёт их в «Доступен» и отменит зависшие сделки.
-          </p>
+          <p className="muted small">{t('inventory.devResetHint')}</p>
           <button
             type="button"
             className="button secondary"
@@ -570,20 +568,30 @@ export function InventoryPage() {
             data-testid="inventory-reset-dev-trades"
             onClick={() => void handleResetDevTrades()}
           >
-            {resettingDevTrades ? 'Сброс…' : 'Сбросить тестовые сделки'}
+            {resettingDevTrades
+              ? t('inventory.resettingDevTrades')
+              : t('inventory.resetDevTrades')}
           </button>
         </div>
       ) : null}
 
       {sync ? (
         <p className="muted small">
-          Последняя синхронизация: {new Date(sync.lastSyncedAt).toLocaleString()}
+          {t('inventory.lastSync', {
+            when: new Date(sync.lastSyncedAt).toLocaleString(),
+          })}
           {formatDataTimestamp(steamPriceFetchedAt) ? (
-            <span> · Цены Steam: {formatDataTimestamp(steamPriceFetchedAt)}</span>
+            <span>
+              {' '}
+              ·{' '}
+              {t('inventory.steamPricesAt', {
+                when: formatDataTimestamp(steamPriceFetchedAt) ?? '',
+              })}
+            </span>
           ) : null}
           {showStaleBadge ? (
             <span className="badge badge-stale" style={{ marginLeft: '0.5rem' }}>
-              Устарело
+              {t('inventory.stale')}
             </span>
           ) : null}
           {sync.warning || sync.errorCode ? (
@@ -601,11 +609,9 @@ export function InventoryPage() {
 
       {!steamLinked && requiresSteamLink ? (
         <div className="card inventory-readiness-banner" data-testid="steam-link-required">
-          <p>
-            Сначала привяжите Steam и укажите Trade URL — без этого инвентарь и обмены недоступны.
-          </p>
+          <p>{t('inventory.steamRequiredBanner')}</p>
           <Link className="button primary" to="/account">
-            Перейти в аккаунт
+            {t('inventory.linkSteamFirst')}
           </Link>
         </div>
       ) : null}
@@ -613,11 +619,12 @@ export function InventoryPage() {
       {steamLinked && !tradeUrlReady ? (
         <div className="card inventory-readiness-banner" data-testid="inventory-trade-url-warning">
           <p>
-            Укажите Trade URL в{' '}
-            <Link to="/account">настройках аккаунта</Link> — без него нельзя выставлять предметы.
+            {t('inventory.tradeUrlRequiredPrefix')}{' '}
+            <Link to="/account">{t('inventory.tradeUrlRequiredLink')}</Link>{' '}
+            {t('inventory.tradeUrlRequiredSuffix')}
           </p>
           <Link className="button primary" to="/account">
-            Перейти в аккаунт
+            {t('inventory.linkSteamFirst')}
           </Link>
         </div>
       ) : null}
@@ -626,7 +633,7 @@ export function InventoryPage() {
         <div className="inventory-workspace">
           <div className="inventory-main">
             <p className="muted small" data-testid="inventory-loading-hint">
-              Загрузка инвентаря…
+              {t('inventory.loadingHint')}
             </p>
             <InventoryGridSkeleton />
           </div>
@@ -651,7 +658,7 @@ export function InventoryPage() {
                 className="muted small inventory-price-inline"
                 data-testid="inventory-background-sync"
               >
-                Обновляем инвентарь из Steam в фоне…
+                {t('inventory.backgroundSyncing')}
               </p>
             ) : null}
 
@@ -666,14 +673,14 @@ export function InventoryPage() {
                 className="inventory-price-banner inventory-price-banner-error"
                 data-testid="inventory-prices-error"
               >
-                <p className="muted small">Не удалось загрузить цены Steam.</p>
+                <p className="muted small">{t('inventory.pricesError')}</p>
                 <button
                   type="button"
                   className="button secondary sm"
                   data-testid="inventory-prices-retry"
                   onClick={() => void loadPriceHints(assets, true)}
                 >
-                  Повторить
+                  {t('inventory.retry')}
                 </button>
               </div>
             ) : null}
@@ -684,9 +691,12 @@ export function InventoryPage() {
                 data-testid="inventory-prices-partial"
               >
                 <p className="muted small">
-                  Нет цен Steam у {steamPriceMissing.length}{' '}
-                  {steamPriceMissing.length === 1 ? 'предмета' : 'предметов'} — выставить
-                  можно только с ценой.
+                  {t(
+                    steamPriceMissing.length === 1
+                      ? 'inventory.missingPricesCount_one'
+                      : 'inventory.missingPricesCount_many',
+                    { count: steamPriceMissing.length },
+                  )}
                 </p>
                 <button
                   type="button"
@@ -694,7 +704,7 @@ export function InventoryPage() {
                   data-testid="inventory-prices-retry-partial"
                   onClick={() => void loadPriceHints(assets, true)}
                 >
-                  Повторить
+                  {t('inventory.retry')}
                 </button>
               </div>
             ) : null}
@@ -736,9 +746,9 @@ export function InventoryPage() {
                     }
                     data-testid="inventory-sort"
                   >
-                    {INVENTORY_SORT_OPTIONS.map((option) => (
-                      <option key={option.id} value={option.id}>
-                        {option.label}
+                    {INVENTORY_SORT_OPTION_IDS.map((id) => (
+                      <option key={id} value={id}>
+                        {t(inventorySortOptionLabelKey(id))}
                       </option>
                     ))}
                   </select>
@@ -750,7 +760,7 @@ export function InventoryPage() {
                     onChange={(event) => setShowUnavailable(event.target.checked)}
                     data-testid="inventory-show-unavailable"
                   />
-                  <span className="muted small">Недоступные</span>
+                  <span className="muted small">{t('inventory.showUnavailable')}</span>
                 </label>
               </div>
               <p className="muted small inventory-filter-total" data-testid="inventory-filter-total">

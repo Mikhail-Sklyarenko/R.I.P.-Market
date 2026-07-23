@@ -1,8 +1,9 @@
 import type { TradeTaskSummary } from '../api/types';
+import { useLocale } from '../i18n';
 import {
-  OFFER_ERROR_HINTS,
+  formatExtensionTaskPhaseLabel,
+  formatOfferErrorHint,
   requestExtensionPoll,
-  TRADE_TASK_PHASE_LABELS,
 } from '../utils/extension';
 
 type ExtensionTaskProgressProps = {
@@ -16,10 +17,12 @@ export function ExtensionTaskProgress({
   manualFallbackVisible,
   itemMarketHashName,
 }: ExtensionTaskProgressProps) {
+  const { t, locale } = useLocale();
+
   if (!tradeTask) {
     return (
       <p className="muted small" data-testid="extension-task-missing">
-        Расширение ещё готовит задачу. Обновите страницу через несколько секунд.
+        {t('extensionTask.missing')}
       </p>
     );
   }
@@ -35,16 +38,16 @@ export function ExtensionTaskProgress({
     tradeTask.lastErrorCode === 'ITEM_ALREADY_GONE' ||
     (isTerminalFailure && tradeTask.lastErrorCode === 'ITEM_MISSING');
   const phaseLabel = isDeliveryCheck
-    ? 'Проверяем доставку'
+    ? t('extensionTask.checkingDelivery')
     : isTaskExpired
-      ? 'Время истекло'
+      ? t('extensionTask.timeExpired')
       : tradeTask.executionPhase
-        ? (TRADE_TASK_PHASE_LABELS[tradeTask.executionPhase] ?? tradeTask.executionPhase)
+        ? formatExtensionTaskPhaseLabel(tradeTask.executionPhase, locale)
         : tradeTask.attemptCount > 0 || tradeTask.lastErrorCode
-          ? 'Повторяем отправку'
-          : 'Готовим обмен';
+          ? t('extensionTask.retrying')
+          : t('extensionTask.preparing');
   const errorHint = tradeTask.lastErrorCode
-    ? (OFFER_ERROR_HINTS[tradeTask.lastErrorCode] ?? tradeTask.lastErrorCode)
+    ? formatOfferErrorHint(tradeTask.lastErrorCode, locale)
     : null;
   const detailMessage = tradeTask.lastErrorMessage?.trim() || null;
   const selectedItemName =
@@ -61,22 +64,20 @@ export function ExtensionTaskProgress({
       </p>
       {isItemSelected && selectedItemName ? (
         <p className="muted small" data-testid="extension-task-selected-item">
-          Предмет: <strong>{selectedItemName}</strong>
+          {t('extensionTask.itemLabel')} <strong>{selectedItemName}</strong>
         </p>
       ) : null}
       {isConfirmPending ? (
         <p className="alert alert-success" data-testid="extension-task-confirm-pending">
-          Откройте Steam Mobile и подтвердите отправку.
+          {t('extensionTask.confirmPending')}
         </p>
       ) : null}
       {tradeTask.executionPhase === 'OFFER_SENT' ? (
-        <p className="alert alert-success">
-          Обмен отправлен. Дальше ждём покупателя в Steam.
-        </p>
+        <p className="alert alert-success">{t('extensionTask.offerSent')}</p>
       ) : null}
       {isDeliveryCheck ? (
         <p className="alert alert-info" data-testid="extension-task-delivery-check">
-          Предмет уже ушёл из инвентаря. Не создавайте новый offer — проверяем доставку.
+          {t('extensionTask.deliveryCheckBody')}
         </p>
       ) : null}
       {errorHint && !isTerminalFailure ? (
@@ -96,9 +97,7 @@ export function ExtensionTaskProgress({
         </p>
       ) : null}
       {!isTerminalSuccess && !isTerminalFailure && !isDeliveryCheck ? (
-        <p className="muted small">
-          Оставьте вкладку Steam открытой под аккаунтом продавца.
-        </p>
+        <p className="muted small">{t('extensionTask.keepTabOpen')}</p>
       ) : null}
       {showRetry ? (
         <button
@@ -107,16 +106,17 @@ export function ExtensionTaskProgress({
           data-testid="extension-task-retry"
           onClick={() => void requestExtensionPoll()}
         >
-          Повторить сейчас
+          {t('extensionTask.retryNow')}
         </button>
       ) : null}
       {manualFallbackVisible ? (
-        <p className="muted small">
-          Если автоотправка не сработала — откройте блок ниже и укажите offer вручную.
-        </p>
+        <p className="muted small">{t('extensionTask.manualFallbackHint')}</p>
       ) : null}
       <p className="muted small">
-        Попытка {tradeTask.attemptCount} из {tradeTask.maxAttempts}
+        {t('extensionTask.attemptCount', {
+          current: tradeTask.attemptCount,
+          max: tradeTask.maxAttempts,
+        })}
       </p>
     </div>
   );

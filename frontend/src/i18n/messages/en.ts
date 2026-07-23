@@ -1,7 +1,9 @@
 import type { MessageSchema } from './ru.ts';
+import { deepMerge } from '../merge-messages.ts';
+import { clientExtraEn } from './client-extra-en.ts';
 
 /** English UI + official CS2 / Steam Market terminology. */
-export const enMessages = {
+const baseEnMessages = {
   nav: {
     catalog: 'Buy',
     sell: 'Sell',
@@ -80,6 +82,10 @@ export const enMessages = {
       'other-souvenir': 'Souvenirs',
       'other-tool': 'Tools',
     },
+    popularBadge: 'Popular',
+    expandFilter: 'Expand filter',
+    collapseFilter: 'Collapse filter',
+    resetFilter: 'Reset',
   },
   inventory: {
     title: 'Inventory',
@@ -97,6 +103,33 @@ export const enMessages = {
     positions_one: '{{count}} position',
     positions_few: '{{count}} positions',
     positions_many: '{{count}} positions',
+    selectPlaceholderTitle: 'Select an item',
+    selectPlaceholderText: 'Click an available item in your inventory, set a price, and list it.',
+    sortPriceDesc: 'Highest price first',
+    sortPriceAsc: 'Lowest price first',
+    sortName: 'By name',
+    showUnavailable: 'Unavailable',
+    lastSync: 'Last synced: {{when}}',
+    steamPricesAt: 'Steam prices: {{when}}',
+    resetDevTrades: 'Reset test trades',
+    resettingDevTrades: 'Resetting…',
+    devResetHint:
+      'After mock test trades, items may stay stuck in "Sold". Reset returns them to "Available" and cancels stuck deals.',
+    linkSteamFirst: 'Refresh unavailable: link Steam in account settings first.',
+    stale: 'Stale',
+    pricesError: 'Could not load Steam prices.',
+    retry: 'Retry',
+    missingPricesCount_one:
+      'Steam price missing for {{count}} item — you can still list it with a manual price.',
+    missingPricesCount_many:
+      'Steam price missing for {{count}} items — you can still list them with a manual price.',
+    steamRequiredBody:
+      'Link Steam and add a Trade URL first — inventory and trades aren’t available without them.',
+    tradeUrlRequiredPrefix: 'Add a Trade URL in',
+    tradeUrlRequiredLink: 'account settings',
+    tradeUrlRequiredSuffix: '— you can’t list items without it.',
+    loadingHint: 'Loading inventory…',
+    backgroundSyncing: 'Refreshing inventory from Steam in the background…',
   },
   deals: {
     title: 'Deals',
@@ -182,6 +215,46 @@ export const enMessages = {
     invalidWithdraw: 'Enter a valid withdrawal amount.',
     withdrawFeeError: 'Withdrawal amount must be greater than the fee.',
     withdrawFailed: 'Could not create the withdrawal request.',
+    available: 'Available',
+    availableHint: 'Available to spend on purchases',
+    back: 'Back',
+    colAmount: 'Amount',
+    colDate: 'Date',
+    colOrder: 'Deal',
+    colType: 'Type',
+    commission: 'Fee',
+    depositAddressLoading: 'Loading address…',
+    depositAwaiting: 'Awaiting transfer… Funds will appear after TRON network confirmations.',
+    depositNeeded: 'You need at least {{amount}} in your balance to buy.',
+    depositQrAlt: 'QR code for USDT TRC-20 deposit',
+    depositUsdtTitle: 'Deposit USDT (TRC-20)',
+    frozen: 'Frozen',
+    frozenHint: 'Temporarily unavailable',
+    historyTitle: 'Withdrawal history',
+    hold: 'On hold',
+    holdHint: 'Reserved in active deals',
+    minDepositError: 'Minimum deposit is {{amount}}.',
+    minWithdrawError: 'Minimum withdrawal is {{amount}}.',
+    minimum: 'Minimum',
+    openOrder: 'Open deal',
+    receivedAmount: 'net {{amount}}',
+    testDepositBody:
+      'Credits USDT to your balance for testing purchases on staging. Not real money.',
+    testDepositTitle: 'Test deposit',
+    toReceive: 'You’ll receive',
+    transactionsEmpty: 'Transaction history is empty.',
+    transactionsTitle: 'Transaction history',
+    trc20Address: 'TRC-20 address',
+    warningMinDeposit: 'Minimum deposit: {{amount}}.',
+    warningOtherLost: 'Other tokens and networks will be lost permanently.',
+    warningRate: 'Conversion rate: 1 USDT = 1 USD on the marketplace balance.',
+    warningTokenNetwork: 'Only {{token}} on the {{network}} network.',
+    whatIsHoldBody:
+      'When you buy, the deal amount moves from "Available" to "On hold" — the funds are reserved but not yet transferred to the seller. Once the Steam trade is confirmed, the hold is released to the seller. If the deal is canceled or fails, the funds return to "Available".',
+    whatIsHoldTitle: 'What is a hold?',
+    withdrawUsdtBody:
+      'Funds will be deducted from your available balance and sent to the specified TRC-20 address after review.',
+    withdrawUsdtTitle: 'Withdraw USDT (TRC-20)',
   },
   account: {
     title: 'Account',
@@ -192,6 +265,39 @@ export const enMessages = {
     adminPrices: 'Catalog prices',
     steamLinked: 'Linked Steam',
     steamNotLinked: 'Steam not linked',
+    subtitle: 'Settings for trading: Trade URL, Steam, and the extension.',
+    tradeUrlTitle: 'Trade URL',
+    tradeUrlNeeded: 'Required for Steam trades.',
+    tradeUrlLabel: 'Trade URL',
+    tradeUrlPlaceholder: 'https://steamcommunity.com/tradeoffer/new/?partner=…&token=…',
+    tradeUrlRequired: 'Enter your Trade URL from Steam.',
+    tradeUrlInvalid:
+      'Invalid link. Expected a URL like https://steamcommunity.com/tradeoffer/new/?partner=…&token=…',
+    saveTradeUrl: 'Save Trade URL',
+    savingTradeUrl: 'Saving…',
+    tradeUrlSaved: 'Trade URL saved.',
+    getTradeUrl: 'Get trade URL',
+    steamSectionTitle: 'Steam',
+    linkSteamHint: 'Link Steam to sync your inventory and take part in deals.',
+    linkSteamButton: 'Link Steam',
+    linkSteamRedirecting: 'Redirecting…',
+    steamLinkedMessage: 'Steam linked',
+    steamLinkedWithName: 'Steam linked: {{name}}',
+    changeSteamButton: 'Change Steam',
+    changeSteamLoading: 'Unlinking…',
+    changeSteamConfirm:
+      'Unlink the current Steam account and link a different one?\n\nSteam sign-out will open in the browser first — sign in with the account you want, then finish linking on this page.',
+    changeSteamSuccess:
+      'Steam unlinked. Sign out of Steam in the opened tab, then click "Link Steam" again.',
+    steamLinkUnavailable: 'Steam linking is available when AUTH_PROVIDER=steam.',
+    name: 'Name',
+    role: 'Role',
+    status: 'Status',
+    steamId: 'Steam ID',
+    steamNotLinkedValue: 'Not linked',
+    steamNick: 'Steam nickname',
+    steamPersonaLoading: 'Loading…',
+    devHint: 'Dev: {{provider}}',
   },
   faq: {
     title: 'FAQ',
@@ -208,6 +314,32 @@ export const enMessages = {
     title: 'Support',
     subtitle:
       'Describe the issue — the team will reply here or by email. Common answers are in FAQ.',
+    openFaq: 'Open FAQ',
+    createTicket: 'Create a ticket',
+    formHint:
+      'Describe the issue. For a purchase or sale, include the deal ID (Deals → click the ID in the list or Copy on the deal page). Email:',
+    loginRequired: 'Sign in with Steam in the site header to create a ticket.',
+    topicLabel: 'Topic',
+    topicPlaceholder: 'Select a topic',
+    bodyLabel: 'Description',
+    bodyPlaceholder:
+      'Deal ID (from the deal page), what happened, and what you already tried…',
+    submit: 'Submit ticket',
+    submitting: 'Sending…',
+    success: 'Ticket created. Support will reply in this section.',
+    myTickets: 'My tickets',
+    statusOpen: 'Open',
+    statusResolved: 'Resolved',
+    adminReply: 'Support reply:',
+    topic: {
+      deal: 'Deal / trade issue',
+      deposit: 'Deposit',
+      withdrawal: 'Withdrawal',
+      listing: 'Listing an item',
+      extension: 'Browser extension',
+      account: 'Account / Steam / Trade URL',
+      other: 'Other',
+    },
   },
   item: {
     type: 'Type',
@@ -246,6 +378,24 @@ export const enMessages = {
     emptyPurchasesMessage: 'Pick a listing in the catalog to make your first purchase.',
     emptySalesMessage: 'List an item from your inventory to start selling.',
     emptyMessage: 'Buy a listing in the catalog or list an item for sale.',
+    summaryActive: 'Active',
+    summaryWaitingTrade: 'Awaiting trade',
+    summaryCompleted: 'Completed',
+    summaryReview: 'Under review',
+    colItem: 'Item',
+    colAmount: 'Amount',
+    colStatus: 'Status',
+    colDate: 'Date',
+    colId: 'ID',
+    statusLabel: 'Status',
+    roleLabel: 'Role',
+    roleBuyer: 'Buyer',
+    roleSeller: 'Seller',
+    roleOther: '—',
+    pendingReceive: 'Pending payout',
+    toCatalog: 'To catalog',
+    toInventory: 'To inventory',
+    noFilteredResults: 'No deals match the selected filters.',
   },
   auth: {
     steamLogin: 'Sign in with Steam',
@@ -342,4 +492,101 @@ export const enMessages = {
     lot_few: '{{count}} listings',
     lot_many: '{{count}} listings',
   },
-} as const satisfies MessageSchema;
+  steamCallback: {
+    default: 'Could not complete Steam sign-in.',
+    defaultError: 'Could not complete Steam sign-in.',
+    homeAction: 'Home',
+    accountAction: 'Open account',
+    catalogAction: 'Back to catalog',
+  },
+  steamCallbackAction: {
+    home: 'Home',
+    account: 'Open account',
+    catalog: 'Back to catalog',
+  },
+  orderNextAction: {
+    completedTitle: 'Deal completed',
+    completedSellerBody: 'Payment was credited to your balance (listing price minus the 5% fee).',
+    completedBuyerBody: 'Funds were transferred to the seller. The item is in your Steam inventory.',
+    settlementHoldSellerTitle: 'Funds under review',
+    settlementHoldSellerBody:
+      'The trade is confirmed. Payout to your balance after the review window (up to 8 days).',
+    settlementHoldSellerBody2:
+      'The deal is confirmed. Funds will be credited once the 8-day review period ends.',
+    settlementHoldBuyerTitle: 'Deal under review',
+    settlementHoldBuyerBody: 'The trade went through. Final settlement happens after the review window.',
+    settlementHoldBuyerBody2:
+      'The trade is confirmed. The payout to the seller will be available after the 8-day review period.',
+    canceledTitle: 'Deal canceled',
+    canceledBody: 'The reserved funds were returned to your wallet.',
+    failedTitle: 'Deal failed',
+    failedBody: 'Funds were refunded to the buyer, the listing is back in the catalog.',
+    disputeTitle: 'Dispute opened',
+    disputeBody: 'The support team will review the situation and make a decision.',
+    buyerCheckItemTitle: 'Check the item in Steam',
+    buyerCheckItemBody:
+      'The trade may have already gone through. Open your Steam inventory — the platform will verify delivery itself.',
+    buyerAwaitingOfferTitle: 'Waiting for the trade from the seller',
+    buyerAwaitingOfferBody:
+      'The seller is sending the trade offer. This usually takes 1–2 minutes — the page updates itself.',
+    buyerAcceptTitle: 'Accept the trade in Steam',
+    buyerAcceptBody:
+      'Open your incoming offers, check the skin, and accept the trade. The site will update itself.',
+    tradeConfirmedTitle: 'Trade confirmed',
+    tradeConfirmedBuyerBody: 'The platform is finishing its checks. The page will update automatically.',
+    tradeConfirmedSellerBody: 'Waiting for the payout to your wallet.',
+    waitTitle: 'Please wait',
+    waitBody: 'The deal is being processed. The status will update automatically.',
+    sellerWaitBody: 'The deal is being processed.',
+    sellerCheckingDeliveryTitle: 'Checking delivery',
+    sellerCheckingDeliveryBody:
+      "The item already left your inventory. Don't send a new trade — the platform is verifying the buyer.",
+    sellerAwaitingAutoSendTitle: 'Waiting for auto-send',
+    sellerAwaitingAutoSendBody:
+      'The extension will send the trade automatically. If Steam asks — confirm it in the mobile app.',
+    sellerConfirmGuardTitle: 'Confirm in Steam Guard',
+    sellerConfirmGuardBody:
+      'If Steam sent a request — confirm it on your phone. Then we wait for the buyer to accept.',
+    sellerAwaitingBuyerTitle: 'Waiting for the buyer',
+    sellerAwaitingBuyerBody:
+      'The trade was sent. The buyer needs to accept it in their incoming Steam offers.',
+  },
+  dealFlowStep: {
+    reserve: {
+      title: 'Funds reserved',
+      description: 'You confirm the purchase — funds are held in your wallet.',
+    },
+    'trade-offer': {
+      title: 'Steam trade',
+      description: 'The seller sends a trade offer in Steam.',
+    },
+    accept: {
+      title: 'Accept the trade',
+      description: 'You accept the trade — only then are funds released to the seller.',
+    },
+    refund: {
+      title: 'Refund on failure',
+      description: 'If the trade fails, the hold is released and the money is refunded.',
+    },
+  },
+  buyRequestFlowStep: {
+    request: {
+      title: 'Place a buy order',
+      description: 'Set a maximum price, or watch for any offer.',
+    },
+    notify: {
+      title: 'Get notified',
+      description: "We'll notify you in the app as soon as a matching listing appears.",
+    },
+    choose: {
+      title: 'Pick a listing',
+      description: 'Compare float, stickers, and price — then open a specific offer.',
+    },
+    buy: {
+      title: 'Buy as usual',
+      description: 'Then it is a standard purchase: funds reserved and Steam trade.',
+    },
+  },
+} as const;
+
+export const enMessages = deepMerge(baseEnMessages, clientExtraEn) satisfies MessageSchema;

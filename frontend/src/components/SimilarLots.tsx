@@ -1,6 +1,7 @@
 import type { KeyboardEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
 import type { Lot } from '../api/types';
+import { useLocale } from '../i18n';
 import { ItemPreview } from './ItemPreview';
 import { LoadingState } from './LoadingState';
 import { MoneyDisplay } from './MoneyDisplay';
@@ -14,6 +15,7 @@ type SimilarLotsProps = {
 };
 
 export function SimilarLots({ lots, loading = false, prominent = false }: SimilarLotsProps) {
+  const { t } = useLocale();
   const navigate = useNavigate();
 
   if (!loading && lots.length === 0) {
@@ -36,9 +38,9 @@ export function SimilarLots({ lots, loading = false, prominent = false }: Simila
       className={`similar-lots${prominent ? ' similar-lots-prominent' : ''}`}
       data-testid="similar-lots"
     >
-      <h3 className="similar-lots-title">Похожие предложения</h3>
+      <h3 className="similar-lots-title">{t('similarLots.title')}</h3>
 
-      {loading ? <LoadingState message="Загрузка похожих лотов…" /> : null}
+      {loading ? <LoadingState message={t('similarLots.loading')} /> : null}
 
       {!loading ? (
         <div className="similar-lots-grid">
@@ -56,7 +58,9 @@ export function SimilarLots({ lots, loading = false, prominent = false }: Simila
                 onKeyDown={(event) => handleCardKeyDown(event, lot.id)}
                 role="link"
                 tabIndex={0}
-                aria-label={`Открыть лот ${displayItem.itemDefinition.marketHashName}`}
+                aria-label={t('similarLots.openLotAria', {
+                  name: displayItem.itemDefinition.marketHashName,
+                })}
               >
                 <ItemPreview
                   item={displayItem}
@@ -66,16 +70,18 @@ export function SimilarLots({ lots, loading = false, prominent = false }: Simila
                 />
                 {floatText ? (
                   <p className="muted small similar-lot-float" data-testid="similar-lot-float">
-                    Float: {floatText}
+                    {t('similarLots.float', { value: floatText })}
                   </p>
                 ) : null}
                 {patternText ? (
-                  <p className="muted small similar-lot-pattern">Паттерн: {patternText}</p>
+                  <p className="muted small similar-lot-pattern">
+                    {t('similarLots.pattern', { value: patternText })}
+                  </p>
                 ) : null}
                 <p className="similar-lot-price">
                   <MoneyDisplay minor={lot.priceMinor} strong />
                 </p>
-                <span className="similar-lot-open-hint">Открыть лот →</span>
+                <span className="similar-lot-open-hint">{t('similarLots.openHint')}</span>
               </article>
             );
           })}

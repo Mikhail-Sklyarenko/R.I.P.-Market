@@ -1,8 +1,4 @@
-const TRUST_BANNER_STEPS = [
-  'Выбираете предмет',
-  'Деньги в hold',
-  'После передачи сделка завершается',
-] as const;
+import { useLocale } from '../i18n';
 
 function ShieldIcon() {
   return (
@@ -32,21 +28,21 @@ function ShieldIcon() {
 }
 
 export function TrustBanner() {
+  const { t } = useLocale();
+  const steps = [t('trustBanner.step1'), t('trustBanner.step2'), t('trustBanner.step3')];
+
   return (
     <div className="card trust-banner" data-testid="trust-banner">
       <div className="trust-banner-main">
         <ShieldIcon />
         <div className="trust-banner-copy">
-          <h3 className="trust-banner-title">Покупайте скины через защищённую сделку</h3>
-          <p className="muted small trust-banner-subtitle">
-            Средства резервируются на кошельке (hold) и переводятся продавцу только после
-            подтверждения передачи предмета в Steam.
-          </p>
+          <h3 className="trust-banner-title">{t('trustBanner.title')}</h3>
+          <p className="muted small trust-banner-subtitle">{t('trustBanner.subtitle')}</p>
         </div>
       </div>
 
-      <ol className="trust-banner-steps" aria-label="Как работает защищённая сделка">
-        {TRUST_BANNER_STEPS.map((step, index) => (
+      <ol className="trust-banner-steps" aria-label={t('trustBanner.stepsAria')}>
+        {steps.map((step, index) => (
           <li
             key={step}
             className="trust-banner-step"

@@ -1,3 +1,5 @@
+import { useLocale } from '../i18n';
+
 export type ListingSticker = {
   name: string;
   wearPercent?: number | null;
@@ -9,13 +11,14 @@ type LotStickersProps = {
 };
 
 export function LotStickers({ stickers, testIdPrefix = 'lot' }: LotStickersProps) {
+  const { t } = useLocale();
   if (!stickers || stickers.length === 0) {
     return null;
   }
 
   return (
     <div className="lot-stickers" data-testid={`${testIdPrefix}-stickers`}>
-      <p className="field-label">Стикеры</p>
+      <p className="field-label">{t('lotStickers.label')}</p>
       <ul className="lot-stickers-list">
         {stickers.map((sticker, index) => (
           <li

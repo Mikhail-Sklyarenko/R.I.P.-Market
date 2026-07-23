@@ -1,4 +1,5 @@
 import { Link } from 'react-router-dom';
+import { useLocale } from '../i18n';
 import { SteamItemImage } from './SteamItemImage';
 
 type OrderItemLinkProps = {
@@ -20,6 +21,7 @@ export function OrderItemLink({
   compact = false,
   testId,
 }: OrderItemLinkProps) {
+  const { t } = useLocale();
   return (
     <Link
       to={href}
@@ -27,7 +29,11 @@ export function OrderItemLink({
         .filter(Boolean)
         .join(' ')}
       data-testid={testId}
-      title={compact ? `Открыть сделку: ${name}` : `Открыть ${name}`}
+      title={
+        compact
+          ? t('orderItemLink.openDeal', { name })
+          : t('orderItemLink.open', { name })
+      }
     >
       <span className="order-item-link-thumb" aria-hidden="true">
         <SteamItemImage
@@ -39,7 +45,7 @@ export function OrderItemLink({
       <span className="order-item-link-copy">
         <span className="order-item-link-name">{name}</span>
         {!compact ? (
-          <span className="order-item-link-hint">Страница предмета</span>
+          <span className="order-item-link-hint">{t('orderItemLink.itemPageHint')}</span>
         ) : null}
       </span>
     </Link>

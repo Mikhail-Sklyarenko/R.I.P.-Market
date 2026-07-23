@@ -5,6 +5,7 @@ import { mockTradeFail, mockTradeTimeout } from '../api/admin';
 import { getSettlementEligibility } from '../api/settlement';
 import type { Order } from '../api/types';
 import { useAuth } from '../auth/AuthContext';
+import { useLocale } from '../i18n';
 import { ErrorAlert } from '../components/ErrorAlert';
 import { ItemPreview } from '../components/ItemPreview';
 import { LoadingState } from '../components/LoadingState';
@@ -42,6 +43,7 @@ const POLL_STATUSES = new Set(['WAITING_TRADE', 'TRADE_CONFIRMED', 'PAYMENT_RESE
 
 export function OrderPage() {
   const { id } = useParams();
+  const { t, locale } = useLocale();
   const { token, user } = useAuth();
   const [order, setOrder] = useState<Order | null>(null);
   const [mockTradeEnabled, setMockTradeEnabled] = useState(MOCK_TRADE_ENABLED);
@@ -78,7 +80,7 @@ export function OrderPage() {
     !mockBlockedByLiveSettlement &&
     canShowDevPanels(user?.role) &&
     (user?.role === 'ADMIN' || (MOCK_TRADE_ENABLED && isBuyer && tradeProvider === 'mock'));
-  const nextAction = order ? getOrderNextAction(order, role) : null;
+  const nextAction = order ? getOrderNextAction(order, role, locale) : null;
   const showTradePanels = order?.status === 'WAITING_TRADE';
 
   const load = useCallback(() => {
@@ -202,8 +204,8 @@ export function OrderPage() {
       setOrder(result.order);
       setDeliveryCheckMessage(
         result.transitioned
-          ? 'Доставка подтверждена — статус заказа обновлён.'
-          : 'Проверка выполнена. Если предмет уже у вас в Steam, подождите ещё немного и повторите.',
+          ? t('orderPage.deliveryConfirmed')
+          : t('orderPage.deliveryCheckDone'),
       );
     } catch (err) {
       setError(err);
@@ -311,24 +313,24 @@ export function OrderPage() {
   return (
     <div className="page order-page">
       <PageHeader
-        title="Сделка"
+        title={t('orderPage.title')}
         subtitle={
           isSeller
-            ? 'Отслеживайте продажу и обмен в Steam.'
-            : 'Отслеживайте покупку и статус обмена.'
+            ? t('orderPage.subtitleSeller')
+            : t('orderPage.subtitleBuyer')
         }
         actions={
           <Link to="/deals?tab=sales" className="button secondary">
-            Мои сделки
+            {t('orderPage.myDeals')}
           </Link>
         }
       />
 
-      {loading ? <LoadingState message="Загрузка сделки…" /> : null}
+      {loading ? <LoadingState message={t('orderPage.loading')} /> : null}
 
       {settlementBanner ? (
         <div className="card notice-banner" data-testid="real-settlement-banner">
-          На этом окружении для вашего Steam-аккаунта включён реальный расчёт после обмена.
+          {t('orderPage.realSettlementBanner')}
         </div>
       ) : null}
 
@@ -356,14 +358,14 @@ export function OrderPage() {
                       className="button secondary sm"
                       data-testid="order-open-item-page"
                     >
-                      Страница предмета
+                      {t('orderPage.itemPageLink')}
                     </Link>
                     <Link
                       to={`/lots/${order.lotId}`}
                       className="button ghost sm"
                       data-testid="order-open-lot-page"
                     >
-                      Лот
+                      {t('orderPage.lotLink')}
                     </Link>
                   </p>
                   {asset.floatValue !== null &&
@@ -374,19 +376,19 @@ export function OrderPage() {
                   <dl className="lot-attrs-grid meta-list">
                     {category ? (
                       <div>
-                        <dt>Категория</dt>
+                        <dt>{t('orderPage.category')}</dt>
                         <dd>{category}</dd>
                       </div>
                     ) : null}
                     {wear ? (
                       <div>
-                        <dt>Износ</dt>
+                        <dt>{t('orderPage.wear')}</dt>
                         <dd>{wear}</dd>
                       </div>
                     ) : null}
                     {floatText ? (
                       <div>
-                        <dt>Флоат</dt>
+                        <dt>{t('orderPage.floatLabel')}</dt>
                         <dd>{floatText}</dd>
                       </div>
                     ) : null}
@@ -407,15 +409,18 @@ export function OrderPage() {
 
             {order.statusEvents && order.statusEvents.length > 0 ? (
               <details className="order-timeline-details">
-                <summary className="order-timeline-summary">История статусов</summary>
+                <summary className="order-timeline-summary">{t('orderPage.statusHistory')}</summary>
                 <div className="order-timeline" data-testid="order-timeline">
                   <ul className="simple-list">
                     {order.statusEvents.map((event) => (
                       <li key={event.id}>
-                        <strong>{formatOrderStatus(event.toStatus)}</strong>
+                        <strong>{formatOrderStatus(event.toStatus, locale)}</strong>
                         <span className="muted small">
                           {' '}
-                          · {new Date(event.createdAt).toLocaleString('ru-RU')}
+                          ·{' '}
+                          {new Date(event.createdAt).toLocaleString(
+                            locale === 'en' ? 'en-US' : 'ru-RU',
+                          )}
                         </span>
                         {event.reason ? (
                           <span className="muted small"> · {event.reason}</span>
@@ -433,7 +438,7 @@ export function OrderPage() {
               <div className="order-action-header">
                 <StatusBadge
                   status={order.status}
-                  label={formatOrderStatus(order.status)}
+                  label={formatOrderStatus(order.status, locale)}
                   compact
                 />
                 <span data-testid="order-status" className="sr-only">
@@ -444,15 +449,15 @@ export function OrderPage() {
               <CopyableDealId id={order.id} testId="order-deal-id" />
 
               <p className="muted small order-support-link">
-                <Link to="/support">Написать в поддержку</Link>
-                {' — укажите ID сделки выше.'}
+                <Link to="/support">{t('orderPage.supportLink')}</Link>
+                {t('orderPage.supportLinkSuffix')}
               </p>
 
               {showTradePanels && timeoutRemainingMinutes !== null ? (
                 <p className="order-trade-timeout" data-testid="order-trade-timeout">
                   {timeoutRemainingMinutes > 0
-                    ? `Осталось ~${timeoutRemainingMinutes} мин. до автоматического спора.`
-                    : 'Время на обмен истекло — скоро может быть открыт спор.'}
+                    ? t('orderPage.timeoutRemaining', { minutes: timeoutRemainingMinutes })
+                    : t('orderPage.timeoutExpired')}
                 </p>
               ) : null}
 
@@ -471,8 +476,8 @@ export function OrderPage() {
               extensionTaskPipeline &&
               canShowDevPanels(user?.role) ? (
                 <p className="muted small" data-testid="extension-ui-trade-hint">
-                  Extension trade mode:{' '}
-                  {formatExtensionUiTradeFlowLabel(extensionUiTradeFlow)}
+                  {t('orderPage.extensionTradeModeLabel')}{' '}
+                  {formatExtensionUiTradeFlowLabel(extensionUiTradeFlow, locale)}
                 </p>
               ) : null}
 
@@ -521,31 +526,34 @@ export function OrderPage() {
 
               <div className="order-money-summary" data-testid="order-money-block">
                 <div className="order-money-row">
-                  <span>Сумма</span>
+                  <span>{t('orderPage.amount')}</span>
                   <MoneyDisplay minor={order.amountMinor} strong />
                 </div>
                 <div className="order-money-row">
-                  <span>На hold</span>
+                  <span>{t('orderPage.onHold')}</span>
                   <MoneyDisplay
                     minor={order.hold?.amountMinor ?? order.holdAmountMinor}
                     strong
                   />
                 </div>
                 <div className="order-money-row order-money-meta">
-                  <span>Роль</span>
+                  <span>{t('orderPage.role')}</span>
                   <strong data-testid="order-role">
-                    {formatOrderRoleLabel(isBuyer ? 'buyer' : isSeller ? 'seller' : 'other')}
+                    {formatOrderRoleLabel(
+                      isBuyer ? 'buyer' : isSeller ? 'seller' : 'other',
+                      locale,
+                    )}
                   </strong>
                 </div>
                 <div className="order-money-row order-money-meta">
-                  <span>Обмен</span>
+                  <span>{t('orderPage.trade')}</span>
                   <strong data-testid="trade-operation-status">
-                    {formatTradePollStatus(order.tradeOperation)}
+                    {formatTradePollStatus(order.tradeOperation, locale)}
                   </strong>
                 </div>
                 {order.tradeOperation?.externalOfferId ? (
                   <div className="order-money-row order-money-meta">
-                    <span>Offer ID</span>
+                    <span>{t('orderPage.offerId')}</span>
                     <strong data-testid="trade-offer-id-summary">
                       {order.tradeOperation.externalOfferId}
                     </strong>
@@ -555,7 +563,7 @@ export function OrderPage() {
 
               {showMockTradePanel ? (
                 <div className="dev-panel" data-testid="mock-trade-panel">
-                  <p className="muted small">Dev/stage: simulate trade outcomes.</p>
+                  <p className="muted small">{t('orderPage.devSimulateHint')}</p>
                   <div className="stack">
                     <button
                       type="button"
@@ -564,7 +572,7 @@ export function OrderPage() {
                       data-testid="mock-trade-success"
                       onClick={() => void handleMockSuccess()}
                     >
-                      {completing ? 'Completing…' : 'Complete trade (mock)'}
+                      {completing ? t('orderPage.completing') : t('orderPage.completeTradeMock')}
                     </button>
                     <button
                       type="button"
@@ -573,7 +581,7 @@ export function OrderPage() {
                       data-testid="mock-trade-fail-safe"
                       onClick={() => void handleMockFail('SAFE')}
                     >
-                      {failing === 'SAFE' ? 'Failing…' : 'Fail trade (safe)'}
+                      {failing === 'SAFE' ? t('orderPage.failing') : t('orderPage.failTradeSafe')}
                     </button>
                     <button
                       type="button"
@@ -582,7 +590,9 @@ export function OrderPage() {
                       data-testid="mock-trade-fail-dispute"
                       onClick={() => void handleMockFail('DISPUTE')}
                     >
-                      {failing === 'DISPUTE' ? 'Failing…' : 'Fail trade (dispute)'}
+                      {failing === 'DISPUTE'
+                        ? t('orderPage.failing')
+                        : t('orderPage.failTradeDispute')}
                     </button>
                     <button
                       type="button"
@@ -591,7 +601,9 @@ export function OrderPage() {
                       data-testid="mock-trade-timeout"
                       onClick={() => void handleMockTimeout()}
                     >
-                      {failing === 'TIMEOUT' ? 'Timing out…' : 'Trade timeout (dispute)'}
+                      {failing === 'TIMEOUT'
+                        ? t('orderPage.timingOut')
+                        : t('orderPage.tradeTimeoutDispute')}
                     </button>
                   </div>
                 </div>
@@ -606,32 +618,32 @@ export function OrderPage() {
                     data-testid="cancel-order-button"
                     onClick={() => void handleCancel()}
                   >
-                    {canceling ? 'Отменяем…' : 'Отменить сделку'}
+                    {canceling ? t('orderPage.canceling') : t('orderPage.cancelOrder')}
                   </button>
                 </div>
               ) : null}
 
               {order.status === 'FAILED' ? (
                 <p className="muted small" data-testid="order-failed-message">
-                  Сделка не состоялась. Средства возвращены при необходимости.
+                  {t('orderPage.failedMessage')}
                 </p>
               ) : null}
 
               {order.status === 'DISPUTE' ? (
                 <p className="muted small" data-testid="order-dispute-message">
-                  Открыт спор. Команда поддержки рассмотрит ситуацию.
+                  {t('orderPage.disputeMessage')}
                 </p>
               ) : null}
 
               {order.status === 'COMPLETED' ? (
                 <p className="success-text" data-testid="order-completed-message">
-                  Сделка успешно завершена.
+                  {t('orderPage.completedMessage')}
                 </p>
               ) : null}
 
               {order.status === 'CANCELED' ? (
                 <p className="muted small" data-testid="order-canceled-message">
-                  Сделка отменена. Средства возвращены при необходимости.
+                  {t('orderPage.canceledMessage')}
                 </p>
               ) : null}
 

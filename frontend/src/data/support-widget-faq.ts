@@ -1,3 +1,6 @@
+import type { Locale } from '../i18n/types.ts';
+import { SUPPORT_WIDGET_ARTICLES_EN } from './support-widget-faq-en.ts';
+
 export type SupportWidgetArticle = {
   id: string;
   title: string;
@@ -51,13 +54,23 @@ export const SUPPORT_WIDGET_ARTICLES: readonly SupportWidgetArticle[] = [
   },
 ];
 
-export function filterSupportWidgetFaq(query: string): SupportWidgetArticle[] {
+export function getSupportWidgetArticles(
+  locale: Locale = 'ru',
+): readonly SupportWidgetArticle[] {
+  return locale === 'en' ? SUPPORT_WIDGET_ARTICLES_EN : SUPPORT_WIDGET_ARTICLES;
+}
+
+export function filterSupportWidgetFaq(
+  query: string,
+  locale: Locale = 'ru',
+): SupportWidgetArticle[] {
   const normalized = query.trim().toLowerCase();
+  const articles = getSupportWidgetArticles(locale);
   if (!normalized) {
-    return [...SUPPORT_WIDGET_ARTICLES];
+    return [...articles];
   }
 
-  return SUPPORT_WIDGET_ARTICLES.filter((article) => {
+  return articles.filter((article) => {
     const haystack = [article.title, article.body, ...article.keywords]
       .join(' ')
       .toLowerCase();

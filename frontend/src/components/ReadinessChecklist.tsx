@@ -1,4 +1,5 @@
 import type { AuthConfig, AuthUser } from '../api/types';
+import { useLocale } from '../i18n';
 import { hasLinkedSteamId } from '../utils/steam-id';
 import { hasTradeUrl } from '../utils/trade-url';
 
@@ -35,26 +36,23 @@ export function ReadinessChecklist({
   config,
   compactWhenReady = false,
 }: ReadinessChecklistProps) {
+  const { t } = useLocale();
   const steamLinked = hasLinkedSteamId(user?.steamId);
   const tradeUrlReady = hasTradeUrl(user?.tradeUrl);
 
   const items: ChecklistItem[] = [
     {
       key: 'steam',
-      label: 'Steam привязан',
+      label: t('readiness.steamItemLabel'),
       ready: steamLinked,
       hint:
-        !steamLinked && config?.steamLoginAvailable
-          ? 'Привяжите Steam, чтобы синхронизировать инвентарь и участвовать в сделках.'
-          : undefined,
+        !steamLinked && config?.steamLoginAvailable ? t('readiness.steamHint') : undefined,
     },
     {
       key: 'trade-url',
-      label: 'Ссылка на обмен указана',
+      label: t('readiness.tradeUrlItemLabel'),
       ready: tradeUrlReady,
-      hint: !tradeUrlReady
-        ? 'Укажите ссылку на обмен в настройках аккаунта для обменов в Steam.'
-        : undefined,
+      hint: !tradeUrlReady ? t('readiness.tradeUrlHint') : undefined,
     },
   ];
 
@@ -62,9 +60,9 @@ export function ReadinessChecklist({
     return (
       <div className="readiness-checklist-compact" data-testid="readiness-checklist">
         <p className="readiness-checklist-compact-text">
-          <span data-testid="readiness-steam">✓ Steam привязан</span>
+          <span data-testid="readiness-steam">✓ {t('readiness.steamLinkedLabel')}</span>
           <span aria-hidden="true"> · </span>
-          <span data-testid="readiness-trade-url">✓ Trade URL указан</span>
+          <span data-testid="readiness-trade-url">✓ {t('readiness.tradeUrlReadyLabel')}</span>
         </p>
       </div>
     );
@@ -72,7 +70,7 @@ export function ReadinessChecklist({
 
   return (
     <div className="card readiness-checklist" data-testid="readiness-checklist">
-      <h3 className="readiness-checklist-title">Готовность к сделкам</h3>
+      <h3 className="readiness-checklist-title">{t('readiness.checklistTitle')}</h3>
       <ul className="readiness-checklist-list">
         {items.map((item) => (
           <li

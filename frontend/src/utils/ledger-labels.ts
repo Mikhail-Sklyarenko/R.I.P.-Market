@@ -1,6 +1,16 @@
 import type { LedgerEntry } from '../api/types';
+import { enMessages } from '../i18n/messages/en.ts';
+import { ruMessages } from '../i18n/messages/ru.ts';
+import { translate } from '../i18n/translate.ts';
+import type { Locale } from '../i18n/types.ts';
 import { formatUsdFromMinor } from './format';
 
+const messagesByLocale = {
+  ru: ruMessages,
+  en: enMessages,
+} as const;
+
+/** @deprecated Prefer formatLedgerEntryType(type, locale) */
 export const LEDGER_ENTRY_LABELS: Record<string, string> = {
   DEPOSIT: 'Пополнение',
   HOLD_RESERVE: 'Резерв (hold)',
@@ -15,8 +25,8 @@ export const LEDGER_ENTRY_LABELS: Record<string, string> = {
   MANUAL_ADJUSTMENT: 'Ручная корректировка',
 };
 
-export function formatLedgerEntryType(type: string): string {
-  return LEDGER_ENTRY_LABELS[type] ?? type;
+export function formatLedgerEntryType(type: string, locale: Locale = 'ru'): string {
+  return translate(messagesByLocale[locale], `ledgerEntry.${type}`);
 }
 
 export function resolveLedgerOrderId(entry: LedgerEntry): string | null {

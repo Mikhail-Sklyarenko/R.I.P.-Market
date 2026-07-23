@@ -141,6 +141,13 @@ type InventoryPriceHintLike = {
 
 export type InventorySortOption = 'price-desc' | 'price-asc' | 'name';
 
+export const INVENTORY_SORT_OPTION_IDS: InventorySortOption[] = [
+  'price-desc',
+  'price-asc',
+  'name',
+];
+
+/** @deprecated Prefer INVENTORY_SORT_OPTION_IDS + t('inventory.sort*') at the call site */
 export const INVENTORY_SORT_OPTIONS: Array<{
   id: InventorySortOption;
   label: string;
@@ -149,6 +156,16 @@ export const INVENTORY_SORT_OPTIONS: Array<{
   { id: 'price-asc', label: 'Сначала дешёвые' },
   { id: 'name', label: 'По названию' },
 ];
+
+const INVENTORY_SORT_OPTION_KEYS: Record<InventorySortOption, string> = {
+  'price-desc': 'inventory.sortPriceDesc',
+  'price-asc': 'inventory.sortPriceAsc',
+  name: 'inventory.sortName',
+};
+
+export function inventorySortOptionLabelKey(option: InventorySortOption): string {
+  return INVENTORY_SORT_OPTION_KEYS[option];
+}
 
 /**
  * Inventory sort price = Steam (same signal as the card primary in seller context).
@@ -367,11 +384,19 @@ export function inventoryDisplayStackKey(asset: {
   return `fungible:${asset.status}:${name}`;
 }
 
+/** @deprecated Prefer t('sellerSale.step1'..'step4') at the call site (SellerSaleInfo). */
 export const SELLER_SALE_STEPS = [
   'Выставляете предмет и указываете цену.',
   'Покупатель резервирует средства — лот переходит в RESERVED.',
   'Вы отправляете trade offer в Steam покупателю.',
   'После подтверждения обмена получаете выплату за вычетом комиссии 5%.',
+] as const;
+
+export const SELLER_SALE_STEP_KEYS = [
+  'sellerSale.step1',
+  'sellerSale.step2',
+  'sellerSale.step3',
+  'sellerSale.step4',
 ] as const;
 
 /** @deprecated Prefer assetStatusLabel(status, locale) */

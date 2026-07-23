@@ -1,6 +1,7 @@
 import type { Order } from '../api/types';
+import { useLocale } from '../i18n';
 import {
-  BUYER_TRADE_SAFETY_CHECKLIST,
+  getBuyerTradeSafetyChecklist,
   isOrderTradeDeliveryCheck,
   STEAM_INCOMING_OFFERS_URL,
 } from '../utils/order-trade';
@@ -30,6 +31,7 @@ export function OrderTradeBuyerPanel({
   onAcknowledgePreAccept,
   onAcknowledgeReceived,
 }: OrderTradeBuyerPanelProps) {
+  const { t, locale } = useLocale();
   const hasOfferSaved = Boolean(order.tradeOperation?.externalOfferId);
   const acks = order.tradeAcknowledgments;
   const isDeliveryCheck = isOrderTradeDeliveryCheck(order);
@@ -63,7 +65,7 @@ export function OrderTradeBuyerPanel({
 
   return (
     <div className="card order-trade-panel" data-testid="buyer-trade-panel">
-      <h3 className="order-trade-panel-title">Ваш шаг</h3>
+      <h3 className="order-trade-panel-title">{t('orderTradePanel.yourStep')}</h3>
 
       {nextActionTitle ? (
         <div className="next-action-card" data-testid="order-next-action">
@@ -76,11 +78,8 @@ export function OrderTradeBuyerPanel({
 
       {isDeliveryCheck ? (
         <div className="alert alert-info" data-testid="buyer-delivery-check-banner">
-          <strong>Проверьте предмет в Steam</strong>
-          <p className="muted small">
-            Обмен мог уже пройти. Откройте инвентарь Steam — платформа подтвердит сделку
-            сама.
-          </p>
+          <strong>{t('orderTradePanel.checkItemTitle')}</strong>
+          <p className="muted small">{t('orderTradePanel.checkItemBody')}</p>
           {onCheckDelivery ? (
             <button
               type="button"
@@ -89,7 +88,7 @@ export function OrderTradeBuyerPanel({
               data-testid="check-delivery-now"
               onClick={onCheckDelivery}
             >
-              {checkingDelivery ? 'Проверяем…' : 'Проверить доставку сейчас'}
+              {checkingDelivery ? t('orderTradePanel.checking') : t('orderTradePanel.checkNow')}
             </button>
           ) : null}
         </div>
@@ -98,8 +97,8 @@ export function OrderTradeBuyerPanel({
       {showAwaitingSeller ? (
         <p className="muted small" data-testid="buyer-awaiting-offer-message">
           {extensionTaskActive
-            ? 'Продавец отправляет обмен через расширение. Обычно 1–2 минуты — страница обновится сама.'
-            : 'Ждём, пока продавец отправит обмен в Steam.'}
+            ? t('orderTradePanel.awaitingExtension')
+            : t('orderTradePanel.awaitingSeller')}
         </p>
       ) : null}
 
@@ -111,15 +110,15 @@ export function OrderTradeBuyerPanel({
           rel="noreferrer"
           data-testid="buyer-steam-offers-link"
         >
-          Открыть входящие предложения Steam
+          {t('orderTradePanel.openIncomingOffers')}
         </a>
       ) : null}
 
       {hasOfferSaved && !isDeliveryCheck ? (
         <details className="order-trade-details" data-testid="buyer-trade-checklist">
-          <summary>Перед принятием проверьте скин</summary>
+          <summary>{t('orderTradePanel.checklistSummary')}</summary>
           <ul className="order-trade-checklist">
-            {BUYER_TRADE_SAFETY_CHECKLIST.map((item) => (
+            {getBuyerTradeSafetyChecklist(locale).map((item) => (
               <li key={item}>{item}</li>
             ))}
           </ul>
@@ -128,11 +127,8 @@ export function OrderTradeBuyerPanel({
 
       {(showPreAccept || showConfirmReceived) && !isDeliveryCheck ? (
         <details className="order-trade-details" data-testid="buyer-ack-details">
-          <summary>Если статус на сайте не обновился</summary>
-          <p className="muted small">
-            Эти кнопки не заменяют принятие обмена в Steam — только помогают сайту
-            быстрее сверить статус.
-          </p>
+          <summary>{t('orderTradePanel.ackNotUpdatedSummary')}</summary>
+          <p className="muted small">{t('orderTradePanel.ackHint')}</p>
           {showPreAccept ? (
             <div className="extension-seller-cta" data-testid="buyer-ack-preaccept-cta">
               <button
@@ -142,7 +138,7 @@ export function OrderTradeBuyerPanel({
                 data-testid="buyer-ack-preaccept"
                 onClick={onAcknowledgePreAccept}
               >
-                {acknowledging ? 'Сохраняем…' : 'Вижу предложение в Steam'}
+                {acknowledging ? t('orderTradePanel.saving') : t('orderTradePanel.seePreAccept')}
               </button>
             </div>
           ) : null}
@@ -155,7 +151,9 @@ export function OrderTradeBuyerPanel({
                 data-testid="buyer-ack-received"
                 onClick={onAcknowledgeReceived}
               >
-                {acknowledging ? 'Сохраняем…' : 'Предмет уже у меня в Steam'}
+                {acknowledging
+                  ? t('orderTradePanel.saving')
+                  : t('orderTradePanel.itemAlreadyReceived')}
               </button>
             </div>
           ) : null}
@@ -164,7 +162,7 @@ export function OrderTradeBuyerPanel({
 
       {isDeliveryCheck && showConfirmReceived ? (
         <details className="order-trade-details" data-testid="buyer-ack-details">
-          <summary>Ускорить проверку</summary>
+          <summary>{t('orderTradePanel.speedUpCheckSummary')}</summary>
           <button
             type="button"
             className="button secondary sm"
@@ -172,7 +170,9 @@ export function OrderTradeBuyerPanel({
             data-testid="buyer-ack-received"
             onClick={onAcknowledgeReceived}
           >
-            {acknowledging ? 'Сохраняем…' : 'Предмет уже у меня в Steam'}
+            {acknowledging
+              ? t('orderTradePanel.saving')
+              : t('orderTradePanel.itemAlreadyReceived')}
           </button>
         </details>
       ) : null}
@@ -180,21 +180,20 @@ export function OrderTradeBuyerPanel({
       {acks?.buyerReceived ? (
         order.status === 'WAITING_TRADE' ? (
           <p className="alert alert-warning" data-testid="buyer-received-ack-pending-steam">
-            На сайте отметка есть, но скин ещё не виден у вас в Steam. Примите входящий
-            trade offer — статус обновится сам.
+            {t('orderTradePanel.receivedAckPendingSteam')}
           </p>
         ) : (
           <p className="alert alert-success" data-testid="buyer-received-ack">
-            Получение отмечено. Если скин уже в Steam — сделка скоро закроется.
+            {t('orderTradePanel.receivedAck')}
           </p>
         )
       ) : acks?.buyerPreAccept ? (
         <p className="alert alert-success" data-testid="buyer-extension-ack">
-          Ок. Осталось принять обмен в Steam.
+          {t('orderTradePanel.extensionAck')}
         </p>
       ) : extensionMode && !ackEnabled ? (
         <p className="muted small" data-testid="buyer-extension-hint">
-          С расширением R.I.P Market на странице обмена в Steam будет проверка сделки.
+          {t('orderTradePanel.extensionHintNoAck')}
         </p>
       ) : null}
     </div>

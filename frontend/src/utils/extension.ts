@@ -1,3 +1,17 @@
+import { enMessages } from '../i18n/messages/en.ts';
+import { ruMessages } from '../i18n/messages/ru.ts';
+import { translate } from '../i18n/translate.ts';
+import type { Locale } from '../i18n/types.ts';
+
+const messagesByLocale = {
+  ru: ruMessages,
+  en: enMessages,
+} as const;
+
+function t(key: string, locale: Locale) {
+  return translate(messagesByLocale[locale], key);
+}
+
 export type ExtensionPublicConfig = {
   extensionChannelEnabled: boolean;
   extensionTaskPipelineEnabled: boolean;
@@ -72,14 +86,17 @@ export async function getExtensionRuntimeStatus(): Promise<ExtensionRuntimeStatu
   }
 }
 
-export async function pairExtension(userJwt: string): Promise<
+export async function pairExtension(
+  userJwt: string,
+  locale: Locale = 'ru',
+): Promise<
   | { ok: true; sessionId?: string }
   | { ok: false; error: string }
 > {
   if (!isExtensionRuntimeAvailable()) {
     return {
       ok: false,
-      error: 'Установите расширение R.I.P Market и перезагрузите страницу.',
+      error: t('extension.notInstalled', locale),
     };
   }
   const apiBaseUrl =
@@ -99,14 +116,14 @@ export async function pairExtension(userJwt: string): Promise<
     }
     return {
       ok: false,
-      error: response?.error ?? 'Не удалось подключить расширение',
+      error: response?.error ?? t('extension.pairFailedGeneric', locale),
     };
   } catch (error) {
-    const raw = error instanceof Error ? error.message : 'Ошибка подключения';
+    const raw = error instanceof Error ? error.message : t('extension.connectionError', locale);
     const friendly =
       raw.includes('Receiving end does not exist') ||
       raw.includes('Could not establish connection')
-        ? 'Расширение не найдено. Соберите browser-extension/dist, загрузите в Chrome (Load unpacked) и проверьте VITE_EXTENSION_ID=gmmlnkjdbcoojbhndjcfehojknjamaoj во frontend/.env.'
+        ? t('extension.notFoundHint', locale)
         : raw;
     return {
       ok: false,
@@ -133,12 +150,24 @@ export async function requestExtensionPoll(): Promise<void> {
   }
 }
 
-export function formatExtensionUiTradeFlowLabel(enabled: boolean): string {
-  return enabled
-    ? 'UI trade (Steam-страница, автозаполнение)'
-    : 'API fallback (legacy, до rollout)';
+export function formatExtensionUiTradeFlowLabel(
+  enabled: boolean,
+  locale: Locale = 'ru',
+): string {
+  return t(enabled ? 'extensionUiFlow.uiTrade' : 'extensionUiFlow.apiFallback', locale);
 }
 
+export function formatExtensionTaskPhaseLabel(phase: string, locale: Locale = 'ru'): string {
+  const label = t(`extensionTaskPhase.${phase}`, locale);
+  return label === `extensionTaskPhase.${phase}` ? phase : label;
+}
+
+export function formatOfferErrorHint(code: string, locale: Locale = 'ru'): string {
+  const label = t(`offerErrorHint.${code}`, locale);
+  return label === `offerErrorHint.${code}` ? code : label;
+}
+
+/** @deprecated Prefer formatExtensionTaskPhaseLabel(phase, locale) */
 export const TRADE_TASK_PHASE_LABELS: Record<string, string> = {
   ACKED: 'Расширение взяло задачу',
   TRADE_PAGE_OPENED: 'Открыли страницу обмена',
@@ -150,6 +179,7 @@ export const TRADE_TASK_PHASE_LABELS: Record<string, string> = {
   OFFER_FAILED: 'Не удалось отправить',
 };
 
+/** @deprecated Prefer formatOfferErrorHint(code, locale) */
 export const OFFER_ERROR_HINTS: Record<string, string> = {
   BUYER_TRADE_URL_INVALID: 'Попросите покупателя обновить Trade URL.',
   BUYER_TRADE_URL_MISSING: 'У покупателя нет Trade URL в профиле.',

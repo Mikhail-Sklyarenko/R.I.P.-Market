@@ -1,3 +1,5 @@
+import { useLocale } from '../i18n';
+
 type LotActionButtonsProps = {
   inspectLink?: string | null;
   steamMarketUrl?: string | null;
@@ -54,6 +56,7 @@ export function LotActionButtons({
   steamMarketUrl,
   steamMarketHashName,
 }: LotActionButtonsProps) {
+  const { t } = useLocale();
   if (!inspectLink && !steamMarketUrl) {
     return null;
   }
@@ -69,7 +72,7 @@ export function LotActionButtons({
           data-testid="lot-inspect-link"
         >
           <InspectInGameIcon />
-          <span>Осмотр в игре</span>
+          <span>{t('lotActionButtons.inspectInGame')}</span>
         </a>
       ) : null}
       {steamMarketUrl ? (
@@ -82,8 +85,8 @@ export function LotActionButtons({
           title={marketTitle}
           aria-label={
             marketTitle
-              ? `Открыть в Steam Маркете: ${marketTitle}`
-              : 'Открыть в Steam Маркете'
+              ? t('lotActionButtons.openSteamMarketWithName', { name: marketTitle })
+              : t('lotActionButtons.openSteamMarket')
           }
         >
           <SteamMarketIcon />

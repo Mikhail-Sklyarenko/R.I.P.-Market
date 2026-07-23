@@ -1,11 +1,11 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
-import { parseWalletTab, walletTabHref, WALLET_TABS } from './wallet-tabs.ts';
+import { getWalletTabs, parseWalletTab, walletTabHref } from './wallet-tabs.ts';
 
 describe('wallet-tabs', () => {
   it('lists deposit, withdraw, and transactions tabs', () => {
     assert.deepEqual(
-      WALLET_TABS.map((tab) => tab.id),
+      getWalletTabs().map((tab) => tab.id),
       ['deposit', 'withdraw', 'transactions'],
     );
   });

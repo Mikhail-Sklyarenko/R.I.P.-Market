@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import type { NotificationCategory } from '../api/types';
 import { useAuth } from '../auth/AuthContext';
+import { useLocale } from '../i18n';
 import { useNotifications } from '../hooks/useNotifications';
 import { ErrorAlert } from '../components/ErrorAlert';
 import { LoadingState } from '../components/LoadingState';
@@ -9,22 +10,24 @@ import { NotificationItem } from '../components/NotificationItem';
 import { PageHeader } from '../components/PageHeader';
 import {
   isActionRequiredNotification,
-  NOTIFICATION_CATEGORY_FILTER_OPTIONS,
-  NOTIFICATION_EVENT_FILTER_OPTIONS,
+  notificationCategoryFilterLabel,
+  notificationEventFilterLabel,
+  NOTIFICATION_CATEGORY_FILTER_IDS,
+  NOTIFICATION_EVENT_FILTER_IDS,
+  type NotificationCategoryFilterId,
+  type NotificationEventFilterId,
 } from '../utils/notification-labels';
-
-type EventTypeFilter = (typeof NOTIFICATION_EVENT_FILTER_OPTIONS)[number]['value'];
-type CategoryFilter = (typeof NOTIFICATION_CATEGORY_FILTER_OPTIONS)[number]['value'];
 
 export function NotificationsPage() {
   const { user } = useAuth();
-  const [categoryFilter, setCategoryFilter] = useState<CategoryFilter>('all');
+  const { locale, t } = useLocale();
+  const [categoryFilter, setCategoryFilter] = useState<NotificationCategoryFilterId>('all');
   const category: NotificationCategory | undefined =
     categoryFilter === 'all' ? undefined : categoryFilter;
 
   const { notifications, loading, error, unreadCount, markRead, markAllRead } =
     useNotifications({ pollMs: 10000, category });
-  const [eventFilter, setEventFilter] = useState<EventTypeFilter>('all');
+  const [eventFilter, setEventFilter] = useState<NotificationEventFilterId>('all');
   const [showUnreadOnly, setShowUnreadOnly] = useState(false);
 
   const filteredNotifications = useMemo(() => {
@@ -45,11 +48,11 @@ export function NotificationsPage() {
   return (
     <div className="page">
       <PageHeader
-        title="Уведомления"
+        title={t('notifications.title')}
         subtitle={
           unreadCount > 0
-            ? `${unreadCount} непрочитанных`
-            : 'Все уведомления прочитаны'
+            ? t('notifications.unreadCount', { count: unreadCount })
+            : t('notifications.allRead')
         }
         actions={
           unreadCount > 0 ? (
@@ -59,7 +62,7 @@ export function NotificationsPage() {
               data-testid="notifications-mark-all-read"
               onClick={() => void markAllRead()}
             >
-              Прочитать все
+              {t('notifications.readAll')}
             </button>
           ) : null
         }
@@ -68,44 +71,46 @@ export function NotificationsPage() {
       <div className="card notifications-filters" data-testid="notifications-filters">
         <div className="catalog-filters-row">
           <label className="field catalog-filter-field">
-            <span className="field-label">Категория</span>
+            <span className="field-label">{t('notifications.category')}</span>
             <select
               value={categoryFilter}
               onChange={(event) =>
-                setCategoryFilter(event.target.value as CategoryFilter)
+                setCategoryFilter(event.target.value as NotificationCategoryFilterId)
               }
               data-testid="notifications-category-filter"
             >
-              {NOTIFICATION_CATEGORY_FILTER_OPTIONS.map((option) => (
-                <option key={option.value} value={option.value}>
-                  {option.label}
+              {NOTIFICATION_CATEGORY_FILTER_IDS.map((id) => (
+                <option key={id} value={id}>
+                  {notificationCategoryFilterLabel(id, locale)}
                 </option>
               ))}
             </select>
           </label>
           <label className="field catalog-filter-field">
-            <span className="field-label">Тип события</span>
+            <span className="field-label">{t('notifications.eventType')}</span>
             <select
               value={eventFilter}
-              onChange={(event) => setEventFilter(event.target.value as EventTypeFilter)}
+              onChange={(event) =>
+                setEventFilter(event.target.value as NotificationEventFilterId)
+              }
               data-testid="notifications-event-filter"
             >
-              {NOTIFICATION_EVENT_FILTER_OPTIONS.map((option) => (
-                <option key={option.value} value={option.value}>
-                  {option.label}
+              {NOTIFICATION_EVENT_FILTER_IDS.map((id) => (
+                <option key={id} value={id}>
+                  {notificationEventFilterLabel(id, locale)}
                 </option>
               ))}
             </select>
           </label>
           <label className="field catalog-filter-field notifications-unread-toggle">
-            <span className="field-label">Показать</span>
+            <span className="field-label">{t('notifications.show')}</span>
             <select
               value={showUnreadOnly ? 'unread' : 'all'}
               onChange={(event) => setShowUnreadOnly(event.target.value === 'unread')}
               data-testid="notifications-read-filter"
             >
-              <option value="all">Все</option>
-              <option value="unread">Только непрочитанные</option>
+              <option value="all">{t('notifications.showAll')}</option>
+              <option value="unread">{t('notifications.showUnread')}</option>
             </select>
           </label>
         </div>
@@ -113,16 +118,14 @@ export function NotificationsPage() {
 
       <ErrorAlert error={error} />
 
-      {loading ? <LoadingState message="Загрузка уведомлений…" /> : null}
+      {loading ? <LoadingState message={t('common.loading')} /> : null}
 
       {!loading && filteredNotifications.length === 0 ? (
         <div className="card empty-state" data-testid="notifications-empty">
-          <h3 className="empty-state-title">Нет уведомлений</h3>
-          <p className="empty-state-message">
-            Здесь появятся события по вашим сделкам и кошельку.
-          </p>
+          <h3 className="empty-state-title">{t('notifications.emptyPageTitle')}</h3>
+          <p className="empty-state-message">{t('notifications.emptyPageMessage')}</p>
           <Link to="/deals?tab=purchases" className="button secondary">
-            Мои сделки
+            {t('notifications.myDeals')}
           </Link>
         </div>
       ) : null}

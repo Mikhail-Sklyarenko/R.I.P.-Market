@@ -1,3 +1,4 @@
+import { useLocale } from '../i18n';
 import { STEAM_TRADE_URL_SETTINGS } from '../utils/trade-url';
 
 type SteamTradeUrlButtonProps = {
@@ -7,8 +8,9 @@ type SteamTradeUrlButtonProps = {
 
 export function SteamTradeUrlButton({
   className = 'button secondary sm',
-  label = 'Получить ссылку',
+  label,
 }: SteamTradeUrlButtonProps) {
+  const { t } = useLocale();
   return (
     <a
       href={STEAM_TRADE_URL_SETTINGS}
@@ -17,7 +19,7 @@ export function SteamTradeUrlButton({
       className={className}
       data-testid="steam-trade-url-settings-link"
     >
-      {label}
+      {label ?? t('account.getTradeUrl')}
     </a>
   );
 }

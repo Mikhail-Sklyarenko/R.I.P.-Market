@@ -1,49 +1,77 @@
 import type { TradeOperation } from '../api/types';
+import { enMessages } from '../i18n/messages/en.ts';
+import { ruMessages } from '../i18n/messages/ru.ts';
+import { translate } from '../i18n/translate.ts';
+import type { Locale } from '../i18n/types.ts';
+
+const messagesByLocale = {
+  ru: ruMessages,
+  en: enMessages,
+} as const;
+
+function t(key: string, locale: Locale, params?: Record<string, string | number>) {
+  return translate(messagesByLocale[locale], key, params);
+}
 
 export const STEAM_INCOMING_OFFERS_URL = 'https://steamcommunity.com/my/tradeoffers/';
 
-export const SELLER_TRADE_INSTRUCTIONS = [
-  'Откройте Trade URL покупателя в Steam.',
-  'Добавьте предмет из сделки в предложение обмена.',
-  'Отправьте trade offer без лишних предметов с вашей стороны.',
-  'Скопируйте ссылку на отправленное предложение и вставьте её ниже.',
-  'Дождитесь принятия обмена покупателем — статус обновится автоматически.',
-] as const;
+export function getSellerTradeInstructions(locale: Locale = 'ru'): string[] {
+  return [
+    t('orderTrade.instruction1', locale),
+    t('orderTrade.instruction2', locale),
+    t('orderTrade.instruction3', locale),
+    t('orderTrade.instruction4', locale),
+    t('orderTrade.instruction5', locale),
+  ];
+}
 
-export const BUYER_TRADE_SAFETY_CHECKLIST = [
-  'Проверьте название скина и состояние (wear/float).',
-  'Убедитесь, что в обмене только ожидаемый предмет.',
-  'Не принимайте предложения с лишними предметами от продавца.',
-] as const;
+export function getBuyerTradeSafetyChecklist(locale: Locale = 'ru'): string[] {
+  return [
+    t('orderTrade.checklist1', locale),
+    t('orderTrade.checklist2', locale),
+    t('orderTrade.checklist3', locale),
+  ];
+}
 
-export function formatTradePollStatus(tradeOperation?: TradeOperation | null): string {
+/** @deprecated Prefer getSellerTradeInstructions(locale) */
+export const SELLER_TRADE_INSTRUCTIONS = getSellerTradeInstructions('ru');
+
+/** @deprecated Prefer getBuyerTradeSafetyChecklist(locale) */
+export const BUYER_TRADE_SAFETY_CHECKLIST = getBuyerTradeSafetyChecklist('ru');
+
+export function formatTradePollStatus(
+  tradeOperation?: TradeOperation | null,
+  locale: Locale = 'ru',
+): string {
   if (!tradeOperation) {
     return '—';
   }
 
   if (tradeOperation.status === 'CONFIRMED' || tradeOperation.status === 'DELIVERY_VERIFIED') {
-    return 'Принят';
+    return t('tradePollStatus.accepted', locale);
   }
   if (tradeOperation.status === 'FAILED_SAFE' || tradeOperation.status === 'FAILED_DISPUTE') {
     if (tradeOperation.failReasonCode === 'INVENTORY_UNKNOWN_EXHAUSTED') {
-      return 'Сбой проверки Steam';
+      return t('tradePollStatus.steamCheckFailed', locale);
     }
     if (tradeOperation.failReasonCode === 'OFFER_DECLINED') {
-      return 'Отклонён';
+      return t('tradePollStatus.declined', locale);
     }
     if (tradeOperation.failReasonCode === 'OFFER_EXPIRED' || tradeOperation.failReasonCode === 'TRADE_TIMEOUT') {
-      return 'Истёк';
+      return t('tradePollStatus.expired', locale);
     }
-    return tradeOperation.failReasonCode ? 'Спор' : 'Отклонён';
+    return tradeOperation.failReasonCode
+      ? t('tradePollStatus.dispute', locale)
+      : t('tradePollStatus.declined', locale);
   }
   if (tradeOperation.status === 'TIMEOUT') {
-    return 'Таймаут';
+    return t('tradePollStatus.timeout', locale);
   }
   if (tradeOperation.status === 'WAITING') {
     if (tradeOperation.externalOfferId && (tradeOperation.checkCount ?? 0) > 0) {
-      return 'Проверяем Steam';
+      return t('tradePollStatus.checkingSteam', locale);
     }
-    return 'Ожидание';
+    return t('tradePollStatus.waiting', locale);
   }
 
   return tradeOperation.status;

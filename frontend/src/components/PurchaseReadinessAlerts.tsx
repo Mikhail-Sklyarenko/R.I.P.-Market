@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom';
 import type { AuthUser } from '../api/types';
+import { useLocale } from '../i18n';
 import { ErrorAlert } from './ErrorAlert';
 import { hasLinkedSteamId } from '../utils/steam-id';
 import { hasTradeUrl } from '../utils/trade-url';
@@ -28,6 +29,7 @@ export function PurchaseReadinessAlerts({
   showTradeHint = true,
   compactTradeUrlWarning = false,
 }: PurchaseReadinessAlertsProps) {
+  const { t } = useLocale();
   const steamLinked = hasLinkedSteamId(user?.steamId);
   const tradeUrlReady = hasTradeUrl(user?.tradeUrl);
   const steamBlocked = authenticated && requiresSteamLink && !steamLinked;
@@ -37,12 +39,11 @@ export function PurchaseReadinessAlerts({
     <div className="purchase-readiness-alerts">
       {steamBlocked ? (
         <div data-testid="purchase-steam-required">
-          <ErrorAlert variant="info" title="Сначала привяжите Steam">
-            Без привязанного Steam-аккаунта покупка недоступна. Перейдите в настройки аккаунта и
-            привяжите Steam, затем вернитесь к оформлению.
+          <ErrorAlert variant="info" title={t('readiness.steamRequiredTitle')}>
+            {t('readiness.steamRequiredBody')}
           </ErrorAlert>
           <Link className="button secondary sm" to="/account">
-            Перейти в аккаунт
+            {t('readiness.toAccount')}
           </Link>
         </div>
       ) : null}
@@ -54,17 +55,16 @@ export function PurchaseReadinessAlerts({
         >
           {compactTradeUrlWarning ? (
             <p className="muted small checkout-inline-warning-text">
-              Trade URL не указан —{' '}
-              <Link to="/account">укажите в аккаунте</Link> для покупки.
+              {t('readiness.tradeUrlInlinePrefix')}{' '}
+              <Link to="/account">{t('readiness.tradeUrlInlineLink')}</Link>{' '}
+              {t('readiness.tradeUrlInlineSuffix')}
             </p>
           ) : (
             <>
-              <strong>Trade URL не указан</strong>
-              <p className="alert-body">
-                Без Trade URL покупка недоступна — продавец не сможет отправить обмен в Steam.
-              </p>
+              <strong>{t('readiness.tradeUrlMissingTitle')}</strong>
+              <p className="alert-body">{t('readiness.tradeUrlMissingBody')}</p>
               <Link className="button secondary sm" to="/account">
-                Указать Trade URL
+                {t('readiness.tradeUrlSetButton')}
               </Link>
             </>
           )}
@@ -73,10 +73,10 @@ export function PurchaseReadinessAlerts({
 
       {authenticated && !steamBlocked && !tradeUrlBlocked && insufficientBalance ? (
         <div data-testid="purchase-insufficient-balance">
-          <ErrorAlert variant="info" title="Недостаточно средств">
+          <ErrorAlert variant="info" title={t('readiness.insufficientTitle')}>
             {neededMinor
-              ? `Для покупки нужно минимум ${formatUsdtFromMinor(neededMinor)} на балансе.`
-              : 'Пополните кошелёк USDT (TRC-20), чтобы подтвердить покупку.'}
+              ? t('readiness.insufficientNeeded', { amount: formatUsdtFromMinor(neededMinor) })
+              : t('readiness.insufficientGeneric')}
           </ErrorAlert>
           {showDepositAction && walletDepositHref ? (
             <Link
@@ -84,7 +84,7 @@ export function PurchaseReadinessAlerts({
               to={walletDepositHref}
               data-testid="purchase-deposit-link"
             >
-              Пополнить кошелёк
+              {t('readiness.depositButton')}
             </Link>
           ) : null}
         </div>
@@ -92,7 +92,7 @@ export function PurchaseReadinessAlerts({
 
       {authenticated && !steamBlocked && !tradeUrlBlocked && showTradeHint ? (
         <p className="purchase-trade-hint" data-testid="purchase-trade-hint">
-          После покупки вам нужно будет принять trade offer в Steam.
+          {t('readiness.tradeHint')}
         </p>
       ) : null}
     </div>

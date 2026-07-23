@@ -1,4 +1,6 @@
 import type { Order } from '../api/types';
+import { tStatic } from '../i18n';
+import type { Locale } from '../i18n/types.ts';
 import { computeSellerPendingReceiveMinor } from './seller-flow.ts';
 
 export { computeSellerPendingReceiveMinor };
@@ -18,12 +20,12 @@ export function getOrderRole(order: Order, userId?: string | null): OrderRole {
   return 'other';
 }
 
-export function formatOrderRoleLabel(role: OrderRole): string {
+export function formatOrderRoleLabel(role: OrderRole, locale: Locale = 'ru'): string {
   if (role === 'buyer') {
-    return 'Покупатель';
+    return tStatic('userRole.BUYER', locale);
   }
   if (role === 'seller') {
-    return 'Продавец';
+    return tStatic('userRole.SELLER', locale);
   }
   return '—';
 }

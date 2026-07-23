@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../auth/AuthContext';
+import { useLocale } from '../i18n';
 import { useNotifications } from '../hooks/useNotifications';
 import { getNotificationDisplay } from '../utils/notification-labels';
 import { NotificationItem } from './NotificationItem';
@@ -44,6 +45,7 @@ export function NotificationsWidget({
   onOpenChange,
 }: NotificationsWidgetProps) {
   const { token, user } = useAuth();
+  const { locale, t } = useLocale();
   const { notifications, unreadCount, markRead, markAllRead } = useNotifications();
   const [internalOpen, setInternalOpen] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
@@ -79,7 +81,7 @@ export function NotificationsWidget({
 
     const latestUnread = notifications.find((item) => !item.readAt);
     if (latestUnread && user && prevUnreadRef.current > 0) {
-      const display = getNotificationDisplay(latestUnread, user.id);
+      const display = getNotificationDisplay(latestUnread, user.id, locale);
       setToastMessage(display.title);
       setPulseFab(true);
       const toastTimer = window.setTimeout(() => setToastMessage(null), TOAST_MS);
@@ -93,7 +95,7 @@ export function NotificationsWidget({
 
     prevUnreadRef.current = unreadCount;
     return undefined;
-  }, [notifications, token, unreadCount, user]);
+  }, [notifications, token, unreadCount, user, locale]);
 
   async function handleRead(notification: { id: string; readAt: string | null }) {
     if (!notification.readAt) {
@@ -116,7 +118,7 @@ export function NotificationsWidget({
       {open ? (
         <div className="notifications-widget-panel" data-testid="notifications-panel">
           <div className="notifications-widget-panel-header">
-            <h2 className="notifications-widget-title">Уведомления</h2>
+            <h2 className="notifications-widget-title">{t('notifications.title')}</h2>
             <div className="notifications-widget-panel-actions">
               {unreadCount > 0 ? (
                 <button
@@ -125,13 +127,13 @@ export function NotificationsWidget({
                   data-testid="notifications-mark-all-read"
                   onClick={() => void markAllRead()}
                 >
-                  Прочитать все
+                  {t('notifications.readAll')}
                 </button>
               ) : null}
               <button
                 type="button"
                 className="notifications-widget-close"
-                aria-label="Закрыть"
+                aria-label={t('notifications.close')}
                 onClick={() => setOpen(false)}
               >
                 ×
@@ -141,7 +143,7 @@ export function NotificationsWidget({
 
           <div className="notifications-widget-list">
             {notifications.length === 0 ? (
-              <p className="muted small">Уведомлений пока нет.</p>
+              <p className="muted small">{t('notifications.empty')}</p>
             ) : (
               notifications.slice(0, PANEL_LIMIT).map((notification) => (
                 <NotificationItem
@@ -160,7 +162,7 @@ export function NotificationsWidget({
             onClick={() => setOpen(false)}
             data-testid="notifications-view-all"
           >
-            Все уведомления
+            {t('notifications.viewAll')}
           </Link>
         </div>
       ) : null}
@@ -168,7 +170,7 @@ export function NotificationsWidget({
       <button
         type="button"
         className={`notifications-widget-fab${unreadCount > 0 ? ' has-unread' : ''}${pulseFab ? ' is-pulsing' : ''}`}
-        aria-label="Уведомления"
+        aria-label={t('notifications.fabAria')}
         aria-expanded={open}
         data-testid="notifications-button"
         onClick={() => setOpen(!open)}

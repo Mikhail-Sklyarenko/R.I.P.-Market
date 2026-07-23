@@ -1,4 +1,5 @@
 import { Link } from 'react-router-dom';
+import { useLocale } from '../i18n';
 import type { WalletSummary } from '../wallet/WalletContext';
 import { MoneyDisplay } from './MoneyDisplay';
 
@@ -52,13 +53,14 @@ function WalletIcon() {
 }
 
 export function HeaderWalletBalance({ summary, loading }: HeaderWalletBalanceProps) {
+  const { t } = useLocale();
   const lockedMinor = sumLockedMinor(summary);
   const availableMinor = summary?.availableMinor ?? '0';
   const showLocked = lockedMinor > 0;
 
   const title = showLocked
-    ? 'Кошелёк: доступно и средства в hold / заморозке'
-    : 'Кошелёк: доступный баланс';
+    ? t('headerWallet.titleWithHold')
+    : t('headerWallet.titleAvailable');
 
   return (
     <Link

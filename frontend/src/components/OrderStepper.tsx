@@ -1,3 +1,4 @@
+import { useLocale } from '../i18n';
 import { getOrderSteps } from '../utils/order-flow';
 
 type OrderStepperProps = {
@@ -5,7 +6,8 @@ type OrderStepperProps = {
 };
 
 export function OrderStepper({ status }: OrderStepperProps) {
-  const steps = getOrderSteps(status);
+  const { locale } = useLocale();
+  const steps = getOrderSteps(status, locale);
 
   return (
     <ol className="order-stepper" data-testid="order-stepper">

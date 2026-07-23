@@ -40,8 +40,8 @@ import {
   withdrawalStatusClass,
 } from '../utils/withdrawal-labels';
 import {
+  getWalletTabs,
   parseWalletTab,
-  WALLET_TABS,
   type WalletTab,
 } from '../utils/wallet-tabs';
 
@@ -52,7 +52,7 @@ function buildQrImageUrl(qrData: string): string {
 }
 
 export function WalletPage() {
-  const { t } = useLocale();
+  const { t, locale } = useLocale();
   const { token, user } = useAuth();
   const { wallet, transactions, loading, error, refresh, applyWallet } = useWallet();
   const navigate = useNavigate();
@@ -167,7 +167,7 @@ export function WalletPage() {
       return null;
     }
     if (amountMinor < minDepositMinor) {
-      setFieldError(`Минимальное пополнение — ${formatUsdtFromMinor(minDepositMinor)}.`);
+      setFieldError(t('wallet.minDepositError', { amount: formatUsdtFromMinor(minDepositMinor) }));
       return null;
     }
     setFieldError(null);
@@ -216,7 +216,7 @@ export function WalletPage() {
       return;
     }
 
-    const addressError = getTrc20AddressError(withdrawAddress);
+    const addressError = getTrc20AddressError(withdrawAddress, locale);
     if (addressError) {
       setWithdrawError(addressError);
       return;
@@ -228,7 +228,7 @@ export function WalletPage() {
       return;
     }
     if (amountMinor < minWithdrawMinor) {
-      setWithdrawError(`Минимальный вывод — ${formatUsdtFromMinor(minWithdrawMinor)}.`);
+      setWithdrawError(t('wallet.minWithdrawError', { amount: formatUsdtFromMinor(minWithdrawMinor) }));
       return;
     }
     if (amountMinor <= withdrawFeeMinor) {
@@ -255,12 +255,15 @@ export function WalletPage() {
 
   const depositWarnings = useMemo(
     () => [
-      `Только ${paymentConfig?.usdtToken ?? 'USDT TRC-20'} в сети ${paymentConfig?.usdtNetwork ?? 'TRON'}.`,
-      'Другие токены и сети будут потеряны безвозвратно.',
-      `Минимальное пополнение: ${formatUsdtFromMinor(minDepositMinor)}.`,
-      'Курс зачисления: 1 USDT = 1 USD на балансе маркетплейса.',
+      t('wallet.warningTokenNetwork', {
+        token: paymentConfig?.usdtToken ?? 'USDT TRC-20',
+        network: paymentConfig?.usdtNetwork ?? 'TRON',
+      }),
+      t('wallet.warningOtherLost'),
+      t('wallet.warningMinDeposit', { amount: formatUsdtFromMinor(minDepositMinor) }),
+      t('wallet.warningRate'),
     ],
-    [minDepositMinor, paymentConfig?.usdtNetwork, paymentConfig?.usdtToken],
+    [minDepositMinor, paymentConfig?.usdtNetwork, paymentConfig?.usdtToken, t],
   );
 
   return (
@@ -271,7 +274,7 @@ export function WalletPage() {
         actions={
           wallet || loading ? (
             <div className="wallet-header-balance" data-testid="wallet-header-available">
-              <span className="eyebrow">Доступно</span>
+              <span className="eyebrow">{t('wallet.available')}</span>
               {loading && !wallet ? (
                 <span className="muted small">…</span>
               ) : (
@@ -284,7 +287,7 @@ export function WalletPage() {
 
       {returnUrl ? (
         <Link to={returnUrl} className="button secondary wallet-back-link">
-          Назад
+          {t('wallet.back')}
         </Link>
       ) : null}
 
@@ -294,18 +297,13 @@ export function WalletPage() {
           title={t('wallet.needDepositTitle')}
           data-testid="deposit-needed-banner"
         >
-          Для покупки нужно минимум {formatUsdtFromMinor(neededMinor)} на балансе.
+          {t('wallet.depositNeeded', { amount: formatUsdtFromMinor(neededMinor) })}
         </ErrorAlert>
       ) : null}
 
       <div className="card wallet-hold-info" data-testid="wallet-hold-info">
-        <h3>Что такое hold?</h3>
-        <p className="muted small">
-          При покупке сумма сделки переводится из «Доступно» в «В hold» — деньги
-          зарезервированы, но ещё не переданы продавцу. После подтверждения обмена
-          в Steam hold списывается в пользу продавца. При отмене или неудачной сделке
-          средства возвращаются в «Доступно».
-        </p>
+        <h3>{t('wallet.whatIsHoldTitle')}</h3>
+        <p className="muted small">{t('wallet.whatIsHoldBody')}</p>
       </div>
 
       {loading ? <LoadingState message={t('wallet.loading')} /> : null}
@@ -319,36 +317,36 @@ export function WalletPage() {
               className="card wallet-balance-card wallet-balance-available"
               data-testid="wallet-available"
             >
-              <span className="eyebrow">Доступно</span>
+              <span className="eyebrow">{t('wallet.available')}</span>
               <MoneyDisplay
                 minor={wallet.summary.availableMinor}
                 strong
                 className="wallet-balance-value"
               />
-              <p className="muted small">Можно потратить на покупки</p>
+              <p className="muted small">{t('wallet.availableHint')}</p>
             </div>
             <div className="card wallet-balance-card" data-testid="wallet-hold">
-              <span className="eyebrow">В hold</span>
+              <span className="eyebrow">{t('wallet.hold')}</span>
               <MoneyDisplay
                 minor={wallet.summary.holdMinor}
                 strong
                 className="wallet-balance-value"
               />
-              <p className="muted small">Зарезервировано в активных сделках</p>
+              <p className="muted small">{t('wallet.holdHint')}</p>
             </div>
             <div className="card wallet-balance-card" data-testid="wallet-frozen">
-              <span className="eyebrow">Заморожено</span>
+              <span className="eyebrow">{t('wallet.frozen')}</span>
               <MoneyDisplay
                 minor={wallet.summary.frozenMinor}
                 strong
                 className="wallet-balance-value"
               />
-              <p className="muted small">Временно недоступно</p>
+              <p className="muted small">{t('wallet.frozenHint')}</p>
             </div>
           </div>
 
           <nav className="wallet-tabs" aria-label={t('wallet.tabsAria')} data-testid="wallet-tabs">
-            {WALLET_TABS.map((tab) => (
+            {getWalletTabs(locale).map((tab) => (
               <button
                 key={tab.id}
                 type="button"
@@ -364,7 +362,7 @@ export function WalletPage() {
 
           {activeTab === 'deposit' && cryptoPaymentsEnabled ? (
             <div className="card wallet-deposit-form" data-testid="wallet-usdt-deposit">
-              <h3>Пополнить USDT (TRC-20)</h3>
+              <h3>{t('wallet.depositUsdtTitle')}</h3>
               <ul className="wallet-crypto-warnings" data-testid="deposit-warnings">
                 {depositWarnings.map((warning) => (
                   <li key={warning} className="muted small">
@@ -375,7 +373,7 @@ export function WalletPage() {
 
               {awaitingDeposit ? (
                 <p className="wallet-deposit-awaiting" data-testid="deposit-awaiting-status">
-                  Ожидаем перевод… Зачисление появится после подтверждений в сети TRON.
+                  {t('wallet.depositAwaiting')}
                 </p>
               ) : null}
 
@@ -384,7 +382,7 @@ export function WalletPage() {
                   <div className="wallet-deposit-qr-wrap">
                     <img
                       src={buildQrImageUrl(depositInfo.qrData)}
-                      alt="QR-код для пополнения USDT TRC-20"
+                      alt={t('wallet.depositQrAlt')}
                       width={180}
                       height={180}
                       className="wallet-deposit-qr"
@@ -412,7 +410,7 @@ export function WalletPage() {
                   </FormField>
                 </div>
               ) : (
-                <p className="muted small">Загрузка адреса…</p>
+                <p className="muted small">{t('wallet.depositAddressLoading')}</p>
               )}
             </div>
           ) : null}
@@ -423,12 +421,9 @@ export function WalletPage() {
               onSubmit={(event) => void handleWithdraw(event)}
               data-testid="wallet-usdt-withdraw-form"
             >
-              <h3>Вывод USDT (TRC-20)</h3>
-              <p className="muted small">
-                Средства спишутся с доступного баланса и будут отправлены на указанный TRC-20
-                адрес после проверки.
-              </p>
-              <FormField label="TRC-20 адрес" htmlFor="withdraw-address-input">
+              <h3>{t('wallet.withdrawUsdtTitle')}</h3>
+              <p className="muted small">{t('wallet.withdrawUsdtBody')}</p>
+              <FormField label={t('wallet.trc20Address')} htmlFor="withdraw-address-input">
                 <input
                   id="withdraw-address-input"
                   type="text"
@@ -456,11 +451,11 @@ export function WalletPage() {
               </FormField>
               <div className="wallet-withdraw-summary" data-testid="withdraw-summary">
                 <div>
-                  <span className="muted small">Комиссия</span>
+                  <span className="muted small">{t('wallet.commission')}</span>
                   <strong>{formatUsdtFromMinor(withdrawFeeMinor)}</strong>
                 </div>
                 <div>
-                  <span className="muted small">К получению</span>
+                  <span className="muted small">{t('wallet.toReceive')}</span>
                   <strong data-testid="withdraw-net-amount">
                     {withdrawAmountMinor > withdrawFeeMinor
                       ? formatUsdtFromMinor(withdrawNetMinor)
@@ -468,7 +463,7 @@ export function WalletPage() {
                   </strong>
                 </div>
                 <div>
-                  <span className="muted small">Минимум</span>
+                  <span className="muted small">{t('wallet.minimum')}</span>
                   <strong>{formatUsdtFromMinor(minWithdrawMinor)}</strong>
                 </div>
               </div>
@@ -479,21 +474,23 @@ export function WalletPage() {
               ) : null}
               {withdrawals.length > 0 ? (
                 <div className="wallet-crypto-history" data-testid="wallet-crypto-withdrawals">
-                  <h4>История выводов</h4>
+                  <h4>{t('wallet.historyTitle')}</h4>
                   <ul className="wallet-crypto-list">
                     {withdrawals.slice(0, 10).map((item) => (
                       <li key={item.id} data-testid={`withdrawal-row-${item.id}`}>
                         <div className="wallet-withdrawal-row-main">
                           <span>{formatUsdtFromMinor(item.amountMinor)}</span>
                           <span className="muted small">
-                            к получению {formatUsdtFromMinor(item.netMinor)}
+                            {t('wallet.receivedAmount', {
+                              amount: formatUsdtFromMinor(item.netMinor),
+                            })}
                           </span>
                         </div>
                         <span
                           className={`wallet-withdrawal-status ${withdrawalStatusClass(item.status)}`}
                           data-testid={`withdrawal-status-${item.id}`}
                         >
-                          {formatWithdrawalStatus(item.status)}
+                          {formatWithdrawalStatus(item.status, locale)}
                         </span>
                       </li>
                     ))}
@@ -519,10 +516,8 @@ export function WalletPage() {
           onSubmit={(event) => void handleDeposit(event)}
           data-testid="wallet-mock-deposit-form"
         >
-          <h3>Тестовое пополнение</h3>
-          <p className="muted small">
-            Зачисляет USDT на баланс для проверки покупок на staging. Не настоящие деньги.
-          </p>
+              <h3>{t('wallet.testDepositTitle')}</h3>
+          <p className="muted small">{t('wallet.testDepositBody')}</p>
 
           <FormField label={t('wallet.amountUsdt')} htmlFor="deposit-amount-input">
             <input
@@ -554,21 +549,21 @@ export function WalletPage() {
 
       {activeTab === 'transactions' && transactions.length === 0 ? (
         <div className="card wallet-transactions-empty" data-testid="wallet-transactions-empty">
-          <p className="muted small">История операций пока пуста.</p>
+          <p className="muted small">{t('wallet.transactionsEmpty')}</p>
         </div>
       ) : null}
 
       {activeTab === 'transactions' && transactions.length > 0 ? (
         <div className="card wallet-transactions" data-testid="wallet-transactions">
-          <h3>История операций</h3>
+          <h3>{t('wallet.transactionsTitle')}</h3>
           <div className="table-wrap">
             <table className="data-table" data-testid="wallet-transactions-table">
               <thead>
                 <tr>
-                  <th>Тип</th>
-                  <th>Сумма</th>
-                  <th>Дата</th>
-                  <th>Сделка</th>
+                  <th>{t('wallet.colType')}</th>
+                  <th>{t('wallet.colAmount')}</th>
+                  <th>{t('wallet.colDate')}</th>
+                  <th>{t('wallet.colOrder')}</th>
                 </tr>
               </thead>
               <tbody>
@@ -576,20 +571,24 @@ export function WalletPage() {
                   const orderId = resolveLedgerOrderId(tx);
                   return (
                     <tr key={tx.id} data-testid={`wallet-tx-${tx.type}`}>
-                      <td>{formatLedgerEntryType(tx.type)}</td>
+                      <td>{formatLedgerEntryType(tx.type, locale)}</td>
                       <td>
                         <span className={ledgerAmountClass(tx.amountMinor)}>
                           {formatLedgerAmount(tx.amountMinor)}
                         </span>
                       </td>
-                      <td>{new Date(tx.createdAt).toLocaleString()}</td>
+                      <td>
+                        {new Date(tx.createdAt).toLocaleString(
+                          locale === 'en' ? 'en-US' : 'ru-RU',
+                        )}
+                      </td>
                       <td>
                         {orderId ? (
                           <Link
                             to={`/orders/${orderId}`}
                             data-testid={`wallet-tx-order-${orderId}`}
                           >
-                            Открыть сделку
+                            {t('wallet.openOrder')}
                           </Link>
                         ) : (
                           <span className="muted">—</span>

@@ -1,6 +1,7 @@
 import type { CSSProperties, KeyboardEvent } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import type { Lot } from '../api/types';
+import { useLocale } from '../i18n';
 import {
   getWearBadgeStyle,
   parseCatalogLotName,
@@ -76,6 +77,7 @@ function CatalogLotCartIcon() {
 }
 
 export function CatalogLotCard({ lot, isLoggedIn: _isLoggedIn }: CatalogLotCardProps) {
+  const { t } = useLocale();
   const navigate = useNavigate();
   const displayItem = resolveLotDisplayItem(lot);
   const { inventoryAsset } = lot;
@@ -124,7 +126,7 @@ export function CatalogLotCard({ lot, isLoggedIn: _isLoggedIn }: CatalogLotCardP
       onKeyDown={handleCardKeyDown}
       role="link"
       tabIndex={0}
-      aria-label={`Открыть лот ${name}`}
+      aria-label={t('catalogLotCard.openAria', { name })}
     >
       <div className="catalog-lot-card-top">
         <div className="catalog-lot-card-top-start">
@@ -166,7 +168,7 @@ export function CatalogLotCard({ lot, isLoggedIn: _isLoggedIn }: CatalogLotCardP
           </h3>
           {patternText ? (
             <p className="catalog-lot-card-pattern muted small" data-testid={`catalog-lot-pattern-${lot.id}`}>
-              Паттерн {patternText}
+              {t('catalogLotCard.pattern', { value: patternText })}
             </p>
           ) : null}
         </div>
@@ -187,12 +189,12 @@ export function CatalogLotCard({ lot, isLoggedIn: _isLoggedIn }: CatalogLotCardP
               data-testid={`catalog-buy-now-${lot.id}`}
               onClick={(event) => event.stopPropagation()}
             >
-              Купить сейчас
+              {t('lot.buyNow')}
             </Link>
             <Link
               to={buyPath}
               className="catalog-lot-cart-btn"
-              aria-label="Купить"
+              aria-label={t('catalogLotCard.buyAria')}
               onClick={(event) => event.stopPropagation()}
             >
               <CatalogLotCartIcon />

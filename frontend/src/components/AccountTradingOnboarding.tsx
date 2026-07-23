@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import type { AuthConfig } from '../api/types';
+import { useLocale } from '../i18n';
 import { hasLinkedSteamId } from '../utils/steam-id';
 import { hasTradeUrl } from '../utils/trade-url';
 import {
@@ -47,6 +48,7 @@ export function AccountTradingOnboarding({
   tradeUrl,
   config,
 }: AccountTradingOnboardingProps) {
+  const { t } = useLocale();
   const [extensionConnected, setExtensionConnected] = useState(false);
   const steamLinked = hasLinkedSteamId(steamId);
   const tradeUrlReady = hasTradeUrl(tradeUrl);
@@ -80,33 +82,33 @@ export function AccountTradingOnboarding({
   const steps: OnboardingStep[] = [
     {
       key: 'steam',
-      label: 'Привязать Steam',
-      hint: 'Нужен для синхронизации инвентаря CS2 и участия в сделках.',
+      label: t('onboarding.steamLabel'),
+      hint: t('onboarding.steamHint'),
       ready: steamLinked,
       actionHref: '#account-steam-section',
-      actionLabel: steamLinked ? undefined : 'К привязке Steam',
+      actionLabel: steamLinked ? undefined : t('onboarding.steamAction'),
     },
     {
       key: 'trade-url',
-      label: 'Указать Trade URL',
-      hint: 'Без ссылки на обмен покупка и продажа недоступны.',
+      label: t('onboarding.tradeUrlLabel'),
+      hint: t('onboarding.tradeUrlHint'),
       ready: tradeUrlReady,
       actionHref: '#account-trade-url-section',
-      actionLabel: tradeUrlReady ? undefined : 'К Trade URL',
+      actionLabel: tradeUrlReady ? undefined : t('onboarding.tradeUrlAction'),
     },
   ];
 
   if (extensionChannelEnabled && !requiredReady) {
     steps.push({
       key: 'extension',
-      label: 'Подключить расширение',
+      label: t('onboarding.extensionLabel'),
       hint: extensionRuntimeAvailable
-        ? 'Опционально: автоотправка trade offer при продаже.'
-        : 'Опционально: установите Chrome-расширение для автообмена.',
+        ? t('onboarding.extensionHintOptional')
+        : t('onboarding.extensionHintInstall'),
       ready: extensionConnected,
       optional: true,
       actionHref: '#account-extension-section',
-      actionLabel: extensionConnected ? undefined : 'К расширению',
+      actionLabel: extensionConnected ? undefined : t('onboarding.extensionAction'),
     });
   }
 
@@ -114,14 +116,14 @@ export function AccountTradingOnboarding({
     return (
       <div className="card account-onboarding account-onboarding-ready" data-testid="account-trading-onboarding">
         <p className="account-onboarding-ready-text">
-          Аккаунт готов к торговле
+          {t('onboarding.readyText')}
           {extensionChannelEnabled && !extensionConnected
-            ? ' · расширение опционально'
+            ? ` ${t('onboarding.readyExtensionOptional')}`
             : ''}
           .{' '}
-          <Link to="/catalog">Каталог</Link>
+          <Link to="/catalog">{t('onboarding.catalogLink')}</Link>
           {' · '}
-          <Link to="/sell/inventory">Инвентарь</Link>
+          <Link to="/sell/inventory">{t('onboarding.inventoryLink')}</Link>
         </p>
       </div>
     );
@@ -129,10 +131,8 @@ export function AccountTradingOnboarding({
 
   return (
     <div className="card account-onboarding" data-testid="account-trading-onboarding">
-      <h3 className="account-onboarding-title">Как начать торговать</h3>
-      <p className="muted small account-onboarding-lead">
-        Один аккаунт может и покупать, и продавать. Пройдите шаги ниже — порядок важен.
-      </p>
+      <h3 className="account-onboarding-title">{t('onboarding.title')}</h3>
+      <p className="muted small account-onboarding-lead">{t('onboarding.lead')}</p>
       <ol className="account-onboarding-list">
         {steps.map((step, index) => (
           <li
@@ -146,7 +146,7 @@ export function AccountTradingOnboarding({
                 <span className="account-onboarding-step-label">
                   {index + 1}. {step.label}
                   {step.optional ? (
-                    <span className="account-onboarding-optional"> (опционально)</span>
+                    <span className="account-onboarding-optional"> {t('onboarding.optionalSuffix')}</span>
                   ) : null}
                 </span>
                 <p className="muted small account-onboarding-step-hint">{step.hint}</p>

@@ -8,6 +8,7 @@ import {
 } from '../api/marketplace';
 import type { AuthConfig } from '../api/types';
 import { useAuth } from '../auth/AuthContext';
+import { useLocale } from '../i18n';
 import { ErrorAlert } from '../components/ErrorAlert';
 import { ExtensionConnectPanel } from '../components/ExtensionConnectPanel';
 import { AccountTradingOnboarding } from '../components/AccountTradingOnboarding';
@@ -24,6 +25,7 @@ const API_BASE_URL =
 const STEAM_LOGOUT_URL = 'https://steamcommunity.com/login/logout/';
 
 export function AccountPage() {
+  const { locale, t } = useLocale();
   const { token, user, updateUser } = useAuth();
   const [config, setConfig] = useState<AuthConfig | null>(null);
   const [tradeUrlInput, setTradeUrlInput] = useState('');
@@ -80,11 +82,7 @@ export function AccountPage() {
       return;
     }
 
-    const confirmed = window.confirm(
-      'Отвязать текущий Steam и привязать другой аккаунт?\n\n' +
-        'Сначала откроется выход из Steam в браузере — войдите под нужным аккаунтом, ' +
-        'затем завершите привязку на этой странице.',
-    );
+    const confirmed = window.confirm(t('account.changeSteamConfirm'));
     if (!confirmed) {
       return;
     }
@@ -98,9 +96,7 @@ export function AccountPage() {
       updateUser(profileToAuthUser(profile));
       await disconnectExtension();
       window.open(STEAM_LOGOUT_URL, '_blank', 'noopener,noreferrer');
-      setSuccessMessage(
-        'Steam отвязан. Выйдите из Steam в открывшейся вкладке, затем нажмите «Привязать Steam».',
-      );
+      setSuccessMessage(t('account.changeSteamSuccess'));
     } catch (err) {
       setError(err);
     } finally {
@@ -115,13 +111,11 @@ export function AccountPage() {
 
     const trimmed = tradeUrlInput.trim();
     if (!trimmed) {
-      setTradeUrlError('Укажите Trade URL из Steam.');
+      setTradeUrlError(t('account.tradeUrlRequired'));
       return;
     }
     if (!isValidSteamTradeUrl(trimmed)) {
-      setTradeUrlError(
-        'Некорректная ссылка. Нужен URL вида https://steamcommunity.com/tradeoffer/new/?partner=…&token=…',
-      );
+      setTradeUrlError(t('account.tradeUrlInvalid'));
       return;
     }
 
@@ -135,7 +129,7 @@ export function AccountPage() {
       updateUser(profileToAuthUser(profile));
       tradeUrlDirtyRef.current = false;
       setTradeUrlInput(profile.tradeUrl ?? trimmed);
-      setSuccessMessage('Ссылка на обмен сохранена.');
+      setSuccessMessage(t('account.tradeUrlSaved'));
     } catch (err) {
       setError(err);
     } finally {
@@ -151,10 +145,7 @@ export function AccountPage() {
 
   return (
     <div className="page account-page" data-testid="account-page">
-      <PageHeader
-        title="Аккаунт"
-        subtitle="Настройки для сделок: Trade URL, Steam и расширение."
-      />
+      <PageHeader title={t('account.title')} subtitle={t('account.subtitle')} />
 
       <AccountTradingOnboarding
         steamId={user?.steamId}
@@ -165,14 +156,14 @@ export function AccountPage() {
       <ErrorAlert error={error} />
 
       <div className="account-page-grid">
-        <section className="account-page-primary" aria-label="Настройки сделок">
+        <section className="account-page-primary" aria-label={t('account.tradeUrlTitle')}>
           <div className="card account-settings-card">
             <div className="account-trade-url-section" id="account-trade-url-section">
-              <h3 className="account-section-title">Trade URL</h3>
-              <p className="muted small">Нужен для обменов в Steam.</p>
+              <h3 className="account-section-title">{t('account.tradeUrlTitle')}</h3>
+              <p className="muted small">{t('account.tradeUrlNeeded')}</p>
 
               <label className="field">
-                <span className="field-label">Ссылка на обмен</span>
+                <span className="field-label">{t('account.tradeUrlLabel')}</span>
                 <input
                   type="url"
                   value={tradeUrlInput}
@@ -182,7 +173,7 @@ export function AccountPage() {
                     setTradeUrlError(null);
                     setSuccessMessage(null);
                   }}
-                  placeholder="https://steamcommunity.com/tradeoffer/new/?partner=…&token=…"
+                  placeholder={t('account.tradeUrlPlaceholder')}
                   data-testid="account-trade-url-input"
                 />
               </label>
@@ -207,9 +198,9 @@ export function AccountPage() {
                   data-testid="account-trade-url-save"
                   onClick={() => void handleSaveTradeUrl()}
                 >
-                  {saveLoading ? 'Сохранение…' : 'Сохранить ссылку'}
+                  {saveLoading ? t('account.savingTradeUrl') : t('account.saveTradeUrl')}
                 </button>
-                <SteamTradeUrlButton />
+                <SteamTradeUrlButton label={t('account.getTradeUrl')} />
               </div>
             </div>
 
@@ -221,9 +212,9 @@ export function AccountPage() {
           </div>
         </section>
 
-        <aside className="account-page-secondary" aria-label="Профиль и Steam">
+        <aside className="account-page-secondary" aria-label={t('account.steamSectionTitle')}>
           <div className="card account-profile-card">
-            <h3 className="account-section-title">Steam</h3>
+            <h3 className="account-section-title">{t('account.steamSectionTitle')}</h3>
 
             {canLinkSteam ? (
               <div
@@ -231,9 +222,7 @@ export function AccountPage() {
                 data-testid="link-steam-panel"
                 id="account-steam-section"
               >
-                <p className="muted small">
-                  Привяжите Steam для синхронизации инвентаря и сделок.
-                </p>
+                <p className="muted small">{t('account.linkSteamHint')}</p>
                 <button
                   type="button"
                   className="button primary"
@@ -241,7 +230,7 @@ export function AccountPage() {
                   data-testid="link-steam-button"
                   onClick={() => void handleLinkSteam()}
                 >
-                  {linkLoading ? 'Перенаправление…' : 'Привязать Steam'}
+                  {linkLoading ? t('account.linkSteamRedirecting') : t('account.linkSteamButton')}
                 </button>
               </div>
             ) : null}
@@ -253,8 +242,9 @@ export function AccountPage() {
                 id="account-steam-section"
               >
                 <p className="success-text" data-testid="steam-linked-message">
-                  Steam привязан
-                  {user?.steamPersonaName ? `: ${user.steamPersonaName}` : ''}
+                  {user?.steamPersonaName
+                    ? t('account.steamLinkedWithName', { name: user.steamPersonaName })
+                    : t('account.steamLinkedMessage')}
                 </p>
                 {canChangeSteam ? (
                   <button
@@ -264,7 +254,7 @@ export function AccountPage() {
                     data-testid="change-steam-button"
                     onClick={() => void handleChangeSteam()}
                   >
-                    {changeSteamLoading ? 'Отвязка…' : 'Сменить Steam'}
+                    {changeSteamLoading ? t('account.changeSteamLoading') : t('account.changeSteamButton')}
                   </button>
                 ) : null}
               </div>
@@ -272,34 +262,34 @@ export function AccountPage() {
 
             {!canLinkSteam && !steamLinked && config?.authProvider === 'mock' ? (
               <p className="muted small" data-testid="steam-link-unavailable">
-                Привязка Steam доступна при <code>AUTH_PROVIDER=steam</code>.
+                {t('account.steamLinkUnavailable')}
               </p>
             ) : null}
 
             <dl className="account-profile-grid meta-list">
               <div>
-                <dt>Имя</dt>
+                <dt>{t('account.name')}</dt>
                 <dd data-testid="account-username">{user?.username ?? '—'}</dd>
               </div>
               <div>
-                <dt>Роль</dt>
-                <dd data-testid="account-role">{formatUserRole(user?.role)}</dd>
+                <dt>{t('account.role')}</dt>
+                <dd data-testid="account-role">{formatUserRole(user?.role, locale)}</dd>
               </div>
               <div>
-                <dt>Статус</dt>
-                <dd data-testid="account-status">{formatUserStatus(user?.status)}</dd>
+                <dt>{t('account.status')}</dt>
+                <dd data-testid="account-status">{formatUserStatus(user?.status, locale)}</dd>
               </div>
               <div>
-                <dt>Steam ID</dt>
+                <dt>{t('account.steamId')}</dt>
                 <dd data-testid="account-steam-id">
-                  {steamLinked ? user?.steamId : 'Не привязан'}
+                  {steamLinked ? user?.steamId : t('account.steamNotLinkedValue')}
                 </dd>
               </div>
               {steamLinked ? (
                 <div>
-                  <dt>Ник Steam</dt>
+                  <dt>{t('account.steamNick')}</dt>
                   <dd data-testid="account-steam-persona">
-                    {user?.steamPersonaName ?? 'Загрузка…'}
+                    {user?.steamPersonaName ?? t('account.steamPersonaLoading')}
                   </dd>
                 </div>
               ) : null}
@@ -307,7 +297,7 @@ export function AccountPage() {
 
             {showDevAuthHint && config ? (
               <p className="muted small account-dev-hint">
-                Dev: {config.authProvider}
+                {t('account.devHint', { provider: config.authProvider })}
                 {config.authProvider === 'steam' ? (
                   <>
                     {' '}

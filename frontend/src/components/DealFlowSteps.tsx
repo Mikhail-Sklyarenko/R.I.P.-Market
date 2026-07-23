@@ -1,8 +1,5 @@
-import {
-  BUY_REQUEST_FLOW_STEP_ITEMS,
-  DEAL_FLOW_STEP_ITEMS,
-  type DealFlowStepItem,
-} from '../utils/order-flow';
+import { useLocale } from '../i18n';
+import { getDealFlowSteps, type DealFlowStepItem } from '../utils/order-flow';
 
 type DealFlowStepsProps = {
   title?: string;
@@ -10,16 +7,15 @@ type DealFlowStepsProps = {
   steps?: readonly DealFlowStepItem[];
 };
 
-export function DealFlowSteps({
-  title = 'Как пройдёт сделка',
-  compact = false,
-  steps = DEAL_FLOW_STEP_ITEMS,
-}: DealFlowStepsProps) {
+export function DealFlowSteps({ title, compact = false, steps }: DealFlowStepsProps) {
+  const { locale, t } = useLocale();
+  const resolvedTitle = title ?? t('dealFlow.title');
+  const resolvedSteps = steps ?? getDealFlowSteps(locale);
   const content = (
     <>
-      {!compact ? <h3 className="deal-flow-steps-title">{title}</h3> : null}
+      {!compact ? <h3 className="deal-flow-steps-title">{resolvedTitle}</h3> : null}
       <ol className={`deal-flow-steps-list${compact ? ' deal-flow-steps-list-compact' : ''}`}>
-        {steps.map((step, index) => (
+        {resolvedSteps.map((step, index) => (
           <li
             key={step.key}
             className="deal-flow-step"
@@ -41,7 +37,7 @@ export function DealFlowSteps({
   if (compact) {
     return (
       <details className="checkout-deal-flow" data-testid="deal-flow-steps">
-        <summary className="checkout-deal-flow-summary">{title}</summary>
+        <summary className="checkout-deal-flow-summary">{resolvedTitle}</summary>
         <div className="checkout-deal-flow-body">{content}</div>
       </details>
     );
@@ -53,5 +49,3 @@ export function DealFlowSteps({
     </div>
   );
 }
-
-export { BUY_REQUEST_FLOW_STEP_ITEMS };

@@ -1,6 +1,7 @@
 import type { CSSProperties, KeyboardEvent } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import type { CatalogItem } from '../api/types';
+import { useLocale } from '../i18n';
 import {
   getWearBadgeStyle,
   parseCatalogLotName,
@@ -28,6 +29,7 @@ export function CatalogItemCard({
   steamPriceMinor,
   pricesLoading = false,
 }: CatalogItemCardProps) {
+  const { t } = useLocale();
   const navigate = useNavigate();
   const name = item.marketHashName;
   const { weapon, skin } = parseCatalogLotName(name);
@@ -70,7 +72,11 @@ export function CatalogItemCard({
       onKeyDown={handleCardKeyDown}
       role="link"
       tabIndex={0}
-      aria-label={hasOffers ? `Открыть ${name}` : `${name} — оставить заявку на покупку`}
+      aria-label={
+        hasOffers
+          ? t('catalogItemCard.openAria', { name })
+          : t('catalogItemCard.requestAria', { name })
+      }
     >
       <div className="catalog-lot-card-top">
         <div className="catalog-lot-card-top-start">
@@ -88,7 +94,9 @@ export function CatalogItemCard({
         </div>
         <div className="catalog-lot-card-top-end">
           {item.orderCount30d > 0 ? (
-            <span className="catalog-lot-card-badge muted small">Популярный</span>
+            <span className="catalog-lot-card-badge muted small">
+              {t('catalog.popularBadge')}
+            </span>
           ) : null}
         </div>
       </div>
@@ -128,7 +136,7 @@ export function CatalogItemCard({
                 data-testid={`catalog-item-buy-${item.id}`}
                 onClick={(event) => event.stopPropagation()}
               >
-                Купить сейчас
+                {t('lot.buyNow')}
               </Link>
             ) : (
               <Link
@@ -137,7 +145,7 @@ export function CatalogItemCard({
                 data-testid={`catalog-item-request-${item.id}`}
                 onClick={(event) => event.stopPropagation()}
               >
-                Оставить заявку
+                {t('item.leaveRequest')}
               </Link>
             )}
           </div>

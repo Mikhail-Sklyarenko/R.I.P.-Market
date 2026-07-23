@@ -39,7 +39,7 @@ export function MyOrdersPage({
   buyerOnly = false,
   emptyStateMode = 'default',
 }: MyOrdersPageProps) {
-  const { t } = useLocale();
+  const { t, locale } = useLocale();
   const navigate = useNavigate();
   const { token, user } = useAuth();
   const { summary: walletSummary } = useWalletSummary();
@@ -123,11 +123,11 @@ export function MyOrdersPage({
           data-testid="my-orders-wallet-summary"
         >
           <div className="card wallet-balance-card" data-testid="my-orders-available">
-            <span className="eyebrow">Доступно</span>
+            <span className="eyebrow">{t('orders.available')}</span>
             <MoneyDisplay minor={walletSummary.availableMinor} strong />
           </div>
           <div className="card wallet-balance-card" data-testid="my-orders-hold">
-            <span className="eyebrow">В hold</span>
+            <span className="eyebrow">{t('orders.hold')}</span>
             <MoneyDisplay minor={walletSummary.holdMinor} strong />
           </div>
           {pendingReceiveMinor > 0 ? (
@@ -135,7 +135,7 @@ export function MyOrdersPage({
               className="card wallet-balance-card"
               data-testid="my-orders-pending-receive"
             >
-              <span className="eyebrow">К получению</span>
+              <span className="eyebrow">{t('orders.toReceive')}</span>
               <MoneyDisplay minor={pendingReceiveMinor} strong />
             </div>
           ) : null}
@@ -147,19 +147,19 @@ export function MyOrdersPage({
       {!loading && summaryOrders.length > 0 ? (
         <div className="deals-summary-grid" data-testid="my-orders-summary">
           <div className="card seller-summary-card">
-            <span className="eyebrow">Активные</span>
+            <span className="eyebrow">{t('orders.active')}</span>
             <strong className="seller-summary-count">{summary.active}</strong>
           </div>
           <div className="card seller-summary-card">
-            <span className="eyebrow">Ожидают передачи</span>
+            <span className="eyebrow">{t('orders.awaitingTransfer')}</span>
             <strong className="seller-summary-count">{summary.waitingTrade}</strong>
           </div>
           <div className="card seller-summary-card">
-            <span className="eyebrow">Завершены</span>
+            <span className="eyebrow">{t('orders.completed')}</span>
             <strong className="seller-summary-count">{summary.completed}</strong>
           </div>
           <div className="card seller-summary-card">
-            <span className="eyebrow">На проверке</span>
+            <span className="eyebrow">{t('orders.underReview')}</span>
             <strong className="seller-summary-count">{summary.review}</strong>
           </div>
         </div>
@@ -170,7 +170,7 @@ export function MyOrdersPage({
           <div className="catalog-filters-row">
             {!sellerOnly && !buyerOnly ? (
               <label className="field catalog-filter-field">
-                <span className="field-label">Роль</span>
+                <span className="field-label">{t('orders.role')}</span>
                 <select
                   value={roleFilter}
                   onChange={(event) =>
@@ -178,14 +178,14 @@ export function MyOrdersPage({
                   }
                   data-testid="my-orders-role-filter"
                 >
-                  <option value="all">Все</option>
-                  <option value="buyer">Покупатель</option>
-                  <option value="seller">Продавец</option>
+                  <option value="all">{t('orders.all')}</option>
+                  <option value="buyer">{t('orders.buyer')}</option>
+                  <option value="seller">{t('orders.seller')}</option>
                 </select>
               </label>
             ) : null}
             <label className="field catalog-filter-field">
-              <span className="field-label">Статус</span>
+              <span className="field-label">{t('orders.status')}</span>
               <select
                 value={statusFilter}
                 onChange={(event) =>
@@ -193,11 +193,11 @@ export function MyOrdersPage({
                 }
                 data-testid="my-orders-status-filter"
               >
-                <option value="all">Все</option>
-                <option value="active">Активные</option>
-                <option value="waiting">Ожидают передачи</option>
-                <option value="completed">Завершены</option>
-                <option value="review">На проверке</option>
+                <option value="all">{t('orders.all')}</option>
+                <option value="active">{t('orders.active')}</option>
+                <option value="waiting">{t('orders.awaitingTransfer')}</option>
+                <option value="completed">{t('orders.completed')}</option>
+                <option value="review">{t('orders.underReview')}</option>
               </select>
             </label>
           </div>
@@ -223,15 +223,15 @@ export function MyOrdersPage({
           action={
             emptyStateMode === 'purchases' ? (
               <Link to="/catalog" className="button primary">
-                В каталог
+                {t('orders.toCatalog')}
               </Link>
             ) : emptyStateMode === 'sales' ? (
               <Link to="/sell/inventory" className="button primary">
-                В инвентарь
+                {t('orders.toInventory')}
               </Link>
             ) : (
               <Link to="/catalog" className="button primary">
-                В каталог
+                {t('orders.toCatalog')}
               </Link>
             )
           }
@@ -243,12 +243,12 @@ export function MyOrdersPage({
           <table className="data-table deals-orders-table" data-testid="my-orders-table">
             <thead>
               <tr>
-                <th>Предмет</th>
-                {!sellerOnly && !buyerOnly ? <th>Роль</th> : null}
-                <th>Сумма</th>
-                <th>Статус</th>
-                <th>Дата</th>
-                <th>ID</th>
+                <th>{t('orders.colItem')}</th>
+                {!sellerOnly && !buyerOnly ? <th>{t('orders.colRole')}</th> : null}
+                <th>{t('orders.colAmount')}</th>
+                <th>{t('orders.colStatus')}</th>
+                <th>{t('orders.colDate')}</th>
+                <th>{t('orders.colId')}</th>
               </tr>
             </thead>
             <tbody>
@@ -307,7 +307,7 @@ export function MyOrdersPage({
                     {!sellerOnly && !buyerOnly ? (
                       <td>
                         <span className="deals-role-label">
-                          {formatOrderRoleLabel(role)}
+                          {formatOrderRoleLabel(role, locale)}
                         </span>
                       </td>
                     ) : null}
@@ -323,19 +323,22 @@ export function MyOrdersPage({
                     <td>
                       <StatusBadge
                         status={order.status}
-                        label={formatOrderStatusCompact(order.status)}
+                        label={formatOrderStatusCompact(order.status, locale)}
                         compact
                       />
                       <span className="sr-only">{order.status}</span>
                     </td>
                     <td className="deals-date-cell">
-                      {new Date(order.createdAt).toLocaleString('ru-RU', {
-                        day: '2-digit',
-                        month: '2-digit',
-                        year: 'numeric',
-                        hour: '2-digit',
-                        minute: '2-digit',
-                      })}
+                      {new Date(order.createdAt).toLocaleString(
+                        locale === 'en' ? 'en-US' : 'ru-RU',
+                        {
+                          day: '2-digit',
+                          month: '2-digit',
+                          year: 'numeric',
+                          hour: '2-digit',
+                          minute: '2-digit',
+                        },
+                      )}
                     </td>
                     <td className="deals-id-cell">
                       <CopyableDealId
@@ -354,7 +357,7 @@ export function MyOrdersPage({
 
       {!loading && orders.length > 0 && filteredOrders.length === 0 ? (
         <div className="card">
-          <p className="muted">Нет сделок по выбранным фильтрам.</p>
+          <p className="muted">{t('orders.noFilterResults')}</p>
         </div>
       ) : null}
     </div>

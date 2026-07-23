@@ -1,4 +1,5 @@
 import { Link } from 'react-router-dom';
+import { useLocale } from '../i18n';
 
 type LotBreadcrumbsProps = {
   marketHashName: string;
@@ -18,8 +19,9 @@ export function LotBreadcrumbs({
   weapon,
   categoryLabel,
 }: LotBreadcrumbsProps) {
+  const { t } = useLocale();
   const crumbs: Array<{ label: string; href?: string }> = [
-    { label: 'Каталог', href: '/catalog' },
+    { label: t('lotBreadcrumbs.catalog'), href: '/catalog' },
   ];
 
   if (categoryLabel?.trim()) {
@@ -33,7 +35,7 @@ export function LotBreadcrumbs({
   crumbs.push({ label: marketHashName });
 
   return (
-    <nav className="lot-breadcrumbs" aria-label="Навигация по каталогу" data-testid="lot-breadcrumbs">
+    <nav className="lot-breadcrumbs" aria-label={t('lotBreadcrumbs.navAria')} data-testid="lot-breadcrumbs">
       <ol className="lot-breadcrumbs-list">
         {crumbs.map((crumb, index) => {
           const isLast = index === crumbs.length - 1;

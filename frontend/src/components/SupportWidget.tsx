@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../auth/AuthContext';
+import { useLocale } from '../i18n';
 import {
   filterSupportWidgetFaq,
 } from '../data/support-widget-faq';
@@ -13,12 +14,14 @@ type SupportWidgetProps = {
 
 export function SupportWidget({ open, onOpenChange }: SupportWidgetProps) {
   const { user } = useAuth();
+  const { locale, t } = useLocale();
   const location = useLocation();
   const [search, setSearch] = useState('');
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const widgetRef = useRef<HTMLDivElement>(null);
-  const filteredArticles = filterSupportWidgetFaq(search);
-  const greetingName = user?.steamPersonaName?.trim() || user?.username || 'гость';
+  const filteredArticles = filterSupportWidgetFaq(search, locale);
+  const greetingName =
+    user?.steamPersonaName?.trim() || user?.username || t('supportWidget.guest');
   const onFaqPage = location.pathname === '/faq';
   const onSupportPage = location.pathname === '/support';
 
@@ -46,11 +49,11 @@ export function SupportWidget({ open, onOpenChange }: SupportWidgetProps) {
       {open ? (
         <div className="support-widget-panel" data-testid="support-widget-panel">
           <div className="support-widget-panel-header">
-            <h2 className="support-widget-title">Быстрая помощь</h2>
+            <h2 className="support-widget-title">{t('supportWidget.title')}</h2>
             <button
               type="button"
               className="support-widget-close"
-              aria-label="Закрыть"
+              aria-label={t('supportWidget.close')}
               onClick={() => onOpenChange(false)}
             >
               ×
@@ -58,23 +61,23 @@ export function SupportWidget({ open, onOpenChange }: SupportWidgetProps) {
           </div>
 
           <p className="support-widget-greeting" data-testid="support-widget-greeting">
-            Здравствуйте, {greetingName}! Чем можем помочь?
+            {t('supportWidget.greeting', { name: greetingName })}
           </p>
 
           <label className="field support-widget-search">
-            <span className="sr-only">Поиск по частым вопросам</span>
+            <span className="sr-only">{t('supportWidget.searchLabel')}</span>
             <input
               type="search"
               value={search}
               onChange={(event) => setSearch(event.target.value)}
-              placeholder="Поиск по частым вопросам…"
+              placeholder={t('supportWidget.searchPlaceholder')}
               data-testid="support-widget-search"
             />
           </label>
 
           <div className="support-widget-quick-links" data-testid="support-widget-articles">
             {filteredArticles.length === 0 ? (
-              <p className="muted small">Ничего не найдено. Напишите нам — поможем вручную.</p>
+              <p className="muted small">{t('supportWidget.noResults')}</p>
             ) : (
               filteredArticles.map((article) => {
                 const expanded = expandedId === article.id;
@@ -107,10 +110,10 @@ export function SupportWidget({ open, onOpenChange }: SupportWidgetProps) {
 
           <p className="muted small support-widget-hint">
             {onSupportPage
-              ? 'Нужна помощь с конкретной сделкой? Заполните форму тикета на странице.'
+              ? t('supportWidget.hintSupportPage')
               : onFaqPage
-                ? 'Подробные инструкции — в статьях FAQ на этой странице.'
-                : 'Краткие подсказки здесь. Полная база знаний — в разделе FAQ.'}
+                ? t('supportWidget.hintFaqPage')
+                : t('supportWidget.hintDefault')}
           </p>
 
           <div className="support-widget-actions">
@@ -119,7 +122,7 @@ export function SupportWidget({ open, onOpenChange }: SupportWidgetProps) {
               className="button primary sm"
               data-testid="support-widget-write"
             >
-              Написать на email
+              {t('supportWidget.emailButton')}
             </a>
             {onSupportPage ? (
               <a
@@ -128,7 +131,7 @@ export function SupportWidget({ open, onOpenChange }: SupportWidgetProps) {
                 data-testid="support-widget-ticket-link"
                 onClick={() => onOpenChange(false)}
               >
-                К форме тикета
+                {t('supportWidget.ticketFormButton')}
               </a>
             ) : onFaqPage ? (
               <Link
@@ -137,7 +140,7 @@ export function SupportWidget({ open, onOpenChange }: SupportWidgetProps) {
                 data-testid="support-widget-ticket-link"
                 onClick={() => onOpenChange(false)}
               >
-                Создать тикет
+                {t('supportWidget.createTicketButton')}
               </Link>
             ) : (
               <>
@@ -147,7 +150,7 @@ export function SupportWidget({ open, onOpenChange }: SupportWidgetProps) {
                   data-testid="support-widget-page-link"
                   onClick={() => onOpenChange(false)}
                 >
-                  Открыть FAQ
+                  {t('supportWidget.openFaqButton')}
                 </Link>
                 <Link
                   to="/support"
@@ -155,7 +158,7 @@ export function SupportWidget({ open, onOpenChange }: SupportWidgetProps) {
                   data-testid="support-widget-ticket-link"
                   onClick={() => onOpenChange(false)}
                 >
-                  Создать тикет
+                  {t('supportWidget.createTicketButton')}
                 </Link>
               </>
             )}
@@ -166,7 +169,7 @@ export function SupportWidget({ open, onOpenChange }: SupportWidgetProps) {
       <button
         type="button"
         className="support-widget-fab"
-        aria-label="Быстрая помощь"
+        aria-label={t('supportWidget.fabAria')}
         aria-expanded={open}
         data-testid="support-widget-fab"
         onClick={() => onOpenChange(!open)}

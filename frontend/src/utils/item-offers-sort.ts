@@ -1,4 +1,13 @@
 import type { Lot } from '../api/types';
+import { enMessages } from '../i18n/messages/en.ts';
+import { ruMessages } from '../i18n/messages/ru.ts';
+import { translate } from '../i18n/translate.ts';
+import type { Locale } from '../i18n/types.ts';
+
+const messagesByLocale = {
+  ru: ruMessages,
+  en: enMessages,
+} as const;
 
 export type ItemOfferSort = 'price_asc' | 'price_desc' | 'float_asc' | 'float_desc' | 'newest';
 
@@ -47,6 +56,7 @@ export function sortItemOffers(lots: Lot[], sort: ItemOfferSort): Lot[] {
 
 export function formatOfferStickersSummary(
   stickers?: { name: string }[] | null,
+  locale: Locale = 'ru',
 ): string {
   if (!stickers?.length) {
     return '—';
@@ -54,5 +64,7 @@ export function formatOfferStickersSummary(
   if (stickers.length === 1) {
     return stickers[0].name;
   }
-  return `${stickers.length} шт.`;
+  return translate(messagesByLocale[locale], 'itemOffers.stickerCount', {
+    count: stickers.length,
+  });
 }

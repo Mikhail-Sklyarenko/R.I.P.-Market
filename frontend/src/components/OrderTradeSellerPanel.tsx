@@ -1,11 +1,12 @@
 import { useState } from 'react';
 import type { Order } from '../api/types';
+import { useLocale } from '../i18n';
 import { ExtensionTaskProgress } from './ExtensionTaskProgress';
 import { ItemPreview } from './ItemPreview';
 import {
   formatTradePollStatus,
+  getSellerTradeInstructions,
   isOrderTradeDeliveryCheck,
-  SELLER_TRADE_INSTRUCTIONS,
 } from '../utils/order-trade';
 
 type OrderTradeSellerPanelProps = {
@@ -43,9 +44,10 @@ export function OrderTradeSellerPanel({
   onCheckDelivery,
   onAcknowledgeSent,
 }: OrderTradeSellerPanelProps) {
+  const { t, locale } = useLocale();
   const [copied, setCopied] = useState(false);
   const buyerTradeUrl = order.buyer?.tradeUrl?.trim() ?? '';
-  const pollStatus = formatTradePollStatus(order.tradeOperation);
+  const pollStatus = formatTradePollStatus(order.tradeOperation, locale);
   const hasOfferSaved = Boolean(order.tradeOperation?.externalOfferId);
   const tradeTask = order.tradeTask;
   const isConfirmPending = tradeTask?.executionPhase === 'CONFIRM_PENDING';
@@ -79,7 +81,7 @@ export function OrderTradeSellerPanel({
 
   return (
     <div className="card order-trade-panel" data-testid="seller-trade-panel">
-      <h3 className="order-trade-panel-title">Ваш шаг</h3>
+      <h3 className="order-trade-panel-title">{t('orderTradePanel.yourStep')}</h3>
 
       {nextActionTitle ? (
         <div className="next-action-card" data-testid="order-next-action">
@@ -92,21 +94,15 @@ export function OrderTradeSellerPanel({
 
       {extensionMode && extensionHandling && isConfirmPending ? (
         <div className="extension-seller-cta" data-testid="seller-extension-guard-cta">
-          <strong>Подтвердите в Steam Guard</strong>
-          <p className="muted small">
-            Обмен уже создан. Откройте Steam Mobile и подтвердите отправку — это ваш
-            главный шаг.
-          </p>
+          <strong>{t('orderTradePanel.confirmGuardTitle')}</strong>
+          <p className="muted small">{t('orderTradePanel.confirmGuardBody')}</p>
         </div>
       ) : null}
 
       {isDeliveryCheck ? (
         <div className="alert alert-info" data-testid="seller-delivery-check-banner">
-          <strong>Проверяем доставку</strong>
-          <p className="muted small">
-            Предмет уже ушёл из вашего инвентаря. Не отправляйте новый обмен — платформа
-            сверяет покупателя.
-          </p>
+          <strong>{t('orderTradePanel.checkingDeliveryTitle')}</strong>
+          <p className="muted small">{t('orderTradePanel.checkingDeliveryBody')}</p>
           {onCheckDelivery ? (
             <button
               type="button"
@@ -115,7 +111,7 @@ export function OrderTradeSellerPanel({
               data-testid="check-delivery-now"
               onClick={onCheckDelivery}
             >
-              {checkingDelivery ? 'Проверяем…' : 'Проверить доставку сейчас'}
+              {checkingDelivery ? t('orderTradePanel.checking') : t('orderTradePanel.checkNow')}
             </button>
           ) : null}
         </div>
@@ -123,7 +119,7 @@ export function OrderTradeSellerPanel({
 
       {sellerAckSent && !isDeliveryCheck ? (
         <p className="alert alert-success" data-testid="seller-ack-sent-done">
-          Обмен отмечен как отправленный. Ждём принятия покупателем в Steam.
+          {t('orderTradePanel.ackSentDone')}
         </p>
       ) : null}
 
@@ -135,7 +131,7 @@ export function OrderTradeSellerPanel({
         />
       ) : (
         <p className="muted small" data-testid="seller-waiting-message">
-          Отправьте trade offer покупателю и сохраните ссылку на предложение ниже.
+          {t('orderTradePanel.waitingMessage')}
         </p>
       )}
 
@@ -154,16 +150,13 @@ export function OrderTradeSellerPanel({
         >
           <summary>
             {extensionHandling
-              ? 'Дополнительно / если автоотправка не сработала'
-              : 'Куда отправить и как указать обмен'}
+              ? t('orderTradePanel.detailsExtraSummary')
+              : t('orderTradePanel.detailsManualSummary')}
           </summary>
 
           {showSellerAck ? (
             <div className="extension-seller-cta" data-testid="seller-ack-sent-cta">
-              <p className="muted small">
-                Если Guard уже подтверждён, а статус на сайте не обновился — отметьте
-                отправку.
-              </p>
+              <p className="muted small">{t('orderTradePanel.guardConfirmedHint')}</p>
               <button
                 type="button"
                 className="button secondary sm"
@@ -171,13 +164,13 @@ export function OrderTradeSellerPanel({
                 data-testid="seller-ack-sent"
                 onClick={onAcknowledgeSent}
               >
-                {acknowledging ? 'Сохраняем…' : 'Я отправил обмен'}
+                {acknowledging ? t('orderTradePanel.saving') : t('orderTradePanel.iSentTrade')}
               </button>
             </div>
           ) : null}
 
           <div className="order-trade-destination">
-            <h4 className="order-trade-subtitle">Trade URL покупателя</h4>
+            <h4 className="order-trade-subtitle">{t('orderTradePanel.buyerTradeUrlTitle')}</h4>
             {buyerTradeUrl ? (
               <div className="order-trade-url-row" data-testid="seller-buyer-trade-url">
                 <code className="order-trade-url-value">{buyerTradeUrl}</code>
@@ -187,7 +180,7 @@ export function OrderTradeSellerPanel({
                     className="button secondary sm"
                     onClick={() => void handleCopyBuyerTradeUrl()}
                   >
-                    {copied ? 'Скопировано' : 'Копировать'}
+                    {copied ? t('orderTradePanel.copied') : t('orderTradePanel.copy')}
                   </button>
                   <a
                     className="button secondary sm"
@@ -195,23 +188,22 @@ export function OrderTradeSellerPanel({
                     target="_blank"
                     rel="noreferrer"
                   >
-                    Открыть в Steam
+                    {t('orderTradePanel.openInSteam')}
                   </a>
                 </div>
               </div>
             ) : (
               <p className="alert alert-warning" data-testid="seller-buyer-trade-url-missing">
-                У покупателя не указан Trade URL. Попросите добавить его в настройках
-                аккаунта.
+                {t('orderTradePanel.buyerTradeUrlMissing')}
               </p>
             )}
           </div>
 
           {!extensionHandling ? (
             <div data-testid="seller-trade-instructions">
-              <h4 className="order-trade-subtitle">Инструкция</h4>
+              <h4 className="order-trade-subtitle">{t('orderTradePanel.instructionsTitle')}</h4>
               <ol className="order-trade-steps">
-                {SELLER_TRADE_INSTRUCTIONS.map((step) => (
+                {getSellerTradeInstructions(locale).map((step) => (
                   <li key={step}>{step}</li>
                 ))}
               </ol>
@@ -221,7 +213,7 @@ export function OrderTradeSellerPanel({
           {!hasOfferSaved && showManualForm ? (
             <>
               <label className="field">
-                <span className="field-label">Ссылка или ID trade offer</span>
+                <span className="field-label">{t('orderTradePanel.tradeOfferInputLabel')}</span>
                 <input
                   type="text"
                   value={offerInput}
@@ -237,12 +229,12 @@ export function OrderTradeSellerPanel({
                 data-testid="save-trade-offer"
                 onClick={onSaveTradeReference}
               >
-                {savingOffer ? 'Сохраняем…' : 'Сохранить предложение'}
+                {savingOffer ? t('orderTradePanel.savingTrade') : t('orderTradePanel.saveOffer')}
               </button>
             </>
           ) : hasOfferSaved ? (
             <p className="muted small">
-              Предложение обмена:{' '}
+              {t('orderTradePanel.offerLabel')}{' '}
               <strong data-testid="trade-offer-id">
                 {order.tradeOperation?.externalOfferId}
               </strong>
@@ -251,13 +243,13 @@ export function OrderTradeSellerPanel({
         </details>
       ) : hasOfferSaved ? (
         <p className="muted small">
-          Предложение обмена:{' '}
+          {t('orderTradePanel.offerLabel')}{' '}
           <strong data-testid="trade-offer-id">{order.tradeOperation?.externalOfferId}</strong>
         </p>
       ) : null}
 
       <p className="order-trade-poll-status" data-testid="trade-poll-status">
-        Статус проверки: <strong>{pollStatus}</strong>
+        {t('orderTradePanel.pollStatusLabel')} <strong>{pollStatus}</strong>
       </p>
     </div>
   );

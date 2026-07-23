@@ -21,7 +21,7 @@ type ThemeSelectProps = {
 export function ThemeSelect({
   value,
   options,
-  placeholder = 'Выберите…',
+  placeholder = '…',
   required = false,
   disabled = false,
   'data-testid': testId,

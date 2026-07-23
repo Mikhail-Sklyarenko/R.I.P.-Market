@@ -1,4 +1,5 @@
 import { useState, type MouseEvent } from 'react';
+import { useLocale } from '../i18n';
 
 type CopyableDealIdProps = {
   id: string;
@@ -21,6 +22,7 @@ export function CopyableDealId({
   className,
   testId = 'copyable-deal-id',
 }: CopyableDealIdProps) {
+  const { t } = useLocale();
   const [copied, setCopied] = useState(false);
 
   async function handleCopy(event?: MouseEvent) {
@@ -43,9 +45,9 @@ export function CopyableDealId({
           .filter(Boolean)
           .join(' ')}
         onClick={(event) => void handleCopy(event)}
-        title={copied ? 'Скопировано' : `Скопировать ID: ${id}`}
+        title={copied ? t('copyableDealId.copied') : t('copyableDealId.copyIdShort', { id })}
         aria-label={
-          copied ? 'ID сделки скопирован' : `Скопировать ID сделки ${id}`
+          copied ? t('copyableDealId.copiedAria') : t('copyableDealId.copyIdAria', { id })
         }
         data-testid={testId}
       >
@@ -57,7 +59,7 @@ export function CopyableDealId({
             .filter(Boolean)
             .join(' ')}
         >
-          {copied ? 'Скопировано' : shortDealId(id)}
+          {copied ? t('copyableDealId.copied') : shortDealId(id)}
         </code>
       </button>
     );
@@ -68,7 +70,7 @@ export function CopyableDealId({
       className={['copyable-deal-id', className].filter(Boolean).join(' ')}
       data-testid={testId}
     >
-      <span className="copyable-deal-id-label">ID сделки</span>
+      <span className="copyable-deal-id-label">{t('copyableDealId.label')}</span>
       <div className="copyable-deal-id-row">
         <code className="copyable-deal-id-value" title={id}>
           {id}
@@ -79,11 +81,11 @@ export function CopyableDealId({
           onClick={() => void handleCopy()}
           data-testid={`${testId}-copy`}
         >
-          {copied ? 'Скопировано' : 'Скопировать'}
+          {copied ? t('copyableDealId.copied') : t('copyableDealId.copyButton')}
         </button>
       </div>
       <p className="muted small copyable-deal-id-hint">
-        Нужен для обращения в поддержку.
+        {t('copyableDealId.hint')}
       </p>
     </div>
   );
