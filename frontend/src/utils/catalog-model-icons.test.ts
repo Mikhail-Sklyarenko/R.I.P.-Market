@@ -27,7 +27,10 @@ describe('catalog model icons', () => {
   });
 
   it('exposes dropdown options for weapon tabs', () => {
-    assert.ok(getCategoryOptionsForTab('rifles').length >= 4);
-    assert.ok(getCategoryOptionsForTab('snipers').length >= 2);
+    assert.ok(getCategoryOptionsForTab('rifles').length >= 7);
+    assert.ok(getCategoryOptionsForTab('snipers').length >= 4);
+    assert.ok(getCategoryOptionsForTab('pistols').length >= 10);
+    assert.ok(getCategoryOptionsForTab('smg').length >= 7);
+    assert.ok(getCategoryOptionsForTab('shotguns').length >= 4);
   });
 });

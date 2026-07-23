@@ -20,9 +20,22 @@ describe('catalog-filters utils', () => {
     const snipers = resolveCatalogFilter('snipers', '');
     assert.equal(snipers.weapon?.includes('AWP'), true);
     assert.equal(snipers.weapon?.includes('SSG 08'), true);
+    assert.equal(snipers.weapon?.includes('G3SG1'), true);
+    assert.equal(snipers.weapon?.includes('SCAR-20'), true);
     const rifles = resolveCatalogFilter('rifles', '');
     assert.equal(rifles.weapon?.includes('AK-47'), true);
     assert.equal(rifles.weapon?.includes('M4A4'), true);
+    assert.equal(rifles.weapon?.includes('SG 553'), true);
+    const pistols = resolveCatalogFilter('pistols', '');
+    assert.equal(pistols.weapon?.includes('Glock-18'), true);
+    assert.equal(pistols.weapon?.includes('Tec-9'), true);
+    assert.equal(pistols.weapon?.includes('R8 Revolver'), true);
+    const smg = resolveCatalogFilter('smg', '');
+    assert.equal(smg.weapon?.includes('MP5-SD'), true);
+    assert.equal(smg.weapon?.includes('P90'), true);
+    const shotguns = resolveCatalogFilter('shotguns', '');
+    assert.equal(shotguns.weapon?.includes('MAG-7'), true);
+    assert.equal(shotguns.weapon?.includes('Sawed-Off'), true);
   });
 
   it('filters gloves by weapon types, never by Extraordinary rarity', () => {
