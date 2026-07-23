@@ -1,5 +1,6 @@
-import { type FormEvent, useEffect } from 'react';
+import { type FormEvent, useEffect, type ReactNode } from 'react';
 import type { InventoryAsset, InventoryPriceHint, PricingPreview } from '../api/types';
+import { formatLotCountLabel, useLocale } from '../i18n';
 import { formatUsdFromMinor } from '../utils/format';
 import { formatPaintSeed } from '../utils/item-image';
 import {
@@ -10,6 +11,21 @@ import { ErrorAlert } from './ErrorAlert';
 import { LotItemHero } from './LotItemHero';
 import { MoneyDisplay } from './MoneyDisplay';
 import { WearBar } from './WearBar';
+
+function injectAmount(
+  template: string,
+  amountNode: ReactNode,
+): ReactNode[] {
+  return template.split('⟦amount⟧').reduce<ReactNode[]>((nodes, part, index) => {
+    if (index > 0) {
+      nodes.push(amountNode);
+    }
+    if (part) {
+      nodes.push(<span key={`txt-${index}`}>{part}</span>);
+    }
+    return nodes;
+  }, []);
+}
 
 export type InventorySellPanelMode = 'create' | 'edit';
 
@@ -36,21 +52,6 @@ type InventorySellPanelProps = {
   onClose: () => void;
 };
 
-function formatLotCountLabel(count: number): string {
-  const mod100 = count % 100;
-  const mod10 = count % 10;
-  if (mod100 >= 11 && mod100 <= 14) {
-    return `${count} лотов`;
-  }
-  if (mod10 === 1) {
-    return `${count} лот`;
-  }
-  if (mod10 >= 2 && mod10 <= 4) {
-    return `${count} лота`;
-  }
-  return `${count} лотов`;
-}
-
 export function InventorySellPanel({
   mode = 'create',
   asset,
@@ -72,6 +73,7 @@ export function InventorySellPanel({
   onCancelListing,
   onClose,
 }: InventorySellPanelProps) {
+  const { locale, t } = useLocale();
   const isEdit = mode === 'edit';
   const patternText = formatPaintSeed(asset.paintSeed);
   const recommendedMinor = getRecommendedPriceMinor(priceHint);
@@ -93,6 +95,7 @@ export function InventorySellPanel({
       : preview;
   const busy = submitting || canceling;
   const blockOnMissingSteam = !isEdit && steamPriceMissing;
+  const lotsLabel = formatLotCountLabel(listingCount, locale);
 
   useEffect(() => {
     function onKeyDown(event: KeyboardEvent) {
@@ -121,12 +124,12 @@ export function InventorySellPanel({
     >
       <div className="inventory-listing-modal-header">
         <h2 id="inventory-listing-modal-title" className="inventory-listing-modal-title">
-          {isEdit ? 'Изменить лот' : 'Выставить лот'}
+          {isEdit ? t('sellPanel.editTitle') : t('sellPanel.listTitle')}
         </h2>
         <button
           type="button"
           className="inventory-listing-modal-close"
-          aria-label="Закрыть"
+          aria-label={t('sellPanel.close')}
           onClick={onClose}
         >
           ×
@@ -158,7 +161,7 @@ export function InventorySellPanel({
               className="inventory-sell-panel-pattern muted small"
               data-testid="inventory-sell-pattern"
             >
-              Паттерн {patternText}
+              {t('sellPanel.pattern', { value: patternText })}
             </p>
           ) : null}
 
@@ -167,13 +170,14 @@ export function InventorySellPanel({
               className="inventory-sell-steam-price muted small"
               data-testid="inventory-sell-steam-price"
             >
-              Цена Steam: <MoneyDisplay minor={priceHint.steamPriceMinor} strong />
+              {t('sellPanel.steamPrice')}{' '}
+              <MoneyDisplay minor={priceHint.steamPriceMinor} strong />
             </p>
           ) : steamPriceMissing ? (
             <p className="field-error small" data-testid="inventory-sell-steam-price-missing">
               {isEdit
-                ? 'Цена Steam недоступна — ориентируйтесь на конкуренцию на R.I.P.'
-                : 'Цена Steam недоступна — выставление лота временно заблокировано.'}
+                ? t('sellPanel.steamMissingEdit')
+                : t('sellPanel.steamMissingCreate')}
             </p>
           ) : null}
 
@@ -182,7 +186,7 @@ export function InventorySellPanel({
               className="inventory-sell-market-price muted small"
               data-testid="inventory-sell-market-price"
             >
-              На R.I.P. от{' '}
+              {t('sellPanel.marketFrom')}{' '}
               <MoneyDisplay minor={priceHint.minMarketplacePriceMinor} />
             </p>
           ) : null}
@@ -195,8 +199,9 @@ export function InventorySellPanel({
               data-testid="inventory-price-recommendation"
             >
               <p className="muted small">
-                Рекомендуем от <strong>{formatUsdFromMinor(recommendedMinor)}</strong>
-                {' — Steam −5%'}
+                {t('sellPanel.recommend', {
+                  price: formatUsdFromMinor(recommendedMinor),
+                })}
               </p>
               <button
                 type="button"
@@ -204,13 +209,13 @@ export function InventorySellPanel({
                 data-testid="inventory-apply-recommended-price"
                 onClick={() => onPriceChange(minorToPriceInput(recommendedMinor))}
               >
-                Подставить
+                {t('sellPanel.apply')}
               </button>
             </div>
           ) : null}
 
           <label className="field" htmlFor="inventory-price-input">
-            <span className="field-label">Цена ($)</span>
+            <span className="field-label">{t('sellPanel.price')}</span>
             <input
               id="inventory-price-input"
               type="text"
@@ -231,7 +236,7 @@ export function InventorySellPanel({
               data-testid="inventory-bulk-list-option"
             >
               <span className="field-label">
-                Количество (доступно {bulkListableCount} шт.)
+                {t('sellPanel.quantity', { count: bulkListableCount })}
               </span>
               <div className="inventory-bulk-quantity-row">
                 <input
@@ -258,38 +263,41 @@ export function InventorySellPanel({
                   data-testid="inventory-bulk-quantity-all"
                   onClick={() => onBulkListCountChange?.(bulkListableCount)}
                 >
-                  Все {bulkListableCount}
+                  {t('sellPanel.all', { count: bulkListableCount })}
                 </button>
               </div>
-              <span className="muted small">
-                Одинаковые предметы без float — выставите нужное число по одной цене.
-              </span>
+              <span className="muted small">{t('sellPanel.quantityHint')}</span>
             </label>
           ) : null}
 
           {totalPreview ? (
             <div className="pricing-preview inventory-sell-payout" data-testid="pricing-preview">
               <p className="inventory-payout-summary">
-                {listingCount > 1 ? (
-                  <>
-                    Вы получите{' '}
-                    <MoneyDisplay minor={totalPreview.sellerReceiveMinor} strong /> за{' '}
-                    {formatLotCountLabel(listingCount)} после комиссии 5%
-                  </>
-                ) : (
-                  <>
-                    Вы получите <MoneyDisplay minor={totalPreview.sellerReceiveMinor} strong />{' '}
-                    после комиссии 5%
-                  </>
+                {injectAmount(
+                  listingCount > 1
+                    ? t('sellPanel.youReceiveLots', {
+                        amount: '⟦amount⟧',
+                        lots: lotsLabel,
+                      })
+                    : t('sellPanel.youReceive', { amount: '⟦amount⟧' }),
+                  <MoneyDisplay
+                    key="payout-amount"
+                    minor={totalPreview.sellerReceiveMinor}
+                    strong
+                  />,
                 )}
               </p>
               <div className="inventory-payout-breakdown">
                 <div>
-                  <span>{listingCount > 1 ? 'Сумма' : 'Цена'}</span>
+                  <span>
+                    {listingCount > 1
+                      ? t('sellPanel.sumLabel')
+                      : t('sellPanel.priceLabel')}
+                  </span>
                   <MoneyDisplay minor={totalPreview.priceMinor} strong />
                 </div>
                 <div>
-                  <span>Комиссия</span>
+                  <span>{t('sellPanel.commission')}</span>
                   <MoneyDisplay minor={totalPreview.commissionMinor} strong />
                 </div>
               </div>
@@ -306,13 +314,13 @@ export function InventorySellPanel({
           >
             {submitting
               ? isEdit
-                ? 'Сохранение…'
-                : 'Публикация…'
+                ? t('sellPanel.saving')
+                : t('sellPanel.publishing')
               : isEdit
-                ? 'Сохранить'
+                ? t('sellPanel.save')
                 : listingCount > 1
-                  ? `Выставить ${formatLotCountLabel(listingCount)}`
-                  : 'Выставить лот'}
+                  ? t('sellPanel.submitLots', { lots: lotsLabel })
+                  : t('sellPanel.submit')}
           </button>
 
           {isEdit && onCancelListing ? (
@@ -323,7 +331,7 @@ export function InventorySellPanel({
               data-testid="cancel-listing"
               onClick={onCancelListing}
             >
-              {canceling ? 'Снимаем…' : 'Снять с продажи'}
+              {canceling ? t('sellPanel.unlisting') : t('sellPanel.unlist')}
             </button>
           ) : null}
         </section>

@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom';
 import type { BuyRequest, CatalogItem } from '../api/types';
+import { useLocale, wearLabel } from '../i18n';
 import { formatUsdFromMinor } from '../utils/format';
 import { formatSteamPriceAge, isSteamPriceStale } from '../utils/steam-price-age';
 import {
@@ -54,6 +55,7 @@ export function ItemBuyRequestPanel({
   onSubmit,
   onCancel,
 }: ItemBuyRequestPanelProps) {
+  const { locale, t } = useLocale();
   const steamSuggestion = steamSuggestionInput(steamPriceMinor);
   const hasTypedPrice = maxPriceInput.trim().length > 0;
   const wearOptions = (item.availableWears?.length
@@ -73,7 +75,7 @@ export function ItemBuyRequestPanel({
       <div className="item-buy-request-header">
         <p className="item-buy-request-kicker">Заявка на покупку</p>
         <span className="badge badge-inactive" data-testid="item-buy-request-status">
-          Нет лотов
+          {t('item.noLots')}
         </span>
       </div>
 
@@ -126,7 +128,7 @@ export function ItemBuyRequestPanel({
               ) : selectedWear ? (
                 <span className="muted small item-buy-request-active-wear">
                   {' '}
-                  · {getWearDisplayLabel(selectedWear)}
+                  · {getWearDisplayLabel(selectedWear, locale)}
                 </span>
               ) : null}
             </p>
@@ -157,7 +159,7 @@ export function ItemBuyRequestPanel({
                       data-testid={`item-buy-request-wear-${option.value.toLowerCase()}`}
                       onClick={() => onWearChange(option.value)}
                     >
-                      {option.label}
+                      {wearLabel(option.value, locale)}
                     </button>
                   ))}
                 </div>
@@ -180,7 +182,7 @@ export function ItemBuyRequestPanel({
                     data-testid="item-buy-request-apply-steam"
                     onClick={() => onMaxPriceChange(steamSuggestion)}
                   >
-                    Подставить
+                    {t('sellPanel.apply')}
                   </button>
                 </div>
               ) : null}
@@ -221,7 +223,7 @@ export function ItemBuyRequestPanel({
               data-testid="item-buy-request-submit"
               onClick={onSubmit}
             >
-              {token ? 'Оставить заявку' : 'Войти и оставить заявку'}
+              {token ? t('item.leaveRequest') : `${t('nav.login')} · ${t('item.leaveRequest')}`}
             </button>
           </>
         )}

@@ -1,4 +1,5 @@
 import type { CatalogItem } from '../api/types';
+import { useLocale } from '../i18n';
 import {
   getWearBadgeStyle,
   parseWearCodeFromMarketHashName,
@@ -13,10 +14,11 @@ type ItemCompareHeaderProps = {
 };
 
 export function ItemCompareHeader({ item, iconUrl }: ItemCompareHeaderProps) {
+  const { locale } = useLocale();
   const wearBadge = item.catalogSeeded
     ? null
     : getWearBadgeStyle(parseWearCodeFromMarketHashName(item.marketHashName));
-  const rarityLabel = getRarityDisplayLabel(item.rarity);
+  const rarityLabel = getRarityDisplayLabel(item.rarity, locale);
   const rarityStyle = getRarityStyle(item.rarity);
   const offerLabel =
     item.activeLotCount > 0

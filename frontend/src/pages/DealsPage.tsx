@@ -1,4 +1,5 @@
 import { Link, useSearchParams } from 'react-router-dom';
+import { useLocale } from '../i18n';
 import { PageHeader } from '../components/PageHeader';
 import { MyBuyRequestsPage } from './MyBuyRequestsPage';
 import { MyLotsPage } from './MyLotsPage';
@@ -14,6 +15,7 @@ function parseDealsTab(value: string | null): DealsTab {
 }
 
 export function DealsPage() {
+  const { t } = useLocale();
   const [searchParams, setSearchParams] = useSearchParams();
   const tab = parseDealsTab(searchParams.get('tab'));
 
@@ -24,11 +26,11 @@ export function DealsPage() {
   return (
     <div className="page seller-activity-page" data-testid="deals-page">
       <PageHeader
-        title="Сделки"
+        title={t('deals.title')}
         subtitle="Покупки, продажи, заявки на покупку и ваши лоты в одном разделе."
         actions={
           <Link to="/sell/inventory" className="button secondary">
-            Новый лот
+            {t('lots.newLot')}
           </Link>
         }
       />
@@ -42,7 +44,7 @@ export function DealsPage() {
           data-testid="deals-tab-purchases"
           onClick={() => selectTab('purchases')}
         >
-          Покупки
+          {t('deals.purchases')}
         </button>
         <button
           type="button"
@@ -52,7 +54,7 @@ export function DealsPage() {
           data-testid="deals-tab-sales"
           onClick={() => selectTab('sales')}
         >
-          Продажи
+          {t('deals.sales')}
         </button>
         <button
           type="button"
@@ -72,7 +74,7 @@ export function DealsPage() {
           data-testid="deals-tab-listings"
           onClick={() => selectTab('listings')}
         >
-          Мои лоты
+          {t('deals.listings')}
         </button>
       </div>
 

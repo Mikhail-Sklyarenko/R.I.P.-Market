@@ -15,6 +15,7 @@ import { EmptyState } from '../components/EmptyState';
 import { LoadingState } from '../components/LoadingState';
 import { PageHeader } from '../components/PageHeader';
 import { TrustBanner } from '../components/TrustBanner';
+import { useLocale } from '../i18n';
 import {
   CATALOG_PAGE_LIMIT,
   findCategoryOption,
@@ -107,6 +108,7 @@ function mergeSteamPricesForItems(
 
 export function CatalogPage() {
   const { token } = useAuth();
+  const { t } = useLocale();
   const [searchParams, setSearchParams] = useSearchParams();
   const weaponParam = searchParams.get('weapon');
 
@@ -472,8 +474,8 @@ export function CatalogPage() {
   return (
     <div className="page">
       <PageHeader
-        title="Каталог"
-        subtitle="Все скины CS2, доступные к обмену — с ценами Steam и маркетплейса."
+        title={t('catalog.title')}
+        subtitle={t('catalog.subtitle')}
       />
 
       <TrustBanner />
@@ -481,26 +483,26 @@ export function CatalogPage() {
       <div className="catalog-search-toolbar card" data-testid="catalog-search-toolbar">
         <div className="catalog-filters-row">
           <label className="field catalog-filter-field">
-            <span className="field-label">Поиск</span>
+            <span className="field-label">{t('catalog.search')}</span>
             <input
               type="search"
               value={search}
               onChange={(event) => setSearch(event.target.value)}
-              placeholder="Название скина…"
+              placeholder={t('catalog.searchPlaceholder')}
               data-testid="catalog-search"
             />
           </label>
           <label className="field catalog-filter-field">
-            <span className="field-label">Сортировка</span>
+            <span className="field-label">{t('catalog.sort')}</span>
             <select
               value={sort}
               onChange={(event) => setSort(event.target.value as SortOption)}
               data-testid="catalog-sort"
             >
-              <option value="popular">Популярные</option>
-              <option value="newest">Сначала новые</option>
-              <option value="price-asc">Цена ↑</option>
-              <option value="price-desc">Цена ↓</option>
+              <option value="popular">{t('catalog.sortPopular')}</option>
+              <option value="newest">{t('catalog.sortNewest')}</option>
+              <option value="price-asc">{t('catalog.sortPriceAsc')}</option>
+              <option value="price-desc">{t('catalog.sortPriceDesc')}</option>
             </select>
           </label>
         </div>
@@ -515,7 +517,7 @@ export function CatalogPage() {
             aria-hidden={!showResetFilters}
             disabled={!showResetFilters}
           >
-            Сбросить фильтры
+            {t('catalog.resetFilters')}
           </button>
         </div>
       </div>
@@ -540,7 +542,7 @@ export function CatalogPage() {
             aria-expanded={sidebarOpen}
             onClick={() => setSidebarOpen((value) => !value)}
           >
-            Фильтры
+            {t('catalog.filters')}
           </button>
 
           <div className="catalog-sidebar-body">
@@ -575,20 +577,22 @@ export function CatalogPage() {
           {isRefreshing ? (
             <div className="catalog-refresh-indicator" role="status" aria-live="polite">
               <span className="loading-spinner" aria-hidden="true" />
-              <span>Обновление…</span>
+              <span>{t('catalog.refreshing')}</span>
             </div>
           ) : null}
 
-          {isInitialLoading ? <LoadingState message="Загрузка каталога…" /> : null}
+          {isInitialLoading ? <LoadingState message={t('catalog.loading')} /> : null}
 
           {!isInitialLoading ? (
             <>
               <p className="catalog-total" data-testid="catalog-total">
-                Найдено скинов: {total}
+                {t('catalog.found', { count: total })}
               </p>
               {formatDataTimestamp(steamPriceFetchedAt) ? (
                 <p className="muted small" data-testid="catalog-steam-price-updated-at">
-                  Цены Steam обновлены: {formatDataTimestamp(steamPriceFetchedAt)}
+                  {t('catalog.steamPricesUpdated', {
+                    when: formatDataTimestamp(steamPriceFetchedAt) ?? '',
+                  })}
                 </p>
               ) : null}
             </>
@@ -596,13 +600,13 @@ export function CatalogPage() {
 
           {!isInitialLoading && popularLoading ? (
             <p className="muted small" data-testid="catalog-popular-loading">
-              Загрузка популярных предметов…
+              {t('catalog.popularLoading')}
             </p>
           ) : null}
 
           {!isInitialLoading && showPopularSection ? (
             <section className="catalog-popular-section" data-testid="catalog-popular-section">
-              <h2 className="catalog-section-title">Популярные и покупаемые</h2>
+              <h2 className="catalog-section-title">{t('catalog.popularTitle')}</h2>
               <div className="catalog-grid catalog-grid-compact">
                 {popularItems.map((item) => (
                   <CatalogItemCard
@@ -619,8 +623,8 @@ export function CatalogPage() {
 
           {!isInitialLoading && !loading && items.length === 0 ? (
             <EmptyState
-              title="Ничего не найдено"
-              message="Измените фильтры или дождитесь появления новых предметов в каталоге."
+              title={t('catalog.emptyTitle')}
+              message={t('catalog.emptyMessage')}
             />
           ) : null}
 
@@ -646,10 +650,10 @@ export function CatalogPage() {
                 disabled={currentPage <= 1}
                 onClick={() => setPage((value) => value - 1)}
               >
-                Назад
+                {t('common.back')}
               </button>
               <span className="muted small">
-                Страница {currentPage} из {totalPages}
+                {t('catalog.pageOf', { current: currentPage, total: totalPages })}
               </span>
               <button
                 type="button"
@@ -657,7 +661,7 @@ export function CatalogPage() {
                 disabled={currentPage >= totalPages}
                 onClick={() => setPage((value) => value + 1)}
               >
-                Вперёд
+                {t('catalog.next')}
               </button>
             </div>
           ) : null}

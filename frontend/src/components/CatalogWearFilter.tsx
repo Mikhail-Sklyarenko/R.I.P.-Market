@@ -1,4 +1,5 @@
 import { useId, useState } from 'react';
+import { useLocale, wearLabel } from '../i18n';
 import {
   CATALOG_WEAR_FILTERS,
   getWearFilterTestId,
@@ -18,10 +19,11 @@ export function CatalogWearFilter({
 }: CatalogWearFilterProps) {
   const [open, setOpen] = useState(defaultOpen);
   const groupId = useId();
+  const { locale, t } = useLocale();
 
   return (
     <CatalogCollapsibleFilter
-      title="Износ"
+      title={t('catalog.wear')}
       open={open}
       onToggle={() => setOpen((current) => !current)}
       onReset={() => onChange('')}
@@ -40,7 +42,7 @@ export function CatalogWearFilter({
           data-testid="catalog-wear-all"
           onClick={() => onChange('')}
         >
-          Все
+          {t('catalog.all')}
         </button>
         {CATALOG_WEAR_FILTERS.map((option) => (
           <button
@@ -55,7 +57,7 @@ export function CatalogWearFilter({
               style={{ backgroundColor: option.color, boxShadow: `0 0 8px ${option.color}88` }}
               aria-hidden="true"
             />
-            {option.label}
+            {wearLabel(option.value, locale)}
           </button>
         ))}
       </div>

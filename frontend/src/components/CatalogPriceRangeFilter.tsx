@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useLocale } from '../i18n';
 import { CatalogCollapsibleFilter } from './CatalogCollapsibleFilter';
 import { CatalogRangeFieldCell } from './CatalogRangeFieldCell';
 
@@ -18,17 +19,18 @@ export function CatalogPriceRangeFilter({
   defaultOpen = false,
 }: CatalogPriceRangeFilterProps) {
   const [open, setOpen] = useState(defaultOpen);
+  const { t } = useLocale();
 
   return (
     <CatalogCollapsibleFilter
-      title="Цена"
+      title={t('catalog.price')}
       open={open}
       onToggle={() => setOpen((current) => !current)}
       testId="catalog-price-filter"
     >
       <div className="catalog-range-field-row">
         <CatalogRangeFieldCell
-          label="Цена от"
+          label={t('catalog.priceFrom')}
           value={minPrice}
           onChange={onMinPriceChange}
           testId="catalog-min-price"
@@ -37,7 +39,7 @@ export function CatalogPriceRangeFilter({
         />
         <div className="catalog-range-field-divider" aria-hidden="true" />
         <CatalogRangeFieldCell
-          label="Цена до"
+          label={t('catalog.priceTo')}
           value={maxPrice}
           onChange={onMaxPriceChange}
           testId="catalog-max-price"

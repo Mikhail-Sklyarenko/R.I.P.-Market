@@ -1,9 +1,12 @@
+import { wearLabel } from '../i18n/cs2-labels.ts';
+import type { Locale } from '../i18n/types.ts';
+
 export const CATALOG_WEAR_FILTERS = [
-  { value: 'FN', label: 'Прямо с завода', color: '#5cb85c' },
-  { value: 'MW', label: 'Немного поношенное', color: '#8bc34a' },
-  { value: 'FT', label: 'После полевых испытаний', color: '#f0ad4e' },
-  { value: 'WW', label: 'Поношённое', color: '#ff7043' },
-  { value: 'BS', label: 'Закалённое в боях', color: '#d9534f' },
+  { value: 'FN', color: '#5cb85c' },
+  { value: 'MW', color: '#8bc34a' },
+  { value: 'FT', color: '#f0ad4e' },
+  { value: 'WW', color: '#ff7043' },
+  { value: 'BS', color: '#d9534f' },
 ] as const;
 
 export type CatalogWearFilterValue = (typeof CATALOG_WEAR_FILTERS)[number]['value'];
@@ -15,10 +18,9 @@ export function getWearFilterTestId(value: string): string {
   return `catalog-wear-${value.toLowerCase()}`;
 }
 
-export function getWearDisplayLabel(wear?: string | null): string | null {
-  if (!wear) {
-    return null;
-  }
-  const option = CATALOG_WEAR_FILTERS.find((entry) => entry.value === wear);
-  return option?.label ?? wear;
+export function getWearDisplayLabel(
+  wear?: string | null,
+  locale: Locale = 'ru',
+): string | null {
+  return wearLabel(wear, locale);
 }

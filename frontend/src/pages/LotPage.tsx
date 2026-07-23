@@ -3,6 +3,7 @@ import { Link, useNavigate, useParams } from 'react-router-dom';
 import { getAuthConfig, getCatalogItem, getLot, listSimilarLots } from '../api/marketplace';
 import type { Lot } from '../api/types';
 import { useAuth } from '../auth/AuthContext';
+import { useLocale } from '../i18n';
 import { DealFlowSteps } from '../components/DealFlowSteps';
 import { ErrorAlert } from '../components/ErrorAlert';
 import { InventoryPriceStack } from '../components/InventoryPriceStack';
@@ -25,6 +26,7 @@ import { startSteamLogin } from '../utils/start-steam-login';
 
 export function LotPage() {
   const { id } = useParams();
+  const { locale } = useLocale();
   const { token, user } = useAuth();
   const navigate = useNavigate();
   const [lot, setLot] = useState<Lot | null>(null);
@@ -117,7 +119,7 @@ export function LotPage() {
           <LotBreadcrumbs
             marketHashName={displayItem.itemDefinition.marketHashName}
             weapon={displayItem.itemDefinition.weapon}
-            categoryLabel={getRarityDisplayLabel(displayItem.itemDefinition.rarity)}
+            categoryLabel={getRarityDisplayLabel(displayItem.itemDefinition.rarity, locale)}
           />
 
           {isUnavailable ? (

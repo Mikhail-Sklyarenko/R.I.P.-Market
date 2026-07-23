@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useLocale } from '../i18n';
 import type { ItemDisplaySource } from '../utils/item-image';
 import { formatFloatValue, getItemCategory } from '../utils/item-image';
 import { parseWearCodeFromMarketHashName } from '../utils/catalog-lot-display';
@@ -19,16 +20,17 @@ export function ItemParamsPanel({
   testId = 'item-params',
 }: ItemParamsPanelProps) {
   const [copied, setCopied] = useState(false);
+  const { locale, t } = useLocale();
   const marketHashName = item.itemDefinition.marketHashName;
   const category = getItemCategory(item);
   const rarity = item.itemDefinition.rarity?.trim() || null;
-  const rarityLabel = getRarityDisplayLabel(rarity);
+  const rarityText = getRarityDisplayLabel(rarity, locale);
   const rarityStyle = getRarityStyle(rarity);
   const wearCode =
     item.wear?.trim() ||
     parseWearCodeFromMarketHashName(marketHashName) ||
     null;
-  const wearLabel = getWearDisplayLabel(wearCode);
+  const wearText = getWearDisplayLabel(wearCode, locale);
   const floatText = formatFloatValue(item.floatValue);
   const hasFloatGraphic =
     item.floatValue !== null &&
@@ -55,17 +57,17 @@ export function ItemParamsPanel({
             type="button"
             className="item-params-copy"
             onClick={copyName}
-            aria-label="Скопировать название предмета"
+            aria-label={t('item.copyName')}
             data-testid={`${testId}-copy-name`}
           >
-            {copied ? 'Скопировано' : '⎘'}
+            {copied ? t('item.copied') : '⎘'}
           </button>
         </div>
       ) : null}
 
       <dl className="item-params-table">
         <div className="item-params-row">
-          <dt>Float</dt>
+          <dt>{t('item.float')}</dt>
           <dd data-testid={`${testId}-float`}>
             {hasFloatGraphic ? (
               <FloatSpectrum floatValue={item.floatValue!} variant="inline" />
@@ -77,29 +79,29 @@ export function ItemParamsPanel({
 
         {category ? (
           <div className="item-params-row">
-            <dt>Тип</dt>
+            <dt>{t('item.type')}</dt>
             <dd data-testid="lot-attr-category">{category}</dd>
           </div>
         ) : null}
 
-        {rarityLabel ? (
+        {rarityText ? (
           <div className="item-params-row">
-            <dt>Редкость</dt>
+            <dt>{t('item.rarity')}</dt>
             <dd data-testid="lot-attr-rarity">
               <span
                 className="item-params-rarity-dot"
                 style={{ backgroundColor: rarityStyle.color }}
                 aria-hidden="true"
               />
-              {rarityLabel}
+              {rarityText}
             </dd>
           </div>
         ) : null}
 
-        {wearLabel ? (
+        {wearText ? (
           <div className="item-params-row">
-            <dt>Износ</dt>
-            <dd data-testid="lot-attr-wear">{wearLabel}</dd>
+            <dt>{t('item.wear')}</dt>
+            <dd data-testid="lot-attr-wear">{wearText}</dd>
           </div>
         ) : null}
       </dl>

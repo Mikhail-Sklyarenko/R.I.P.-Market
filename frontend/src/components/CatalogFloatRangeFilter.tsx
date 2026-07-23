@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react';
+import { useLocale } from '../i18n';
 import { parseWearFloat } from '../utils/wear-bar';
 import { CatalogCollapsibleFilter } from './CatalogCollapsibleFilter';
 import { CatalogRangeFieldCell } from './CatalogRangeFieldCell';
@@ -43,6 +44,7 @@ export function CatalogFloatRangeFilter({
   defaultOpen = false,
 }: CatalogFloatRangeFilterProps) {
   const [open, setOpen] = useState(defaultOpen);
+  const { t } = useLocale();
   const { minValue, maxValue } = useMemo(
     () => resolveSliderValues(floatMin, floatMax),
     [floatMin, floatMax],
@@ -73,7 +75,7 @@ export function CatalogFloatRangeFilter({
 
   return (
     <CatalogCollapsibleFilter
-      title="Флоат"
+      title={t('catalog.float')}
       open={open}
       onToggle={() => setOpen((current) => !current)}
       onReset={handleReset}

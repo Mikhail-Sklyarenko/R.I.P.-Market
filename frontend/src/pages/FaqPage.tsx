@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
+import { useLocale } from '../i18n';
 import { PageHeader } from '../components/PageHeader';
 import {
   findFaqArticle,
@@ -17,6 +18,7 @@ function renderFaqBody(body: string) {
 }
 
 export function FaqPage() {
+  const { t } = useLocale();
   const defaultSelection = useMemo(() => getDefaultFaqSelection(), []);
   const [selectedCategoryId, setSelectedCategoryId] = useState<SupportFaqCategoryId>(
     defaultSelection.categoryId,
@@ -52,7 +54,7 @@ export function FaqPage() {
   return (
     <div className="page faq-page">
       <PageHeader
-        title="FAQ"
+        title={t('faq.title')}
         subtitle="Полная база знаний R.I.P. Market — покупка, продажа, кошелёк и безопасность."
       />
 

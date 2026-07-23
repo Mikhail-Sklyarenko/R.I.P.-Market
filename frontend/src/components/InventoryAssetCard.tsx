@@ -1,6 +1,7 @@
 import type { CSSProperties, KeyboardEvent } from 'react';
 import { Link } from 'react-router-dom';
 import type { InventoryAsset, InventoryPriceHint } from '../api/types';
+import { useLocale } from '../i18n';
 import {
   getWearBadgeStyle,
   parseCatalogLotName,
@@ -50,6 +51,7 @@ export function InventoryAssetCard({
   requireSteamPrice = false,
   onSelect,
 }: InventoryAssetCardProps) {
+  const { locale } = useLocale();
   const editable = canEditListedAsset(asset);
   const interactive = canOpenInventorySellPanel(asset);
   const name = asset.itemDefinition.marketHashName;
@@ -160,11 +162,11 @@ export function InventoryAssetCard({
                 data-testid={`view-lot-${asset.id}`}
                 onClick={(event) => event.stopPropagation()}
               >
-                {formatAssetStatus(asset.status)}
+                {formatAssetStatus(asset.status, locale)}
               </Link>
             ) : (
               <span className={statusBadgeClass(asset.status)}>
-                {formatAssetStatus(asset.status)}
+                {formatAssetStatus(asset.status, locale)}
               </span>
             )
           ) : null}

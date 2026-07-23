@@ -20,6 +20,7 @@ import type {
   PricingPreview,
 } from '../api/types';
 import { useAuth } from '../auth/AuthContext';
+import { useLocale, type Locale } from '../i18n';
 import { EmptyState } from '../components/EmptyState';
 import { ErrorAlert } from '../components/ErrorAlert';
 import { InventoryAssetCard } from '../components/InventoryAssetCard';
@@ -38,7 +39,7 @@ import {
   getBulkListableSiblings,
   groupInventoryAssetsForDisplay,
   INVENTORY_SORT_OPTIONS,
-  INVENTORY_STATUS_FILTERS,
+  INVENTORY_STATUS_FILTER_IDS,
   sortInventoryAssets,
   type InventorySortOption,
   type InventoryStatusFilter,
@@ -50,7 +51,32 @@ import { formatDataTimestamp } from '../utils/lot-display';
 const STALE_INVENTORY_REVALIDATE_MS = 2_500;
 const PRICE_HINT_REFRESH_BATCH = 8;
 
+function formatInventoryPositionsLabel(
+  count: number,
+  locale: Locale,
+  t: (key: string, params?: Record<string, string | number>) => string,
+): string {
+  if (locale === 'en') {
+    return count === 1
+      ? t('inventory.positions_one', { count })
+      : t('inventory.positions_many', { count });
+  }
+  const mod100 = count % 100;
+  const mod10 = count % 10;
+  if (mod100 >= 11 && mod100 <= 14) {
+    return t('inventory.positions_many', { count });
+  }
+  if (mod10 === 1) {
+    return t('inventory.positions_one', { count });
+  }
+  if (mod10 >= 2 && mod10 <= 4) {
+    return t('inventory.positions_few', { count });
+  }
+  return t('inventory.positions_many', { count });
+}
+
 export function InventoryPage() {
+  const { locale, t } = useLocale();
   const { token, user, updateUser } = useAuth();
   const navigate = useNavigate();
   const [config, setConfig] = useState<AuthConfig | null>(null);
@@ -508,8 +534,8 @@ export function InventoryPage() {
   return (
     <div className="page inventory-page">
       <PageHeader
-        title="Инвентарь"
-        subtitle="Выберите предмет — выставить лот или изменить уже выставленный."
+        title={t('inventory.title')}
+        subtitle={t('inventory.subtitle')}
         actions={
           <button
             type="button"
@@ -518,7 +544,7 @@ export function InventoryPage() {
             data-testid="inventory-refresh"
             onClick={() => void loadInventory(true)}
           >
-            {refreshing ? 'Обновление…' : 'Обновить из Steam'}
+            {refreshing ? t('inventory.refreshing') : t('inventory.refresh')}
           </button>
         }
       />
@@ -609,8 +635,8 @@ export function InventoryPage() {
 
       {steamLinked && tradeUrlReady && !loading && assets.length === 0 ? (
         <EmptyState
-          title="Инвентарь пуст"
-          message="Предметы не найдены. Попробуйте обновить синхронизацию."
+          title={t('inventory.emptyTitle')}
+          message={t('inventory.emptyMessage')}
         />
       ) : null}
 
@@ -631,7 +657,7 @@ export function InventoryPage() {
 
             {pricesLoading || pricesRefreshing ? (
               <p className="muted small inventory-price-inline" data-testid="inventory-prices-loading">
-                {pricesLoading ? 'Загрузка цен Steam…' : 'Уточняем цены Steam…'}
+                {pricesLoading ? t('inventory.pricesLoading') : t('inventory.pricesRefreshing')}
               </p>
             ) : null}
 
@@ -676,17 +702,17 @@ export function InventoryPage() {
             <div className="inventory-toolbar" data-testid="inventory-filters">
               <div className="inventory-toolbar-fields">
                 <label className="field catalog-filter-field inventory-toolbar-search">
-                  <span className="field-label">Поиск</span>
+                  <span className="field-label">{t('common.search')}</span>
                   <input
                     type="search"
                     value={search}
                     onChange={(event) => setSearch(event.target.value)}
-                    placeholder="Название скина…"
+                    placeholder={t('inventory.searchPlaceholder')}
                     data-testid="inventory-search"
                   />
                 </label>
                 <label className="field catalog-filter-field">
-                  <span className="field-label">Статус</span>
+                  <span className="field-label">{t('inventory.status')}</span>
                   <select
                     value={statusFilter}
                     onChange={(event) =>
@@ -694,15 +720,15 @@ export function InventoryPage() {
                     }
                     data-testid="inventory-status-filter"
                   >
-                    {INVENTORY_STATUS_FILTERS.map((option) => (
-                      <option key={option.id} value={option.id}>
-                        {option.label}
+                    {INVENTORY_STATUS_FILTER_IDS.map((id) => (
+                      <option key={id} value={id}>
+                        {t(`inventoryFilter.${id}`)}
                       </option>
                     ))}
                   </select>
                 </label>
                 <label className="field catalog-filter-field">
-                  <span className="field-label">Сортировка</span>
+                  <span className="field-label">{t('inventory.sort')}</span>
                   <select
                     value={sortOption}
                     onChange={(event) =>
@@ -728,19 +754,18 @@ export function InventoryPage() {
                 </label>
               </div>
               <p className="muted small inventory-filter-total" data-testid="inventory-filter-total">
-                Показано: {displayStacks.length}{' '}
-                {displayStacks.length === 1 ? 'позиция' : 'позиций'}
+                {formatInventoryPositionsLabel(displayStacks.length, locale, t)}
                 {filteredAssets.length !== displayStacks.length
-                  ? ` (${filteredAssets.length} шт.)`
+                  ? ` (${filteredAssets.length})`
                   : null}{' '}
-                из {visibleCount}
+                / {visibleCount}
               </p>
             </div>
 
             {displayStacks.length === 0 ? (
               <EmptyState
-                title="Ничего не найдено"
-                message="Измените поиск или фильтр статуса."
+                title={t('common.nothingFound')}
+                message={t('common.changeFilters')}
               />
             ) : (
               <div className="inventory-grid" data-testid="inventory-grid">
@@ -784,7 +809,7 @@ export function InventoryPage() {
           <button
             type="button"
             className="inventory-sell-backdrop"
-            aria-label="Закрыть панель продажи"
+            aria-label={t('inventory.closeSellPanel')}
             data-testid="inventory-sell-backdrop"
             onClick={clearSelection}
           />

@@ -16,6 +16,7 @@ import type {
   WithdrawalRequest,
 } from '../api/types';
 import { useAuth } from '../auth/AuthContext';
+import { useLocale } from '../i18n';
 import { ErrorAlert } from '../components/ErrorAlert';
 import { FormField } from '../components/FormField';
 import { LoadingState } from '../components/LoadingState';
@@ -51,6 +52,7 @@ function buildQrImageUrl(qrData: string): string {
 }
 
 export function WalletPage() {
+  const { t } = useLocale();
   const { token, user } = useAuth();
   const { wallet, transactions, loading, error, refresh, applyWallet } = useWallet();
   const navigate = useNavigate();
@@ -264,7 +266,7 @@ export function WalletPage() {
   return (
     <div className="page">
       <PageHeader
-        title="Кошелёк"
+        title={t('wallet.title')}
         subtitle="Пополнение, вывод и история операций — переключайтесь вкладками ниже."
         actions={
           wallet || loading ? (

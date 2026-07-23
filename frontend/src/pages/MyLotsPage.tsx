@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { cancelLot, getMyLots, listMyOrders, updateLotPrice } from '../api/sell';
 import type { Lot, Order } from '../api/types';
 import { useAuth } from '../auth/AuthContext';
+import { lotSummaryLabel, useLocale } from '../i18n';
 import { EmptyState } from '../components/EmptyState';
 import { ErrorAlert } from '../components/ErrorAlert';
 import { LoadingState } from '../components/LoadingState';
@@ -15,8 +16,7 @@ import { minorToPriceInput } from '../utils/inventory-pricing';
 import {
   filterSellerLots,
   formatLotStatus,
-  LOT_STATUS_FILTERS,
-  LOT_SUMMARY_LABELS,
+  LOT_STATUS_FILTER_IDS,
   PENDING_PAYOUT_ORDER_STATUSES,
   type LotStatusFilter,
 } from '../utils/seller-flow';
@@ -28,6 +28,7 @@ type MyLotsPageProps = {
 };
 
 export function MyLotsPage({ embedded = false }: MyLotsPageProps) {
+  const { locale, t } = useLocale();
   const { token } = useAuth();
   const [lots, setLots] = useState<Lot[]>([]);
   const [orders, setOrders] = useState<Order[]>([]);
@@ -159,11 +160,11 @@ export function MyLotsPage({ embedded = false }: MyLotsPageProps) {
     <div className={embedded ? 'seller-activity-panel' : 'page'}>
       {!embedded ? (
         <PageHeader
-          title="Мои лоты"
-          subtitle="Статусы выставленных предметов и выплаты."
+          title={t('lots.title')}
+          subtitle={t('lots.subtitle')}
           actions={
             <Link to="/sell/inventory" className="button secondary">
-              Новый лот
+              {t('lots.newLot')}
             </Link>
           }
         />
@@ -171,14 +172,14 @@ export function MyLotsPage({ embedded = false }: MyLotsPageProps) {
 
       <ErrorAlert error={error} />
 
-      {loading ? <LoadingState message="Загрузка лотов…" /> : null}
+      {loading ? <LoadingState message={t('lots.loading')} /> : null}
 
       {!loading && lots.length > 0 ? (
         <>
           <div className="seller-summary-grid" data-testid="my-lots-summary">
             {SUMMARY_STATUSES.map((status) => (
               <div key={status} className="card seller-summary-card">
-                <span className="eyebrow">{LOT_SUMMARY_LABELS[status] ?? status}</span>
+                <span className="eyebrow">{lotSummaryLabel(status, locale)}</span>
                 <strong className="seller-summary-count">{statusCounts[status] ?? 0}</strong>
               </div>
             ))}
@@ -186,7 +187,7 @@ export function MyLotsPage({ embedded = false }: MyLotsPageProps) {
 
           {pendingReceiveMinor > 0 ? (
             <div className="card my-lots-pending-payout" data-testid="my-lots-pending-payout">
-              <span className="muted small">Ожидается к получению</span>
+              <span className="muted small">{t('lots.pendingPayout')}</span>
               <MoneyDisplay minor={pendingReceiveMinor} strong />
             </div>
           ) : null}
@@ -195,11 +196,11 @@ export function MyLotsPage({ embedded = false }: MyLotsPageProps) {
 
       {!loading && lots.length === 0 ? (
         <EmptyState
-          title="Лотов пока нет"
-          message="Выставьте предмет из инвентаря, чтобы он появился в каталоге."
+          title={t('lots.emptyTitle')}
+          message={t('lots.emptyMessage')}
           action={
             <Link to="/sell/inventory" className="button primary">
-              К инвентарю
+              {t('lots.toInventory')}
             </Link>
           }
         />
@@ -210,17 +211,17 @@ export function MyLotsPage({ embedded = false }: MyLotsPageProps) {
           <div className="card inventory-filters" data-testid="my-lots-filters">
             <div className="inventory-filters-row">
               <label className="field catalog-filter-field">
-                <span className="field-label">Поиск</span>
+                <span className="field-label">{t('lots.search')}</span>
                 <input
                   type="search"
                   value={search}
                   onChange={(event) => setSearch(event.target.value)}
-                  placeholder="Название скина…"
+                  placeholder={t('lots.searchPlaceholder')}
                   data-testid="my-lots-search"
                 />
               </label>
               <label className="field catalog-filter-field">
-                <span className="field-label">Статус лота</span>
+                <span className="field-label">{t('lots.status')}</span>
                 <select
                   value={statusFilter}
                   onChange={(event) =>
@@ -228,9 +229,9 @@ export function MyLotsPage({ embedded = false }: MyLotsPageProps) {
                   }
                   data-testid="my-lots-status-filter"
                 >
-                  {LOT_STATUS_FILTERS.map((option) => (
-                    <option key={option.id} value={option.id}>
-                      {option.label}
+                  {LOT_STATUS_FILTER_IDS.map((id) => (
+                    <option key={id} value={id}>
+                      {t(`lotFilter.${id}`)}
                     </option>
                   ))}
                 </select>
@@ -240,19 +241,19 @@ export function MyLotsPage({ embedded = false }: MyLotsPageProps) {
 
           {filteredLots.length === 0 ? (
             <EmptyState
-              title="Ничего не найдено"
-              message="Измените поиск или фильтр статуса."
+              title={t('common.nothingFound')}
+              message={t('common.changeFilters')}
             />
           ) : (
             <div className="table-wrap">
               <table className="data-table" data-testid="my-lots-table">
                 <thead>
                   <tr>
-                    <th>Предмет</th>
-                    <th>Статус</th>
-                    <th>Цена</th>
-                    <th>Комиссия</th>
-                    <th>Вы получите</th>
+                    <th>{t('lots.item')}</th>
+                    <th>{t('lots.status')}</th>
+                    <th>{t('lots.price')}</th>
+                    <th>{t('lots.commission')}</th>
+                    <th>{t('lots.youReceive')}</th>
                     <th />
                   </tr>
                 </thead>
@@ -264,7 +265,10 @@ export function MyLotsPage({ embedded = false }: MyLotsPageProps) {
                       <tr key={lot.id} data-testid={`lot-row-${lot.status}`}>
                         <td>{lot.inventoryAsset.itemDefinition.marketHashName}</td>
                         <td>
-                          <StatusBadge status={lot.status} label={formatLotStatus(lot.status)} />
+                          <StatusBadge
+                            status={lot.status}
+                            label={formatLotStatus(lot.status, locale)}
+                          />
                         </td>
                         <td>
                           {isEditing ? (
@@ -301,7 +305,7 @@ export function MyLotsPage({ embedded = false }: MyLotsPageProps) {
                                     data-testid={`save-lot-price-${lot.id}`}
                                     onClick={() => void handleSavePrice(lot.id)}
                                   >
-                                    {savingPriceId === lot.id ? 'Сохранение…' : 'Сохранить'}
+                                    {savingPriceId === lot.id ? t('lots.saving') : t('lots.save')}
                                   </button>
                                   <button
                                     type="button"
@@ -310,7 +314,7 @@ export function MyLotsPage({ embedded = false }: MyLotsPageProps) {
                                     data-testid={`cancel-edit-lot-price-${lot.id}`}
                                     onClick={cancelEditPrice}
                                   >
-                                    Отмена
+                                    {t('lots.cancel')}
                                   </button>
                                 </>
                               ) : (
@@ -320,7 +324,7 @@ export function MyLotsPage({ embedded = false }: MyLotsPageProps) {
                                     className="link-button"
                                     data-testid={`view-catalog-lot-${lot.id}`}
                                   >
-                                    В каталоге
+                                    {t('lots.inCatalog')}
                                   </Link>
                                   <button
                                     type="button"
@@ -328,7 +332,7 @@ export function MyLotsPage({ embedded = false }: MyLotsPageProps) {
                                     data-testid={`edit-lot-price-${lot.id}`}
                                     onClick={() => startEditPrice(lot)}
                                   >
-                                    Изменить цену
+                                    {t('lots.editPrice')}
                                   </button>
                                   <button
                                     type="button"
@@ -337,7 +341,7 @@ export function MyLotsPage({ embedded = false }: MyLotsPageProps) {
                                     data-testid={`cancel-lot-${lot.id}`}
                                     onClick={() => void handleCancel(lot.id)}
                                   >
-                                    {cancelingId === lot.id ? 'Отмена…' : 'Снять с продажи'}
+                                    {cancelingId === lot.id ? t('lots.unlisting') : t('lots.unlist')}
                                   </button>
                                 </>
                               )}
@@ -348,10 +352,10 @@ export function MyLotsPage({ embedded = false }: MyLotsPageProps) {
                               to={`/orders/${linkedOrder.id}`}
                               data-testid={`view-order-${lot.id}`}
                             >
-                              Открыть сделку
+                              {t('lots.openDeal')}
                             </Link>
                           ) : lot.status === 'RESERVED' || lot.status === 'SOLD' ? (
-                            <Link to="/deals?tab=sales">Мои сделки</Link>
+                            <Link to="/deals?tab=sales">{t('lots.myDeals')}</Link>
                           ) : null}
                         </td>
                       </tr>

@@ -1,4 +1,5 @@
 import { useId, useState } from 'react';
+import { useLocale } from '../i18n';
 import type { SkinTraitCheckboxState } from '../utils/catalog-skin-trait-filters';
 import { hasActiveSkinTraitFilters } from '../utils/catalog-skin-trait-filters';
 import { CatalogCheckboxOption } from './CatalogCheckboxOption';
@@ -17,6 +18,7 @@ export function CatalogSkinTraitsFilter({
 }: CatalogSkinTraitsFilterProps) {
   const [open, setOpen] = useState(defaultOpen);
   const groupId = useId();
+  const { t } = useLocale();
 
   function patch(next: Partial<SkinTraitCheckboxState>) {
     onChange({ ...value, ...next });
@@ -24,7 +26,7 @@ export function CatalogSkinTraitsFilter({
 
   return (
     <CatalogCollapsibleFilter
-      title="Особенности"
+      title={t('catalog.traits')}
       open={open}
       onToggle={() => setOpen((current) => !current)}
       onReset={() =>
@@ -49,14 +51,14 @@ export function CatalogSkinTraitsFilter({
         />
         <CatalogCheckboxOption
           id={`${groupId}-stattrak-exclude`}
-          label="Без StatTrak™"
+          label={t('catalog.traitNoStatTrak')}
           checked={value.excludeStatTrak}
           onChange={(checked) => patch({ excludeStatTrak: checked })}
           testId="catalog-trait-stattrak-exclude"
         />
         <CatalogCheckboxOption
           id={`${groupId}-souvenir-include`}
-          label="Сувенирные"
+          label={t('catalog.traitSouvenir')}
           checked={value.includeSouvenir}
           onChange={(checked) => patch({ includeSouvenir: checked })}
           testId="catalog-trait-souvenir-only"
@@ -64,7 +66,7 @@ export function CatalogSkinTraitsFilter({
         />
         <CatalogCheckboxOption
           id={`${groupId}-souvenir-exclude`}
-          label="Не сувенирные"
+          label={t('catalog.traitNotSouvenir')}
           checked={value.excludeSouvenir}
           onChange={(checked) => patch({ excludeSouvenir: checked })}
           testId="catalog-trait-souvenir-exclude"

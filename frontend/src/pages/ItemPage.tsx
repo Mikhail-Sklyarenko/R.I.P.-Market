@@ -9,6 +9,7 @@ import {
 } from '../api/marketplace';
 import type { BuyRequest, CatalogItem, Lot } from '../api/types';
 import { useAuth } from '../auth/AuthContext';
+import { useLocale, wearLabel } from '../i18n';
 import { useWearSteamPrice } from '../hooks/useWearSteamPrice';
 import { DealFlowSteps } from '../components/DealFlowSteps';
 import { BUY_REQUEST_FLOW_STEP_ITEMS } from '../utils/order-flow';
@@ -45,6 +46,7 @@ import { preloadWearIcons } from '../utils/wear-icons';
 
 export function ItemPage() {
   const { id } = useParams();
+  const { locale, t } = useLocale();
   const { token } = useAuth();
   const navigate = useNavigate();
   const [item, setItem] = useState<CatalogItem | null>(null);
@@ -257,7 +259,7 @@ export function ItemPage() {
           <LotBreadcrumbs
             marketHashName={item.marketHashName}
             weapon={item.weapon}
-            categoryLabel={getRarityDisplayLabel(item.rarity)}
+            categoryLabel={getRarityDisplayLabel(item.rarity, locale)}
           />
 
           {isBuyRequestPage ? (
@@ -327,7 +329,7 @@ export function ItemPage() {
                       data-testid="item-wear-all"
                       onClick={() => setSelectedWear('')}
                     >
-                      Все состояния
+                      {t('catalog.all')}
                     </button>
                     {wearOptions.map((option) => (
                       <button
@@ -340,7 +342,7 @@ export function ItemPage() {
                         data-testid={`item-wear-${option.value.toLowerCase()}`}
                         onClick={() => setSelectedWear(option.value)}
                       >
-                        {option.label}
+                        {wearLabel(option.value, locale)}
                       </button>
                     ))}
                   </div>

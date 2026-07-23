@@ -1,5 +1,20 @@
+import {
+  assetStatusLabel,
+  lotStatusLabel,
+  lotSummaryLabel,
+} from '../i18n/cs2-labels.ts';
+import { enMessages } from '../i18n/messages/en.ts';
+import { ruMessages } from '../i18n/messages/ru.ts';
+import { translate } from '../i18n/translate.ts';
+import type { Locale } from '../i18n/types.ts';
 import { isListableMarketHashName } from './lot-display.ts';
 
+const messagesByLocale = {
+  ru: ruMessages,
+  en: enMessages,
+} as const;
+
+/** @deprecated Prefer lotStatusLabel(status, locale) */
 export const LOT_STATUS_LABELS: Record<string, string> = {
   ACTIVE: 'Активен',
   RESERVED: 'В сделке',
@@ -8,6 +23,7 @@ export const LOT_STATUS_LABELS: Record<string, string> = {
   BLOCKED: 'Заблокирован',
 };
 
+/** @deprecated Prefer lotSummaryLabel(status, locale) */
 export const LOT_SUMMARY_LABELS: Record<string, string> = {
   ACTIVE: 'Активные',
   RESERVED: 'В сделке',
@@ -15,12 +31,20 @@ export const LOT_SUMMARY_LABELS: Record<string, string> = {
   CANCELED: 'Отменены',
 };
 
-export function formatLotStatus(status: string): string {
-  return LOT_STATUS_LABELS[status] ?? status;
+export function formatLotStatus(status: string, locale: Locale = 'ru'): string {
+  return lotStatusLabel(status, locale);
 }
 
 export type InventoryStatusFilter = 'all' | 'AVAILABLE' | 'LISTED' | 'RESERVED';
 
+export const INVENTORY_STATUS_FILTER_IDS: InventoryStatusFilter[] = [
+  'all',
+  'AVAILABLE',
+  'LISTED',
+  'RESERVED',
+];
+
+/** @deprecated Prefer INVENTORY_STATUS_FILTER_IDS + t('inventoryFilter.*') */
 export const INVENTORY_STATUS_FILTERS: Array<{
   id: InventoryStatusFilter;
   label: string;
@@ -33,6 +57,15 @@ export const INVENTORY_STATUS_FILTERS: Array<{
 
 export type LotStatusFilter = 'all' | 'ACTIVE' | 'RESERVED' | 'SOLD' | 'CANCELED';
 
+export const LOT_STATUS_FILTER_IDS: LotStatusFilter[] = [
+  'all',
+  'ACTIVE',
+  'RESERVED',
+  'SOLD',
+  'CANCELED',
+];
+
+/** @deprecated Prefer LOT_STATUS_FILTER_IDS + t('lotFilter.*') */
 export const LOT_STATUS_FILTERS: Array<{ id: LotStatusFilter; label: string }> = [
   { id: 'all', label: 'Все' },
   { id: 'ACTIVE', label: 'Активные' },
@@ -341,6 +374,7 @@ export const SELLER_SALE_STEPS = [
   'После подтверждения обмена получаете выплату за вычетом комиссии 5%.',
 ] as const;
 
+/** @deprecated Prefer assetStatusLabel(status, locale) */
 export const ASSET_STATUS_LABELS: Record<string, string> = {
   AVAILABLE: 'Доступен',
   LISTED: 'Выставлен',
@@ -350,8 +384,15 @@ export const ASSET_STATUS_LABELS: Record<string, string> = {
   REMOVED: 'Удалён',
 };
 
-export function formatAssetStatus(status: string): string {
-  return ASSET_STATUS_LABELS[status] ?? status;
+export function formatAssetStatus(status: string, locale: Locale = 'ru'): string {
+  return assetStatusLabel(status, locale);
+}
+
+export function formatLotSummaryStatus(
+  status: string,
+  locale: Locale = 'ru',
+): string {
+  return lotSummaryLabel(status, locale);
 }
 
 export function canListAsset(asset: {
@@ -417,39 +458,51 @@ export function isInventoryAssetVisible(
   return canListAsset(asset);
 }
 
-export function assetUnavailableReason(asset: {
-  status: string;
-  tradable: boolean;
-  marketable?: boolean;
-  tradeLockUntil?: string | null;
-  itemDefinition: { marketHashName: string };
-}): string {
+export function assetUnavailableReason(
+  asset: {
+    status: string;
+    tradable: boolean;
+    marketable?: boolean;
+    tradeLockUntil?: string | null;
+    itemDefinition: { marketHashName: string };
+  },
+  locale: Locale = 'ru',
+): string {
+  const t = (key: string, params?: Record<string, string | number>) =>
+    translate(messagesByLocale[locale], key, params);
+
   if (asset.status === 'LISTED') {
-    return 'Уже выставлен на продажу';
+    return t('assetUnavailable.listed');
   }
   if (asset.status === 'RESERVED') {
-    return 'Предмет в активной сделке';
+    return t('assetUnavailable.reserved');
   }
   if (asset.status === 'SOLD') {
-    return 'Предмет уже продан';
+    return t('assetUnavailable.sold');
   }
   if (asset.status === 'BLOCKED') {
-    return 'Предмет заблокирован';
+    return t('assetUnavailable.blocked');
   }
   if (asset.status !== 'AVAILABLE') {
-    return `Статус: ${formatAssetStatus(asset.status)}`;
+    return t('assetUnavailable.status', {
+      status: formatAssetStatus(asset.status, locale),
+    });
   }
   if (!asset.tradable) {
-    return 'Нельзя обменять';
+    return t('assetUnavailable.notTradable');
   }
   if (asset.marketable === false) {
-    return 'Нельзя продать на маркете';
+    return t('assetUnavailable.notMarketable');
   }
   if (!isListableMarketHashName(asset.itemDefinition.marketHashName)) {
-    return 'Тип предмета нельзя выставить';
+    return t('assetUnavailable.notListableType');
   }
   if (asset.tradeLockUntil && new Date(asset.tradeLockUntil) > new Date()) {
-    return `Trade-lock до ${new Date(asset.tradeLockUntil).toLocaleString()}`;
+    return t('assetUnavailable.tradeLock', {
+      when: new Date(asset.tradeLockUntil).toLocaleString(
+        locale === 'en' ? 'en-US' : 'ru-RU',
+      ),
+    });
   }
-  return 'Недоступен';
+  return t('assetUnavailable.unavailable');
 }

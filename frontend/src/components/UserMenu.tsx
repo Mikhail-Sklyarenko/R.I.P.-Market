@@ -2,11 +2,13 @@ import { useEffect, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { getAuthConfig } from '../api/marketplace';
 import { useAuth } from '../auth/AuthContext';
+import { useLocale } from '../i18n';
 import { SteamLoginButton } from './SteamLoginButton';
 import { hasLinkedSteamId } from '../utils/steam-id';
 import { getUserAvatarUrl, getUserInitials } from '../utils/user-avatar';
 
 export function UserMenu() {
+  const { t } = useLocale();
   const { user, token, logout } = useAuth();
   const navigate = useNavigate();
   const [open, setOpen] = useState(false);
@@ -40,7 +42,7 @@ export function UserMenu() {
           type="button"
           className="button primary sm steam-login-button"
           disabled
-          aria-label="Загрузка входа"
+          aria-label={t('nav.loginLoading')}
           data-testid="nav-login-loading"
         >
           <span>…</span>
@@ -48,11 +50,11 @@ export function UserMenu() {
       );
     }
     if (steamLoginAvailable) {
-      return <SteamLoginButton testId="nav-login-steam" />;
+      return <SteamLoginButton testId="nav-login-steam" label={t('nav.login')} />;
     }
     return (
       <Link to="/login?dev=1" className="button primary sm" data-testid="nav-login">
-        Войти
+        {t('nav.login')}
       </Link>
     );
   }
@@ -89,7 +91,7 @@ export function UserMenu() {
       {open ? (
         <div className="user-menu-panel" data-testid="user-menu-panel">
           {steamLinked ? (
-            <div className="user-menu-meta" title="Привязанный Steam">
+            <div className="user-menu-meta" title={t('account.steamLinked')}>
               {user.steamPersonaName
                 ? `${user.steamPersonaName} · ${user.steamId}`
                 : `Steam ${user.steamId}`}
@@ -101,7 +103,7 @@ export function UserMenu() {
               data-testid="user-menu-steam-link"
               onClick={() => setOpen(false)}
             >
-              Steam не привязан
+              {t('account.steamNotLinked')}
             </Link>
           )}
           <Link
@@ -110,7 +112,7 @@ export function UserMenu() {
             data-testid="user-menu-account"
             onClick={() => setOpen(false)}
           >
-            Личный кабинет
+            {t('account.cabinet')}
           </Link>
           <Link
             to="/deals"
@@ -118,7 +120,7 @@ export function UserMenu() {
             data-testid="user-menu-deals"
             onClick={() => setOpen(false)}
           >
-            Сделки
+            {t('account.deals')}
           </Link>
           {isAdmin ? (
             <>
@@ -128,7 +130,7 @@ export function UserMenu() {
                 data-testid="user-menu-admin"
                 onClick={() => setOpen(false)}
               >
-                Админ
+                {t('account.admin')}
               </Link>
               <Link
                 to="/admin/prices"
@@ -136,7 +138,7 @@ export function UserMenu() {
                 data-testid="user-menu-admin-prices"
                 onClick={() => setOpen(false)}
               >
-                Цены каталога
+                {t('account.adminPrices')}
               </Link>
             </>
           ) : null}
@@ -150,7 +152,7 @@ export function UserMenu() {
               navigate('/');
             }}
           >
-            Выйти
+            {t('account.logout')}
           </button>
         </div>
       ) : null}

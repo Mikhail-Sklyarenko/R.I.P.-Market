@@ -51,7 +51,7 @@ describe('rarity-colors utils', () => {
     );
   });
 
-  it('maps rarity values to Russian display labels', () => {
+  it('maps rarity values to Russian display labels by default', () => {
     assert.equal(getRarityDisplayLabel('Covert'), 'Тайное');
     assert.equal(getRarityDisplayLabel('Mil-Spec Grade'), 'Армейское качество');
     assert.equal(getRarityDisplayLabel('Extraordinary'), 'Скрытое');
@@ -59,5 +59,10 @@ describe('rarity-colors utils', () => {
     assert.equal(getRarityDisplayLabel('Exceptional'), 'Исключительный');
     assert.equal(getRarityDisplayLabel('Master'), 'Мастерский');
     assert.equal(getRarityDisplayLabel('Remarkable'), 'Примечательное');
+  });
+
+  it('maps rarity values to English when locale is en', () => {
+    assert.equal(getRarityDisplayLabel('Covert', 'en'), 'Covert');
+    assert.equal(getRarityDisplayLabel('Consumer Grade', 'en'), 'Consumer Grade');
   });
 });

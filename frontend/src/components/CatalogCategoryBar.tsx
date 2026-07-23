@@ -1,8 +1,10 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
+import { catalogOtherLabel, catalogTabLabel, useLocale } from '../i18n';
 import {
   getCategoryOptionsForTab,
   WEAPON_CATEGORY_TABS,
+  type CatalogCategoryOption,
 } from '../utils/catalog-filters';
 import { WeaponCategoryIcon } from './WeaponCategoryIcon';
 import {
@@ -16,6 +18,16 @@ type CatalogCategoryBarProps = {
   onTabChange: (tabId: string) => void;
   onCategoryChange: (value: string) => void;
 };
+
+function optionDisplayLabel(
+  option: CatalogCategoryOption,
+  locale: 'ru' | 'en',
+): string {
+  if (option.tabId === 'other') {
+    return catalogOtherLabel(option.value, locale);
+  }
+  return option.label;
+}
 
 type DropdownPosition = {
   top: number;
@@ -48,6 +60,7 @@ export function CatalogCategoryBar({
   onTabChange,
   onCategoryChange,
 }: CatalogCategoryBarProps) {
+  const { locale, t } = useLocale();
   const [openTabId, setOpenTabId] = useState<string | null>(null);
   const [dropdownPosition, setDropdownPosition] = useState<DropdownPosition | null>(
     null,
@@ -229,7 +242,7 @@ export function CatalogCategoryBar({
               onClick={handleSelectAll}
             >
               <span className="catalog-category-dropdown-select-all-label">
-                Выбрать все
+                {t('catalog.selectAll')}
               </span>
             </button>
             <div
@@ -254,7 +267,7 @@ export function CatalogCategoryBar({
                   fallbackIcon={option.icon ?? openTab.icon}
                   loading="eager"
                 />
-                <span>{option.label}</span>
+                <span>{optionDisplayLabel(option, locale)}</span>
               </button>
             ))}
           </div>,
@@ -268,7 +281,7 @@ export function CatalogCategoryBar({
         className="catalog-category-bar"
         ref={barRef}
         role="tablist"
-        aria-label="Категории"
+        aria-label={t('catalog.categoriesAria')}
         data-testid="catalog-category-bar"
       >
         <div className="catalog-category-bar-track" ref={trackRef}>
@@ -308,7 +321,9 @@ export function CatalogCategoryBar({
                     <WeaponCategoryIcon icon={tab.icon} />
                   )}
                   <span className="catalog-category-bar-label">
-                    {tabSelectedOption?.label ?? tab.label}
+                    {tabSelectedOption
+                      ? optionDisplayLabel(tabSelectedOption, locale)
+                      : catalogTabLabel(tab.id, locale)}
                   </span>
                   {hasMenu ? (
                     <span className="catalog-category-bar-chevron" aria-hidden="true">
