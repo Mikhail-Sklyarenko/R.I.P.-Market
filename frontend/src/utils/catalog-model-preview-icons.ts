@@ -1,7 +1,7 @@
 /**
  * Curated Steam economy image hashes for catalog model-filter previews.
- * Keys are ItemDefinition.weapon labels (same as CATALOG_CATEGORY_OPTIONS).
- * Hashes are stable CDN paths — append /96fx96f for lightweight thumbs.
+ * Keys are ItemDefinition.weapon labels (AK-47…) or Other option values
+ * (other-sticker). Hashes are stable CDN paths — append /96fx96f for thumbs.
  */
 export const CATALOG_MODEL_PREVIEW_ICON_HASHES: Readonly<Record<string, string>> =
   {
@@ -65,22 +65,53 @@ export const CATALOG_MODEL_PREVIEW_ICON_HASHES: Readonly<Record<string, string>>
     'Moto Gloves': 'i0CoZ81Ui0m-9KwlBY1L_18myuGuq1wfhWSaZgMttyVfPaERSR0Wqmu7LAocGIGz3UqlXOLrxM-vMGmW8VNxu4r7_lb1QgTykpPf-i5U-fe9V6liNP-BDX6TzetJvehnWxanhxQmvTqJn7D1KCzPKhgnW5UmRO4DsxXrlYbhPurmtAXai98UzS73in5I6S5p4OsAU_Zx-KHWkUifZsxBQgc2', // ★ Moto Gloves | Spearmint
     'Specialist Gloves': 'i0CoZ81Ui0m-9KwlBY1L_18myuGuq1wfhWSaZgMttyVfPaERSR0Wqmu7LAocGIGz3UqlXOLrxM-vMGmW8VNxu5Tk71ruQBH4jYLf-i5U-fe9V7d9JfOaD2uZ0vpJu-hkQCe8qhkusjCKlIvqHjnCOml8U8UoAfkItBLswdbuNbjr5FHdjNkUzSv73C1K5y46tu4EUvAg-6bU3FrBMOE4_9BdcyhkRns5', // ★ Specialist Gloves | Crimson Kimono
     'Sport Gloves': 'i0CoZ81Ui0m-9KwlBY1L_18myuGuq1wfhWSaZgMttyVfPaERSR0Wqmu7LAocGIGz3UqlXOLrxM-vMGmW8VNxu5Tk5UvzWCL2kpn2-DFk_OKherB0H-CcB3Sfz9Fwou5ucCu_gBgYpDWMjorGLSLANkI-W5R4E7JZtxbskNWxZeLi4QPejdgTmSn62iwbvyw957kDAqog_fXWjBaBb-Pahe96zA', // ★ Sport Gloves | Amphibious
+
+    // «Другое» — keyed by option.value / modelIcon (weapon may be a pipe OR).
+    'other-sticker': 'i0CoZ81Ui0m-9KwlBY1L_18myuGuq1wfhWSaZgMttyVfPaERSR0Wqmu7LAocGJai0ki7VeTHjMmuOHaC619h7delpVHoVhH4kJHf-SNM4bz9bKY_dPWQWDCUkLxy57g_H3DgkB5w42uAzIv4I3meOAQlApdwFO5YrFDmxUNp_lL7', // Sticker | Howling Dawn
+    'other-charm': 'i0CoZ81Ui0m-9KwlBY1L_18myuGuq1wfhWSaZgMttyVfPaERSR0Wqmu7LAocGI6zwki4Uf_a0IWlJ3mY6ls6_4TL7lvYGR_wkpqurXsIvqL9bP06IqORCjfBxL105rVoH3GxwU9y5GvTnt_9d3iTbQIjWYwwG7C_lOK34g', // Charm | 8 Ball IGL
+    'other-patch': 'i0CoZ81Ui0m-9KwlBY1L_18myuGuq1wfhWSaZgMttyVfPaERSR0Wqmu7LAocGJW3z0i4VeWbwMuyMHOb5Fps7Mjk603kSSL5kpfs5Dpk7v63cOo9IafKCz_ImO1y6eQ6HyjhxEx-4D7Qy9yodC3FP1ByCJQiF7Zc4Bi6jJS5YMq2p9Gg', // Patch | Alyx
+    'other-graffiti': 'i0CoZ81Ui0m-9KwlBY1L_18myuGuq1wfhWSaZgMttyVfPaERSR0Wqmu7LAocGJai0ki7VeTHjMiuJm-Y6wQlpd-7_lHxfhrjn5Dm9DZSoaaqOfxrcfHEW2XFxbcg6bZoTizmkBhx62zUm9iudi2eaFV1CZomRrYU8k7vWPgFnZw', // Sealed Graffiti | 100 Thieves | Boston 2018
+    'other-agent': 'i0CoZ81Ui0m-9KwlBY1L_18myuGuq1wfhWSaZgMttyVfPaERSR0Wqmu7LAocGIa-2lmxU-LR0dnuNm6E8Vl45Iv181z1fh7lk6nz6XRk-fO8YaVjNPrdXWLElL5ytbBsTXrqzUxzsWmHzN-gI3-TbwQmC5pzQLELsUbrx9bmP_SiuVJe8Pfo4Q', // 'Blueberries' Buckshot | NSWC SEAL
+    'other-music-kit': 'i0CoZ81Ui0m-9KwlBY1L_18myuGuq1wfhWSaZgMttyVfPaERSR0Wqmu7LAocGIijyEKzb_3d19nuZnCb7F1m5I_95lD3fk2g0MW3q3IKvqr4P6BsJPHHXjeSkLl147Q-GH3rkU5z5z7UztaoIHmfZgc-SswnBcYXqSs', // Music Kit | 3kliksphilip, Heading for the Source
+    'other-case': 'i0CoZ81Ui0m-9KwlBY1L_18myuGuq1wfhWSaZgMttyVfPaERSR0Wqmu7LAocGJKz2lu_XsnXwtmkJjSU91dh8bj35VTqVBP4io_fr3YVvfD9aqVveKaQDDKSl7134bg_HH3hlBty6z7Vn9v6eXmeZgBxWJd0EflK7Efs4hZiKQ', // CS20 Case
+    'other-capsule': 'i0CoZ81Ui0m-9KwlBY1L_18myuGuq1wfhWSaZgMttyVfPaERSR0Wqmu7LAocGJKz2lu_XsnXwtmkJjSU91dh8bjn_lDkShjjoYbh_ilk7OGpZ_U9H_OSHnSFzes447E8THznxk50tj7dyY6sIC_GPQ8iW8d1FLQLtRnsk9znNOPg5gbdg5UFk3v_toYpgw', // 10 Year Birthday Sticker Capsule
+    'other-key': 'i0CoZ81Ui0m-9KwlBY1L_18myuGuq1wfhWSaZgMttyVfPaERSR0Wqmu7LAocGJG51EejH_XGwt6kCnCS_Gl2-4r5_1fuVQTOzMKuriAKvfCqbaU5dKLDXGSUxewm4uVtHCiwkU4jtzyHnN2uInmUbFcjCowwG7A5-gjpcQ', // CS20 Case Key
+    'other-collectible': 'i0CoZ81Ui0m-9KwlBY1L_18myuGuq1wfhWSaZgMttyVfPaERSR0Wqmu7LAocGJai2l-lQ8ndwMWvJjSH4lpK5I734Vzqfk-hzMTf7SNI_Lz_afw-IvLCWzOUwOoh4rk6HXjgxxh-6mvQwov7cS6fbwBzXpJ5FrNYrFDmxdJOWSZW', // Antwerp 2022 Viewer Pass
+    'other-pin': 'i0CoZ81Ui0m-9KwlBY1L_18myuGuq1wfhWSaZgMttyVfPaERSR0Wqmu7LAocGJai2l-lQ8ndwMWvJjSU6lp58YTg41vrRCLhl5jf_CFe_M2mYaNlbqTKCzHAlLon57c5Fy3nzRhxt2-Am974IinFbVJxD5V4Q7UJthjplN35d7S1i96h-Rg', // Aces High Pin
+    'other-souvenir': 'i0CoZ81Ui0m-9KwlBY1L_18myuGuq1wfhWSaZgMttyVfPaERSR0Wqmu7LAocGJKz2lu_XsnXwtmkJjSU91dh8bj15E3wRA_hzMayrx1L_f2jZ5tpJc-SAGSZxOBi_uNsFi3kkU905W_SwtipJXqWZg8jW5YkEe9btxfpktLkZL-x5wKMi4hbjXKpvT4lPfc', // Antwerp 2022 Ancient Souvenir Package
+    'other-tool': 'i0CoZ81Ui0m-9KwlBY1L_18myuGuq1wfhWSaZgMttyVfPaERSR0Wqmu7LAocGJG51EejH-LVxIT5Z3jCtwYt9YLw7F--F0ipzcG3pCQJ66f_bqA7c6GSCzfGwO9047BvATm9ks8vFHUO', // Name Tag
   } as const;
 
 export const CATALOG_MODEL_PREVIEW_SIZE_PX = 96;
 
-export function getCatalogModelPreviewHash(weapon?: string | null): string | null {
-  if (!weapon) {
-    return null;
+/**
+ * Resolve a Steam economy image hash for a catalog model preview.
+ * Tries weapon label first (AK-47, Karambit…), then slug / option value
+ * (other-sticker) — «Другое» rows often have a pipe-joined weapon field.
+ */
+export function getCatalogModelPreviewHash(
+  weapon?: string | null,
+  slug?: string | null,
+): string | null {
+  if (weapon) {
+    const byWeapon = CATALOG_MODEL_PREVIEW_ICON_HASHES[weapon];
+    if (byWeapon) {
+      return byWeapon;
+    }
   }
-  return CATALOG_MODEL_PREVIEW_ICON_HASHES[weapon] ?? null;
+  if (slug) {
+    return CATALOG_MODEL_PREVIEW_ICON_HASHES[slug] ?? null;
+  }
+  return null;
 }
 
-export function listCatalogModelPreviewHashes(weapons: readonly string[]): string[] {
+export function listCatalogModelPreviewHashes(keys: readonly string[]): string[] {
   const hashes: string[] = [];
-  for (const weapon of weapons) {
-    const hash = getCatalogModelPreviewHash(weapon);
-    if (hash) {
+  const seen = new Set<string>();
+  for (const key of keys) {
+    const hash = getCatalogModelPreviewHash(key, key);
+    if (hash && !seen.has(hash)) {
+      seen.add(hash);
       hashes.push(hash);
     }
   }

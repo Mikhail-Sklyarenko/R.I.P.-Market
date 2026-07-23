@@ -109,7 +109,11 @@ export function CatalogCategoryBar({
       return;
     }
     prefetchCatalogModelPreviews(
-      options.map((option) => option.weapon ?? option.value).filter(Boolean),
+      options.flatMap((option) =>
+        [option.value, option.modelIcon, option.weapon].filter(
+          (key): key is string => Boolean(key),
+        ),
+      ),
     );
   }, [openTabId]);
 
@@ -262,7 +266,7 @@ export function CatalogCategoryBar({
                 onClick={() => handleModelSelect(option.value)}
               >
                 <WeaponModelIcon
-                  weapon={option.weapon ?? option.value}
+                  weapon={option.value || option.weapon}
                   slug={option.modelIcon}
                   fallbackIcon={option.icon ?? openTab.icon}
                   loading="eager"
@@ -313,7 +317,7 @@ export function CatalogCategoryBar({
                 >
                   {tabSelectedOption?.modelIcon ? (
                     <WeaponModelIcon
-                      weapon={tabSelectedOption.weapon ?? tabSelectedOption.value}
+                      weapon={tabSelectedOption.value || tabSelectedOption.weapon}
                       slug={tabSelectedOption.modelIcon}
                       fallbackIcon={tab.icon}
                     />

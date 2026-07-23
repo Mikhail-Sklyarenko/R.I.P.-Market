@@ -26,7 +26,7 @@ export function WeaponModelIcon({
   className,
   loading = 'lazy',
 }: WeaponModelIconProps) {
-  const previewHash = getCatalogModelPreviewHash(weapon);
+  const previewHash = getCatalogModelPreviewHash(weapon, slug);
   const [previewFailed, setPreviewFailed] = useState(false);
   const [svgFailed, setSvgFailed] = useState(false);
 
@@ -92,15 +92,17 @@ function slugify(value: string): string {
 }
 
 /** Warm browser cache for dropdown preview thumbs when a tab opens. */
-export function prefetchCatalogModelPreviews(weapons: readonly string[]): void {
+export function prefetchCatalogModelPreviews(keys: readonly string[]): void {
   if (typeof window === 'undefined') {
     return;
   }
-  for (const weapon of weapons) {
-    const hash = getCatalogModelPreviewHash(weapon);
-    if (!hash) {
+  const seen = new Set<string>();
+  for (const key of keys) {
+    const hash = getCatalogModelPreviewHash(key, key);
+    if (!hash || seen.has(hash)) {
       continue;
     }
+    seen.add(hash);
     const img = new Image();
     img.decoding = 'async';
     img.src = getSteamItemImageUrl(hash, { sizePx: CATALOG_MODEL_PREVIEW_SIZE_PX });

@@ -59,4 +59,22 @@ describe('catalog model preview icons', () => {
     assert.ok(getCatalogModelPreviewHash('Butterfly Knife'));
     assert.ok(getCatalogModelPreviewHash('M9 Bayonet'));
   });
+
+  it('covers every Other subcategory via value / modelIcon slug', () => {
+    const otherOptions = getCategoryOptionsForTab('other');
+    assert.ok(otherOptions.length >= 10);
+    for (const option of otherOptions) {
+      const hash = getCatalogModelPreviewHash(option.value, option.modelIcon);
+      assert.ok(hash, `missing Other preview for ${option.value}`);
+      assert.match(hash, /^[A-Za-z0-9_-]+$/);
+    }
+  });
+
+  it('resolves Other previews by slug when weapon is a pipe OR', () => {
+    assert.equal(
+      getCatalogModelPreviewHash('Sticker|Sticker Slab', 'other-sticker'),
+      getCatalogModelPreviewHash('other-sticker'),
+    );
+    assert.ok(getCatalogModelPreviewHash(undefined, 'other-charm'));
+  });
 });
