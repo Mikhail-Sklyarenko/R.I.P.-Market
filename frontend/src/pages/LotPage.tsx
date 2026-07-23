@@ -138,7 +138,7 @@ export function LotPage() {
 
                   {snapshotCapturedAt ? (
                     <p className="muted small lot-preview-meta" data-testid="lot-snapshot-captured-at">
-                      Характеристики зафиксированы при выставлении: {snapshotCapturedAt}
+                      {t('lot.snapshotCaptured', { when: snapshotCapturedAt })}
                     </p>
                   ) : null}
 
@@ -174,21 +174,21 @@ export function LotPage() {
                     className="lot-compare-offers-link muted small"
                     data-testid="lot-compare-offers-link"
                   >
-                    Все предложения ({siblingOfferCount})
+                    {t('lot.allOffers', { count: siblingOfferCount })}
                   </Link>
                 ) : null}
 
                 <details className="lot-pricing-details">
                   <summary className="lot-pricing-details-summary">
-                    Комиссия и выплата продавцу
+                    {t('lot.commissionDetails')}
                   </summary>
                   <div className="pricing-preview lot-pricing-details-body">
                     <div>
-                      <span>Комиссия</span>
+                      <span>{t('lot.commission')}</span>
                       <MoneyDisplay minor={lot.commissionMinor} strong />
                     </div>
                     <div>
-                      <span>Продавец получит</span>
+                      <span>{t('lot.sellerReceives')}</span>
                       <MoneyDisplay minor={lot.sellerReceiveMinor} strong />
                     </div>
                   </div>
@@ -207,13 +207,13 @@ export function LotPage() {
 
                 {isUnavailable ? (
                   <p className="muted" data-testid="lot-unavailable-message">
-                    Лот недоступен для покупки ({lot.status}).
+                    {t('lot.unavailable', { status: lot.status })}
                   </p>
                 ) : null}
 
                 {isOwnLot ? (
                   <p className="muted" data-testid="own-lot-message">
-                    Вы не можете купить свой лот.
+                    {t('lot.ownLot')}
                   </p>
                 ) : null}
 

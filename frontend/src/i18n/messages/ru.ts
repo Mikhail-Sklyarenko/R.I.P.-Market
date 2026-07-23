@@ -370,6 +370,13 @@ const baseRuMessages = {
     loading: 'Загрузка лота…',
     buyNow: 'Купить сейчас',
     loginToBuy: 'Войти для покупки',
+    snapshotCaptured: 'Характеристики зафиксированы при выставлении: {{when}}',
+    allOffers: 'Все предложения ({{count}})',
+    commissionDetails: 'Комиссия и выплата продавцу',
+    commission: 'Комиссия',
+    sellerReceives: 'Продавец получит',
+    unavailable: 'Лот недоступен для покупки ({{status}}).',
+    ownLot: 'Вы не можете купить свой лот.',
   },
   orders: {
     title: 'Мои сделки',

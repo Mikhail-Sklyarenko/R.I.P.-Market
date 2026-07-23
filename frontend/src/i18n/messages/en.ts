@@ -367,6 +367,13 @@ const baseEnMessages = {
     loading: 'Loading listing…',
     buyNow: 'Buy now',
     loginToBuy: 'Sign in to buy',
+    snapshotCaptured: 'Attributes locked at listing time: {{when}}',
+    allOffers: 'All offers ({{count}})',
+    commissionDetails: 'Fee and seller payout',
+    commission: 'Fee',
+    sellerReceives: 'Seller receives',
+    unavailable: 'Listing unavailable for purchase ({{status}}).',
+    ownLot: 'You cannot buy your own listing.',
   },
   orders: {
     title: 'My deals',
