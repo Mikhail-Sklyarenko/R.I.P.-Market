@@ -25,7 +25,8 @@ fi
 
 echo ""
 echo "==> Proxy egress smoke (steamcommunity.com)"
-if (
+SMOKE_RC=0
+(
   cd "$APP_DIR/backend"
   node --env-file="$SECRETS_PATH" --env-file="$ENV_PATH" <<'NODE'
 const { ProxyAgent, fetch } = require('undici');
@@ -54,7 +55,9 @@ fetch('https://steamcommunity.com/openid/login', {
     process.exit(1);
   });
 NODE
-then
+) || SMOKE_RC=$?
+
+if [ "$SMOKE_RC" -eq 0 ]; then
   echo "  OK  steamcommunity reachable via proxy"
 else
   echo "  FAIL proxy smoke test" >&2
