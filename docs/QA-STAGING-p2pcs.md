@@ -20,7 +20,7 @@
 | ✅ Mock **Admin** | Завершение сделок, модерация (ops) |
 | ✅ **Chrome-расширение** (опционально) | Автоотправка trade offer — см. [сценарий G](#сценарий-g-расширение--автоотправка-trade-offer) |
 | 🔄 **USDT TRC-20** | Phase 1 — [REAL-MONEY-ROLLOUT.md](./REAL-MONEY-ROLLOUT.md) |
-| 🔄 **Реальный Steam trade** | Phase 2 — shadow/live, расширение или ручной offer ID |
+| 🔄 **Реальный Steam trade** | Phase 2 — shadow/live, см. [QA-SHADOW-GATE.md](./QA-SHADOW-GATE.md) |
 | ⚠️ Завершение сделки | Mock Admin (или расширение + reconcile offerId) |
 
 ---
@@ -342,4 +342,5 @@ Steam → Инвентарь → «Обмен» → «Кто может мне �
 
 Техническая документация для QA: [TESTING.md](../TESTING.md)  
 Чеклист релиза: [RELEASE.md](./RELEASE.md)  
-Real-money rollout: [REAL-MONEY-ROLLOUT.md](./REAL-MONEY-ROLLOUT.md)
+Real-money rollout: [REAL-MONEY-ROLLOUT.md](./REAL-MONEY-ROLLOUT.md)  
+Shadow gate: [QA-SHADOW-GATE.md](./QA-SHADOW-GATE.md)

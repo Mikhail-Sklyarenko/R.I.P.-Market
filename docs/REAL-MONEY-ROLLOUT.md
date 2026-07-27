@@ -29,6 +29,18 @@
 
 ## Фаза 0 — Pre-flight
 
+### Steam HTTP proxy (обязательно на VPS)
+
+Пустой `STEAM_HTTP_PROXY=` в `backend/.env` **перезаписывает** секреты. Храните proxy только в `backend/.env.secrets`:
+
+```bash
+STEAM_HTTP_PROXY='http://LOGIN:PASSWORD@gw.dataimpulse.com:823' \
+  bash scripts/configure-steam-proxy-staging.sh
+bash scripts/verify-steam-proxy-staging.sh
+```
+
+`STEAM_HTTP_PROXY_ALL=true` в secrets — trade poll (`api.steampowered.com`) тоже через proxy.
+
 ### Секреты (один раз)
 
 ```bash
@@ -111,6 +123,8 @@ bash scripts/verify-trade-readiness.sh
 
 Проверка: `EXPECT_MODE=shadow bash scripts/verify-trade-readiness.sh`
 
+Чек-лист QA: [QA-SHADOW-GATE.md](./QA-SHADOW-GATE.md)
+
 На странице сделки — баннер **«Проверка обмена (shadow)»**. Admin: `/admin/orders/:id` → shadow snapshots → Apply observed status.
 
 ### 2b. Live verification (без settlement)
@@ -187,7 +201,8 @@ curl -sf https://p2pcs.ru/api/v1/health
 | `scripts/deploy-crypto-signer-staging.sh` | Phase 4 — on-chain withdrawals |
 | `scripts/rollback-to-mock-trade-staging.sh` | Emergency rollback (Gate 4 drill) |
 | `scripts/verify-payments-readiness.sh` | Preflight payments |
-| `scripts/verify-trade-readiness.sh` | Preflight trade/extension |
+| `scripts/configure-steam-proxy-staging.sh` | DataImpulse / residential proxy |
+| `scripts/verify-steam-proxy-staging.sh` | Proxy + steamcommunity smoke |
 | `scripts/setup-reconcile-cron.sh` | Daily reconcile cron |
 | `scripts/enable-steam-staging.sh` | Steam auth (legacy) |
 
@@ -199,4 +214,4 @@ curl -sf https://p2pcs.ru/api/v1/health
 - [RELEASE.md](./RELEASE.md) — Gate 4
 - [phase-4-settlement.md](./phase-4-settlement.md)
 - [phase-5-extension-first.md](./phase-5-extension-first.md)
-- [QA-STAGING-p2pcs.md](./QA-STAGING-p2pcs.md)
+- [QA-SHADOW-GATE.md](./QA-SHADOW-GATE.md)

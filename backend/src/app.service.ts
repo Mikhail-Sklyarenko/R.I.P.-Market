@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { checkCryptoGatewayHealth } from './providers/payment/payment-gateway-health.util';
 import { isCryptoPaymentProvider } from './providers/payment/payment.config';
+import { isSteamHttpProxyConfigured } from './common/steam/steam-http.client';
 import { PrismaService } from './prisma/prisma.service';
 import { ExtensionFlowMetricsService } from './common/observability/extension-flow-metrics.service';
 import { isExtensionFlowObservabilityEnabled } from './common/observability/extension-flow-observability.config';
@@ -23,6 +24,7 @@ export class AppService {
   async getHealth() {
     const timestamp = new Date().toISOString();
     const cryptoGateway = await checkCryptoGatewayHealth();
+    const steamHttpProxy = isSteamHttpProxyConfigured() ? 'configured' : 'disabled';
 
     try {
       await this.prisma.$queryRaw`SELECT 1`;
@@ -37,6 +39,7 @@ export class AppService {
         status: cryptoOk ? 'ok' : 'degraded',
         database: 'ok',
         cryptoGateway: cryptoGateway.status,
+        steamHttpProxy,
         ...(cryptoGateway.latencyMs !== undefined
           ? { cryptoGatewayLatencyMs: cryptoGateway.latencyMs }
           : {}),
@@ -48,6 +51,7 @@ export class AppService {
         status: 'degraded',
         database: 'unavailable',
         cryptoGateway: cryptoGateway.status,
+        steamHttpProxy,
         timestamp,
       };
     }

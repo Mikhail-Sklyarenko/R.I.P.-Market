@@ -45,6 +45,7 @@ check "extension task pipeline" echo "$CONFIG" | grep -q '"extensionTaskPipeline
 check "delivery verification engine" echo "$CONFIG" | grep -q '"extension"' # partial
 
 check "crypto payments on" echo "$CONFIG" | grep -q '"cryptoPaymentsEnabled":true'
+check "steam HTTP proxy" echo "$CONFIG" | grep -q '"steamHttpProxyConfigured":true'
 
 echo ""
 echo "==> Health"
