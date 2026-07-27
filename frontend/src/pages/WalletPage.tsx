@@ -1,4 +1,4 @@
-import { type FormEvent, useCallback, useEffect, useMemo, useState } from 'react';
+import { type FormEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import {
   createIdempotencyKey,
@@ -77,6 +77,7 @@ export function WalletPage() {
     AuthConfig,
     | 'mockDepositEnabled'
     | 'cryptoPaymentsEnabled'
+    | 'enableRealSettlement'
     | 'minDepositMinor'
     | 'minWithdrawMinor'
     | 'withdrawFeeMinor'
@@ -91,9 +92,12 @@ export function WalletPage() {
   const [withdrawSubmitting, setWithdrawSubmitting] = useState(false);
   const [withdrawError, setWithdrawError] = useState<string | null>(null);
   const [addressCopied, setAddressCopied] = useState(false);
+  const [depositCreditedNotice, setDepositCreditedNotice] = useState<string | null>(null);
+  const knownDepositEventCountRef = useRef(0);
 
   const mockDepositEnabled = paymentConfig?.mockDepositEnabled ?? false;
   const cryptoPaymentsEnabled = paymentConfig?.cryptoPaymentsEnabled ?? false;
+  const realSettlementEnabled = paymentConfig?.enableRealSettlement ?? false;
   const minDepositMinor = paymentConfig?.minDepositMinor ?? 100;
   const minWithdrawMinor = paymentConfig?.minWithdrawMinor ?? 100;
   const withdrawFeeMinor = paymentConfig?.withdrawFeeMinor ?? 0;
@@ -116,6 +120,7 @@ export function WalletPage() {
     ]);
     setDepositStatus(status);
     setWithdrawals(withdrawalItems);
+    knownDepositEventCountRef.current = status.events.length;
   }, [token, cryptoPaymentsEnabled]);
 
   useEffect(() => {
@@ -124,6 +129,7 @@ export function WalletPage() {
         setPaymentConfig({
           mockDepositEnabled: config.mockDepositEnabled,
           cryptoPaymentsEnabled: config.cryptoPaymentsEnabled,
+          enableRealSettlement: config.enableRealSettlement,
           minDepositMinor: config.minDepositMinor,
           minWithdrawMinor: config.minWithdrawMinor,
           withdrawFeeMinor: config.withdrawFeeMinor,
@@ -149,16 +155,26 @@ export function WalletPage() {
     const intervalId = window.setInterval(() => {
       void getWalletDepositStatus(token)
         .then((status) => {
-          setDepositStatus(status);
-          if (status.events.length > (depositStatus?.events.length ?? 0)) {
+          const previousCount = knownDepositEventCountRef.current;
+          if (status.events.length > previousCount) {
+            const latest = status.events[0];
+            if (latest) {
+              setDepositCreditedNotice(
+                t('wallet.depositCredited', {
+                  amount: formatUsdtFromMinor(latest.amountMinor),
+                }),
+              );
+            }
+            knownDepositEventCountRef.current = status.events.length;
             void refresh();
           }
+          setDepositStatus(status);
         })
         .catch(() => undefined);
     }, DEPOSIT_STATUS_POLL_MS);
 
     return () => window.clearInterval(intervalId);
-  }, [token, cryptoPaymentsEnabled, depositStatus?.events.length, refresh]);
+  }, [token, cryptoPaymentsEnabled, refresh, t]);
 
   function validateDepositAmount(): number | null {
     const amountMinor = parseUsdToMinor(amountInput);
@@ -301,6 +317,26 @@ export function WalletPage() {
         </ErrorAlert>
       ) : null}
 
+      {cryptoPaymentsEnabled && !realSettlementEnabled ? (
+        <ErrorAlert
+          variant="info"
+          title={t('wallet.realMoneyBetaTitle')}
+          data-testid="wallet-real-money-beta-banner"
+        >
+          {t('wallet.realMoneyBetaBody')}
+        </ErrorAlert>
+      ) : null}
+
+      {depositCreditedNotice ? (
+        <ErrorAlert
+          variant="info"
+          title={t('wallet.depositCreditedTitle')}
+          data-testid="wallet-deposit-credited-banner"
+        >
+          {depositCreditedNotice}
+        </ErrorAlert>
+      ) : null}
+
       <div className="card wallet-hold-info" data-testid="wallet-hold-info">
         <h3>{t('wallet.whatIsHoldTitle')}</h3>
         <p className="muted small">{t('wallet.whatIsHoldBody')}</p>
@@ -412,6 +448,24 @@ export function WalletPage() {
               ) : (
                 <p className="muted small">{t('wallet.depositAddressLoading')}</p>
               )}
+
+              {(depositStatus?.events.length ?? 0) > 0 ? (
+                <div className="wallet-crypto-history" data-testid="wallet-crypto-deposits">
+                  <h4>{t('wallet.depositHistoryTitle')}</h4>
+                  <ul className="wallet-crypto-list">
+                    {depositStatus!.events.slice(0, 5).map((event) => (
+                      <li key={event.id} data-testid={`deposit-event-${event.id}`}>
+                        <span>{formatUsdtFromMinor(event.amountMinor)}</span>
+                        <span className="muted small">
+                          {new Date(event.createdAt).toLocaleString(
+                            locale === 'en' ? 'en-US' : 'ru-RU',
+                          )}
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              ) : null}
             </div>
           ) : null}
 

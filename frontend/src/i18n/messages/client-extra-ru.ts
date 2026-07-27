@@ -579,6 +579,12 @@ export const clientExtraRu = {
     frozenHint: 'Временно недоступно',
     depositUsdtTitle: 'Пополнить USDT (TRC-20)',
     depositAwaiting: 'Ожидаем перевод… Зачисление появится после подтверждений в сети TRON.',
+    depositCreditedTitle: 'Пополнение зачислено',
+    depositCredited: 'На баланс зачислено {{amount}}.',
+    depositHistoryTitle: 'Недавние пополнения',
+    realMoneyBetaTitle: 'Закрытая beta: реальные USDT',
+    realMoneyBetaBody:
+      'Пополнение — настоящие USDT TRC-20 (mainnet). Сделки и выплаты продавцам проходят поэтапное включение: средства в hold защищают покупателя до подтверждения обмена в Steam.',
     depositQrAlt: 'QR-код для пополнения USDT TRC-20',
     depositAddressLoading: 'Загрузка адреса…',
     withdrawUsdtTitle: 'Вывод USDT (TRC-20)',
@@ -762,6 +768,12 @@ export const clientExtraRu = {
     loading: 'Загрузка сделки…',
     realSettlementBanner:
       'На этом окружении для вашего Steam-аккаунта включён реальный расчёт после обмена.',
+    shadowTradeBannerTitle: 'Проверка обмена (shadow)',
+    shadowTradeBannerBody:
+      'Статус сделки обновится после подтверждения обмена в Steam. Платформа сверяет offer в фоне — выплата продавцу пока не включается автоматически.',
+    liveTradeBannerTitle: 'Реальный обмен в Steam',
+    liveTradeBannerBody:
+      'Завершите обмен в Steam (продавец отправляет offer, покупатель принимает). Средства в hold до подтверждения доставки. Автовыплата продавцу на этом этапе ещё не включена.',
     itemPageLink: 'Страница предмета',
     lotLink: 'Лот',
     category: 'Категория',

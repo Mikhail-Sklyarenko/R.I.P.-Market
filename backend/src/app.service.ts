@@ -1,4 +1,6 @@
 import { Injectable } from '@nestjs/common';
+import { checkCryptoGatewayHealth } from './providers/payment/payment-gateway-health.util';
+import { isCryptoPaymentProvider } from './providers/payment/payment.config';
 import { PrismaService } from './prisma/prisma.service';
 import { ExtensionFlowMetricsService } from './common/observability/extension-flow-metrics.service';
 import { isExtensionFlowObservabilityEnabled } from './common/observability/extension-flow-observability.config';
@@ -20,13 +22,24 @@ export class AppService {
 
   async getHealth() {
     const timestamp = new Date().toISOString();
+    const cryptoGateway = await checkCryptoGatewayHealth();
 
     try {
       await this.prisma.$queryRaw`SELECT 1`;
+      const cryptoRequired = isCryptoPaymentProvider();
+      const cryptoOk =
+        !cryptoRequired ||
+        cryptoGateway.status === 'ok' ||
+        cryptoGateway.status === 'disabled';
+
       return {
         service: 'cs2-p2p-backend',
-        status: 'ok',
+        status: cryptoOk ? 'ok' : 'degraded',
         database: 'ok',
+        cryptoGateway: cryptoGateway.status,
+        ...(cryptoGateway.latencyMs !== undefined
+          ? { cryptoGatewayLatencyMs: cryptoGateway.latencyMs }
+          : {}),
         timestamp,
       };
     } catch {
@@ -34,6 +47,7 @@ export class AppService {
         service: 'cs2-p2p-backend',
         status: 'degraded',
         database: 'unavailable',
+        cryptoGateway: cryptoGateway.status,
         timestamp,
       };
     }

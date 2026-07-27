@@ -46,6 +46,7 @@ npm run dev
 
 - [USDT TRC-20 payments (staging / runbook)](docs/payments-crypto-tron.md)
 - [Release v1 checklist](docs/RELEASE.md)
+- [Real-money rollout (USDT + settlement phases)](docs/REAL-MONEY-ROLLOUT.md)
 - [QA / manual testing](TESTING.md)
 - [QA staging guide — p2pcs.ru](docs/QA-STAGING-p2pcs.md)
 - [QA — тестирование Chrome-расширения](docs/QA-EXTENSION-TESTING.md)

@@ -51,6 +51,7 @@ export function OrderPage() {
   const [tradeTimeoutMinutes, setTradeTimeoutMinutes] = useState(60);
   const [enableRealSettlement, setEnableRealSettlement] = useState(false);
   const [liveVerificationMode, setLiveVerificationMode] = useState(false);
+  const [tradeVerificationMode, setTradeVerificationMode] = useState('live');
   const [extensionTaskPipeline, setExtensionTaskPipeline] = useState(false);
   const [extensionUiTradeFlow, setExtensionUiTradeFlow] = useState(false);
   const [extensionTradeAckEnabled, setExtensionTradeAckEnabled] = useState(false);
@@ -82,6 +83,14 @@ export function OrderPage() {
     (user?.role === 'ADMIN' || (MOCK_TRADE_ENABLED && isBuyer && tradeProvider === 'mock'));
   const nextAction = order ? getOrderNextAction(order, role, locale) : null;
   const showTradePanels = order?.status === 'WAITING_TRADE';
+  const isShadowVerification = tradeVerificationMode === 'shadow';
+  const showShadowTradeBanner =
+    isShadowVerification && showTradePanels && tradeProvider === 'steam';
+  const showLiveNoSettlementBanner =
+    liveVerificationMode &&
+    !enableRealSettlement &&
+    showTradePanels &&
+    tradeProvider === 'steam';
 
   const load = useCallback(() => {
     if (!token || !id) {
@@ -99,6 +108,7 @@ export function OrderPage() {
         setTradeProvider(config.tradeProvider);
         setEnableRealSettlement(config.enableRealSettlement);
         setLiveVerificationMode(config.liveVerificationMode);
+        setTradeVerificationMode(config.tradeVerificationMode);
         setExtensionTaskPipeline(
           Boolean(config.extension?.extensionTaskPipelineEnabled),
         );
@@ -332,6 +342,26 @@ export function OrderPage() {
         <div className="card notice-banner" data-testid="real-settlement-banner">
           {t('orderPage.realSettlementBanner')}
         </div>
+      ) : null}
+
+      {showShadowTradeBanner ? (
+        <ErrorAlert
+          variant="info"
+          title={t('orderPage.shadowTradeBannerTitle')}
+          data-testid="shadow-trade-banner"
+        >
+          {t('orderPage.shadowTradeBannerBody')}
+        </ErrorAlert>
+      ) : null}
+
+      {showLiveNoSettlementBanner && !showShadowTradeBanner ? (
+        <ErrorAlert
+          variant="info"
+          title={t('orderPage.liveTradeBannerTitle')}
+          data-testid="live-trade-banner"
+        >
+          {t('orderPage.liveTradeBannerBody')}
+        </ErrorAlert>
       ) : null}
 
       {order ? (

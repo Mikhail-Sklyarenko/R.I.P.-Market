@@ -562,6 +562,12 @@ export const clientExtraEn = {
     frozenHint: 'Temporarily unavailable',
     depositUsdtTitle: 'Deposit USDT (TRC-20)',
     depositAwaiting: 'Waiting for the transfer… Funds will appear after confirmations on the TRON network.',
+    depositCreditedTitle: 'Deposit credited',
+    depositCredited: '{{amount}} has been added to your balance.',
+    depositHistoryTitle: 'Recent deposits',
+    realMoneyBetaTitle: 'Closed beta: real USDT',
+    realMoneyBetaBody:
+      'Deposits are real USDT TRC-20 (mainnet). Trades and seller payouts roll out in phases — funds on hold protect buyers until the Steam trade is confirmed.',
     depositQrAlt: 'QR code for USDT TRC-20 deposit',
     depositAddressLoading: 'Loading address…',
     withdrawUsdtTitle: 'Withdraw USDT (TRC-20)',
@@ -743,6 +749,12 @@ export const clientExtraEn = {
     loading: 'Loading deal…',
     realSettlementBanner:
       'Real settlement after the trade is enabled for your Steam account in this environment.',
+    shadowTradeBannerTitle: 'Trade verification (shadow)',
+    shadowTradeBannerBody:
+      'The deal status updates after the Steam trade is confirmed. The platform verifies the offer in the background — seller payout is not automated yet.',
+    liveTradeBannerTitle: 'Real Steam trade',
+    liveTradeBannerBody:
+      'Complete the trade in Steam (seller sends the offer, buyer accepts). Funds stay on hold until delivery is confirmed. Seller auto-payout is not enabled at this stage.',
     itemPageLink: 'Item page',
     lotLink: 'Listing',
     category: 'Category',
