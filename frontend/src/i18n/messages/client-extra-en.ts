@@ -396,9 +396,8 @@ export const clientExtraEn = {
     step1: 'You choose an item',
     step2: 'Money is held',
     step3: 'Deal completes after transfer',
-    title: 'Buy skins through a protected deal',
-    subtitle:
-      'Funds are held in the wallet and only transferred to the seller once the item transfer in Steam is confirmed.',
+    title: 'Protected deal',
+    subtitle: 'Funds stay in hold until the Steam transfer is confirmed.',
     stepsAria: 'How a protected deal works',
   },
   orderTrade: {

@@ -3,9 +3,9 @@ import { useLocale } from '../i18n';
 function ShieldIcon() {
   return (
     <svg
-      className="trust-banner-icon"
-      width="32"
-      height="32"
+      className="trust-notice-icon"
+      width="16"
+      height="16"
       viewBox="0 0 24 24"
       fill="none"
       aria-hidden="true"
@@ -27,34 +27,20 @@ function ShieldIcon() {
   );
 }
 
+/** Compact trust signal — one line, no sales card competing with catalog. */
 export function TrustBanner() {
   const { t } = useLocale();
-  const steps = [t('trustBanner.step1'), t('trustBanner.step2'), t('trustBanner.step3')];
 
   return (
-    <div className="card trust-banner" data-testid="trust-banner">
-      <div className="trust-banner-main">
-        <ShieldIcon />
-        <div className="trust-banner-copy">
-          <h3 className="trust-banner-title">{t('trustBanner.title')}</h3>
-          <p className="muted small trust-banner-subtitle">{t('trustBanner.subtitle')}</p>
-        </div>
-      </div>
-
-      <ol className="trust-banner-steps" aria-label={t('trustBanner.stepsAria')}>
-        {steps.map((step, index) => (
-          <li
-            key={step}
-            className="trust-banner-step"
-            data-testid={`trust-banner-step-${index + 1}`}
-          >
-            <span className="trust-banner-step-marker" aria-hidden="true">
-              {index + 1}
-            </span>
-            <span className="trust-banner-step-label">{step}</span>
-          </li>
-        ))}
-      </ol>
-    </div>
+    <aside className="trust-notice" data-testid="trust-banner">
+      <ShieldIcon />
+      <p className="trust-notice-text">
+        <span className="trust-notice-title">{t('trustBanner.title')}</span>
+        <span className="trust-notice-sep" aria-hidden="true">
+          ·
+        </span>
+        <span className="trust-notice-subtitle">{t('trustBanner.subtitle')}</span>
+      </p>
+    </aside>
   );
 }
