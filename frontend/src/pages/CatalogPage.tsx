@@ -480,46 +480,42 @@ export function CatalogPage() {
 
       <TrustBanner />
 
-      <div className="catalog-search-toolbar card" data-testid="catalog-search-toolbar">
-        <div className="catalog-filters-row">
-          <label className="field catalog-filter-field">
-            <span className="field-label">{t('catalog.search')}</span>
-            <input
-              type="search"
-              value={search}
-              onChange={(event) => setSearch(event.target.value)}
-              placeholder={t('catalog.searchPlaceholder')}
-              data-testid="catalog-search"
-            />
-          </label>
-          <label className="field catalog-filter-field">
-            <span className="field-label">{t('catalog.sort')}</span>
-            <select
-              value={sort}
-              onChange={(event) => setSort(event.target.value as SortOption)}
-              data-testid="catalog-sort"
-            >
-              <option value="popular">{t('catalog.sortPopular')}</option>
-              <option value="newest">{t('catalog.sortNewest')}</option>
-              <option value="price-asc">{t('catalog.sortPriceAsc')}</option>
-              <option value="price-desc">{t('catalog.sortPriceDesc')}</option>
-            </select>
-          </label>
-        </div>
-
-        <div className="catalog-filters-actions">
+      <div className="catalog-search-toolbar" data-testid="catalog-search-toolbar">
+        <label className="field catalog-filter-field catalog-search-field">
+          <span className="sr-only">{t('catalog.search')}</span>
+          <input
+            type="search"
+            value={search}
+            onChange={(event) => setSearch(event.target.value)}
+            placeholder={t('catalog.searchPlaceholder')}
+            aria-label={t('catalog.search')}
+            data-testid="catalog-search"
+          />
+        </label>
+        <label className="field catalog-filter-field catalog-sort-field">
+          <span className="sr-only">{t('catalog.sort')}</span>
+          <select
+            value={sort}
+            onChange={(event) => setSort(event.target.value as SortOption)}
+            aria-label={t('catalog.sort')}
+            data-testid="catalog-sort"
+          >
+            <option value="popular">{t('catalog.sortPopular')}</option>
+            <option value="newest">{t('catalog.sortNewest')}</option>
+            <option value="price-asc">{t('catalog.sortPriceAsc')}</option>
+            <option value="price-desc">{t('catalog.sortPriceDesc')}</option>
+          </select>
+        </label>
+        {showResetFilters ? (
           <button
             type="button"
-            className={`button secondary sm catalog-reset-filters-btn${showResetFilters ? '' : ' is-hidden'}`}
+            className="button secondary sm catalog-reset-filters-btn"
             data-testid="catalog-reset-filters"
             onClick={handleResetFilters}
-            tabIndex={showResetFilters ? 0 : -1}
-            aria-hidden={!showResetFilters}
-            disabled={!showResetFilters}
           >
             {t('catalog.resetFilters')}
           </button>
-        </div>
+        ) : null}
       </div>
 
       <div className="catalog-category-strip card" data-testid="catalog-category-strip">
