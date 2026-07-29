@@ -17,6 +17,10 @@ const baseRuMessages = {
     switchToRu: 'Русский',
     switchToEn: 'English',
   },
+  footer: {
+    trademarkDisclaimer:
+      'R.I.P. Market не связан с Valve Corporation. Counter-Strike, CS2 и Steam — товарные знаки Valve Corporation.',
+  },
   catalog: {
     title: 'Каталог',
     subtitle: 'Все скины CS2, доступные к обмену — с ценами Steam и маркетплейса.',

@@ -76,9 +76,32 @@ export class InventoryService {
       const soft = await this.tryServeCachedInventory(ownerId);
       if (soft) {
         if (soft.refreshInBackground) {
-          this.scheduleBackgroundSync(ownerId, user.steamId);
+          this.scheduleBackgroundSync(ownerId, user.steamId, false);
         }
         return soft.result;
+      }
+    } else {
+      // Force refresh: never block the seller UI on Steam when we already have
+      // items to show. Return cache immediately and sync in the background.
+      const soft = await this.tryServeCachedInventory(ownerId);
+      const cachedAssets = soft?.result.assets;
+      if (
+        soft &&
+        Array.isArray(cachedAssets) &&
+        cachedAssets.length > 0
+      ) {
+        this.scheduleBackgroundSync(ownerId, user.steamId, true);
+        return {
+          ...soft.result,
+          sync: {
+            ...soft.result.sync,
+            stale: true,
+            cacheHit: true,
+            warning:
+              soft.result.sync.warning ??
+              'Обновляем инвентарь из Steam в фоне…',
+          },
+        };
       }
     }
 
@@ -161,12 +184,13 @@ export class InventoryService {
   private scheduleBackgroundSync(
     ownerId: string,
     steamId?: string | null,
+    force = false,
   ): void {
     if (this.backgroundSyncInflight.has(ownerId)) {
       return;
     }
     const task = this.inventoryProvider
-      .syncInventory(ownerId, steamId, { force: false })
+      .syncInventory(ownerId, steamId, { force })
       .then(() => undefined)
       .catch(() => undefined)
       .finally(() => {

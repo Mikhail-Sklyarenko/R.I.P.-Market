@@ -7,7 +7,8 @@ import {
 
 export const STEAM_HTTP_PROXY_ENV = 'STEAM_HTTP_PROXY';
 
-const DEFAULT_TIMEOUT_MS = 15_000;
+/** Per-attempt Steam HTTP timeout. Inventory pages go through residential proxy and often need >15s. */
+const DEFAULT_TIMEOUT_MS = 30_000;
 const MAX_ATTEMPTS = 3;
 
 let cachedProxyUrl: string | null | undefined;

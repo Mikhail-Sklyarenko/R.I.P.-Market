@@ -104,6 +104,98 @@ describe('InventoryService', () => {
     expect(inventoryProvider.syncInventory).toHaveBeenCalled();
   });
 
+  it('force refresh returns cached items immediately and syncs Steam in background', async () => {
+    const fetchedAt = new Date('2026-07-19T10:00:00.000Z');
+    const expiresAt = new Date(Date.now() + 60_000);
+    prisma.user.findUnique.mockResolvedValue({
+      id: 'user-1',
+      steamId: '76561198000000000',
+      role: 'SELLER',
+    });
+    prisma.inventorySyncRun.findFirst.mockResolvedValue({
+      userId: 'user-1',
+      status: 'SUCCESS',
+      itemCount: 2,
+      fetchedAt,
+      expiresAt,
+      errorCode: null,
+    });
+    prisma.inventoryAsset.findMany.mockResolvedValue([
+      {
+        id: 'asset-1',
+        status: 'AVAILABLE',
+        itemDefinition: { marketHashName: 'AK-47 | Redline (Field-Tested)' },
+      },
+      {
+        id: 'asset-2',
+        status: 'AVAILABLE',
+        itemDefinition: { marketHashName: 'AWP | Asiimov (Field-Tested)' },
+      },
+    ]);
+    inventoryProvider.syncInventory.mockResolvedValue({
+      status: 'SUCCESS',
+      itemCount: 2,
+      fetchedAt: new Date(),
+      expiresAt: new Date(Date.now() + 60_000),
+      cacheHit: false,
+      stale: false,
+    });
+
+    const result = await service.getUserInventory('user-1', {
+      forceRefresh: true,
+      role: 'SELLER',
+    });
+
+    expect(result.assets).toHaveLength(2);
+    expect(result.sync.cacheHit).toBe(true);
+    expect(result.sync.stale).toBe(true);
+    expect(result.sync.warning).toMatch(/фоне/i);
+    expect(inventoryProvider.syncInventory).toHaveBeenCalledWith(
+      'user-1',
+      '76561198000000000',
+      { force: true },
+    );
+  });
+
+  it('force refresh waits on Steam when there is no cached inventory to show', async () => {
+    prisma.user.findUnique.mockResolvedValue({
+      id: 'user-1',
+      steamId: '76561198000000000',
+      role: 'SELLER',
+    });
+    prisma.inventorySyncRun.findFirst.mockResolvedValue(null);
+    inventoryProvider.syncInventory.mockResolvedValue({
+      status: 'SUCCESS',
+      itemCount: 1,
+      fetchedAt: new Date('2026-07-19T12:00:00.000Z'),
+      expiresAt: new Date(Date.now() + 60_000),
+      cacheHit: false,
+      stale: false,
+      warning: null,
+      errorCode: null,
+    });
+    prisma.inventoryAsset.findMany.mockResolvedValue([
+      {
+        id: 'asset-1',
+        status: 'AVAILABLE',
+        itemDefinition: { marketHashName: 'Fever Case' },
+      },
+    ]);
+
+    const result = await service.getUserInventory('user-1', {
+      forceRefresh: true,
+      role: 'SELLER',
+    });
+
+    expect(inventoryProvider.syncInventory).toHaveBeenCalledWith(
+      'user-1',
+      '76561198000000000',
+      { force: true },
+    );
+    expect(result.sync.cacheHit).toBe(false);
+    expect(result.assets).toHaveLength(1);
+  });
+
   it('returns steam and marketplace price hints keyed by market hash name', async () => {
     steamMarketPrice.getPricesWithMeta.mockResolvedValue({
       'AK-47 | Redline (Field-Tested)': {

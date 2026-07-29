@@ -9,6 +9,10 @@ import {
 } from 'react';
 import { getUserMe } from '../api/marketplace';
 import { ApiError, type AuthUser } from '../api/types';
+import {
+  AUTH_UNAUTHORIZED_EVENT,
+  isUnauthorizedApiError,
+} from '../utils/api-auth-error';
 import { profileToAuthUser } from '../utils/user-profile';
 
 const STORAGE_KEY = 'rip_market_auth';
@@ -66,6 +70,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   useEffect(() => {
+    function handleUnauthorized() {
+      logout();
+    }
+    window.addEventListener(AUTH_UNAUTHORIZED_EVENT, handleUnauthorized);
+    return () => {
+      window.removeEventListener(AUTH_UNAUTHORIZED_EVENT, handleUnauthorized);
+    };
+  }, [logout]);
+
+  useEffect(() => {
     if (!auth?.token) {
       return;
     }
@@ -80,8 +94,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       .catch((err: unknown) => {
         if (
           !cancelled &&
-          err instanceof ApiError &&
-          (err.statusCode === 401 || err.code === 'UNAUTHORIZED' || err.code === 'NOT_FOUND')
+          (isUnauthorizedApiError(err) ||
+            (err instanceof ApiError && err.code === 'NOT_FOUND'))
         ) {
           logout();
         }

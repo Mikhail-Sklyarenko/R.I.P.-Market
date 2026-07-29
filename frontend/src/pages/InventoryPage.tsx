@@ -282,10 +282,10 @@ export function InventoryPage() {
         setAssets(response.assets);
         setSync(response.sync);
         void loadPriceHints(response.assets);
-        if (!forceRefresh) {
-          scheduleStaleRevalidate(Boolean(response.sync.stale));
-        } else {
-          setBackgroundSyncing(false);
+        // Force refresh may return cache instantly with stale=true while Steam syncs in background.
+        scheduleStaleRevalidate(Boolean(response.sync.stale));
+        if (forceRefresh && response.sync.stale) {
+          setBackgroundSyncing(true);
         }
       } catch (err: unknown) {
         setError(err);
@@ -640,7 +640,7 @@ export function InventoryPage() {
         </div>
       ) : null}
 
-      {steamLinked && tradeUrlReady && !loading && assets.length === 0 ? (
+      {steamLinked && tradeUrlReady && !loading && !error && assets.length === 0 ? (
         <EmptyState
           title={t('inventory.emptyTitle')}
           message={t('inventory.emptyMessage')}

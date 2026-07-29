@@ -69,6 +69,10 @@ export function Layout() {
         <Outlet />
       </main>
 
+      <footer className="app-footer">
+        <p className="app-footer-disclaimer">{t('footer.trademarkDisclaimer')}</p>
+      </footer>
+
       <SupportWidget open={supportOpen} onOpenChange={setSupportOpen} />
       {isAuthenticated ? <NotificationsWidget /> : null}
     </div>

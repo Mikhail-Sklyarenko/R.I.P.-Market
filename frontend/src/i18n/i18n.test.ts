@@ -44,4 +44,15 @@ describe('i18n', () => {
     assert.equal(formatLotCountLabel(1, 'en'), '1 listing');
     assert.equal(formatLotCountLabel(5, 'en'), '5 listings');
   });
+
+  it('exposes Valve trademark disclaimer in both locales', () => {
+    assert.match(
+      translate(ruMessages, 'footer.trademarkDisclaimer'),
+      /Valve Corporation/,
+    );
+    assert.match(
+      translate(enMessages, 'footer.trademarkDisclaimer'),
+      /not affiliated with Valve/i,
+    );
+  });
 });

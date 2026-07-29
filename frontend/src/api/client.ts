@@ -1,4 +1,6 @@
 import { ApiError, type ApiErrorPayload } from './types';
+import { emitAuthUnauthorized } from '../utils/api-auth-error';
+import { rememberSteamReturnPath } from '../utils/steam-return-path';
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:3000/api/v1';
 
@@ -12,6 +14,16 @@ type RequestOptions = {
   body?: unknown;
   idempotencyKey?: string;
 };
+
+function notifyUnauthorized(): void {
+  if (typeof window === 'undefined') {
+    return;
+  }
+  rememberSteamReturnPath(
+    `${window.location.pathname}${window.location.search}${window.location.hash}`,
+  );
+  emitAuthUnauthorized();
+}
 
 export async function apiRequest<T>(path: string, options: RequestOptions = {}): Promise<T> {
   const headers: Record<string, string> = {
@@ -39,6 +51,9 @@ export async function apiRequest<T>(path: string, options: RequestOptions = {}):
   const data = text ? (JSON.parse(text) as unknown) : null;
 
   if (!response.ok) {
+    if (response.status === 401 && options.token) {
+      notifyUnauthorized();
+    }
     const payload = (data as { error?: ApiErrorPayload })?.error;
     if (payload) {
       throw new ApiError({ ...payload, requestId: payload.requestId ?? requestId });

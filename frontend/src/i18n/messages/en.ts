@@ -19,6 +19,10 @@ const baseEnMessages = {
     switchToRu: 'Russian',
     switchToEn: 'English',
   },
+  footer: {
+    trademarkDisclaimer:
+      'R.I.P. Market is not affiliated with Valve Corporation. Counter-Strike, CS2, and Steam are trademarks of Valve Corporation.',
+  },
   catalog: {
     title: 'Catalog',
     subtitle: 'All tradable CS2 skins — with Steam and marketplace prices.',

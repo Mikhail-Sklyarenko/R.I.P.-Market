@@ -1,12 +1,13 @@
 import { useEffect, useId, useRef, useState } from 'react';
 import { LOCALES, useLocale, type Locale } from '../i18n';
+import { LocaleFlag } from './LocaleFlag';
 
 const LOCALE_META: Record<
   Locale,
-  { flag: string; nameKey: 'language.switchToRu' | 'language.switchToEn' }
+  { codeKey: 'language.ru' | 'language.en'; nameKey: 'language.switchToRu' | 'language.switchToEn' }
 > = {
-  ru: { flag: '🇷🇺', nameKey: 'language.switchToRu' },
-  en: { flag: '🇺🇸', nameKey: 'language.switchToEn' },
+  ru: { codeKey: 'language.ru', nameKey: 'language.switchToRu' },
+  en: { codeKey: 'language.en', nameKey: 'language.switchToEn' },
 };
 
 export function LanguageSwitcher() {
@@ -90,9 +91,8 @@ export function LanguageSwitcher() {
         data-testid="language-switcher-trigger"
         onClick={() => setOpen((value) => !value)}
       >
-        <span className="language-switcher-flag" aria-hidden="true">
-          {current.flag}
-        </span>
+        <LocaleFlag locale={locale} className="language-switcher-flag" />
+        <span className="language-switcher-code">{t(current.codeKey)}</span>
         <span className="language-switcher-chevron" aria-hidden="true">
           ▾
         </span>
@@ -119,9 +119,7 @@ export function LanguageSwitcher() {
                 data-testid={`language-${code}`}
                 onClick={() => selectLocale(code)}
               >
-                <span className="language-switcher-flag" aria-hidden="true">
-                  {meta.flag}
-                </span>
+                <LocaleFlag locale={code} className="language-switcher-flag" />
                 <span>{t(meta.nameKey)}</span>
               </button>
             );
