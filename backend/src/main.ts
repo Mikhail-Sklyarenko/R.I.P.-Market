@@ -35,6 +35,8 @@ async function bootstrap() {
   SwaggerModule.setup('api/docs', app, document);
 
   const port = Number(process.env.PORT ?? 3000);
-  await app.listen(port);
+  // Behind nginx the API only needs loopback; HOST=127.0.0.1 keeps it off the public IP.
+  const host = process.env.HOST?.trim() || '0.0.0.0';
+  await app.listen(port, host);
 }
 void bootstrap();

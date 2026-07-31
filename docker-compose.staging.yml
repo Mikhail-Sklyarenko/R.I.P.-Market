@@ -20,8 +20,10 @@ services:
       POSTGRES_DB: cs2_p2p_mvp
       POSTGRES_USER: cs2
       POSTGRES_PASSWORD: ${PLATFORM_POSTGRES_PASSWORD:-cs2}
+    # Loopback only: docker publishes ports through its own iptables chain, which
+    # bypasses ufw, so the bind address is the actual boundary here.
     ports:
-      - '5432:5432'
+      - '127.0.0.1:5432:5432'
     volumes:
       - platform_postgres_data:/var/lib/postgresql/data
     healthcheck:
@@ -39,7 +41,7 @@ services:
       POSTGRES_PASSWORD: ${GATEWAY_POSTGRES_PASSWORD:-gateway}
       POSTGRES_DB: crypto_gateway
     ports:
-      - '5433:5432'
+      - '127.0.0.1:5433:5432'
     volumes:
       - crypto_gateway_postgres_data:/var/lib/postgresql/data
     healthcheck:
@@ -58,8 +60,9 @@ services:
     depends_on:
       crypto-gateway-db:
         condition: service_healthy
+    # Only the host backend calls the gateway; never expose it publicly.
     ports:
-      - '3001:3001'
+      - '127.0.0.1:3001:3001'
     environment:
       DATABASE_URL: postgresql://gateway:${GATEWAY_POSTGRES_PASSWORD:-gateway}@crypto-gateway-db:5432/crypto_gateway?schema=public
       PORT: '3001'

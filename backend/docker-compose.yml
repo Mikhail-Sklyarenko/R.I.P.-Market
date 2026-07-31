@@ -7,8 +7,10 @@ services:
       POSTGRES_DB: cs2_p2p_mvp
       POSTGRES_USER: cs2
       POSTGRES_PASSWORD: cs2
+    # Loopback only: docker publishes ports through its own iptables chain, which
+    # bypasses ufw, so the bind address is the actual boundary here.
     ports:
-      - "5432:5432"
+      - "127.0.0.1:5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:

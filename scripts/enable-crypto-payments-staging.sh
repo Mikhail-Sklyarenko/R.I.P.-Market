@@ -45,6 +45,7 @@ ORIGINS="https://${DOMAIN},https://www.${DOMAIN},http://${DOMAIN},http://www.${D
 cat >"$ENV_PATH" <<EOF
 DATABASE_URL="postgresql://cs2:cs2@localhost:5432/cs2_p2p_mvp?schema=public"
 PORT=3000
+HOST=127.0.0.1
 JWT_SECRET="${JWT_SECRET}"
 JWT_EXPIRES_IN="7d"
 FRONTEND_ORIGIN="${ORIGINS}"
