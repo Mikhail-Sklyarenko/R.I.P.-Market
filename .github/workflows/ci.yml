@@ -123,10 +123,13 @@ jobs:
       AUTH_PROVIDER: mock
       INVENTORY_PROVIDER: mock
       TRADE_PROVIDER: mock
-      FRONTEND_ORIGIN: http://localhost:5173
+      FRONTEND_ORIGIN: http://127.0.0.1:5173
       ENABLE_MOCK_TRADE: true
       ENABLE_MOCK_DEPOSIT: true
       ENABLE_TEST_ROUTES: true
+      ENABLE_EXTENSION_CHANNEL: true
+      STEAM_MARKET_PRICE_ENABLED: false
+      STEAM_ITEM_ICON_ENABLED: false
       CI: true
 
     steps:
