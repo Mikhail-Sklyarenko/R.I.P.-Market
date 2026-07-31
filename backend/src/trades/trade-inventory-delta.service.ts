@@ -3,7 +3,10 @@ import { Inject } from '@nestjs/common';
 import { InventoryAssetStatus } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { INVENTORY_PROVIDER } from '../providers/tokens';
-import type { InventoryProvider } from '../providers/inventory/inventory-provider.interface';
+import type {
+  InventoryProvider,
+  SyncResult,
+} from '../providers/inventory/inventory-provider.interface';
 
 export type InventoryDeltaResult =
   | 'pending'
@@ -42,8 +45,8 @@ export class TradeInventoryDeltaService {
 
     const force = options?.force ?? false;
 
-    let sellerSync;
-    let buyerSync;
+    let sellerSync: SyncResult;
+    let buyerSync: SyncResult;
     try {
       sellerSync = await this.inventoryProvider.syncInventory(
         sellerId,

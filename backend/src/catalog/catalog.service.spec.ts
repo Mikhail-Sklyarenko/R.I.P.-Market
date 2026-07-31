@@ -1,5 +1,4 @@
 import { CatalogService } from './catalog.service';
-import { LotStatus } from '@prisma/client';
 
 describe('CatalogService', () => {
   const prisma = {

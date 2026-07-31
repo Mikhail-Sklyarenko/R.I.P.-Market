@@ -14,7 +14,7 @@ export type BulkListingAsset = ListingEligibilityAsset & {
   floatValue?: number | string | { toString(): string } | null;
   paintSeed?: number | null;
   wear?: string | null;
-  stickers?: unknown | null;
+  stickers?: unknown;
 };
 
 export function hasInventoryFloatValue(
@@ -34,7 +34,7 @@ export function isFungibleInventoryAsset(asset: {
   floatValue?: number | string | { toString(): string } | null;
   paintSeed?: number | null;
   wear?: string | null;
-  stickers?: unknown | null;
+  stickers?: unknown;
 }): boolean {
   if (hasInventoryFloatValue(asset.floatValue)) {
     return false;

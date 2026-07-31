@@ -131,8 +131,9 @@ export class CatalogPriceBulkImportService {
           });
         }
 
-        const displayPrice =
-          wearPrices.get(displayName) ?? wearPrices.values().next().value;
+        // Destructuring keeps the element type; IteratorResult.value widens to any.
+        const [firstWearPrice] = wearPrices.values();
+        const displayPrice = wearPrices.get(displayName) ?? firstWearPrice;
         if (displayPrice != null) {
           await this.prisma.steamPriceCache.upsert({
             where: { marketHashName: item.marketHashName },
