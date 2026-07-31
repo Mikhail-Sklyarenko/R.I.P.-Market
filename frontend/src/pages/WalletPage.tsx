@@ -22,6 +22,7 @@ import { FormField } from '../components/FormField';
 import { LoadingState } from '../components/LoadingState';
 import { MoneyDisplay } from '../components/MoneyDisplay';
 import { PageHeader } from '../components/PageHeader';
+import { QrCode } from '../components/QrCode';
 import { useWallet } from '../wallet/WalletContext';
 import {
   formatUsdtFromMinor,
@@ -46,10 +47,6 @@ import {
 } from '../utils/wallet-tabs';
 
 const DEPOSIT_STATUS_POLL_MS = 10_000;
-
-function buildQrImageUrl(qrData: string): string {
-  return `https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${encodeURIComponent(qrData)}`;
-}
 
 export function WalletPage() {
   const { t, locale } = useLocale();
@@ -416,13 +413,12 @@ export function WalletPage() {
               {depositInfo ? (
                 <div className="wallet-deposit-details">
                   <div className="wallet-deposit-qr-wrap">
-                    <img
-                      src={buildQrImageUrl(depositInfo.qrData)}
-                      alt={t('wallet.depositQrAlt')}
-                      width={180}
-                      height={180}
+                    <QrCode
+                      value={depositInfo.qrData}
+                      label={t('wallet.depositQrAlt')}
+                      size={180}
                       className="wallet-deposit-qr"
-                      data-testid="deposit-qr"
+                      testId="deposit-qr"
                     />
                   </div>
                   <FormField label={t('wallet.depositAddress')} htmlFor="deposit-trc20-address">
