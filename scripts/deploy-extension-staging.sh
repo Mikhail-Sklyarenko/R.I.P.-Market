@@ -119,7 +119,7 @@ npm run build
 echo "==> Frontend: install, build"
 cd "$APP_DIR/frontend"
 npm ci
-npm run build
+rebuild_frontend
 
 echo "==> Restart backend"
 restart_backend

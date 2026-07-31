@@ -35,12 +35,16 @@ if [ -f "$HTTP_CONF" ]; then
   cp "$HTTP_CONF" "$BACKUP_DIR/hardening.conf.$STAMP"
 fi
 
+# nginx.conf ships `server_tokens build;` and `gzip on;` in the http block, so
+# they must be changed in place rather than redeclared — a duplicate directive in
+# the same context is a fatal config error.
+echo "==> server_tokens off (in nginx.conf)"
+sed -i -E 's/^([[:space:]]*)server_tokens[[:space:]]+[^;]+;/\1server_tokens off;/' /etc/nginx/nginx.conf
+grep -nE '^[[:space:]]*server_tokens' /etc/nginx/nginx.conf
+
 echo "==> http-level hardening ($HTTP_CONF)"
 cat >"$HTTP_CONF" <<'EOF'
 # Managed by scripts/configure-nginx-staging.sh — do not edit by hand.
-
-# Don't advertise the exact nginx build to scanners.
-server_tokens off;
 
 # Per-IP request budget for the API. A human never approaches this; naive
 # scraping and credential stuffing do. Zone survives reloads.
@@ -48,7 +52,6 @@ limit_req_zone $binary_remote_addr zone=rip_api:10m rate=30r/s;
 limit_req_status 429;
 limit_conn_zone $binary_remote_addr zone=rip_conn:10m;
 
-gzip on;
 gzip_vary on;
 gzip_min_length 1024;
 gzip_proxied any;
@@ -67,10 +70,25 @@ echo "==> site config ($SITE_AVAILABLE)"
 cat >"$SITE_AVAILABLE" <<EOF
 # Managed by scripts/configure-nginx-staging.sh — do not edit by hand.
 
-# Unknown Host headers get nothing: no default page, no fingerprint.
+# Unknown Host headers get nothing: no default page, no fingerprint. ACME stays
+# reachable here so certificate renewal works for every name pointed at this host.
 server {
     listen 80 default_server;
     listen [::]:80 default_server;
+    server_name _;
+
+    location ^~ /.well-known/acme-challenge/ {
+        root /var/www/html;
+        default_type "text/plain";
+        try_files \$uri =404;
+    }
+
+    location / {
+        return 444;
+    }
+}
+
+server {
     listen 443 ssl default_server;
     listen [::]:443 ssl default_server;
     http2 on;
@@ -167,6 +185,14 @@ if [ -L /etc/nginx/sites-enabled/default ]; then
   echo "==> Disabled stock default site"
 fi
 
+# The hoster's swtest.ru vhost proxies the whole API straight to the backend,
+# which bypasses the headers and rate limits configured above. The product is
+# served from ${DOMAIN} only.
+if [ -f /etc/nginx/conf.d/docker-app.conf ]; then
+  mv /etc/nginx/conf.d/docker-app.conf "$BACKUP_DIR/docker-app.conf.$STAMP.disabled"
+  echo "==> Disabled provider vhost docker-app.conf (backup in $BACKUP_DIR)"
+fi
+
 echo "==> Validate"
 if ! nginx -t; then
   echo "ERROR: nginx config invalid — restoring previous config." >&2
@@ -177,6 +203,9 @@ if ! nginx -t; then
     cp "$BACKUP_DIR/hardening.conf.$STAMP" "$HTTP_CONF"
   else
     rm -f "$HTTP_CONF"
+  fi
+  if [ -f "$BACKUP_DIR/docker-app.conf.$STAMP.disabled" ]; then
+    mv "$BACKUP_DIR/docker-app.conf.$STAMP.disabled" /etc/nginx/conf.d/docker-app.conf
   fi
   nginx -t && systemctl reload nginx
   exit 1

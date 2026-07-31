@@ -33,8 +33,14 @@ strip_env_key() {
   local key="$1"
   local file="${2:-$ENV_PATH}"
   if [ -f "$file" ]; then
+    # Rewriting through a temp file would hand the original's permissions over to
+    # the temp file's, so carry the mode across explicitly — these files hold
+    # JWT_SECRET and proxy credentials.
+    local mode
+    mode="$(stat -c %a "$file" 2>/dev/null || stat -f %Lp "$file")"
     grep -v "^${key}=" "$file" >"${file}.tmp" || true
     mv "${file}.tmp" "$file"
+    chmod "$mode" "$file"
   fi
 }
 
@@ -42,12 +48,13 @@ upsert_secrets_value() {
   local key="$1"
   local value="$2"
   mkdir -p "$(dirname "$SECRETS_PATH")"
-  umask 077
+  # umask stays inside the subshell: leaking 077 into the caller made the
+  # frontend build produce unreadable files and nginx answer 403.
   if [ ! -f "$SECRETS_PATH" ]; then
-    printf '# Managed by staging rollout scripts — do not commit.\n' >"$SECRETS_PATH"
+    (umask 077 && printf '# Managed by staging rollout scripts — do not commit.\n' >"$SECRETS_PATH")
   fi
   strip_env_key "$key" "$SECRETS_PATH"
-  printf '%s=%s\n' "$key" "$value" >>"$SECRETS_PATH"
+  (umask 077 && printf '%s=%s\n' "$key" "$value" >>"$SECRETS_PATH")
   chmod 600 "$SECRETS_PATH"
 }
 
@@ -135,6 +142,9 @@ restart_backend() {
 rebuild_frontend() {
   cd "$APP_DIR/frontend"
   npm run build
+  # nginx serves this tree as www-data; never leave it dependent on the umask
+  # the deploy happened to run with.
+  chmod -R a+rX "$APP_DIR/frontend/dist"
 }
 
 build_browser_extension() {
