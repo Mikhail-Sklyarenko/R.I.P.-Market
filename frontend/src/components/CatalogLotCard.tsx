@@ -76,7 +76,7 @@ function CatalogLotCartIcon() {
   );
 }
 
-export function CatalogLotCard({ lot, isLoggedIn: _isLoggedIn }: CatalogLotCardProps) {
+export function CatalogLotCard({ lot }: CatalogLotCardProps) {
   const { t } = useLocale();
   const navigate = useNavigate();
   const displayItem = resolveLotDisplayItem(lot);

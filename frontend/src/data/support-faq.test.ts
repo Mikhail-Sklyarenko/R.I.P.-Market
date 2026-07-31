@@ -4,7 +4,6 @@ import {
   filterSupportFaq,
   filterSupportFaqByCategory,
   findFaqArticle,
-  getDefaultFaqSelection,
   getSupportFaqCategories,
   SUPPORT_FAQ_ARTICLES,
   SUPPORT_FAQ_CATEGORIES,

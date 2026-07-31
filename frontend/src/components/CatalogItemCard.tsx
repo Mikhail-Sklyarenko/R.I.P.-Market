@@ -25,7 +25,6 @@ type CatalogItemCardProps = {
 
 export function CatalogItemCard({
   item,
-  isLoggedIn: _isLoggedIn,
   steamPriceMinor,
   pricesLoading = false,
 }: CatalogItemCardProps) {
