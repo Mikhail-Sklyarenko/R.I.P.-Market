@@ -33,7 +33,10 @@ test.describe('Seller order visibility', () => {
 
     const tradeDetails = page.getByTestId('seller-trade-details');
     if (await tradeDetails.count()) {
-      await tradeDetails.locator('summary').click();
+      // Force-open: a blind click toggles closed when the details already start open.
+      await tradeDetails.evaluate((element) => {
+        (element as HTMLDetailsElement).open = true;
+      });
     }
     await expect(page.getByTestId('seller-buyer-trade-url')).toBeVisible();
     await expect(page.getByTestId('mock-trade-panel')).toHaveCount(0);

@@ -42,7 +42,7 @@ test.describe('Seller flow', () => {
     await expect(page).toHaveURL(/\/deals/);
 
     await page.goto(`/sell/lots/new?assetId=${assetId}`);
-    await expect(page.getByText(/нельзя выставить/)).toBeVisible();
+    await expect(page.getByTestId('asset-not-listable')).toBeVisible();
     await expect(page.getByTestId('submit-listing')).toBeDisabled();
   });
 
