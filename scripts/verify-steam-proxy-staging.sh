@@ -37,14 +37,17 @@ if (!proxy) {
   process.exit(2);
 }
 
+// GET, not HEAD: steamcommunity stalls on HEAD for /openid/login, and residential
+// exits routinely need >15s for the first request.
 const agent = new ProxyAgent(proxy);
 fetch('https://steamcommunity.com/openid/login', {
-  method: 'HEAD',
+  method: 'GET',
   dispatcher: agent,
-  signal: AbortSignal.timeout(15000),
+  signal: AbortSignal.timeout(30000),
 })
   .then((response) => {
     console.log('status', response.status);
+    void response.body?.cancel();
     if (response.status === 403 || response.status === 429) {
       process.exit(1);
     }

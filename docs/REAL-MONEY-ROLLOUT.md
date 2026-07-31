@@ -31,7 +31,7 @@
 
 ### Steam HTTP proxy (обязательно на VPS)
 
-Пустой `STEAM_HTTP_PROXY=` в `backend/.env` **перезаписывает** секреты. Храните proxy только в `backend/.env.secrets`:
+Proxy живёт **только** в `backend/.env.secrets`: systemd грузит `.env` после секретов, поэтому пустой `STEAM_HTTP_PROXY=` в `.env` перекрыл бы реальное значение. Деплой и rollout-скрипты теперь сами держат этот инвариант (`ensure_steam_proxy_secret`) — вручную ключ в `.env` добавлять не нужно.
 
 ```bash
 STEAM_HTTP_PROXY='http://LOGIN:PASSWORD@gw.dataimpulse.com:823' \

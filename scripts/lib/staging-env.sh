@@ -29,6 +29,28 @@ read_secrets_value() {
   fi
 }
 
+strip_env_key() {
+  local key="$1"
+  local file="${2:-$ENV_PATH}"
+  if [ -f "$file" ]; then
+    grep -v "^${key}=" "$file" >"${file}.tmp" || true
+    mv "${file}.tmp" "$file"
+  fi
+}
+
+upsert_secrets_value() {
+  local key="$1"
+  local value="$2"
+  mkdir -p "$(dirname "$SECRETS_PATH")"
+  umask 077
+  if [ ! -f "$SECRETS_PATH" ]; then
+    printf '# Managed by staging rollout scripts — do not commit.\n' >"$SECRETS_PATH"
+  fi
+  strip_env_key "$key" "$SECRETS_PATH"
+  printf '%s=%s\n' "$key" "$value" >>"$SECRETS_PATH"
+  chmod 600 "$SECRETS_PATH"
+}
+
 read_steam_http_proxy() {
   local from_env="${STEAM_HTTP_PROXY:-}"
   if [ -n "$from_env" ]; then
@@ -53,6 +75,23 @@ require_steam_http_proxy() {
     echo "  STEAM_HTTP_PROXY='http://LOGIN:PASSWORD@gw.dataimpulse.com:823' bash scripts/configure-steam-proxy-staging.sh" >&2
     exit 1
   fi
+}
+
+# The proxy must live only in $SECRETS_PATH. systemd loads .env *after* it, so an
+# empty STEAM_HTTP_PROXY= line in .env silently shadows the real credentials.
+# Returns 1 when no proxy is configured anywhere, so callers can warn or abort.
+ensure_steam_proxy_secret() {
+  local proxy proxy_all
+  proxy="$(read_steam_http_proxy)"
+  if [ -z "$proxy" ]; then
+    return 1
+  fi
+  proxy_all="${STEAM_HTTP_PROXY_ALL:-$(read_secrets_value STEAM_HTTP_PROXY_ALL true)}"
+  upsert_secrets_value STEAM_HTTP_PROXY "$proxy"
+  upsert_secrets_value STEAM_HTTP_PROXY_ALL "$proxy_all"
+  strip_env_key STEAM_HTTP_PROXY
+  strip_env_key STEAM_HTTP_PROXY_ALL
+  ensure_systemd_secrets_env
 }
 
 ensure_systemd_secrets_env() {

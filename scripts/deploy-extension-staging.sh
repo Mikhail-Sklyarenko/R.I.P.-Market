@@ -17,16 +17,25 @@ if [ "${DEPLOY_EXTENSION_STAGING_REEXEC:-}" != "1" ]; then
   exec bash "$APP_DIR/scripts/deploy-extension-staging.sh" "$@"
 fi
 
-echo "==> Read secrets from existing backend .env"
-JWT_SECRET="$(grep '^JWT_SECRET=' "$APP_DIR/backend/.env" | cut -d= -f2- | tr -d '"')"
-STEAM_WEB_API_KEY="$(grep '^STEAM_WEB_API_KEY=' "$APP_DIR/backend/.env" | cut -d= -f2- | tr -d '"' || true)"
-STEAM_HTTP_PROXY="$(grep '^STEAM_HTTP_PROXY=' "$APP_DIR/backend/.env" | cut -d= -f2- | tr -d '"' || true)"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=lib/staging-env.sh
+source "$SCRIPT_DIR/lib/staging-env.sh"
+
+echo "==> Read secrets from existing backend env files"
+JWT_SECRET="$(read_env_value JWT_SECRET "")"
+STEAM_WEB_API_KEY="$(read_secrets_value STEAM_WEB_API_KEY "$(read_env_value STEAM_WEB_API_KEY "")")"
 if [ -z "$JWT_SECRET" ]; then
-  echo "ERROR: JWT_SECRET missing in $APP_DIR/backend/.env" >&2
+  echo "ERROR: JWT_SECRET missing in $ENV_PATH" >&2
   exit 1
 fi
-if [ -z "$STEAM_HTTP_PROXY" ]; then
+
+# Keep the proxy in .env.secrets only — .env is rewritten below and an empty
+# value there would override the secret through systemd's load order.
+if ensure_steam_proxy_secret; then
+  echo "==> Steam proxy: loaded from $SECRETS_PATH"
+else
   echo "WARN: STEAM_HTTP_PROXY missing — Steam OpenID/inventory/prices will use VPS IP (likely 403)." >&2
+  echo "      Fix: STEAM_HTTP_PROXY='http://LOGIN:PASSWORD@gw.dataimpulse.com:823' bash scripts/configure-steam-proxy-staging.sh" >&2
 fi
 
 ORIGINS="https://${DOMAIN},https://www.${DOMAIN},http://${DOMAIN},http://www.${DOMAIN},http://31.177.83.107"
@@ -51,7 +60,6 @@ STEAM_OPENID_REALM=https://${DOMAIN}
 API_PUBLIC_URL=https://${DOMAIN}/api/v1
 STEAM_WEB_API_KEY=${STEAM_WEB_API_KEY}
 ALLOW_MOCK_LOGIN_IN_STEAM_MODE=true
-STEAM_HTTP_PROXY=${STEAM_HTTP_PROXY}
 
 INVENTORY_SYNC_TTL_SECONDS=300
 INVENTORY_SYNC_MIN_INTERVAL_MS=60000
@@ -113,12 +121,7 @@ npm ci
 npm run build
 
 echo "==> Restart backend"
-systemctl restart rip-market-backend
-sleep 4
-
-echo "==> Health"
-curl -sf "http://127.0.0.1:3000/api/v1/health"
-echo ""
+restart_backend
 
 echo "==> Extension config"
 curl -sf "http://127.0.0.1:3000/api/v1/auth/config" | python3 -m json.tool 2>/dev/null || \

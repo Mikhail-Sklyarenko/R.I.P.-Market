@@ -20,38 +20,12 @@ if [ -z "$PROXY_URL" ]; then
   exit 1
 fi
 
-PROXY_ALL="${STEAM_HTTP_PROXY_ALL:-true}"
+export STEAM_HTTP_PROXY="$PROXY_URL"
+export STEAM_HTTP_PROXY_ALL="${STEAM_HTTP_PROXY_ALL:-true}"
 
-mkdir -p "$(dirname "$SECRETS_PATH")"
-umask 077
-cat >"$SECRETS_PATH" <<EOF
-# Managed by scripts/configure-steam-proxy-staging.sh — do not commit.
-STEAM_HTTP_PROXY=${PROXY_URL}
-STEAM_HTTP_PROXY_ALL=${PROXY_ALL}
-EOF
-chmod 600 "$SECRETS_PATH"
-
-strip_env_key() {
-  local key="$1"
-  local file="$2"
-  if [ -f "$file" ]; then
-    grep -v "^${key}=" "$file" >"${file}.tmp" || true
-    mv "${file}.tmp" "$file"
-  fi
-}
-
-# Empty keys in backend/.env would override .env.secrets via systemd load order.
-strip_env_key STEAM_HTTP_PROXY "$ENV_PATH"
-strip_env_key STEAM_HTTP_PROXY_ALL "$ENV_PATH"
-
-UNIT="/etc/systemd/system/rip-market-backend.service"
-if [ -f "$UNIT" ]; then
-  if ! grep -q "${SECRETS_PATH}" "$UNIT"; then
-    sed -i "/EnvironmentFile=${ENV_PATH//\//\\/}/i EnvironmentFile=${SECRETS_PATH}" "$UNIT"
-    systemctl daemon-reload
-    echo "==> systemd: added EnvironmentFile for .env.secrets"
-  fi
-fi
+# Writes .env.secrets, drops the keys from .env (systemd loads .env last) and
+# makes sure the unit reads the secrets file.
+ensure_steam_proxy_secret
 
 echo "==> Restart backend"
 restart_backend
