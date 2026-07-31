@@ -1036,9 +1036,9 @@ const baseRuMessages = {
   steamCallback: {
     default: 'Не удалось завершить вход через Steam.',
     defaultError: 'Не удалось завершить вход через Steam.',
-    homeAction: 'На главную',
+    loginAction: 'Вернуться ко входу',
+    otherAccountAction: 'Войти в другой аккаунт',
     accountAction: 'Открыть аккаунт',
-    catalogAction: 'Вернуться в каталог',
   },
   steamCallbackAction: {
     home: 'На главную',

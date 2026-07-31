@@ -507,9 +507,9 @@ const baseEnMessages = {
   steamCallback: {
     default: 'Could not complete Steam sign-in.',
     defaultError: 'Could not complete Steam sign-in.',
-    homeAction: 'Home',
+    loginAction: 'Back to sign-in',
+    otherAccountAction: 'Sign in with another account',
     accountAction: 'Open account',
-    catalogAction: 'Back to catalog',
   },
   steamCallbackAction: {
     home: 'Home',

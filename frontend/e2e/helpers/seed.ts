@@ -1,7 +1,7 @@
 import { APIRequestContext } from '@playwright/test';
 import { decodeUserIdFromToken, fundWallet, linkSteamForUser } from './crypto-payments';
 
-const API_BASE = process.env.PLAYWRIGHT_API_BASE_URL ?? 'http://localhost:3001/api/v1';
+const API_BASE = process.env.PLAYWRIGHT_API_BASE_URL ?? 'http://127.0.0.1:3001/api/v1';
 const MOCK_TRADE_URL =
   'https://steamcommunity.com/tradeoffer/new/?partner=123456789&token=AbCdEfGh';
 const MOCK_SELLER_STEAM_ID = '76561198000000000';
@@ -144,6 +144,29 @@ export async function seedOpenOrder(
   };
 }
 
+/** Records the Steam offer the seller sent, which unlocks the buyer's accept-side UI. */
+export async function saveSellerTradeOffer(
+  request: APIRequestContext,
+  sellerToken: string,
+  orderId: string,
+  // Steam offer ids are 6-20 digits; the backend rejects anything else.
+  offerId = '7412345678',
+) {
+  const response = await request.patch(`${API_BASE}/orders/${orderId}/trade-reference`, {
+    headers: {
+      Authorization: `Bearer ${sellerToken}`,
+      'Content-Type': 'application/json',
+      'Idempotency-Key': `seed-offer-${orderId}`,
+    },
+    data: { offerId },
+  });
+  if (!response.ok()) {
+    throw new Error(
+      `trade-reference update failed: ${response.status()} ${await response.text()}`,
+    );
+  }
+}
+
 export async function seedCatalogLots(request: APIRequestContext) {
   const sellerBody = await mockLogin(request, 'SELLER');
   await prepareSellerForListing(request, sellerBody.accessToken);
@@ -164,16 +187,22 @@ export async function seedStickerLot(request: APIRequestContext) {
   return seedActiveLot(request);
 }
 
-export async function seedSimilarLots(request: APIRequestContext) {
-  const { lotId: sourceLotId } = await seedActiveLot(request);
-
+/**
+ * Lists from a second seller account. `mock-login` always returns the same user
+ * per role, so anything that has to buy a listing needs the lot to come from
+ * here — otherwise the buyer owns it and checkout is correctly blocked.
+ */
+export async function seedActiveLotFromOtherSeller(
+  request: APIRequestContext,
+  priceMinor = 100_000,
+) {
   const extraSeller = await request.post(`${API_BASE}/test/extra-seller-session`);
   const extraBody = (await extraSeller.json()) as {
     ok: boolean;
     accessToken?: string;
   };
   if (!extraBody.ok || !extraBody.accessToken) {
-    throw new Error('Failed to create extra seller session for similar lots seed');
+    throw new Error('Failed to create extra seller session');
   }
 
   await prepareSellerForListing(
@@ -188,12 +217,14 @@ export async function seedSimilarLots(request: APIRequestContext) {
   const assets = (await inventory.json()) as { assets: InventoryAssetSeed[] };
   const akAsset = findAssetByWeapon(assets.assets, 'AK-47');
 
-  const similarLot = await createLot(
-    request,
-    extraBody.accessToken,
-    akAsset.id,
-    120_000,
-  );
+  const lot = await createLot(request, extraBody.accessToken, akAsset.id, priceMinor);
 
-  return { sourceLotId, similarLotId: similarLot.id };
+  return { lotId: lot.id, priceMinor, sellerToken: extraBody.accessToken };
+}
+
+export async function seedSimilarLots(request: APIRequestContext) {
+  const { lotId: sourceLotId } = await seedActiveLot(request);
+  const { lotId: similarLotId } = await seedActiveLotFromOtherSeller(request, 120_000);
+
+  return { sourceLotId, similarLotId };
 }

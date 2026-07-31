@@ -4,7 +4,7 @@ import { creditCryptoDeposit } from './helpers/crypto-payments';
 import { resetDatabase } from './helpers/reset';
 import { seedActiveLot } from './helpers/seed';
 
-const API_BASE = process.env.PLAYWRIGHT_API_BASE_URL ?? 'http://localhost:3001/api/v1';
+const API_BASE = process.env.PLAYWRIGHT_API_BASE_URL ?? 'http://127.0.0.1:3001/api/v1';
 
 test.describe('Wallet crypto deposit', () => {
   test.beforeEach(async ({ request }) => {

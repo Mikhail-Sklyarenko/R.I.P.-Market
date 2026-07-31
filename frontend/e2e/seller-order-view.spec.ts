@@ -20,10 +20,15 @@ test.describe('Seller order visibility', () => {
     await page.getByTestId(`open-order-${orderId}`).click();
     await expect(page).toHaveURL(new RegExp(`/orders/${orderId}$`));
     await expect(page.getByTestId('order-role')).toHaveText('Продавец');
-    await expect(page.getByTestId('seller-waiting-message')).toBeVisible();
-    await expect(page.getByTestId('seller-buyer-trade-url')).toBeVisible();
-    await expect(page.getByTestId('seller-trade-instructions')).toBeVisible();
+
+    // With the extension channel on, the extension drives the offer and the
+    // manual instructions move behind a collapsed fallback.
+    await expect(page.getByTestId('extension-task-progress')).toBeVisible();
     await expect(page.getByTestId('trade-poll-status')).toBeVisible();
+
+    await page.getByTestId('seller-trade-details').locator('summary').click();
+    await expect(page.getByTestId('seller-buyer-trade-url')).toBeVisible();
+
     await expect(page.getByTestId('mock-trade-panel')).toHaveCount(0);
   });
 });

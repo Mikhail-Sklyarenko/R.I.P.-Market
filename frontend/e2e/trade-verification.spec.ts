@@ -1,25 +1,41 @@
 import { expect, test } from '@playwright/test';
 import { loginAsBuyer } from './helpers/auth';
 import { resetDatabase } from './helpers/reset';
-import { seedOpenOrder } from './helpers/seed';
+import { saveSellerTradeOffer, seedOpenOrder } from './helpers/seed';
 
-const API_BASE = process.env.PLAYWRIGHT_API_BASE_URL ?? 'http://localhost:3001/api/v1';
+const API_BASE = process.env.PLAYWRIGHT_API_BASE_URL ?? 'http://127.0.0.1:3001/api/v1';
 
 test.describe('Trade verification buyer UX', () => {
   test.beforeEach(async ({ request }) => {
     await resetDatabase(request);
   });
 
-  test('buyer order page shows trade safety checklist', async ({ page, request }) => {
-    const { orderId } = await seedOpenOrder(request);
+  // The order page polls, so a mocked request is often still in flight when the
+  // test ends; without this the pending route callback fails the run.
+  test.afterEach(async ({ page }) => {
+    await page.unrouteAll({ behavior: 'ignoreErrors' });
+  });
+
+  test('buyer order page shows trade safety checklist once an offer exists', async ({
+    page,
+    request,
+  }) => {
+    const { orderId, sellerToken } = await seedOpenOrder(request);
 
     await loginAsBuyer(page);
     await page.goto(`/orders/${orderId}`);
 
+    // Before the offer lands there is nothing to check yet, only a wait.
     await expect(page.getByTestId('buyer-trade-panel')).toBeVisible();
+    await expect(page.getByTestId('buyer-awaiting-offer-message')).toBeVisible();
+    await expect(page.getByTestId('buyer-trade-checklist')).toHaveCount(0);
+
+    await saveSellerTradeOffer(request, sellerToken, orderId);
+    await page.reload();
+
     await expect(page.getByTestId('buyer-trade-checklist')).toBeVisible();
     await expect(page.getByTestId('buyer-steam-offers-link')).toBeVisible();
-    await expect(page.getByText('Проверьте перед принятием')).toBeVisible();
+    await expect(page.getByText('Перед принятием проверьте скин')).toBeVisible();
   });
 
   test('extension mode shows trade verification hint on buyer order page', async ({
@@ -42,7 +58,9 @@ test.describe('Trade verification buyer UX', () => {
             ...extension,
             extensionChannelEnabled: true,
             extensionTaskPipelineEnabled: true,
-            extensionTradeAcknowledgmentEnabled: true,
+            // The hint is what stands in for acknowledgment buttons while
+            // acknowledgments are still switched off.
+            extensionTradeAcknowledgmentEnabled: false,
           },
         }),
       });
@@ -81,7 +99,7 @@ test.describe('Trade verification buyer UX', () => {
     await expect(page.getByTestId('buyer-trade-panel')).toBeVisible();
     await expect(page.getByTestId('buyer-extension-hint')).toBeVisible();
     await expect(page.getByTestId('buyer-extension-hint')).toContainText(
-      'проверку сделки перед принятием',
+      /проверка сделки/,
     );
   });
 });

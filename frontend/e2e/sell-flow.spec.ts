@@ -26,7 +26,7 @@ test.describe('Seller flow', () => {
     const activeRow = page.getByTestId('lot-row-ACTIVE');
     await expect(activeRow).toBeVisible();
 
-    await page.getByRole('button', { name: 'Отменить' }).click();
+    await page.locator('[data-testid^="cancel-lot-"]').first().click();
     await expect(page.getByTestId('lot-row-CANCELED')).toBeVisible();
   });
 
@@ -42,7 +42,7 @@ test.describe('Seller flow', () => {
     await expect(page).toHaveURL(/\/deals/);
 
     await page.goto(`/sell/lots/new?assetId=${assetId}`);
-    await expect(page.getByText('This item cannot be listed right now')).toBeVisible();
+    await expect(page.getByText(/нельзя выставить/)).toBeVisible();
     await expect(page.getByTestId('submit-listing')).toBeDisabled();
   });
 
@@ -71,7 +71,9 @@ test.describe('Seller flow', () => {
       expect(panelBox.y).toBeGreaterThan(40);
     }
 
-    await page.getByTestId('inventory-sell-backdrop').click();
+    // On a phone the panel is a bottom sheet, so only the strip above it is
+    // backdrop — a center click would land on the sheet itself.
+    await page.getByTestId('inventory-sell-backdrop').click({ position: { x: 8, y: 8 } });
     await expect(page.getByTestId('inventory-sell-panel')).toHaveCount(0);
   });
 });

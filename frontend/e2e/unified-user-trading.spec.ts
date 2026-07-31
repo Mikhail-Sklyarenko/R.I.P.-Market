@@ -2,9 +2,9 @@ import { expect, test } from '@playwright/test';
 import { loginAsBuyer, loginAsSeller } from './helpers/auth';
 import { fundWallet } from './helpers/crypto-payments';
 import { resetDatabase } from './helpers/reset';
-import { seedActiveLot } from './helpers/seed';
+import { seedActiveLotFromOtherSeller } from './helpers/seed';
 
-const API_BASE = process.env.PLAYWRIGHT_API_BASE_URL ?? 'http://localhost:3001/api/v1';
+const API_BASE = process.env.PLAYWRIGHT_API_BASE_URL ?? 'http://127.0.0.1:3001/api/v1';
 
 test.describe('Unified user trading', () => {
   test.beforeEach(async ({ request }) => {
@@ -12,7 +12,7 @@ test.describe('Unified user trading', () => {
   });
 
   test('seller mock account can buy another users listing', async ({ page, request }) => {
-    const { lotId } = await seedActiveLot(request);
+    const { lotId } = await seedActiveLotFromOtherSeller(request);
 
     await loginAsSeller(page);
 

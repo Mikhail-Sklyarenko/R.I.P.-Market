@@ -4,7 +4,7 @@ import { processPendingOutbox } from './helpers/outbox';
 import { resetDatabase } from './helpers/reset';
 import { seedActiveLot } from './helpers/seed';
 
-const apiBase = () => process.env.PLAYWRIGHT_API_BASE_URL ?? 'http://localhost:3001/api/v1';
+const apiBase = () => process.env.PLAYWRIGHT_API_BASE_URL ?? 'http://127.0.0.1:3001/api/v1';
 
 test.describe('Ops trade timeout', () => {
   test.beforeEach(async ({ request }) => {

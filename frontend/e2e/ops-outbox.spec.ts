@@ -3,7 +3,7 @@ import { loginAsAdmin } from './helpers/auth';
 import { resetDatabase } from './helpers/reset';
 import { seedOpenOrder } from './helpers/seed';
 
-const apiBase = () => process.env.PLAYWRIGHT_API_BASE_URL ?? 'http://localhost:3001/api/v1';
+const apiBase = () => process.env.PLAYWRIGHT_API_BASE_URL ?? 'http://127.0.0.1:3001/api/v1';
 
 test.describe('Admin outbox ops', () => {
   test.beforeEach(async ({ request }) => {

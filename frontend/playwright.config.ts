@@ -1,26 +1,32 @@
 import { defineConfig } from '@playwright/test';
 
+// Prefer 127.0.0.1 over localhost: Node on macOS often resolves localhost to
+// ::1 first, and Nest bound to 0.0.0.0/127.0.0.1 will refuse the IPv6 dial.
+const API_ORIGIN = 'http://127.0.0.1:3001';
+const APP_ORIGIN = 'http://127.0.0.1:5173';
+
 export default defineConfig({
   testDir: './e2e',
   timeout: 60_000,
   retries: process.env.CI ? 1 : 0,
   workers: 1,
   use: {
-    baseURL: 'http://localhost:5173',
+    baseURL: APP_ORIGIN,
     trace: 'on-first-retry',
   },
   webServer: [
     {
       command:
         'sh -c "cd ../backend && npm run prisma:migrate:deploy && PORT=3001 npm run start:dev"',
-      url: 'http://localhost:3001/api/v1/health',
+      url: `${API_ORIGIN}/api/v1/health`,
       reuseExistingServer: !process.env.CI,
       timeout: 120_000,
       env: {
         ...process.env,
         PORT: '3001',
+        HOST: '127.0.0.1',
         JWT_SECRET: process.env.JWT_SECRET ?? 'playwright-jwt-secret',
-        FRONTEND_ORIGIN: 'http://localhost:5173',
+        FRONTEND_ORIGIN: APP_ORIGIN,
         ENABLE_TEST_ROUTES: 'true',
         ENABLE_MOCK_TRADE: 'true',
         ENABLE_MOCK_DEPOSIT: 'false',
@@ -37,19 +43,21 @@ export default defineConfig({
         AUTH_PROVIDER: 'mock',
         INVENTORY_PROVIDER: 'mock',
         TRADE_PROVIDER: 'mock',
+        STEAM_MARKET_PRICE_ENABLED: 'false',
+        STEAM_ITEM_ICON_ENABLED: 'false',
       },
     },
     {
       command: 'npm run dev -- --host 127.0.0.1 --port 5173',
       cwd: '.',
-      url: 'http://localhost:5173',
+      url: APP_ORIGIN,
       reuseExistingServer: !process.env.CI,
       timeout: 120_000,
       env: {
         ...process.env,
-        VITE_API_BASE_URL: 'http://localhost:3001/api/v1',
+        VITE_API_BASE_URL: `${API_ORIGIN}/api/v1`,
         VITE_ENABLE_MOCK_TRADE: 'true',
-        PLAYWRIGHT_API_BASE_URL: 'http://localhost:3001/api/v1',
+        PLAYWRIGHT_API_BASE_URL: `${API_ORIGIN}/api/v1`,
         CRYPTO_GATEWAY_WEBHOOK_SECRET: 'playwright-webhook-secret',
       },
     },

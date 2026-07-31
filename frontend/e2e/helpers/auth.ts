@@ -2,7 +2,7 @@ import { Page, expect } from '@playwright/test';
 import { fundWallet } from './crypto-payments';
 import { prepareBuyerForPurchase, prepareUserForTrading } from './seed';
 
-const API_BASE = process.env.PLAYWRIGHT_API_BASE_URL ?? 'http://localhost:3001/api/v1';
+const API_BASE = process.env.PLAYWRIGHT_API_BASE_URL ?? 'http://127.0.0.1:3001/api/v1';
 
 async function readPageToken(page: Page): Promise<string> {
   const token = await page.evaluate(() => {

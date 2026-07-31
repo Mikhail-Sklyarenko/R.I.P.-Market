@@ -23,11 +23,11 @@ test.describe('Ops fail-safe flow', () => {
     await expect(page.getByTestId('catalog-grid').locator('article').first()).toBeVisible();
 
     const buyerLogin = await request.post(
-      `${process.env.PLAYWRIGHT_API_BASE_URL ?? 'http://localhost:3001/api/v1'}/auth/mock-login`,
+      `${process.env.PLAYWRIGHT_API_BASE_URL ?? 'http://127.0.0.1:3001/api/v1'}/auth/mock-login`,
       { data: { role: 'BUYER' } },
     );
     const buyerToken = ((await buyerLogin.json()) as { accessToken: string }).accessToken;
-    const apiBase = process.env.PLAYWRIGHT_API_BASE_URL ?? 'http://localhost:3001/api/v1';
+    const apiBase = process.env.PLAYWRIGHT_API_BASE_URL ?? 'http://127.0.0.1:3001/api/v1';
     const buyerWallet = await request.get(`${apiBase}/wallet`, {
       headers: { Authorization: `Bearer ${buyerToken}` },
     });

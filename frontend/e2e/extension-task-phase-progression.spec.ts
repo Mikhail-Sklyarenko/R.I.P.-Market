@@ -3,7 +3,7 @@ import { loginAsSeller } from './helpers/auth';
 import { resetDatabase } from './helpers/reset';
 import { seedOpenOrder } from './helpers/seed';
 
-const API_BASE = process.env.PLAYWRIGHT_API_BASE_URL ?? 'http://localhost:3001/api/v1';
+const API_BASE = process.env.PLAYWRIGHT_API_BASE_URL ?? 'http://127.0.0.1:3001/api/v1';
 
 const PHASE_LABELS: Record<string, string> = {
   ACKED: 'Расширение взяло задачу',
@@ -15,6 +15,12 @@ const PHASE_LABELS: Record<string, string> = {
 test.describe('Extension task phase progression (mock API)', () => {
   test.beforeEach(async ({ request }) => {
     await resetDatabase(request);
+  });
+
+  // The order page polls, so a mocked request is often still in flight when the
+  // test ends; without this the pending route callback fails the run.
+  test.afterEach(async ({ page }) => {
+    await page.unrouteAll({ behavior: 'ignoreErrors' });
   });
 
   test('seller order page shows extension task phases advancing', async ({

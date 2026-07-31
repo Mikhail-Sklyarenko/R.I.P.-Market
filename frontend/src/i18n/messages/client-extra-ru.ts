@@ -204,7 +204,6 @@ export const clientExtraRu = {
     sortPriceAsc: 'Сначала дешёвые',
     sortName: 'По названию',
     showUnavailable: 'Недоступные',
-    lastSync: 'Последняя синхронизация',
     steamPricesLabel: 'Цены Steam',
     stale: 'Устарело',
     steamRequiredMessage: 'Обновление недоступно: сначала привяжите Steam в настройках аккаунта.',

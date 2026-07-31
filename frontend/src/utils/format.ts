@@ -215,14 +215,16 @@ export function getSteamCallbackActions(
   errorCode: string | null,
   locale: Locale = 'ru',
 ): SteamCallbackAction[] {
+  // Every path out of a failed callback leads back to signing in — the catalog
+  // is reachable from the header anyway, and the user came here to log in.
   if (errorCode === 'STEAM_ALREADY_LINKED') {
     return [
-      { label: t('steamCallback.homeAction', locale), href: '/' },
+      { label: t('steamCallback.otherAccountAction', locale), href: '/login' },
       { label: t('steamCallback.accountAction', locale), href: '/account' },
     ];
   }
 
-  return [{ label: t('steamCallback.catalogAction', locale), href: '/' }];
+  return [{ label: t('steamCallback.loginAction', locale), href: '/login' }];
 }
 
 export const MOCK_TRADE_ENABLED = viteEnv?.VITE_ENABLE_MOCK_TRADE !== 'false';

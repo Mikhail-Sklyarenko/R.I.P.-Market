@@ -195,7 +195,6 @@ export const clientExtraEn = {
     sortPriceAsc: 'Cheapest first',
     sortName: 'By name',
     showUnavailable: 'Unavailable',
-    lastSync: 'Last sync',
     steamPricesLabel: 'Steam prices',
     stale: 'Stale',
     steamRequiredMessage: 'Refresh unavailable: link your Steam account in account settings first.',
@@ -957,8 +956,8 @@ export const clientExtraEn = {
     actionCatalog: 'Back to catalog',
     default: 'Could not complete Steam sign-in.',
     defaultError: 'Could not complete Steam sign-in.',
-    homeAction: 'Home',
+    loginAction: 'Back to sign-in',
+    otherAccountAction: 'Sign in with another account',
     accountAction: 'Open account',
-    catalogAction: 'Back to catalog',
   },
 } as const;

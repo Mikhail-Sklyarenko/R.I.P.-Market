@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { InventoryAssetStatus, InventorySyncStatus } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
+import { deriveBaseMarketHashName } from '../../item-definitions/base-market-hash-name.util';
 import { InventorySyncCacheService } from './inventory-sync-cache.service';
 import {
   InventoryProvider,
@@ -55,6 +56,31 @@ export class MockInventoryProvider implements InventoryProvider {
     private readonly syncCache: InventorySyncCacheService,
   ) {}
 
+  /**
+   * The catalog only lists `catalogSeeded` cards, which production gets from the
+   * CS2 catalog import. Nothing imports that catalog in dev or e2e, so without
+   * these cards a listed lot has nowhere to appear and the catalog reads empty.
+   */
+  private async ensureCatalogCards(): Promise<void> {
+    for (const item of DEFAULT_ITEMS) {
+      const baseMarketHashName = deriveBaseMarketHashName(item.marketHashName);
+      const card = {
+        baseMarketHashName,
+        weapon: item.weapon,
+        rarity: item.rarity,
+        iconUrl: item.iconUrl,
+        availableWears: [item.wear],
+        wearIcons: { [item.wear]: item.iconUrl },
+        catalogSeeded: true,
+      };
+      await this.prisma.itemDefinition.upsert({
+        where: { marketHashName: baseMarketHashName },
+        create: { game: 'CS2', marketHashName: baseMarketHashName, ...card },
+        update: card,
+      });
+    }
+  }
+
   async syncInventory(
     ownerId: string,
     _steamId?: string | null,
@@ -82,19 +108,24 @@ export class MockInventoryProvider implements InventoryProvider {
       },
     });
 
+    await this.ensureCatalogCards();
+
     if (existingCount === 0) {
       for (let i = 0; i < DEFAULT_ITEMS.length; i += 1) {
         const item = DEFAULT_ITEMS[i];
+        const baseMarketHashName = deriveBaseMarketHashName(item.marketHashName);
         const itemDefinition = await this.prisma.itemDefinition.upsert({
           where: { marketHashName: item.marketHashName },
           create: {
             marketHashName: item.marketHashName,
+            baseMarketHashName,
             game: 'CS2',
             weapon: item.weapon,
             rarity: item.rarity,
             iconUrl: item.iconUrl,
           },
           update: {
+            baseMarketHashName,
             weapon: item.weapon,
             rarity: item.rarity,
             iconUrl: item.iconUrl,

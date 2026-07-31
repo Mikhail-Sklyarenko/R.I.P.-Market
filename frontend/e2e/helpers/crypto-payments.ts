@@ -1,7 +1,7 @@
 import { createHmac } from 'node:crypto';
 import { APIRequestContext } from '@playwright/test';
 
-const API_BASE = process.env.PLAYWRIGHT_API_BASE_URL ?? 'http://localhost:3001/api/v1';
+const API_BASE = process.env.PLAYWRIGHT_API_BASE_URL ?? 'http://127.0.0.1:3001/api/v1';
 const WEBHOOK_SECRET =
   process.env.CRYPTO_GATEWAY_WEBHOOK_SECRET ?? 'playwright-webhook-secret';
 

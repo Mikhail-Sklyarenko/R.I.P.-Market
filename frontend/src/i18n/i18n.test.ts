@@ -55,4 +55,41 @@ describe('i18n', () => {
       /not affiliated with Valve/i,
     );
   });
+
+  // A client-extra override that forgets a placeholder silently drops the value
+  // it was meant to interpolate — inventory.lastSync lost its timestamp that way.
+  it('keeps the same placeholders in every locale', () => {
+    const flatten = (
+      value: Record<string, unknown>,
+      prefix = '',
+      out = new Map<string, string>(),
+    ) => {
+      for (const [key, entry] of Object.entries(value)) {
+        const path = prefix ? `${prefix}.${key}` : key;
+        if (entry && typeof entry === 'object' && !Array.isArray(entry)) {
+          flatten(entry as Record<string, unknown>, path, out);
+        } else if (typeof entry === 'string') {
+          out.set(path, entry);
+        }
+      }
+      return out;
+    };
+    const placeholders = (text: string) =>
+      [...text.matchAll(/\{\{(\w+)\}\}/g)].map((match) => match[1]).sort().join(',');
+
+    const ru = flatten(ruMessages as unknown as Record<string, unknown>);
+    const en = flatten(enMessages as unknown as Record<string, unknown>);
+    const mismatched: string[] = [];
+    for (const [key, ruText] of ru) {
+      const enText = en.get(key);
+      if (enText === undefined) {
+        continue;
+      }
+      if (placeholders(ruText) !== placeholders(enText)) {
+        mismatched.push(key);
+      }
+    }
+
+    assert.deepEqual(mismatched, []);
+  });
 });
