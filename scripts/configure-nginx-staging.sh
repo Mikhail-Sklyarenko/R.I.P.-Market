@@ -234,19 +234,25 @@ systemctl reload nginx
 
 echo ""
 echo "==> Verify headers actually reach each response type"
+# A reload swaps workers asynchronously, so the first request after it can still
+# be answered by an old worker with the previous config. Retry before failing.
 verify_headers() {
   local path="$1" label="$2"
-  local out
-  out="$(curl -sI --http2 "https://${DOMAIN}${path}")"
-  local missing=""
-  for header in strict-transport-security content-security-policy x-frame-options x-content-type-options referrer-policy; do
-    grep -qi "^${header}:" <<<"$out" || missing="$missing $header"
+  local out missing attempt
+  for attempt in 1 2 3 4 5; do
+    out="$(curl -sI --http2 "https://${DOMAIN}${path}")"
+    missing=""
+    for header in strict-transport-security content-security-policy x-frame-options x-content-type-options referrer-policy; do
+      grep -qi "^${header}:" <<<"$out" || missing="$missing $header"
+    done
+    if [ -z "$missing" ]; then
+      echo "  OK   $label ($path) — $(head -1 <<<"$out" | tr -d '\r')"
+      return 0
+    fi
+    sleep 1
   done
-  if [ -n "$missing" ]; then
-    echo "  FAIL $label ($path) — missing:$missing"
-    return 1
-  fi
-  echo "  OK   $label ($path) — $(grep -ci '^' <<<"$out") headers, $(head -1 <<<"$out" | tr -d '\r')"
+  echo "  FAIL $label ($path) — missing:$missing"
+  return 1
 }
 
 rc=0
