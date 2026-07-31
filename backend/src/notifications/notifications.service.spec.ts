@@ -52,6 +52,7 @@ describe('NotificationsService', () => {
         OR: [
           { eventType: { startsWith: 'ORDER_' } },
           { eventType: { startsWith: 'TRADE_' } },
+          { eventType: { startsWith: 'BUY_REQUEST_' } },
         ],
       },
       orderBy: { createdAt: 'desc' },
