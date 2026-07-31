@@ -14,10 +14,15 @@ describe('Steam inventory (e2e)', () => {
   let prisma: PrismaService;
   let api: ApiClient;
   const previousInventoryProvider = process.env.INVENTORY_PROVIDER;
+  const previousVacRequired = process.env.VAC_CHECK_REQUIRED;
   let fetchSpy: jest.SpyInstance;
 
   beforeAll(async () => {
     process.env.INVENTORY_PROVIDER = 'steam';
+    // The steam inventory provider makes VAC checks mandatory, and without a
+    // STEAM_WEB_API_KEY that gate rejects listings with 503 before the
+    // tradability rules under test are ever reached.
+    process.env.VAC_CHECK_REQUIRED = 'false';
     app = await createE2eApp();
     prisma = app.get(PrismaService);
     api = new ApiClient(app);
@@ -34,6 +39,7 @@ describe('Steam inventory (e2e)', () => {
   afterAll(async () => {
     jest.restoreAllMocks();
     process.env.INVENTORY_PROVIDER = previousInventoryProvider;
+    process.env.VAC_CHECK_REQUIRED = previousVacRequired;
     await app.close();
   });
 

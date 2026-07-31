@@ -37,9 +37,10 @@ export class SteamPriceWarmerService implements OnModuleInit {
     void this.prisma.steamPriceCache
       .deleteMany({ where: { priceMinor: null } })
       .catch(() => undefined);
+    // unref: a pending warmup must never be the reason the process stays alive.
     setTimeout(() => {
       void this.warmPriorityItems('startup');
-    }, WARMUP_STARTUP_DELAY_MS);
+    }, WARMUP_STARTUP_DELAY_MS).unref();
   }
 
   @Cron('*/5 * * * *')

@@ -34,9 +34,10 @@ export class ItemIconWarmerService implements OnModuleInit {
       return;
     }
     this.startupWarmupScheduled = true;
+    // unref: a pending warmup must never be the reason the process stays alive.
     setTimeout(() => {
       void this.warmMissingIcons('startup');
-    }, WARMUP_STARTUP_DELAY_MS);
+    }, WARMUP_STARTUP_DELAY_MS).unref();
   }
 
   @Cron('*/7 * * * *')
