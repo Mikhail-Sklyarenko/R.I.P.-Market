@@ -17,6 +17,7 @@ source "$SCRIPT_DIR/lib/staging-env.sh"
 SITE_AVAILABLE="/etc/nginx/sites-available/rip-market.conf"
 SITE_ENABLED="/etc/nginx/sites-enabled/rip-market.conf"
 HTTP_CONF="/etc/nginx/conf.d/rip-market-hardening.conf"
+HEADERS_SNIPPET="/etc/nginx/snippets/rip-market-security-headers.conf"
 CERT_DIR="/etc/letsencrypt/live/${DOMAIN}"
 BACKUP_DIR="/var/backups/rip-market-nginx"
 STAMP="$(date -u +%Y%m%dT%H%M%SZ)"
@@ -64,6 +65,25 @@ gzip_types
   text/css
   text/plain
   text/xml;
+EOF
+
+# A location that declares its own add_header discards every add_header it would
+# otherwise inherit, so the security headers have to be re-included in each one
+# rather than set once on the server block.
+echo "==> security header snippet ($HEADERS_SNIPPET)"
+mkdir -p "$(dirname "$HEADERS_SNIPPET")"
+cat >"$HEADERS_SNIPPET" <<'EOF'
+# Managed by scripts/configure-nginx-staging.sh — do not edit by hand.
+# Include this in every location that sets add_header of its own.
+
+# No includeSubDomains: api.p2pcs.ru has no certificate, and forcing HTTPS there
+# would turn a harmless 404 into a hard certificate error.
+add_header Strict-Transport-Security "max-age=31536000" always;
+add_header X-Content-Type-Options "nosniff" always;
+add_header X-Frame-Options "DENY" always;
+add_header Referrer-Policy "strict-origin-when-cross-origin" always;
+add_header Permissions-Policy "camera=(), microphone=(), geolocation=(), payment=()" always;
+add_header Content-Security-Policy "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https://*.steamstatic.com; font-src 'self' data:; connect-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self' https://steamcommunity.com; frame-ancestors 'none'; upgrade-insecure-requests" always;
 EOF
 
 echo "==> site config ($SITE_AVAILABLE)"
@@ -136,14 +156,7 @@ server {
     client_max_body_size 1m;
     limit_conn rip_conn 64;
 
-    # No includeSubDomains: api.${DOMAIN} has no certificate of its own, and
-    # forcing HTTPS there would produce a hard cert error instead of a 404.
-    add_header Strict-Transport-Security "max-age=31536000" always;
-    add_header X-Content-Type-Options "nosniff" always;
-    add_header X-Frame-Options "DENY" always;
-    add_header Referrer-Policy "strict-origin-when-cross-origin" always;
-    add_header Permissions-Policy "camera=(), microphone=(), geolocation=(), payment=()" always;
-    add_header Content-Security-Policy "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https://*.steamstatic.com; font-src 'self' data:; connect-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self' https://steamcommunity.com; frame-ancestors 'none'; upgrade-insecure-requests" always;
+    include ${HEADERS_SNIPPET};
 
     location /api/ {
         limit_req zone=rip_api burst=60 nodelay;
@@ -159,14 +172,19 @@ server {
     }
 
     # Vite fingerprints asset filenames, so they can be cached indefinitely.
+    # Set Cache-Control directly instead of via expires, which would emit a
+    # second, conflicting Cache-Control header.
     location /assets/ {
-        expires 1y;
-        add_header Cache-Control "public, immutable" always;
+        include ${HEADERS_SNIPPET};
+        add_header Cache-Control "public, max-age=31536000, immutable" always;
         access_log off;
         try_files \$uri =404;
     }
 
+    # try_files sends every SPA route here, so this is what actually carries the
+    # headers for page loads.
     location = /index.html {
+        include ${HEADERS_SNIPPET};
         add_header Cache-Control "no-cache" always;
     }
 
@@ -215,8 +233,37 @@ echo "==> Reload"
 systemctl reload nginx
 
 echo ""
-echo "==> Response headers"
-curl -sI "https://${DOMAIN}/" | grep -Ei 'HTTP/|strict-transport|content-security|x-frame|x-content-type|referrer|permissions|server:' || true
+echo "==> Verify headers actually reach each response type"
+verify_headers() {
+  local path="$1" label="$2"
+  local out
+  out="$(curl -sI --http2 "https://${DOMAIN}${path}")"
+  local missing=""
+  for header in strict-transport-security content-security-policy x-frame-options x-content-type-options referrer-policy; do
+    grep -qi "^${header}:" <<<"$out" || missing="$missing $header"
+  done
+  if [ -n "$missing" ]; then
+    echo "  FAIL $label ($path) — missing:$missing"
+    return 1
+  fi
+  echo "  OK   $label ($path) — $(grep -ci '^' <<<"$out") headers, $(head -1 <<<"$out" | tr -d '\r')"
+}
+
+rc=0
+verify_headers "/" "page load" || rc=1
+verify_headers "/catalog" "SPA route" || rc=1
+verify_headers "/api/v1/health" "API" || rc=1
+echo ""
+echo "  Cache-Control on a hashed asset (expect exactly one, immutable):"
+ASSET="$(find "${APP_DIR}/frontend/dist/assets" -name '*.js' -printf '%f\n' 2>/dev/null | head -1)"
+if [ -n "$ASSET" ]; then
+  curl -sI --http2 "https://${DOMAIN}/assets/${ASSET}" | grep -i 'cache-control' | sed 's/^/    /'
+fi
+if [ "$rc" -ne 0 ]; then
+  echo ""
+  echo "ERROR: security headers are not reaching every response — see above." >&2
+  exit 1
+fi
 
 echo ""
 echo "nginx hardened. Rollback: cp $BACKUP_DIR/rip-market.conf.$STAMP $SITE_AVAILABLE && nginx -t && systemctl reload nginx"
