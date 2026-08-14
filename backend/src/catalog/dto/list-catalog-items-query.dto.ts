@@ -75,13 +75,13 @@ export class ListCatalogItemsQueryDto {
   @Min(1)
   page?: number = 1;
 
-  @ApiPropertyOptional({ default: 24 })
+  @ApiPropertyOptional({ default: 48 })
   @IsOptional()
   @Type(() => Number)
   @IsInt()
   @Min(1)
   @Max(100)
-  limit?: number = 24;
+  limit?: number = 48;
 
   @ApiPropertyOptional({ enum: ['only', 'exclude'] })
   @IsOptional()

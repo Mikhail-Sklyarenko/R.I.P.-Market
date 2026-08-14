@@ -7,6 +7,7 @@ import {
   formatUserRole,
   formatUserStatus,
   getSteamCallbackMessage,
+  parseUsdToMinor,
 } from './format.ts';
 
 describe('format utils', () => {
@@ -39,6 +40,13 @@ describe('format utils', () => {
       formatApiErrorMessage('INSUFFICIENT_BALANCE', 'en'),
       'Insufficient funds. Add funds to your wallet.',
     );
+  });
+
+  it('parses comma and dot price formats into minor units', () => {
+    assert.equal(parseUsdToMinor('1000.50'), 100_050);
+    assert.equal(parseUsdToMinor('1000,50'), 100_050);
+    assert.equal(parseUsdToMinor('1.234,56'), 123_456);
+    assert.equal(parseUsdToMinor('$1,000.00'), 100_000);
   });
 
   it('resolves steam callback messages from error codes', () => {

@@ -30,6 +30,31 @@ test.describe('Seller flow', () => {
     await expect(page.getByTestId('lot-row-CANCELED')).toBeVisible();
   });
 
+  test('seller can update listing price from deals listings tab', async ({ page }) => {
+    await loginAsSeller(page);
+
+    await page.locator('[data-testid^="list-asset-"]').first().click();
+    await page.getByTestId('price-input').fill('1000');
+    await page.getByTestId('submit-listing').click();
+    await expect(page).toHaveURL(/\/deals/);
+
+    await page.getByTestId('deals-tab-listings').click();
+    const activeRow = page.getByTestId('lot-row-ACTIVE').first();
+    await expect(activeRow).toBeVisible();
+
+    const editButton = activeRow.locator('[data-testid^="edit-lot-price-"]');
+    const lotId = (await editButton.getAttribute('data-testid'))!.replace(
+      'edit-lot-price-',
+      '',
+    );
+
+    await editButton.click();
+    await page.getByTestId(`edit-lot-price-input-${lotId}`).fill('900');
+    await page.getByTestId(`save-lot-price-${lotId}`).click();
+
+    await expect(activeRow).toContainText('$900.00');
+  });
+
   test('shows understandable error when listing unavailable asset again', async ({ page }) => {
     await loginAsSeller(page);
 

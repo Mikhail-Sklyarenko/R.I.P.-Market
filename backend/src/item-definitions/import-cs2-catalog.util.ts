@@ -4,6 +4,7 @@ import {
   deriveBaseMarketHashName,
   wearCodesFromSteamWearNames,
 } from './base-market-hash-name.util';
+import { slugifyMarketHashName } from './item-slug.util';
 
 export const CS2_API_BASE_URL =
   'https://raw.githubusercontent.com/ByMykel/CSGO-API/main/public/api/en';
@@ -385,6 +386,7 @@ type PrismaItemDefinitionClient = {
       create: {
         game: string;
         marketHashName: string;
+        slug: string;
         baseMarketHashName: string;
         weapon: string | null;
         rarity: string | null;
@@ -395,6 +397,7 @@ type PrismaItemDefinitionClient = {
       };
       update: {
         baseMarketHashName: string;
+        slug: string;
         weapon?: string;
         rarity?: string;
         iconUrl?: string;
@@ -424,6 +427,7 @@ export async function importCs2CatalogSeeds(
         create: {
           game: 'CS2',
           marketHashName: seed.marketHashName,
+          slug: slugifyMarketHashName(seed.marketHashName),
           baseMarketHashName: seed.baseMarketHashName,
           weapon: seed.weapon,
           rarity: seed.rarity,
@@ -434,6 +438,7 @@ export async function importCs2CatalogSeeds(
         },
         update: {
           baseMarketHashName: seed.baseMarketHashName,
+          slug: slugifyMarketHashName(seed.marketHashName),
           weapon: seed.weapon ?? undefined,
           rarity: seed.rarity ?? undefined,
           ...(seed.iconUrl ? { iconUrl: seed.iconUrl } : {}),

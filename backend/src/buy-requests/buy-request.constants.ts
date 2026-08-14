@@ -1,0 +1,1 @@
+export const MAX_BUY_REQUEST_QUANTITY = 99;

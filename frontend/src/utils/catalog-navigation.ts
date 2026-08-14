@@ -1,8 +1,9 @@
 import type { CatalogItem } from '../api/types';
+import { getCatalogItemRef } from './item-slug.ts';
 
 type CatalogNavigationItem = Pick<
   CatalogItem,
-  'id' | 'activeLotCount' | 'featuredLotId'
+  'id' | 'slug' | 'activeLotCount' | 'featuredLotId'
 >;
 
 /** Route catalog cards to a lot when there is only one active offer. */
@@ -10,7 +11,7 @@ export function getCatalogItemPath(item: CatalogNavigationItem): string {
   if (item.activeLotCount === 1 && item.featuredLotId) {
     return `/lots/${item.featuredLotId}`;
   }
-  return `/catalog/items/${item.id}`;
+  return `/catalog/items/${getCatalogItemRef(item)}`;
 }
 
 export function getCatalogBuyPath(item: CatalogNavigationItem): string | null {

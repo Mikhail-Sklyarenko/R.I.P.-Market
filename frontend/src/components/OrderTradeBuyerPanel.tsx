@@ -1,5 +1,6 @@
 import type { Order } from '../api/types';
 import { useLocale } from '../i18n';
+import { TradeCounterpartyCard } from './TradeCounterpartyCard';
 import {
   getBuyerTradeSafetyChecklist,
   isOrderTradeDeliveryCheck,
@@ -74,6 +75,14 @@ export function OrderTradeBuyerPanel({
             <p className="muted small">{nextActionDescription}</p>
           ) : null}
         </div>
+      ) : null}
+
+      {order.seller ? (
+        <TradeCounterpartyCard
+          party={order.seller}
+          role="seller"
+          showScamWarning={showSteamCta || showAwaitingSeller}
+        />
       ) : null}
 
       {isDeliveryCheck ? (

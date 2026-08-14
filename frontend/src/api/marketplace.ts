@@ -147,13 +147,15 @@ export function getCatalogItem(itemId: string) {
 export function createBuyRequest(
   token: string,
   itemDefinitionId: string,
-  options?: { maxPriceMinor?: number; wear?: string },
+  options: { maxPriceMinor: number; quantity?: number; wear?: string },
 ) {
-  const body: { maxPriceMinor?: number; wear?: string } = {};
-  if (options?.maxPriceMinor !== undefined) {
-    body.maxPriceMinor = options.maxPriceMinor;
+  const body: { maxPriceMinor: number; quantity?: number; wear?: string } = {
+    maxPriceMinor: options.maxPriceMinor,
+  };
+  if (options.quantity !== undefined) {
+    body.quantity = options.quantity;
   }
-  if (options?.wear) {
+  if (options.wear) {
     body.wear = options.wear;
   }
   return apiRequest<BuyRequest>(`/buy-requests/items/${itemDefinitionId}`, {

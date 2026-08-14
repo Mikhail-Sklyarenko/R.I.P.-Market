@@ -120,15 +120,23 @@ export const clientExtraEn = {
   buyRequestPanel: {
     kicker: 'Buy request',
     lead:
-      "No one is selling this skin right now. Leave a request — we'll notify you when a matching listing appears.",
+      "No one is selling this skin right now. Leave a request — we'll notify you when a matching listing appears. Funds are reserved on your wallet.",
+    activeListTitle: 'Active requests',
     active: 'Request active',
     upTo: 'Up to',
-    cancel: 'Cancel request',
+    cancel: 'Cancel',
+    canceling: 'Canceling…',
     stateLabel: 'Condition',
     steamGuide: 'Steam guide:',
     maxPriceLabel: 'Maximum price',
-    maxPriceHint: 'Optional — you can track any listing',
-    footerPrefix: 'Active requests are in the',
+    maxPriceHintRequired: 'Required — this amount is reserved on your wallet per unit',
+    quantityLabel: 'Quantity',
+    quantityShort: '{{filled}}/{{total}} pcs',
+    reserved: 'reserved',
+    reservePreview: 'Will reserve:',
+    depositLink: 'Add funds to wallet',
+    invalidQuantity: 'Enter a quantity between 1 and 99',
+    footerPrefix: 'All requests are in',
     footerLink: 'Deals → Requests',
   },
   extensionTask: {
@@ -249,6 +257,8 @@ export const clientExtraEn = {
     toCatalog: 'Go to catalog',
     colItem: 'Item',
     colMaxPrice: 'Max price',
+    colQuantity: 'Qty',
+    colReserved: 'Reserved',
     colStatus: 'Status',
     noLimit: 'No limit',
     cancel: 'Cancel',
@@ -408,6 +418,10 @@ export const clientExtraEn = {
     checklist1: 'Check the skin name and condition (wear/float).',
     checklist2: 'Make sure the trade only contains the expected item.',
     checklist3: 'Do not accept offers with extra items from the seller.',
+    checklist4:
+      "Verify the offer sender's SteamID64 matches the seller shown on this page.",
+    checklist5:
+      'Do not accept the trade if the sender account differs or looks suspicious.',
   },
   tradePollStatus: {
     accepted: 'Accepted',
@@ -463,6 +477,14 @@ export const clientExtraEn = {
     saveOffer: 'Save offer',
     offerLabel: 'Trade offer:',
     pollStatusLabel: 'Check status:',
+    scamWarningTitle: 'Verify the trade sender',
+    scamWarningBody:
+      'Scammers may send an offer from a different Steam account. Before accepting, compare the sender SteamID64 with the seller details below.',
+    sellerLabel: 'Seller',
+    buyerLabel: 'Buyer',
+    steamIdLabel: 'SteamID64',
+    steamIdMissing: 'Seller SteamID is not available yet.',
+    openSteamProfile: 'Steam profile',
   },
   tradeUrlBanner: {
     text: 'Add your Trade URL in Steam — you cannot buy or sell skins without it.',
@@ -930,6 +952,8 @@ export const clientExtraEn = {
       'Steam is temporarily blocking requests from the server. This is not a privacy setting — the cached inventory is available; prices and refresh may not work.',
     INVENTORY_STALE: 'Could not refresh the inventory from Steam. Please try again shortly.',
     TRADE_URL_REQUIRED: 'Add a Trade URL in account settings — you cannot buy or sell without it.',
+    TRADE_URL_STEAM_MISMATCH:
+      'This Trade URL does not belong to your linked Steam account. Copy the link from the same Steam profile settings.',
     STEAM_VAC_BANNED: 'Accounts with a VAC ban cannot trade on this marketplace.',
   },
   userRole: {

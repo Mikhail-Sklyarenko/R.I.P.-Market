@@ -19,6 +19,7 @@ import type { ListCatalogItemsQueryDto } from './dto/list-catalog-items-query.dt
 import { catalogLotMatchesWearFloatFilters } from './catalog-lot-filters.util';
 import { applyCatalogSkinTraitFilters } from './catalog-skin-trait-filter.util';
 import { deriveBaseMarketHashName } from '../item-definitions/base-market-hash-name.util';
+import { isUuid } from '../item-definitions/item-slug.util';
 import { parseWearIcons } from '../item-definitions/wear-icons.util';
 import { resolveCatalogCardDisplaySteamPriceName } from './catalog-steam-price-names.util';
 
@@ -26,6 +27,7 @@ const POPULAR_WINDOW_MS = 30 * 24 * 60 * 60 * 1000;
 
 export type CatalogItemRow = {
   id: string;
+  slug: string | null;
   marketHashName: string;
   weapon: string | null;
   rarity: string | null;
@@ -35,6 +37,8 @@ export type CatalogItemRow = {
   catalogSeeded: boolean;
   minMarketplacePriceMinor: string | null;
   activeLotCount: number;
+  /** ISO timestamp of the newest active listing for this card (base skin aggregation). */
+  latestListedAt: string | null;
   orderCount30d: number;
   steamPriceMinor: number | null;
   steamPriceFetchedAt?: string | null;
@@ -56,6 +60,7 @@ function catalogBaseKey(baseMarketHashName: string): string {
 
 type ItemDefinitionRecord = {
   id: string;
+  slug?: string | null;
   marketHashName: string;
   weapon: string | null;
   rarity: string | null;
@@ -76,7 +81,7 @@ export class CatalogService {
 
   async listItems(query: ListCatalogItemsQueryDto) {
     const page = query.page ?? 1;
-    const limit = query.limit ?? 24;
+    const limit = query.limit ?? 48;
     const skip = (page - 1) * limit;
     const where = this.buildItemWhere(query);
 
@@ -144,7 +149,7 @@ export class CatalogService {
       )
       .filter((row) => this.matchesCatalogVisibility(row, query));
 
-    const sorted = this.sortItems(rows, query.sort);
+    const sorted = this.sortItems(rows, query.sort ?? 'newest');
     const filtered = this.filterByPrice(sorted, query);
     const total = filtered.length;
     const pageRows = filtered.slice(skip, skip + limit);
@@ -162,10 +167,8 @@ export class CatalogService {
     );
   }
 
-  async getItem(itemId: string) {
-    const item = await this.prisma.itemDefinition.findUnique({
-      where: { id: itemId },
-    });
+  async getItem(ref: string) {
+    const item = await this.findItemDefinition(ref);
     if (!item || !isListableMarketHashName(item.marketHashName)) {
       throw new AppException(
         ErrorCode.NOT_FOUND,
@@ -396,15 +399,9 @@ export class CatalogService {
     void this.steamMarketPrice.getPricesWithMeta(missing);
   }
 
-  private canPaginateInDatabase(query: ListCatalogItemsQueryDto): boolean {
-    return (
-      query.minPriceMinor === undefined &&
-      query.maxPriceMinor === undefined &&
-      query.floatMin === undefined &&
-      query.floatMax === undefined &&
-      !query.wear &&
-      (query.sort === 'newest' || !query.sort)
-    );
+  private canPaginateInDatabase(_query: ListCatalogItemsQueryDto): boolean {
+    // Catalog sorts (newest, price, popular) depend on active lot aggregates loaded in memory.
+    return false;
   }
 
   private resolveCatalogDefinitionIds(
@@ -418,7 +415,7 @@ export class CatalogService {
 
   private buildCatalogItemRow(
     item: ItemDefinitionRecord,
-    lotStats: Map<string, { minPriceMinor: bigint; count: number }>,
+    lotStats: Map<string, { minPriceMinor: bigint; count: number; latestListedAt: Date | null }>,
     popularStats: Map<string, number>,
     featuredLots: Map<string, string>,
     steamPrices: Record<string, { priceMinor: number | null; fetchedAt?: string | null }>,
@@ -438,6 +435,7 @@ export class CatalogService {
     const stats = baseStats ?? idStats;
     return {
       id: item.id,
+      slug: item.slug ?? null,
       marketHashName: item.marketHashName,
       weapon: item.weapon,
       rarity: item.rarity,
@@ -447,6 +445,7 @@ export class CatalogService {
       catalogSeeded: Boolean(item.catalogSeeded),
       minMarketplacePriceMinor: stats?.minPriceMinor?.toString() ?? null,
       activeLotCount: stats?.count ?? 0,
+      latestListedAt: stats?.latestListedAt?.toISOString() ?? null,
       orderCount30d:
         popularStats.get(catalogBaseKey(baseName)) ??
         popularStats.get(item.id) ??
@@ -591,7 +590,7 @@ export class CatalogService {
   private async loadActiveLotStats(
     query: ListCatalogItemsQueryDto,
     options: { baseNames?: string[] } = {},
-  ): Promise<Map<string, { minPriceMinor: bigint; count: number }>> {
+  ): Promise<Map<string, { minPriceMinor: bigint; count: number; latestListedAt: Date | null }>> {
     const lots = await this.prisma.lot.findMany({
       where: {
         status: LotStatus.ACTIVE,
@@ -601,6 +600,7 @@ export class CatalogService {
       },
       select: {
         priceMinor: true,
+        createdAt: true,
         inventoryAsset: {
           select: {
             itemDefinitionId: true,
@@ -623,16 +623,22 @@ export class CatalogService {
       },
     });
 
-    const map = new Map<string, { minPriceMinor: bigint; count: number }>();
-    const bump = (key: string, priceMinor: bigint) => {
+    const map = new Map<
+      string,
+      { minPriceMinor: bigint; count: number; latestListedAt: Date | null }
+    >();
+    const bump = (key: string, priceMinor: bigint, listedAt: Date) => {
       const current = map.get(key);
       if (!current) {
-        map.set(key, { minPriceMinor: priceMinor, count: 1 });
+        map.set(key, { minPriceMinor: priceMinor, count: 1, latestListedAt: listedAt });
         return;
       }
       current.count += 1;
       if (priceMinor < current.minPriceMinor) {
         current.minPriceMinor = priceMinor;
+      }
+      if (!current.latestListedAt || listedAt > current.latestListedAt) {
+        current.latestListedAt = listedAt;
       }
     };
 
@@ -641,11 +647,11 @@ export class CatalogService {
         continue;
       }
       const def = lot.inventoryAsset.itemDefinition;
-      bump(lot.inventoryAsset.itemDefinitionId, lot.priceMinor);
+      bump(lot.inventoryAsset.itemDefinitionId, lot.priceMinor, lot.createdAt);
       const baseKey =
         def.baseMarketHashName ?? deriveBaseMarketHashName(def.marketHashName);
       if (baseKey) {
-        bump(catalogBaseKey(baseKey), lot.priceMinor);
+        bump(catalogBaseKey(baseKey), lot.priceMinor, lot.createdAt);
       }
     }
     return map;
@@ -804,10 +810,12 @@ export class CatalogService {
 
   private sortItems(
     rows: CatalogItemRow[],
-    sort?: ListCatalogItemsQueryDto['sort'],
+    sort: ListCatalogItemsQueryDto['sort'],
   ): CatalogItemRow[] {
     const copy = [...rows];
-    if (sort === 'cheapest' || sort === 'price_desc') {
+    const effectiveSort = sort ?? 'newest';
+
+    if (effectiveSort === 'cheapest' || effectiveSort === 'price_desc') {
       copy.sort((a, b) => {
         const aPrice = a.minMarketplacePriceMinor
           ? Number(a.minMarketplacePriceMinor)
@@ -815,11 +823,15 @@ export class CatalogService {
         const bPrice = b.minMarketplacePriceMinor
           ? Number(b.minMarketplacePriceMinor)
           : Number.POSITIVE_INFINITY;
-        return sort === 'price_desc' ? bPrice - aPrice : aPrice - bPrice;
+        if (aPrice !== bPrice) {
+          return effectiveSort === 'price_desc' ? bPrice - aPrice : aPrice - bPrice;
+        }
+        return a.marketHashName.localeCompare(b.marketHashName);
       });
       return copy;
     }
-    if (sort === 'popular') {
+
+    if (effectiveSort === 'popular') {
       copy.sort((a, b) => {
         if (b.orderCount30d !== a.orderCount30d) {
           return b.orderCount30d - a.orderCount30d;
@@ -831,6 +843,18 @@ export class CatalogService {
       });
       return copy;
     }
+
+    copy.sort((a, b) => {
+      const aListedAt = a.latestListedAt ? Date.parse(a.latestListedAt) : 0;
+      const bListedAt = b.latestListedAt ? Date.parse(b.latestListedAt) : 0;
+      if (bListedAt !== aListedAt) {
+        return bListedAt - aListedAt;
+      }
+      if (b.activeLotCount !== a.activeLotCount) {
+        return b.activeLotCount - a.activeLotCount;
+      }
+      return a.marketHashName.localeCompare(b.marketHashName);
+    });
     return copy;
   }
 
@@ -853,5 +877,20 @@ export class CatalogService {
       }
       return true;
     });
+  }
+
+  private async findItemDefinition(ref: string) {
+    if (isUuid(ref)) {
+      return this.prisma.itemDefinition.findUnique({ where: { id: ref } });
+    }
+
+    const bySlug = await this.prisma.itemDefinition.findUnique({
+      where: { slug: ref },
+    });
+    if (bySlug) {
+      return bySlug;
+    }
+
+    return this.prisma.itemDefinition.findUnique({ where: { id: ref } });
   }
 }

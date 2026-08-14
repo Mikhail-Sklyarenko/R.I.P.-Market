@@ -214,4 +214,71 @@ describe('UsersService (Steam identity)', () => {
 
     delete process.env.ALLOW_MOCK_LOGIN_IN_STEAM_MODE;
   });
+
+  it('updateTradeUrl rejects partner mismatch when Steam is linked', async () => {
+    prisma.user.findUnique.mockResolvedValue({
+      id: 'user-2',
+      steamId: '76561198000000000',
+    });
+
+    try {
+      await service.updateTradeUrl(
+        'user-2',
+        'https://steamcommunity.com/tradeoffer/new/?partner=123456789&token=AbCdEfGh',
+      );
+      throw new Error('Expected updateTradeUrl to fail');
+    } catch (error: unknown) {
+      expect(error).toBeInstanceOf(AppException);
+      expect((error as AppException).code).toBe(ErrorCode.TRADE_URL_STEAM_MISMATCH);
+      expect((error as AppException).getStatus()).toBe(HttpStatus.BAD_REQUEST);
+    }
+
+    expect(prisma.user.update).not.toHaveBeenCalled();
+  });
+
+  it('updateTradeUrl saves URL matching linked SteamID64', async () => {
+    prisma.user.findUnique.mockResolvedValue({
+      id: 'user-2',
+      steamId: '76561198000000000',
+    });
+    prisma.user.update.mockResolvedValue({
+      id: 'user-2',
+      tradeUrl:
+        'https://steamcommunity.com/tradeoffer/new/?partner=39734272&token=AbCdEfGh',
+    });
+
+    await service.updateTradeUrl(
+      'user-2',
+      'https://steamcommunity.com/tradeoffer/new/?partner=39734272&token=AbCdEfGh',
+    );
+
+    expect(prisma.user.update).toHaveBeenCalledWith({
+      where: { id: 'user-2' },
+      data: {
+        tradeUrl:
+          'https://steamcommunity.com/tradeoffer/new/?partner=39734272&token=AbCdEfGh',
+      },
+    });
+  });
+
+  it('linkSteamId rejects when existing trade URL belongs to another account', async () => {
+    prisma.user.findUnique
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce({
+        id: 'user-2',
+        username: 'mock_seller',
+        tradeUrl:
+          'https://steamcommunity.com/tradeoffer/new/?partner=123456789&token=AbCdEfGh',
+      });
+
+    try {
+      await service.linkSteamId('user-2', '76561198000000000');
+      throw new Error('Expected linkSteamId to fail');
+    } catch (error: unknown) {
+      expect(error).toBeInstanceOf(AppException);
+      expect((error as AppException).code).toBe(ErrorCode.TRADE_URL_STEAM_MISMATCH);
+    }
+
+    expect(prisma.user.update).not.toHaveBeenCalled();
+  });
 });

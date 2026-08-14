@@ -12,6 +12,7 @@ import { translate } from '../i18n/translate.ts';
 import { enMessages } from '../i18n/messages/en.ts';
 import { ruMessages } from '../i18n/messages/ru.ts';
 import type { Locale } from '../i18n/types.ts';
+import { getCatalogItemRef } from '../utils/item-slug';
 
 type MyBuyRequestsPageProps = {
   embedded?: boolean;
@@ -92,6 +93,8 @@ export function MyBuyRequestsPage({ embedded = false }: MyBuyRequestsPageProps) 
               <tr>
                 <th>{t('myBuyRequests.colItem')}</th>
                 <th>{t('myBuyRequests.colMaxPrice')}</th>
+                <th>{t('myBuyRequests.colQuantity')}</th>
+                <th>{t('myBuyRequests.colReserved')}</th>
                 <th>{t('myBuyRequests.colStatus')}</th>
                 <th />
               </tr>
@@ -104,7 +107,11 @@ export function MyBuyRequestsPage({ embedded = false }: MyBuyRequestsPageProps) 
                   <tr key={request.id} data-testid={`buy-request-row-${request.id}`}>
                     <td>
                       <Link
-                        to={`/catalog/items/${request.itemDefinitionId}`}
+                        to={`/catalog/items/${
+                          request.itemDefinition
+                            ? getCatalogItemRef(request.itemDefinition)
+                            : request.itemDefinitionId
+                        }`}
                         className="buy-request-item-link"
                       >
                         {itemName}
@@ -115,6 +122,21 @@ export function MyBuyRequestsPage({ embedded = false }: MyBuyRequestsPageProps) 
                         <MoneyDisplay minor={request.maxPriceMinor} />
                       ) : (
                         <span className="muted">{t('myBuyRequests.noLimit')}</span>
+                      )}
+                    </td>
+                    <td>
+                      {request.quantity > 1 || request.quantityFilled > 0
+                        ? t('buyRequestPanel.quantityShort', {
+                            filled: request.quantityFilled,
+                            total: request.quantity,
+                          })
+                        : '1'}
+                    </td>
+                    <td>
+                      {request.reservedAmountMinor ? (
+                        <MoneyDisplay minor={request.reservedAmountMinor} />
+                      ) : (
+                        <span className="muted">—</span>
                       )}
                     </td>
                     <td>

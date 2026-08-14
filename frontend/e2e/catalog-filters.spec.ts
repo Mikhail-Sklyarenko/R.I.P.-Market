@@ -109,4 +109,23 @@ test.describe('Catalog filters', () => {
     await expect(firstCard.getByTestId(/catalog-item-.*-steam-price/)).toBeVisible();
     await expect(firstCard.getByTestId(/catalog-item-.*-market-price/)).toBeAttached();
   });
+
+  test('page size selector updates URL and item count', async ({ page, request }) => {
+    await seedCatalogLots(request);
+
+    await page.goto('/catalog');
+    await expect(page.getByTestId('catalog-grid').locator('article')).toHaveCount(
+      SEEDED_CARDS,
+    );
+
+    await page.getByTestId('catalog-page-size').selectOption('24');
+    await expect(page).toHaveURL(/limit=24/);
+    await expect(page.getByTestId('catalog-grid').locator('article')).toHaveCount(
+      SEEDED_CARDS,
+    );
+
+    await page.getByTestId('catalog-page-size').selectOption('96');
+    await expect(page).toHaveURL(/limit=96/);
+    await expect(page.url()).not.toContain('page=');
+  });
 });

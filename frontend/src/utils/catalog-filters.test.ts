@@ -130,8 +130,8 @@ describe('catalog-filters utils', () => {
     assert.equal(findTabForWeapon('Karambit'), 'knives');
   });
 
-  it('uses a fixed catalog page size', () => {
-    assert.equal(CATALOG_PAGE_LIMIT, 24);
+  it('uses a fixed default catalog page size', () => {
+    assert.equal(CATALOG_PAGE_LIMIT, 48);
   });
 
   it('places other last and gloves before other in the category bar', () => {

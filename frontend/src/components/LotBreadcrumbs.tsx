@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom';
 import { useLocale } from '../i18n';
+import { getCatalogReturnHref } from '../utils/catalog-return-state';
 
 type LotBreadcrumbsProps = {
   marketHashName: string;
@@ -20,16 +21,18 @@ export function LotBreadcrumbs({
   categoryLabel,
 }: LotBreadcrumbsProps) {
   const { t } = useLocale();
+  const catalogRootHref = getCatalogReturnHref('/catalog');
+  const weaponCatalogHref = getCatalogReturnHref(buildCatalogHref(weapon));
   const crumbs: Array<{ label: string; href?: string }> = [
-    { label: t('lotBreadcrumbs.catalog'), href: '/catalog' },
+    { label: t('lotBreadcrumbs.catalog'), href: catalogRootHref },
   ];
 
   if (categoryLabel?.trim()) {
-    crumbs.push({ label: categoryLabel.trim(), href: '/catalog' });
+    crumbs.push({ label: categoryLabel.trim(), href: catalogRootHref });
   }
 
   if (weapon?.trim()) {
-    crumbs.push({ label: weapon.trim(), href: buildCatalogHref(weapon) });
+    crumbs.push({ label: weapon.trim(), href: weaponCatalogHref });
   }
 
   crumbs.push({ label: marketHashName });

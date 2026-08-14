@@ -170,6 +170,9 @@ model BuyRequest {
   buyerId                 String
   itemDefinitionId        String
   maxPriceMinor           BigInt?
+  quantity                Int              @default(1)
+  quantityFilled          Int              @default(0)
+  reservedAmountMinor     BigInt?
   status                  BuyRequestStatus @default(OPEN)
   lastNotifiedLotId       String?
   lastNotifiedPriceMinor  BigInt?
@@ -178,8 +181,8 @@ model BuyRequest {
   buyer            User             @relation(fields: [buyerId], references: [id], onDelete: Cascade)
   itemDefinition   ItemDefinition   @relation(fields: [itemDefinitionId], references: [id], onDelete: Cascade)
 
-  @@unique([buyerId, itemDefinitionId, status])
   @@index([buyerId, status])
+  @@index([buyerId, itemDefinitionId, status])
   @@index([itemDefinitionId, status])
 }
 
@@ -266,6 +269,7 @@ model ItemDefinition {
   id                 String           @id @default(uuid())
   game               String           @default("CS2")
   marketHashName     String           @unique
+  slug               String?          @unique
   /// Skin identity without wear suffix (catalog card key). Same as marketHashName for seeded cards.
   baseMarketHashName String?
   weapon             String?

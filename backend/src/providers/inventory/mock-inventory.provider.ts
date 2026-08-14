@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { InventoryAssetStatus, InventorySyncStatus } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { deriveBaseMarketHashName } from '../../item-definitions/base-market-hash-name.util';
+import { slugifyMarketHashName } from '../../item-definitions/item-slug.util';
 import { InventorySyncCacheService } from './inventory-sync-cache.service';
 import {
   InventoryProvider,
@@ -75,8 +76,8 @@ export class MockInventoryProvider implements InventoryProvider {
       };
       await this.prisma.itemDefinition.upsert({
         where: { marketHashName: baseMarketHashName },
-        create: { game: 'CS2', marketHashName: baseMarketHashName, ...card },
-        update: card,
+        create: { game: 'CS2', marketHashName: baseMarketHashName, slug: slugifyMarketHashName(baseMarketHashName), ...card },
+        update: { ...card, slug: slugifyMarketHashName(baseMarketHashName) },
       });
     }
   }
@@ -118,6 +119,7 @@ export class MockInventoryProvider implements InventoryProvider {
           where: { marketHashName: item.marketHashName },
           create: {
             marketHashName: item.marketHashName,
+            slug: slugifyMarketHashName(item.marketHashName),
             baseMarketHashName,
             game: 'CS2',
             weapon: item.weapon,
@@ -126,6 +128,7 @@ export class MockInventoryProvider implements InventoryProvider {
           },
           update: {
             baseMarketHashName,
+            slug: slugifyMarketHashName(item.marketHashName),
             weapon: item.weapon,
             rarity: item.rarity,
             iconUrl: item.iconUrl,

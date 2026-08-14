@@ -8,8 +8,11 @@ import {
   deriveBaseMarketHashName,
 } from '../item-definitions/base-market-hash-name.util';
 import { PrismaService } from '../prisma/prisma.service';
-import { CreateBuyRequestDto } from './dto/create-buy-request.dto';
+import { LedgerService } from '../wallet/ledger.service';
+import { MAX_BUY_REQUEST_QUANTITY } from './buy-request.constants';
 import { BuyRequestMatchingService } from './buy-request-matching.service';
+import { CreateBuyRequestDto } from './dto/create-buy-request.dto';
+import { isUuid, slugifyMarketHashName } from '../item-definitions/item-slug.util';
 
 function parseAvailableWears(value: unknown): string[] {
   if (!Array.isArray(value)) {
@@ -23,6 +26,7 @@ export class BuyRequestsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly buyRequestMatching: BuyRequestMatchingService,
+    private readonly ledger: LedgerService,
   ) {}
 
   async create(buyerId: string, itemDefinitionId: string, dto: CreateBuyRequestDto) {
@@ -35,9 +39,7 @@ export class BuyRequestsService {
       );
     }
 
-    const catalogItem = await this.prisma.itemDefinition.findUnique({
-      where: { id: itemDefinitionId },
-    });
+    const catalogItem = await this.findItemDefinition(itemDefinitionId);
     if (!catalogItem) {
       throw new AppException(
         ErrorCode.NOT_FOUND,
@@ -47,36 +49,80 @@ export class BuyRequestsService {
     }
 
     const item = await this.resolveTargetItemDefinition(catalogItem, dto.wear);
+    const quantity = dto.quantity ?? 1;
+    if (quantity < 1 || quantity > MAX_BUY_REQUEST_QUANTITY) {
+      throw new AppException(
+        ErrorCode.VALIDATION_ERROR,
+        `Quantity must be between 1 and ${MAX_BUY_REQUEST_QUANTITY}`,
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+
+    const maxPriceMinor = BigInt(dto.maxPriceMinor);
+    const reservedAmountMinor = maxPriceMinor * BigInt(quantity);
 
     const existingOpen = await this.prisma.buyRequest.findFirst({
       where: {
         buyerId,
         itemDefinitionId: item.id,
         status: BuyRequestStatus.OPEN,
+        maxPriceMinor,
       },
     });
     if (existingOpen) {
       throw new AppException(
         ErrorCode.BUY_REQUEST_ALREADY_OPEN,
-        'You already have an open buy request for this item',
+        'You already have an open buy request at this price for this item',
         HttpStatus.BAD_REQUEST,
         { buyRequestId: existingOpen.id },
       );
     }
 
-    const buyRequest = await this.prisma.buyRequest.create({
-      data: {
-        buyerId,
-        itemDefinitionId: item.id,
-        maxPriceMinor:
-          dto.maxPriceMinor !== undefined
-            ? BigInt(dto.maxPriceMinor)
-            : undefined,
-      },
+    let buyRequestId: string;
+    try {
+      buyRequestId = await this.prisma.$transaction(async (tx) => {
+        const buyRequest = await tx.buyRequest.create({
+          data: {
+            buyerId,
+            itemDefinitionId: item.id,
+            maxPriceMinor,
+            quantity,
+            quantityFilled: 0,
+            reservedAmountMinor,
+          },
+        });
+
+        await this.ledger.reserveBuyRequestHold({
+          buyerUserId: buyerId,
+          buyRequestId: buyRequest.id,
+          amountMinor: reservedAmountMinor,
+          idempotencyKey: `buy-request-reserve:${buyRequest.id}`,
+          tx,
+        });
+
+        return buyRequest.id;
+      });
+    } catch (error) {
+      if (
+        error instanceof Error &&
+        error.message.includes('Insufficient available balance')
+      ) {
+        throw new AppException(
+          ErrorCode.INSUFFICIENT_BALANCE,
+          'Not enough available balance to reserve for this buy request',
+          HttpStatus.BAD_REQUEST,
+        );
+      }
+      throw error;
+    }
+
+    const buyRequest = await this.prisma.buyRequest.findUniqueOrThrow({
+      where: { id: buyRequestId },
       include: {
         itemDefinition: {
           select: {
             id: true,
+            slug: true,
             marketHashName: true,
             weapon: true,
             rarity: true,
@@ -120,6 +166,7 @@ export class BuyRequestsService {
         itemDefinition: {
           select: {
             id: true,
+            slug: true,
             marketHashName: true,
             weapon: true,
             rarity: true,
@@ -150,13 +197,35 @@ export class BuyRequestsService {
       );
     }
 
-    const updated = await this.prisma.buyRequest.update({
+    const releaseAmount = buyRequest.reservedAmountMinor ?? 0n;
+
+    await this.prisma.$transaction(async (tx) => {
+      if (releaseAmount > 0n) {
+        await this.ledger.releaseBuyRequestHold({
+          buyerUserId: buyerId,
+          buyRequestId,
+          amountMinor: releaseAmount,
+          idempotencyKey: `buy-request-cancel:${buyRequestId}`,
+          tx,
+        });
+      }
+
+      await tx.buyRequest.update({
+        where: { id: buyRequestId },
+        data: {
+          status: BuyRequestStatus.CANCELED,
+          reservedAmountMinor: 0n,
+        },
+      });
+    });
+
+    const updated = await this.prisma.buyRequest.findUniqueOrThrow({
       where: { id: buyRequestId },
-      data: { status: BuyRequestStatus.CANCELED },
       include: {
         itemDefinition: {
           select: {
             id: true,
+            slug: true,
             marketHashName: true,
             weapon: true,
             rarity: true,
@@ -167,6 +236,37 @@ export class BuyRequestsService {
     });
 
     return toJsonSafe(updated);
+  }
+
+  async releaseHoldForExpired(buyRequestId: string): Promise<void> {
+    const buyRequest = await this.prisma.buyRequest.findUnique({
+      where: { id: buyRequestId },
+    });
+    if (!buyRequest || buyRequest.status !== BuyRequestStatus.OPEN) {
+      return;
+    }
+
+    const releaseAmount = buyRequest.reservedAmountMinor ?? 0n;
+
+    await this.prisma.$transaction(async (tx) => {
+      if (releaseAmount > 0n) {
+        await this.ledger.releaseBuyRequestHold({
+          buyerUserId: buyRequest.buyerId,
+          buyRequestId,
+          amountMinor: releaseAmount,
+          idempotencyKey: `buy-request-expire:${buyRequestId}`,
+          tx,
+        });
+      }
+
+      await tx.buyRequest.update({
+        where: { id: buyRequestId },
+        data: {
+          status: BuyRequestStatus.EXPIRED,
+          reservedAmountMinor: 0n,
+        },
+      });
+    });
   }
 
   private async resolveTargetItemDefinition(
@@ -216,6 +316,7 @@ export class BuyRequestsService {
       create: {
         game: 'CS2',
         marketHashName,
+        slug: slugifyMarketHashName(marketHashName),
         baseMarketHashName: baseName,
         weapon: catalogItem.weapon,
         rarity: catalogItem.rarity,
@@ -224,6 +325,7 @@ export class BuyRequestsService {
       },
       update: {
         baseMarketHashName: baseName,
+        slug: slugifyMarketHashName(marketHashName),
         weapon: catalogItem.weapon ?? undefined,
         rarity: catalogItem.rarity ?? undefined,
         ...(catalogItem.iconUrl?.trim()
@@ -233,23 +335,30 @@ export class BuyRequestsService {
     });
   }
 
+  private async findItemDefinition(ref: string) {
+    if (isUuid(ref)) {
+      return this.prisma.itemDefinition.findUnique({ where: { id: ref } });
+    }
+
+    const bySlug = await this.prisma.itemDefinition.findUnique({
+      where: { slug: ref },
+    });
+    if (bySlug) {
+      return bySlug;
+    }
+
+    return this.prisma.itemDefinition.findUnique({ where: { id: ref } });
+  }
+
   private async resolveListScope(
-    itemDefinitionId: string,
+    itemDefinitionRef: string,
   ): Promise<
     | { type: 'ids'; ids: string[] }
     | { type: 'base'; ids: string[]; baseMarketHashName: string }
   > {
-    const item = await this.prisma.itemDefinition.findUnique({
-      where: { id: itemDefinitionId },
-      select: {
-        id: true,
-        catalogSeeded: true,
-        baseMarketHashName: true,
-        marketHashName: true,
-      },
-    });
+    const item = await this.findItemDefinition(itemDefinitionRef);
     if (!item) {
-      return { type: 'ids', ids: [itemDefinitionId] };
+      return { type: 'ids', ids: [itemDefinitionRef] };
     }
     if (!item.catalogSeeded) {
       return { type: 'ids', ids: [item.id] };

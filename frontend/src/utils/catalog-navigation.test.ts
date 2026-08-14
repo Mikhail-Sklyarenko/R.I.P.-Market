@@ -24,12 +24,23 @@ describe('catalog-navigation', () => {
   it('keeps multi-offer items on the comparison page', () => {
     const item = {
       id: 'item-2',
+      slug: 'ak-47-redline',
+      activeLotCount: 3,
+      featuredLotId: 'lot-a',
+    };
+
+    assert.equal(getCatalogItemPath(item), '/catalog/items/ak-47-redline');
+    assert.equal(getCatalogBuyPath(item), '/lots/lot-a');
+    assert.equal(shouldRedirectItemPageToLot(item, 3), false);
+  });
+
+  it('falls back to id when slug is missing', () => {
+    const item = {
+      id: 'item-2',
       activeLotCount: 3,
       featuredLotId: 'lot-a',
     };
 
     assert.equal(getCatalogItemPath(item), '/catalog/items/item-2');
-    assert.equal(getCatalogBuyPath(item), '/lots/lot-a');
-    assert.equal(shouldRedirectItemPageToLot(item, 3), false);
   });
 });

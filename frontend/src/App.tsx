@@ -3,6 +3,7 @@ import { AdminRoute } from './auth/AdminRoute';
 import { AuthProvider } from './auth/AuthContext';
 import { WalletProvider } from './wallet/WalletContext';
 import { ProtectedRoute } from './auth/ProtectedRoute';
+import { SellProtectedRoute } from './auth/SellProtectedRoute';
 import { AdminLayout } from './components/AdminLayout';
 import { Layout } from './components/Layout';
 import { AdminAllowlistPage } from './pages/admin/AdminAllowlistPage';
@@ -11,6 +12,7 @@ import { AdminLotsPage } from './pages/admin/AdminLotsPage';
 import { AdminOrderCardPage } from './pages/admin/AdminOrderCardPage';
 import { AdminOrdersPage } from './pages/admin/AdminOrdersPage';
 import { AdminOutboxPage } from './pages/admin/AdminOutboxPage';
+import { AdminSupportTicketsPage } from './pages/admin/AdminSupportTicketsPage';
 import { AdminUsersPage } from './pages/admin/AdminUsersPage';
 import { AccountPage } from './pages/AccountPage';
 import { CatalogPage } from './pages/CatalogPage';
@@ -49,6 +51,13 @@ export function App() {
           <Route path="/faq" element={<FaqPage />} />
           <Route path="/support" element={<SupportPage />} />
 
+          <Route element={<SellProtectedRoute />}>
+            <Route path="/sell/inventory" element={<InventoryPage />} />
+            <Route path="/sell/lots/new" element={<CreateLotPage />} />
+            <Route path="/sell/my-lots" element={<SellMyLotsRedirect />} />
+            <Route path="/sell/activity" element={<SellActivityRedirect />} />
+          </Route>
+
           <Route element={<ProtectedRoute />}>
             <Route path="/account" element={<AccountPage />} />
             <Route path="/wallet" element={<WalletPage />} />
@@ -57,10 +66,6 @@ export function App() {
             <Route path="/deals" element={<DealsPage />} />
             <Route path="/my/orders" element={<MyOrdersRedirect />} />
             <Route path="/notifications" element={<NotificationsPage />} />
-            <Route path="/sell/inventory" element={<InventoryPage />} />
-            <Route path="/sell/lots/new" element={<CreateLotPage />} />
-            <Route path="/sell/my-lots" element={<SellMyLotsRedirect />} />
-            <Route path="/sell/activity" element={<SellActivityRedirect />} />
           </Route>
         </Route>
 
@@ -73,6 +78,7 @@ export function App() {
               <Route path="/admin/users" element={<AdminUsersPage />} />
               <Route path="/admin/settlement/allowlist" element={<AdminAllowlistPage />} />
               <Route path="/admin/outbox" element={<AdminOutboxPage />} />
+              <Route path="/admin/support/tickets" element={<AdminSupportTicketsPage />} />
               <Route path="/admin/prices" element={<AdminCatalogPricesPage />} />
               <Route path="/admin/catalog/prices" element={<AdminCatalogPricesPage />} />
             </Route>

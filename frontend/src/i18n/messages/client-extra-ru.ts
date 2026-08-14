@@ -126,15 +126,23 @@ export const clientExtraRu = {
   buyRequestPanel: {
     kicker: 'Заявка на покупку',
     lead:
-      'Сейчас этот скин никто не продаёт. Оставьте заявку — пришлём уведомление, когда появится подходящее предложение.',
+      'Сейчас этот скин никто не продаёт. Оставьте заявку — пришлём уведомление, когда появится подходящее предложение. Средства резервируются на кошельке.',
+    activeListTitle: 'Активные заявки',
     active: 'Заявка активна',
     upTo: 'До',
-    cancel: 'Отменить заявку',
+    cancel: 'Отменить',
+    canceling: 'Отмена…',
     stateLabel: 'Состояние',
     steamGuide: 'Ориентир Steam:',
     maxPriceLabel: 'Максимальная цена',
-    maxPriceHint: 'Необязательно — можно следить за любыми предложениями',
-    footerPrefix: 'Активные заявки — во вкладке',
+    maxPriceHintRequired: 'Обязательно — эта сумма будет зарезервирована на кошельке за каждую единицу',
+    quantityLabel: 'Количество',
+    quantityShort: '{{filled}}/{{total}} шт.',
+    reserved: 'зарезервировано',
+    reservePreview: 'Будет зарезервировано:',
+    depositLink: 'Пополнить кошелёк',
+    invalidQuantity: 'Укажите количество от 1 до 99',
+    footerPrefix: 'Все заявки — во вкладке',
     footerLink: 'Сделки → Заявки',
   },
   extensionTask: {
@@ -257,6 +265,8 @@ export const clientExtraRu = {
     toCatalog: 'Перейти в каталог',
     colItem: 'Предмет',
     colMaxPrice: 'Макс. цена',
+    colQuantity: 'Кол-во',
+    colReserved: 'Резерв',
     colStatus: 'Статус',
     noLimit: 'Без лимита',
     cancel: 'Отменить',
@@ -417,6 +427,10 @@ export const clientExtraRu = {
     checklist1: 'Проверьте название скина и состояние (wear/float).',
     checklist2: 'Убедитесь, что в обмене только ожидаемый предмет.',
     checklist3: 'Не принимайте предложения с лишними предметами от продавца.',
+    checklist4:
+      'Сверьте SteamID64 отправителя offer с продавцом на этой странице — они должны совпадать.',
+    checklist5:
+      'Не принимайте обмен, если аккаунт отправителя отличается или выглядит подозрительно.',
   },
   tradePollStatus: {
     accepted: 'Принят',
@@ -478,6 +492,14 @@ export const clientExtraRu = {
     saveOffer: 'Сохранить предложение',
     offerLabel: 'Предложение обмена:',
     pollStatusLabel: 'Статус проверки:',
+    scamWarningTitle: 'Проверьте отправителя обмена',
+    scamWarningBody:
+      'Мошенники могут прислать offer с другого Steam-аккаунта. Перед принятием сверьте SteamID64 отправителя с данными продавца ниже.',
+    sellerLabel: 'Продавец',
+    buyerLabel: 'Покупатель',
+    steamIdLabel: 'SteamID64',
+    steamIdMissing: 'SteamID продавца пока недоступен.',
+    openSteamProfile: 'Профиль Steam',
   },
   tradeUrlBanner: {
     text: 'Укажите Trade URL в Steam — без него нельзя продавать и покупать скины.',
@@ -954,6 +976,8 @@ export const clientExtraRu = {
       'Steam временно блокирует запросы с сервера. Это не настройки приватности — кэш инвентаря доступен; цены и обновление могут не работать.',
     INVENTORY_STALE: 'Не удалось обновить инвентарь из Steam. Попробуйте чуть позже.',
     TRADE_URL_REQUIRED: 'Укажите Trade URL в настройках аккаунта — без него нельзя продавать и покупать.',
+    TRADE_URL_STEAM_MISMATCH:
+      'Trade URL не принадлежит привязанному Steam-аккаунту. Скопируйте ссылку из настроек Steam того же профиля.',
     STEAM_VAC_BANNED: 'Аккаунт с VAC-баном не может торговать на площадке.',
   },
   userRole: {

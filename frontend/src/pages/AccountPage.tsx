@@ -18,7 +18,8 @@ import { disconnectExtension } from '../utils/extension';
 import { SteamTradeUrlButton } from '../components/SteamTradeUrlButton';
 import { isValidSteamTradeUrl } from '../utils/trade-url';
 import { profileToAuthUser } from '../utils/user-profile';
-import { formatUserRole, formatUserStatus } from '../utils/format';
+import { formatUserRole, formatUserStatus, formatApiErrorMessage } from '../utils/format';
+import { ApiError } from '../api/types';
 
 const API_BASE_URL =
   import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:3000/api/v1';
@@ -131,6 +132,10 @@ export function AccountPage() {
       setTradeUrlInput(profile.tradeUrl ?? trimmed);
       setSuccessMessage(t('account.tradeUrlSaved'));
     } catch (err) {
+      if (err instanceof ApiError && err.code === 'TRADE_URL_STEAM_MISMATCH') {
+        setTradeUrlError(formatApiErrorMessage(err.code, locale));
+        return;
+      }
       setError(err);
     } finally {
       setSaveLoading(false);

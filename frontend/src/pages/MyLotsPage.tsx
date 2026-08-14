@@ -121,13 +121,16 @@ export function MyLotsPage({ embedded = false }: MyLotsPageProps) {
     }
     const priceMinor = parseUsdToMinor(editPriceInput);
     if (!priceMinor) {
-      setError(new Error('Enter a valid price greater than zero.'));
+      setError(new Error(t('lots.invalidPrice')));
       return;
     }
     setSavingPriceId(lotId);
     setError(null);
     try {
-      await updateLotPrice(token, lotId, priceMinor);
+      const updated = await updateLotPrice(token, lotId, priceMinor);
+      setLots((previous) =>
+        previous.map((lot) => (lot.id === lotId ? { ...lot, ...updated } : lot)),
+      );
       cancelEditPrice();
       await loadData();
     } catch (err) {

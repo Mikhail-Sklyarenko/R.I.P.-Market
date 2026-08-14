@@ -142,8 +142,17 @@ export type SupportTicket = {
   updatedAt: string;
 };
 
+export type AdminSupportTicket = SupportTicket & {
+  user: {
+    id: string;
+    username: string;
+    steamId: string | null;
+  };
+};
+
 export type ItemDefinition = {
   id?: string;
+  slug?: string | null;
   marketHashName: string;
   weapon?: string;
   rarity?: string;
@@ -244,6 +253,7 @@ export type Lot = {
 
 export type CatalogItem = {
   id: string;
+  slug?: string | null;
   marketHashName: string;
   weapon: string | null;
   rarity: string | null;
@@ -253,6 +263,7 @@ export type CatalogItem = {
   catalogSeeded?: boolean;
   minMarketplacePriceMinor: string | null;
   activeLotCount: number;
+  latestListedAt?: string | null;
   orderCount30d: number;
   steamPriceMinor: number | null;
   steamPriceFetchedAt?: string | null;
@@ -275,6 +286,9 @@ export type BuyRequest = {
   buyerId: string;
   itemDefinitionId: string;
   maxPriceMinor: string | null;
+  quantity: number;
+  quantityFilled: number;
+  reservedAmountMinor: string | null;
   status: 'OPEN' | 'CANCELED' | 'FULFILLED' | 'EXPIRED';
   lastNotifiedLotId?: string | null;
   lastNotifiedPriceMinor?: string | null;
@@ -282,7 +296,7 @@ export type BuyRequest = {
   updatedAt: string;
   itemDefinition?: Pick<
     CatalogItem,
-    'id' | 'marketHashName' | 'weapon' | 'rarity' | 'iconUrl'
+    'id' | 'slug' | 'marketHashName' | 'weapon' | 'rarity' | 'iconUrl'
   >;
 };
 
@@ -310,6 +324,8 @@ export type OrderParty = {
   id: string;
   username: string;
   tradeUrl?: string | null;
+  steamId?: string | null;
+  steamPersonaName?: string | null;
 };
 
 export type TradePollEvent = {

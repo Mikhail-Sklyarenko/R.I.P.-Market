@@ -8,6 +8,7 @@ import {
 import { AppException } from '../common/errors/app.exception';
 import { ErrorCode } from '../common/errors/error-codes';
 import { toJsonSafe } from '../common/json-safe.util';
+import { isUuid } from '../item-definitions/item-slug.util';
 import { InventoryService } from '../inventory/inventory.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateLotDto } from './dto/create-lot.dto';
@@ -547,15 +548,7 @@ export class LotsService {
     if (!itemDefinitionId) {
       return null;
     }
-    const def = await this.prisma.itemDefinition.findUnique({
-      where: { id: itemDefinitionId },
-      select: {
-        id: true,
-        catalogSeeded: true,
-        baseMarketHashName: true,
-        marketHashName: true,
-      },
-    });
+    const def = await this.findItemDefinition(itemDefinitionId);
     if (!def) {
       return { type: 'id', id: itemDefinitionId };
     }
@@ -566,6 +559,43 @@ export class LotsService {
       };
     }
     return { type: 'id', id: def.id };
+  }
+
+  private async findItemDefinition(ref: string) {
+    if (isUuid(ref)) {
+      return this.prisma.itemDefinition.findUnique({
+        where: { id: ref },
+        select: {
+          id: true,
+          catalogSeeded: true,
+          baseMarketHashName: true,
+          marketHashName: true,
+        },
+      });
+    }
+
+    const bySlug = await this.prisma.itemDefinition.findUnique({
+      where: { slug: ref },
+      select: {
+        id: true,
+        catalogSeeded: true,
+        baseMarketHashName: true,
+        marketHashName: true,
+      },
+    });
+    if (bySlug) {
+      return bySlug;
+    }
+
+    return this.prisma.itemDefinition.findUnique({
+      where: { id: ref },
+      select: {
+        id: true,
+        catalogSeeded: true,
+        baseMarketHashName: true,
+        marketHashName: true,
+      },
+    });
   }
 
   private buildActiveLotsWhere(

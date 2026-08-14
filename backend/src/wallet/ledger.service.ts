@@ -411,6 +411,176 @@ export class LedgerService {
     return tx ? execute(tx) : this.prisma.$transaction(execute);
   }
 
+  async reserveBuyRequestHold(params: {
+    buyerUserId: string;
+    buyRequestId: string;
+    amountMinor: bigint;
+    idempotencyKey: string;
+    tx?: TxClient;
+  }): Promise<LedgerOperationResult> {
+    const { buyerUserId, buyRequestId, amountMinor, idempotencyKey, tx } =
+      params;
+
+    if (amountMinor <= 0n) {
+      throw new BadRequestException('Buy request hold amount must be positive');
+    }
+
+    const wallet = await this.ensureUserWallet(buyerUserId);
+
+    const execute = async (client: TxClient) => {
+      const existing = await this.findExistingOperation(
+        client,
+        wallet.id,
+        idempotencyKey,
+      );
+      if (existing) {
+        return existing;
+      }
+
+      const available = await this.getAccountBalance(
+        client,
+        wallet.id,
+        WalletAccountType.AVAILABLE,
+      );
+
+      if (available < amountMinor) {
+        throw new BadRequestException('Insufficient available balance');
+      }
+
+      const referenceGroupId = crypto.randomUUID();
+
+      await client.walletAccount.update({
+        where: {
+          walletId_type: {
+            walletId: wallet.id,
+            type: WalletAccountType.AVAILABLE,
+          },
+        },
+        data: { balanceMinor: { decrement: amountMinor } },
+      });
+
+      await client.walletAccount.update({
+        where: {
+          walletId_type: { walletId: wallet.id, type: WalletAccountType.HOLD },
+        },
+        data: { balanceMinor: { increment: amountMinor } },
+      });
+
+      const entry = await client.ledgerEntry.create({
+        data: {
+          walletId: wallet.id,
+          type: LedgerEntryType.HOLD_RESERVE,
+          amountMinor: -amountMinor,
+          idempotencyKey,
+          referenceGroupId,
+          metadata: {
+            direction: 'available_to_hold',
+            buyRequestId,
+            amountMinor: amountMinor.toString(),
+          },
+        },
+      });
+
+      return {
+        referenceGroupId,
+        entries: [
+          {
+            id: entry.id,
+            type: entry.type,
+            amountMinor: entry.amountMinor.toString(),
+          },
+        ],
+      };
+    };
+
+    return tx ? execute(tx) : this.prisma.$transaction(execute);
+  }
+
+  async releaseBuyRequestHold(params: {
+    buyerUserId: string;
+    buyRequestId: string;
+    amountMinor: bigint;
+    idempotencyKey: string;
+    tx?: TxClient;
+  }): Promise<LedgerOperationResult> {
+    const { buyerUserId, buyRequestId, amountMinor, idempotencyKey, tx } =
+      params;
+
+    if (amountMinor <= 0n) {
+      throw new BadRequestException('Buy request release amount must be positive');
+    }
+
+    const wallet = await this.ensureUserWallet(buyerUserId);
+
+    const execute = async (client: TxClient) => {
+      const existing = await this.findExistingOperation(
+        client,
+        wallet.id,
+        idempotencyKey,
+      );
+      if (existing) {
+        return existing;
+      }
+
+      const holdBalance = await this.getAccountBalance(
+        client,
+        wallet.id,
+        WalletAccountType.HOLD,
+      );
+
+      if (holdBalance < amountMinor) {
+        throw new BadRequestException('Insufficient hold balance to release');
+      }
+
+      const referenceGroupId = crypto.randomUUID();
+
+      await client.walletAccount.update({
+        where: {
+          walletId_type: { walletId: wallet.id, type: WalletAccountType.HOLD },
+        },
+        data: { balanceMinor: { decrement: amountMinor } },
+      });
+
+      await client.walletAccount.update({
+        where: {
+          walletId_type: {
+            walletId: wallet.id,
+            type: WalletAccountType.AVAILABLE,
+          },
+        },
+        data: { balanceMinor: { increment: amountMinor } },
+      });
+
+      const entry = await client.ledgerEntry.create({
+        data: {
+          walletId: wallet.id,
+          type: LedgerEntryType.HOLD_RELEASE,
+          amountMinor,
+          idempotencyKey,
+          referenceGroupId,
+          metadata: {
+            direction: 'hold_to_available',
+            buyRequestId,
+            amountMinor: amountMinor.toString(),
+          },
+        },
+      });
+
+      return {
+        referenceGroupId,
+        entries: [
+          {
+            id: entry.id,
+            type: entry.type,
+            amountMinor: entry.amountMinor.toString(),
+          },
+        ],
+      };
+    };
+
+    return tx ? execute(tx) : this.prisma.$transaction(execute);
+  }
+
   async settleSale(params: {
     buyerUserId: string;
     sellerUserId: string;

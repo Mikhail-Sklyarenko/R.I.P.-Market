@@ -57,8 +57,11 @@ const baseRuMessages = {
     refreshing: 'Обновление…',
     popularLoading: 'Загрузка популярных предметов…',
     popularTitle: 'Популярные и покупаемые',
-    next: 'Вперёд',
-    pageOf: 'Страница {{current}} из {{total}}',
+    loadMore: 'Показать ещё',
+    loadingMore: 'Загрузка…',
+    showingCount: 'Показано {{shown}} из {{total}}',
+    pageSize: 'На странице',
+    pageSizeOption: '{{count}} на странице',
     tabs: {
       all: 'Все',
       knives: 'Ножи',
@@ -168,6 +171,7 @@ const baseRuMessages = {
     save: 'Сохранить',
     cancel: 'Отмена',
     saving: 'Сохранение…',
+    invalidPrice: 'Введите корректную цену больше нуля.',
     openDeal: 'Открыть сделку',
     myDeals: 'Мои сделки',
     loading: 'Загрузка лотов…',
@@ -415,6 +419,10 @@ const baseRuMessages = {
   auth: {
     steamLogin: 'Войти через Steam',
     steamRedirect: 'Переход в Steam…',
+    sellRequiredTitle: 'Требуется авторизация',
+    sellRequiredSubtitle:
+      'Войдите через Steam, чтобы продавать предметы и управлять инвентарём.',
+    backToCatalog: 'Вернуться в каталог',
   },
   assetUnavailable: {
     listed: 'Уже выставлен на продажу',
@@ -786,6 +794,14 @@ const baseRuMessages = {
     savingTrade: 'Сохраняем…',
     seePreAccept: 'Вижу предложение в Steam',
     speedUpCheckSummary: 'Ускорить проверку',
+    scamWarningTitle: 'Проверьте отправителя обмена',
+    scamWarningBody:
+      'Мошенники могут прислать offer с другого Steam-аккаунта. Перед принятием сверьте SteamID64 отправителя с данными продавца ниже.',
+    sellerLabel: 'Продавец',
+    buyerLabel: 'Покупатель',
+    steamIdLabel: 'SteamID64',
+    steamIdMissing: 'SteamID продавца пока недоступен.',
+    openSteamProfile: 'Профиль Steam',
     tradeOfferInputLabel: 'Ссылка или ID trade offer',
     waitingMessage: 'Отправьте trade offer покупателю и сохраните ссылку на предложение ниже.',
     yourStep: 'Ваш шаг',
@@ -799,6 +815,10 @@ const baseRuMessages = {
     checklist1: 'Проверьте название скина и состояние (wear/float).',
     checklist2: 'Убедитесь, что в обмене только ожидаемый предмет.',
     checklist3: 'Не принимайте предложения с лишними предметами от продавца.',
+    checklist4:
+      'Сверьте SteamID64 отправителя offer с продавцом на этой странице — они должны совпадать.',
+    checklist5:
+      'Не принимайте обмен, если аккаунт отправителя отличается или выглядит подозрительно.',
   },
   tradePollStatus: {
     accepted: 'Принят',
@@ -947,6 +967,8 @@ const baseRuMessages = {
     cancel: 'Отменить',
     colItem: 'Предмет',
     colMaxPrice: 'Макс. цена',
+    colQuantity: 'Кол-во',
+    colReserved: 'Резерв',
     colStatus: 'Статус',
     emptyMessage: 'Откройте предмет без предложений в каталоге и оставьте заявку на покупку.',
     emptyTitle: 'Заявок пока нет',
@@ -1014,6 +1036,8 @@ const baseRuMessages = {
     INVENTORY_STALE: 'Не удалось обновить инвентарь из Steam. Попробуйте чуть позже.',
     TRADE_URL_REQUIRED:
       'Укажите Trade URL в настройках аккаунта — без него нельзя продавать и покупать.',
+    TRADE_URL_STEAM_MISMATCH:
+      'Trade URL не принадлежит привязанному Steam-аккаунту. Скопируйте ссылку из настроек Steam того же профиля.',
     STEAM_VAC_BANNED: 'Аккаунт с VAC-баном не может торговать на площадке.',
   },
   userRole: {

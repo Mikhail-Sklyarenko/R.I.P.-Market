@@ -5,6 +5,7 @@ import { ErrorCode } from '../../common/errors/error-codes';
 import { isRealSteamId } from '../../common/steam-id.util';
 import { isListableMarketHashName } from '../../lots/listing-eligibility.util';
 import { deriveBaseMarketHashName } from '../../item-definitions/base-market-hash-name.util';
+import { slugifyMarketHashName } from '../../item-definitions/item-slug.util';
 
 import { PrismaService } from '../../prisma/prisma.service';
 import { InventoryMetricsService } from './inventory-metrics.service';
@@ -220,6 +221,7 @@ export class SteamInventoryProvider implements InventoryProvider {
         where: { marketHashName: item.marketHashName },
         create: {
           marketHashName: item.marketHashName,
+          slug: slugifyMarketHashName(item.marketHashName),
           baseMarketHashName,
           game: 'CS2',
           weapon: item.weapon,
@@ -229,6 +231,7 @@ export class SteamInventoryProvider implements InventoryProvider {
         },
         update: {
           baseMarketHashName,
+          slug: slugifyMarketHashName(item.marketHashName),
           weapon: item.weapon ?? undefined,
           rarity: item.rarity ?? undefined,
           // Always refresh icon when Steam provides one — definitions created

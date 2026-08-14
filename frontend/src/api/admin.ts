@@ -10,6 +10,7 @@ import type {
   ListAdminLotsParams,
   ListAdminOrdersParams,
   OutboxEvent,
+  AdminSupportTicket,
   CatalogPriceRefreshStatus,
   SettlementAllowlistEntry,
   SettlementAllowlistResponse,
@@ -283,5 +284,21 @@ export function mockTradeTimeout(token: string, orderId: string, idempotencyKey?
     token,
     idempotencyKey: idempotencyKey ?? createIdempotencyKey('trade-timeout'),
     body: {},
+  });
+}
+
+export function getAdminSupportTickets(token: string) {
+  return apiRequest<AdminSupportTicket[]>('/admin/support/tickets', { token });
+}
+
+export function replyAdminSupportTicket(
+  token: string,
+  ticketId: string,
+  adminReply: string,
+) {
+  return apiRequest<AdminSupportTicket>(`/admin/support/tickets/${ticketId}/reply`, {
+    method: 'PATCH',
+    token,
+    body: { adminReply },
   });
 }

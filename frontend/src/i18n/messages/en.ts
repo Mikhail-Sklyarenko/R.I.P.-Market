@@ -58,8 +58,11 @@ const baseEnMessages = {
     refreshing: 'Updating…',
     popularLoading: 'Loading popular items…',
     popularTitle: 'Popular and in demand',
-    next: 'Next',
-    pageOf: 'Page {{current}} of {{total}}',
+    loadMore: 'Load more',
+    loadingMore: 'Loading…',
+    showingCount: 'Showing {{shown}} of {{total}}',
+    pageSize: 'Per page',
+    pageSizeOption: '{{count}} per page',
     tabs: {
       all: 'All',
       knives: 'Knives',
@@ -167,6 +170,7 @@ const baseEnMessages = {
     save: 'Save',
     cancel: 'Cancel',
     saving: 'Saving…',
+    invalidPrice: 'Enter a valid price greater than zero.',
     openDeal: 'Open deal',
     myDeals: 'My deals',
     loading: 'Loading listings…',
@@ -412,6 +416,10 @@ const baseEnMessages = {
   auth: {
     steamLogin: 'Sign in with Steam',
     steamRedirect: 'Redirecting to Steam…',
+    sellRequiredTitle: 'Sign-in required',
+    sellRequiredSubtitle:
+      'Sign in with Steam to sell items and manage your inventory.',
+    backToCatalog: 'Back to catalog',
   },
   assetUnavailable: {
     listed: 'Already listed for sale',

@@ -13,6 +13,11 @@ test.describe('Inventory sync UI', () => {
     await expect(page.getByText(/Последняя синхронизация:/)).toBeVisible();
     await expect(page.getByTestId('inventory-refresh')).toBeVisible();
     await expect(page.locator('[data-testid^="list-asset-"]').first()).toBeVisible();
+
+    const firstListAsset = page.locator('[data-testid^="list-asset-"]').first();
+    const assetTestId = await firstListAsset.getAttribute('data-testid');
+    const assetId = assetTestId!.replace('list-asset-', '');
+    await expect(page.getByTestId(`inventory-asset-float-${assetId}`)).toBeVisible();
   });
 
   test('refresh from Steam reloads inventory', async ({ page }) => {

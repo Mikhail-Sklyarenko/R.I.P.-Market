@@ -193,4 +193,26 @@ describe('MVP core flows (e2e)', () => {
     );
     expect(sellerAvailable).toBe(Math.floor(priceMinor * 0.95));
   });
+
+  it('seller can update ACTIVE listing price', async () => {
+    const { seller, lotId } = await setupActiveLot(100_000);
+
+    const updateResponse = await api.updateLotPrice(seller, lotId, 125_000);
+    expect(updateResponse.status).toBe(200);
+    expect(updateResponse.body.priceMinor).toBe('125000');
+    expect(updateResponse.body.commissionMinor).toBe('6250');
+    expect(updateResponse.body.sellerReceiveMinor).toBe('118750');
+  });
+
+  it('rejects price update while lot is RESERVED', async () => {
+    const { seller, lotId, priceMinor } = await setupActiveLot(100_000);
+    const buyer = await api.login(UserRole.BUYER);
+
+    await api.deposit(buyer, priceMinor * 2, 'dep-price-update-1');
+    await api.createOrder(buyer, lotId, 'buy-price-update-1');
+
+    const reservedUpdate = await api.updateLotPrice(seller, lotId, 130_000);
+    expect(reservedUpdate.status).toBe(400);
+    expect(reservedUpdate.body.error.code).toBe('LOT_NOT_ACTIVE');
+  });
 });

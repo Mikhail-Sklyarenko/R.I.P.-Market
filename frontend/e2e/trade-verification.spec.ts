@@ -36,6 +36,11 @@ test.describe('Trade verification buyer UX', () => {
     await expect(page.getByTestId('buyer-trade-checklist')).toBeVisible();
     await expect(page.getByTestId('buyer-steam-offers-link')).toBeVisible();
     await expect(page.getByText('Перед принятием проверьте скин')).toBeVisible();
+    await expect(page.getByTestId('trade-counterparty-seller')).toBeVisible();
+    await expect(page.getByTestId('trade-scam-warning')).toBeVisible();
+    await expect(page.getByTestId('trade-counterparty-steam-id-seller')).toContainText(
+      '7656119',
+    );
   });
 
   test('extension mode shows trade verification hint on buyer order page', async ({

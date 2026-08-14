@@ -128,7 +128,11 @@ export const KNIFE_WEAPON_NAMES = [
   'Ursus Knife',
 ] as const;
 
-export const CATALOG_PAGE_LIMIT = 24;
+export const CATALOG_PAGE_LIMIT = 48;
+
+export const CATALOG_PAGE_SIZE_OPTIONS = [24, 48, 96] as const;
+
+export type CatalogPageSize = (typeof CATALOG_PAGE_SIZE_OPTIONS)[number];
 
 function slugifyWeaponLabel(label: string): string {
   return label

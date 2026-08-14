@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { getAuthConfig, getCatalogItem, getLot, listSimilarLots } from '../api/marketplace';
-import type { Lot } from '../api/types';
+import type { CatalogItem, Lot } from '../api/types';
 import { useAuth } from '../auth/AuthContext';
 import { useLocale } from '../i18n';
 import { DealFlowSteps } from '../components/DealFlowSteps';
@@ -22,6 +22,7 @@ import { getRarityDisplayLabel } from '../utils/rarity-colors';
 import { SimilarLots } from '../components/SimilarLots';
 import { StatusBadge } from '../components/StatusBadge';
 import { formatDataTimestamp, resolveLotDisplayItem } from '../utils/lot-display';
+import { getCatalogItemRef } from '../utils/item-slug';
 import { startSteamLogin } from '../utils/start-steam-login';
 
 export function LotPage() {
@@ -36,6 +37,7 @@ export function LotPage() {
   const [error, setError] = useState<unknown>(null);
   const [requiresSteamLink, setRequiresSteamLink] = useState(false);
   const [siblingOfferCount, setSiblingOfferCount] = useState<number | null>(null);
+  const [catalogItem, setCatalogItem] = useState<CatalogItem | null>(null);
 
   const isOwnLot = Boolean(lot && user && lot.sellerId === user.id);
   const isUnavailable = lot?.status !== 'ACTIVE';
@@ -78,12 +80,26 @@ export function LotPage() {
   useEffect(() => {
     if (!itemDefinitionId) {
       setSiblingOfferCount(null);
+      setCatalogItem(null);
       return;
     }
     getCatalogItem(itemDefinitionId)
-      .then((item) => setSiblingOfferCount(item.activeLotCount))
-      .catch(() => setSiblingOfferCount(null));
+      .then((item) => {
+        setCatalogItem(item);
+        setSiblingOfferCount(item.activeLotCount);
+      })
+      .catch(() => {
+        setCatalogItem(null);
+        setSiblingOfferCount(null);
+      });
   }, [itemDefinitionId]);
+
+  const catalogItemPath =
+    catalogItem && itemDefinitionId
+      ? `/catalog/items/${getCatalogItemRef(catalogItem)}`
+      : itemDefinitionId
+        ? `/catalog/items/${itemDefinitionId}`
+        : null;
 
   async function handleProceedToCheckout() {
     if (!id) {
@@ -168,9 +184,9 @@ export function LotPage() {
                   />
                 </div>
 
-                {siblingOfferCount && siblingOfferCount > 1 && itemDefinitionId ? (
+                {siblingOfferCount && siblingOfferCount > 1 && catalogItemPath ? (
                   <Link
-                    to={`/catalog/items/${itemDefinitionId}`}
+                    to={catalogItemPath}
                     className="lot-compare-offers-link muted small"
                     data-testid="lot-compare-offers-link"
                   >

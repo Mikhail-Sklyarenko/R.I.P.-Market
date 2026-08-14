@@ -49,6 +49,15 @@ test.describe('Main navigation', () => {
     await expect(page).toHaveURL(/\/sell\/inventory$/);
   });
 
+  test('guest sees auth gate on sell nav instead of catalog redirect', async ({ page }) => {
+    await page.goto('/');
+    await page.getByTestId('nav-sell').click();
+    await expect(page).toHaveURL(/\/sell\/inventory$/);
+    await expect(page.getByTestId('sell-auth-required')).toBeVisible();
+    await expect(page.getByTestId('auth-required-steam-login')).toBeVisible();
+    await expect(page.getByTestId('catalog-grid')).toHaveCount(0);
+  });
+
   test('guest can open catalog and lot without auth', async ({ page, request }) => {
     await seedActiveLot(request);
     await page.goto('/');

@@ -6,8 +6,11 @@ import { UserRole, UserStatus } from '@prisma/client';
 import { PrismaService } from '../../src/prisma/prisma.service';
 import { LedgerService } from '../../src/wallet/ledger.service';
 
+import { buildSteamTradeUrlForSteamId64 } from '../../src/users/trade-url.util';
+
+export const MOCK_SELLER_STEAM_ID = '76561198000000000';
 export const MOCK_TRADE_URL =
-  'https://steamcommunity.com/tradeoffer/new/?partner=123456789&token=AbCdEfGh';
+  buildSteamTradeUrlForSteamId64(MOCK_SELLER_STEAM_ID, 'AbCdEfGh')!;
 
 type AuthSession = {
   token: string;
@@ -162,6 +165,13 @@ export class ApiClient {
     return request(this.app.getHttpServer())
       .get(`/api/v1/orders/${orderId}`)
       .set('Authorization', `Bearer ${session.token}`);
+  }
+
+  async updateLotPrice(session: AuthSession, lotId: string, priceMinor: number) {
+    return request(this.app.getHttpServer())
+      .patch(`/api/v1/lots/${lotId}/price`)
+      .set('Authorization', `Bearer ${session.token}`)
+      .send({ priceMinor });
   }
 
   async adminResolveDispute(

@@ -9,6 +9,7 @@ import {
 } from '../utils/catalog-lot-display';
 import { getRarityStyle } from '../utils/rarity-colors';
 import { getCatalogBuyPath, getCatalogItemPath } from '../utils/catalog-navigation';
+import { rememberCatalogReturnState } from '../utils/catalog-return-state';
 import {
   catalogCardImageWrapClass,
   resolveCatalogCardImageProfile,
@@ -52,6 +53,7 @@ export function CatalogItemCard({
   const imageWrapClass = catalogCardImageWrapClass(imageProfile);
 
   function openItem() {
+    rememberCatalogReturnState();
     navigate(itemPath);
   }
 
@@ -133,7 +135,10 @@ export function CatalogItemCard({
                 to={buyPath}
                 className="button primary sm catalog-lot-card-action"
                 data-testid={`catalog-item-buy-${item.id}`}
-                onClick={(event) => event.stopPropagation()}
+                onClick={(event) => {
+                  event.stopPropagation();
+                  rememberCatalogReturnState();
+                }}
               >
                 {t('lot.buyNow')}
               </Link>
@@ -142,7 +147,10 @@ export function CatalogItemCard({
                 to={itemPath}
                 className="button secondary sm catalog-lot-card-action"
                 data-testid={`catalog-item-request-${item.id}`}
-                onClick={(event) => event.stopPropagation()}
+                onClick={(event) => {
+                  event.stopPropagation();
+                  rememberCatalogReturnState();
+                }}
               >
                 {t('item.leaveRequest')}
               </Link>

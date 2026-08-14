@@ -30,6 +30,8 @@ export function getBuyerTradeSafetyChecklist(locale: Locale = 'ru'): string[] {
     t('orderTrade.checklist1', locale),
     t('orderTrade.checklist2', locale),
     t('orderTrade.checklist3', locale),
+    t('orderTrade.checklist4', locale),
+    t('orderTrade.checklist5', locale),
   ];
 }
 

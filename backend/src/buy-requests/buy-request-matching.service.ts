@@ -2,6 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { BuyRequestStatus, LotStatus } from '@prisma/client';
 import { NotificationsService } from '../notifications/notifications.service';
 import { PrismaService } from '../prisma/prisma.service';
+import { LedgerService } from '../wallet/ledger.service';
 import {
   lotMatchesBuyRequestPrice,
   shouldNotifyBuyRequestMatch,
@@ -14,6 +15,7 @@ export class BuyRequestMatchingService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly notificationsService: NotificationsService,
+    private readonly ledger: LedgerService,
   ) {}
 
   async matchLotActivated(lotId: string): Promise<void> {
@@ -72,14 +74,51 @@ export class BuyRequestMatchingService {
   async fulfillForPurchase(
     buyerId: string,
     itemDefinitionId: string,
+    priceMinor: bigint,
   ): Promise<void> {
-    await this.prisma.buyRequest.updateMany({
+    const candidates = await this.prisma.buyRequest.findMany({
       where: {
         buyerId,
         itemDefinitionId,
         status: BuyRequestStatus.OPEN,
+        maxPriceMinor: { gte: priceMinor },
       },
-      data: { status: BuyRequestStatus.FULFILLED },
+      orderBy: { maxPriceMinor: 'desc' },
+    });
+
+    const buyRequest = candidates.find(
+      (request) => request.quantityFilled < request.quantity,
+    );
+    if (!buyRequest?.maxPriceMinor) {
+      return;
+    }
+
+    const unitRelease = buyRequest.maxPriceMinor;
+    const nextFilled = buyRequest.quantityFilled + 1;
+    const currentReserved = buyRequest.reservedAmountMinor ?? 0n;
+    const nextReserved =
+      currentReserved > unitRelease ? currentReserved - unitRelease : 0n;
+    const fulfilled = nextFilled >= buyRequest.quantity;
+
+    await this.prisma.$transaction(async (tx) => {
+      if (unitRelease > 0n && currentReserved > 0n) {
+        await this.ledger.releaseBuyRequestHold({
+          buyerUserId: buyerId,
+          buyRequestId: buyRequest.id,
+          amountMinor: unitRelease,
+          idempotencyKey: `buy-request-fulfill:${buyRequest.id}:${nextFilled}`,
+          tx,
+        });
+      }
+
+      await tx.buyRequest.update({
+        where: { id: buyRequest.id },
+        data: {
+          quantityFilled: nextFilled,
+          reservedAmountMinor: nextReserved,
+          status: fulfilled ? BuyRequestStatus.FULFILLED : BuyRequestStatus.OPEN,
+        },
+      });
     });
   }
 

@@ -402,9 +402,10 @@ export class OrdersService {
 
       const itemDefinitionId =
         order.lot?.inventoryAsset?.itemDefinitionId ?? null;
-      if (itemDefinitionId) {
+      const lotPriceMinor = order.lot?.priceMinor ?? null;
+      if (itemDefinitionId && lotPriceMinor != null) {
         void this.buyRequestMatching
-          .fulfillForPurchase(buyerId, itemDefinitionId)
+          .fulfillForPurchase(buyerId, itemDefinitionId, lotPriceMinor)
           .catch(() => undefined);
       }
 
@@ -478,8 +479,12 @@ export class OrdersService {
         },
         tradeOperation: true,
         hold: true,
-        buyer: { select: { id: true, username: true, tradeUrl: true } },
-        seller: { select: { id: true, username: true, tradeUrl: true } },
+        buyer: {
+          select: { id: true, username: true, tradeUrl: true, steamId: true, steamPersonaName: true },
+        },
+        seller: {
+          select: { id: true, username: true, tradeUrl: true, steamId: true, steamPersonaName: true },
+        },
         statusEvents: {
           orderBy: { createdAt: 'asc' },
         },

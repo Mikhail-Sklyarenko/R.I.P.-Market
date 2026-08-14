@@ -13,7 +13,10 @@ import { PrismaService } from '../prisma/prisma.service';
 import { SteamProfileService } from '../providers/auth/steam-profile.service';
 import { LedgerService } from '../wallet/ledger.service';
 import { isOwnerAdminSteamId } from './owner-admin.util';
-import { isValidSteamTradeUrl } from './trade-url.util';
+import {
+  isValidSteamTradeUrl,
+  tradeUrlMatchesSteamId64,
+} from './trade-url.util';
 
 type MockIdentity = {
   role: UserRole;
@@ -189,6 +192,18 @@ export class UsersService {
     });
     if (!current) {
       throw new NotFoundException('User not found');
+    }
+
+    if (
+      current.tradeUrl?.trim() &&
+      isValidSteamTradeUrl(current.tradeUrl) &&
+      !tradeUrlMatchesSteamId64(current.tradeUrl, steamId)
+    ) {
+      throw new AppException(
+        ErrorCode.TRADE_URL_STEAM_MISMATCH,
+        'Trade URL does not belong to linked Steam account',
+        HttpStatus.BAD_REQUEST,
+      );
     }
 
     const preserveMockUsername = MOCK_IDENTITIES.some(
@@ -390,10 +405,18 @@ export class UsersService {
 
     const existing = await this.prisma.user.findUnique({
       where: { id: userId },
-      select: { id: true },
+      select: { id: true, steamId: true },
     });
     if (!existing) {
       throw new NotFoundException('User not found');
+    }
+
+    if (!tradeUrlMatchesSteamId64(trimmed, existing.steamId)) {
+      throw new AppException(
+        ErrorCode.TRADE_URL_STEAM_MISMATCH,
+        'Trade URL does not belong to linked Steam account',
+        HttpStatus.BAD_REQUEST,
+      );
     }
 
     const user = await this.prisma.user.update({

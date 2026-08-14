@@ -29,7 +29,7 @@ import { InventorySellPanel } from '../components/InventorySellPanel';
 import { PageHeader } from '../components/PageHeader';
 import { SellerSaleInfo } from '../components/SellerSaleInfo';
 import { canShowDevPanels, parseUsdToMinor, ERROR_MESSAGES } from '../utils/format';
-import { minorToPriceInput } from '../utils/inventory-pricing';
+import { getRecommendedPriceMinor, minorToPriceInput } from '../utils/inventory-pricing';
 import { hasLinkedSteamId } from '../utils/steam-id';
 import {
   canEditListedAsset,
@@ -400,12 +400,24 @@ export function InventoryPage() {
     setSelectedAssetId(asset.id);
     setBulkListCount(1);
     setSellError(null);
-    if (canEditListedAsset(asset) && asset.listedPriceMinor) {
-      const listedMinor = Number(asset.listedPriceMinor);
+    setPriceError(null);
+
+    if (canEditListedAsset(asset)) {
+      const listedMinor = asset.listedPriceMinor
+        ? Number(asset.listedPriceMinor)
+        : NaN;
       if (Number.isFinite(listedMinor) && listedMinor > 0) {
         setPriceInput(minorToPriceInput(listedMinor));
+      } else {
+        setPriceInput('');
       }
+      return;
     }
+
+    const recommendedMinor = getRecommendedPriceMinor(
+      priceHints[asset.itemDefinition.marketHashName],
+    );
+    setPriceInput(recommendedMinor ? minorToPriceInput(recommendedMinor) : '');
   }
 
   const clearSelection = useCallback(() => {
@@ -431,7 +443,17 @@ export function InventoryPage() {
       setSubmitting(true);
       setSellError(null);
       try {
-        await updateLotPrice(token, lotId, priceMinor);
+        const updated = await updateLotPrice(token, lotId, priceMinor);
+        setAssets((previous) =>
+          previous.map((asset) =>
+            asset.id === selectedAsset.id
+              ? {
+                  ...asset,
+                  listedPriceMinor: updated.priceMinor,
+                }
+              : asset,
+          ),
+        );
         clearSelection();
         await loadInventory(false);
       } catch (err: unknown) {

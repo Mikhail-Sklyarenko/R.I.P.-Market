@@ -38,6 +38,7 @@ import {
   formatPaintSeed,
   getItemCategory,
 } from '../utils/item-image';
+import { getCatalogItemRef } from '../utils/item-slug';
 
 const POLL_STATUSES = new Set(['WAITING_TRADE', 'TRADE_CONFIRMED', 'PAYMENT_RESERVED', 'CREATED']);
 
@@ -379,10 +380,11 @@ export function OrderPage() {
                   <p className="order-item-links">
                     <Link
                       to={
-                        (asset.itemDefinitionId ?? asset.itemDefinition.id)
-                          ? `/catalog/items/${
-                              asset.itemDefinitionId ?? asset.itemDefinition.id
-                            }`
+                        asset.itemDefinition
+                          ? `/catalog/items/${getCatalogItemRef({
+                              id: asset.itemDefinitionId ?? asset.itemDefinition.id ?? '',
+                              slug: asset.itemDefinition.slug,
+                            })}`
                           : `/lots/${order.lotId}`
                       }
                       className="button secondary sm"

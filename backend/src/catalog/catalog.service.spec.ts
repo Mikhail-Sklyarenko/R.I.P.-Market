@@ -343,6 +343,165 @@ describe('CatalogService', () => {
     );
   });
 
+  it('sorts catalog by newest active listing first', async () => {
+    prisma.lot.findMany.mockImplementation((args: { select?: unknown; orderBy?: unknown }) => {
+      if (args.orderBy) {
+        return Promise.resolve([]);
+      }
+      if (
+        args.select &&
+        typeof args.select === 'object' &&
+        args.select !== null &&
+        'priceMinor' in args.select
+      ) {
+        return Promise.resolve([
+          {
+            priceMinor: 2000n,
+            createdAt: new Date('2026-01-10T12:00:00.000Z'),
+            inventoryAsset: {
+              itemDefinitionId: 'item-old',
+              wear: 'FT',
+              floatValue: null,
+              itemDefinition: {
+                marketHashName: 'AK-47 | Redline (Field-Tested)',
+                baseMarketHashName: 'AK-47 | Redline',
+              },
+            },
+            listingSnapshot: { wear: 'FT', floatValue: null },
+          },
+          {
+            priceMinor: 1500n,
+            createdAt: new Date('2026-02-15T12:00:00.000Z'),
+            inventoryAsset: {
+              itemDefinitionId: 'item-new',
+              wear: 'MW',
+              floatValue: null,
+              itemDefinition: {
+                marketHashName: 'AWP | Asiimov (Minimal Wear)',
+                baseMarketHashName: 'AWP | Asiimov',
+              },
+            },
+            listingSnapshot: { wear: 'MW', floatValue: null },
+          },
+        ]);
+      }
+      return Promise.resolve([]);
+    });
+    prisma.itemDefinition.findMany.mockResolvedValue([
+      {
+        id: 'item-old',
+        marketHashName: 'AK-47 | Redline',
+        baseMarketHashName: 'AK-47 | Redline',
+        weapon: 'Rifle',
+        rarity: 'Classified',
+        iconUrl: null,
+        availableWears: ['FT'],
+        catalogSeeded: true,
+      },
+      {
+        id: 'item-new',
+        marketHashName: 'AWP | Asiimov',
+        baseMarketHashName: 'AWP | Asiimov',
+        weapon: 'Sniper Rifle',
+        rarity: 'Covert',
+        iconUrl: null,
+        availableWears: ['MW'],
+        catalogSeeded: true,
+      },
+      {
+        id: 'item-empty',
+        marketHashName: 'Revolution Case',
+        baseMarketHashName: 'Revolution Case',
+        weapon: null,
+        rarity: 'Base Grade',
+        iconUrl: null,
+        availableWears: [],
+        catalogSeeded: true,
+      },
+    ]);
+
+    const result = await service.listItems({ page: 1, limit: 24, sort: 'newest' });
+
+    expect(result.items.map((item) => item.id)).toEqual([
+      'item-new',
+      'item-old',
+      'item-empty',
+    ]);
+    expect(result.items[0]?.latestListedAt).toBe('2026-02-15T12:00:00.000Z');
+  });
+
+  it('sorts catalog by marketplace price ascending', async () => {
+    prisma.lot.findMany.mockImplementation((args: { select?: unknown; orderBy?: unknown }) => {
+      if (args.orderBy) {
+        return Promise.resolve([]);
+      }
+      if (
+        args.select &&
+        typeof args.select === 'object' &&
+        args.select !== null &&
+        'priceMinor' in args.select
+      ) {
+        return Promise.resolve([
+          {
+            priceMinor: 3000n,
+            createdAt: new Date('2026-01-01T00:00:00.000Z'),
+            inventoryAsset: {
+              itemDefinitionId: 'item-expensive',
+              wear: null,
+              floatValue: null,
+              itemDefinition: {
+                marketHashName: 'AWP | Asiimov',
+                baseMarketHashName: 'AWP | Asiimov',
+              },
+            },
+            listingSnapshot: null,
+          },
+          {
+            priceMinor: 1000n,
+            createdAt: new Date('2026-01-02T00:00:00.000Z'),
+            inventoryAsset: {
+              itemDefinitionId: 'item-cheap',
+              wear: null,
+              floatValue: null,
+              itemDefinition: {
+                marketHashName: 'AK-47 | Redline',
+                baseMarketHashName: 'AK-47 | Redline',
+              },
+            },
+            listingSnapshot: null,
+          },
+        ]);
+      }
+      return Promise.resolve([]);
+    });
+    prisma.itemDefinition.findMany.mockResolvedValue([
+      {
+        id: 'item-expensive',
+        marketHashName: 'AWP | Asiimov',
+        baseMarketHashName: 'AWP | Asiimov',
+        weapon: 'Sniper Rifle',
+        rarity: 'Covert',
+        iconUrl: null,
+        availableWears: [],
+        catalogSeeded: true,
+      },
+      {
+        id: 'item-cheap',
+        marketHashName: 'AK-47 | Redline',
+        baseMarketHashName: 'AK-47 | Redline',
+        weapon: 'Rifle',
+        rarity: 'Classified',
+        iconUrl: null,
+        availableWears: [],
+        catalogSeeded: true,
+      },
+    ]);
+
+    const result = await service.listItems({ page: 1, limit: 24, sort: 'cheapest' });
+
+    expect(result.items.map((item) => item.id)).toEqual(['item-cheap', 'item-expensive']);
+  });
+
   it('returns not found for non-listable catalog item detail', async () => {
     prisma.itemDefinition.findUnique.mockResolvedValue({
       id: 'medal-1',
@@ -355,5 +514,30 @@ describe('CatalogService', () => {
     await expect(service.getItem('medal-1')).rejects.toMatchObject({
       code: 'NOT_FOUND',
     });
+  });
+
+  it('resolves catalog item detail by slug', async () => {
+    prisma.itemDefinition.findUnique.mockImplementation(({ where }: { where: { id?: string; slug?: string } }) => {
+      if (where.slug === 'ak-47-redline') {
+        return Promise.resolve({
+          id: 'item-redline',
+          slug: 'ak-47-redline',
+          marketHashName: 'AK-47 | Redline (Field-Tested)',
+          baseMarketHashName: 'AK-47 | Redline',
+          weapon: 'Rifle',
+          rarity: 'Classified',
+          iconUrl: null,
+          availableWears: ['FT'],
+          catalogSeeded: true,
+        });
+      }
+      return Promise.resolve(null);
+    });
+    prisma.lot.findMany.mockResolvedValue([]);
+
+    const result = await service.getItem('ak-47-redline');
+
+    expect(result.id).toBe('item-redline');
+    expect(result.slug).toBe('ak-47-redline');
   });
 });

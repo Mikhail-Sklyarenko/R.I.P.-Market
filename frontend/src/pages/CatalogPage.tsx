@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type Dispatch, type SetStateAction } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { listCatalogItems, listPopularCatalogItems, getCatalogSteamPrices } from '../api/marketplace';
 import type { CatalogItem } from '../api/types';
@@ -18,6 +18,7 @@ import { TrustBanner } from '../components/TrustBanner';
 import { useLocale } from '../i18n';
 import {
   CATALOG_PAGE_LIMIT,
+  CATALOG_PAGE_SIZE_OPTIONS,
   findCategoryOption,
   findTabForWeapon,
   hasActiveCatalogFilters,
@@ -31,6 +32,15 @@ import {
 import { parseUsdToMinor } from '../utils/format';
 import { formatDataTimestamp } from '../utils/lot-display';
 import { resolveCatalogCardDisplaySteamPriceName } from '../utils/steam-market-link';
+import {
+  consumeCatalogScrollRestore,
+  parseCatalogLimitParam,
+  parseCatalogPageParam,
+} from '../utils/catalog-return-state';
+import {
+  dedupeCatalogItems,
+  mergeCatalogItems,
+} from '../utils/catalog-load-more';
 
 type SortOption = 'newest' | 'price-asc' | 'price-desc' | 'popular';
 
@@ -74,6 +84,29 @@ function isSteamPriceFresh(item: CatalogItem): boolean {
     return false;
   }
   return Date.now() - new Date(item.steamPriceFetchedAt).getTime() <= STEAM_PRICE_STALE_MS;
+}
+
+function applyCatalogPriceState(
+  catalogItems: CatalogItem[],
+  setters: {
+    setSteamPrices: Dispatch<SetStateAction<Record<string, number | null>>>;
+    setPendingPriceNames: Dispatch<SetStateAction<Set<string>>>;
+    setSteamPriceFetchedAt: Dispatch<SetStateAction<string | null>>;
+  },
+  responseSteamPriceFetchedAt?: string | null,
+) {
+  const seeded = buildPriceStateFromItems(catalogItems);
+  setters.setSteamPrices((prev) => ({ ...prev, ...seeded.steamPrices }));
+  setters.setPendingPriceNames((prev) => {
+    const next = new Set(prev);
+    for (const name of seeded.pending) {
+      next.add(name);
+    }
+    return next;
+  });
+  if (responseSteamPriceFetchedAt) {
+    setters.setSteamPriceFetchedAt(responseSteamPriceFetchedAt);
+  }
 }
 
 function buildPriceStateFromItems(items: CatalogItem[]) {
@@ -120,6 +153,7 @@ export function CatalogPage() {
   const [pendingPriceNames, setPendingPriceNames] = useState<Set<string>>(new Set());
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState<unknown>(null);
   const [search, setSearch] = useState('');
   const [sort, setSort] = useState<SortOption>('newest');
@@ -131,7 +165,11 @@ export function CatalogPage() {
     useState<SkinTraitCheckboxState>(EMPTY_SKIN_TRAIT_FILTERS);
   const [floatMin, setFloatMin] = useState('');
   const [floatMax, setFloatMax] = useState('');
-  const [page, setPage] = useState(1);
+  const loadedPage = parseCatalogPageParam(searchParams.get('page'));
+  const pageLimit = parseCatalogLimitParam(searchParams.get('limit'), CATALOG_PAGE_LIMIT);
+  const pendingScrollRestoreRef = useRef<number | null>(null);
+  const previousBaseQueryKeyRef = useRef<string | null>(null);
+  const previousLoadedPageRef = useRef(0);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [activeTabId, setActiveTabId] = useState(
     weaponParam ? findTabForWeapon(weaponParam) : 'all',
@@ -143,7 +181,7 @@ export function CatalogPage() {
     [activeTabId, categoryValue],
   );
 
-  const query = useMemo(() => {
+  const baseQuery = useMemo(() => {
     const minMinor = minPrice ? parseUsdToMinor(minPrice) : undefined;
     const maxMinor = maxPrice ? parseUsdToMinor(maxPrice) : undefined;
     const parsedFloatMin = floatMin.trim() ? Number(floatMin) : undefined;
@@ -166,8 +204,7 @@ export function CatalogPage() {
           ? parsedFloatMax
           : undefined,
       sort: toCatalogSort(sort),
-      page,
-      limit: CATALOG_PAGE_LIMIT,
+      limit: pageLimit,
     };
   }, [
     search,
@@ -179,9 +216,11 @@ export function CatalogPage() {
     skinTraitFilters,
     floatMin,
     floatMax,
-    page,
+    pageLimit,
     categoryFilter,
   ]);
+
+  const baseQueryKey = useMemo(() => JSON.stringify(baseQuery), [baseQuery]);
 
   const showResetFilters =
     hasActiveCatalogFilters({
@@ -203,21 +242,169 @@ export function CatalogPage() {
   const showPopularSection =
     (!filtersActive || loading) && !popularLoading && popularItems.length > 0;
 
+  const catalogFilterKey = useMemo(
+    () =>
+      JSON.stringify({
+        search,
+        sort,
+        minPrice,
+        maxPrice,
+        rarityFilter,
+        wearFilter,
+        skinTraitFilters,
+        floatMin,
+        floatMax,
+        activeTabId,
+        categoryValue,
+      }),
+    [
+      search,
+      sort,
+      minPrice,
+      maxPrice,
+      rarityFilter,
+      wearFilter,
+      skinTraitFilters,
+      floatMin,
+      floatMax,
+      activeTabId,
+      categoryValue,
+    ],
+  );
+  const previousCatalogFilterKeyRef = useRef(catalogFilterKey);
+
+  function setPageLimit(nextLimit: number) {
+    const nextParams = new URLSearchParams(searchParams);
+    if (nextLimit === CATALOG_PAGE_LIMIT) {
+      nextParams.delete('limit');
+    } else {
+      nextParams.set('limit', String(nextLimit));
+    }
+    nextParams.delete('page');
+    setSearchParams(nextParams, { replace: true });
+    window.scrollTo({ top: 0, behavior: 'instant' });
+  }
+
+  function goToPage(nextPage: number, options?: { scrollToTop?: boolean }) {
+    const nextParams = new URLSearchParams(searchParams);
+    if (nextPage <= 1) {
+      nextParams.delete('page');
+    } else {
+      nextParams.set('page', String(nextPage));
+    }
+    setSearchParams(nextParams, { replace: true });
+    if (options?.scrollToTop ?? false) {
+      window.scrollTo({ top: 0, behavior: 'instant' });
+    }
+  }
+
+  function loadMoreCatalogItems() {
+    if (loadingMore || loading || items.length >= total) {
+      return;
+    }
+    goToPage(loadedPage + 1);
+  }
+
   useEffect(() => {
-    setLoading(true);
-    setError(null);
-    listCatalogItems(query)
-      .then((response) => {
-        setItems(response.items);
-        setTotal(response.total);
-        const seeded = buildPriceStateFromItems(response.items);
-        setSteamPrices(seeded.steamPrices);
-        setPendingPriceNames(seeded.pending);
-        setSteamPriceFetchedAt(response.steamPriceFetchedAt ?? null);
-      })
-      .catch((err: unknown) => setError(err))
-      .finally(() => setLoading(false));
-  }, [query]);
+    let cancelled = false;
+    const baseQueryChanged = previousBaseQueryKeyRef.current !== baseQueryKey;
+    const priceSetters = {
+      setSteamPrices,
+      setPendingPriceNames,
+      setSteamPriceFetchedAt,
+    };
+
+    async function fetchCatalogPages(fromPage: number, toPage: number, mode: 'replace' | 'append') {
+      if (mode === 'append') {
+        setLoadingMore(true);
+      } else {
+        setLoading(true);
+      }
+      setError(null);
+
+      try {
+        if (toPage <= 1) {
+          const response = await listCatalogItems({ ...baseQuery, page: 1 });
+          if (cancelled) {
+            return;
+          }
+          setItems(response.items);
+          setTotal(response.total);
+          applyCatalogPriceState(response.items, priceSetters, response.steamPriceFetchedAt);
+          return;
+        }
+
+        if (mode === 'append' && toPage > fromPage) {
+          const response = await listCatalogItems({ ...baseQuery, page: toPage });
+          if (cancelled) {
+            return;
+          }
+          setItems((current) => mergeCatalogItems(current, response.items));
+          setTotal(response.total);
+          applyCatalogPriceState(response.items, priceSetters, response.steamPriceFetchedAt);
+          return;
+        }
+
+        const mergedItems: CatalogItem[] = [];
+        let totalCount = 0;
+        let latestSteamPriceFetchedAt: string | null | undefined;
+        for (let pageNumber = 1; pageNumber <= toPage; pageNumber += 1) {
+          const response = await listCatalogItems({ ...baseQuery, page: pageNumber });
+          if (cancelled) {
+            return;
+          }
+          mergedItems.push(...response.items);
+          totalCount = response.total;
+          latestSteamPriceFetchedAt = response.steamPriceFetchedAt ?? latestSteamPriceFetchedAt;
+        }
+        const deduped = dedupeCatalogItems(mergedItems);
+        setItems(deduped);
+        setTotal(totalCount);
+        applyCatalogPriceState(deduped, priceSetters, latestSteamPriceFetchedAt);
+      } catch (err: unknown) {
+        if (!cancelled) {
+          setError(err);
+        }
+      } finally {
+        if (!cancelled) {
+          setLoading(false);
+          setLoadingMore(false);
+        }
+      }
+    }
+
+    if (baseQueryChanged) {
+      previousBaseQueryKeyRef.current = baseQueryKey;
+      const isInitialMount = previousLoadedPageRef.current === 0;
+      const pagesToLoad = isInitialMount && loadedPage > 1 ? loadedPage : 1;
+      previousLoadedPageRef.current = pagesToLoad;
+      void fetchCatalogPages(1, pagesToLoad, 'replace');
+      return () => {
+        cancelled = true;
+      };
+    }
+
+    if (loadedPage > previousLoadedPageRef.current) {
+      const fromPage = previousLoadedPageRef.current;
+      previousLoadedPageRef.current = loadedPage;
+      void fetchCatalogPages(fromPage, loadedPage, 'append');
+      return () => {
+        cancelled = true;
+      };
+    }
+
+    if (loadedPage < previousLoadedPageRef.current) {
+      previousLoadedPageRef.current = loadedPage;
+      void fetchCatalogPages(1, Math.max(loadedPage, 1), 'replace');
+      return () => {
+        cancelled = true;
+      };
+    }
+
+    return () => {
+      cancelled = true;
+    };
+  }, [baseQuery, baseQueryKey, loadedPage]);
 
   useEffect(() => {
     if (filtersActive) {
@@ -413,8 +600,19 @@ export function CatalogPage() {
   }, [items, popularItems]);
 
   useEffect(() => {
-    setPage(1);
-  }, [search, sort, minPrice, maxPrice, rarityFilter, wearFilter, skinTraitFilters, floatMin, floatMax, activeTabId, categoryValue]);
+    if (previousCatalogFilterKeyRef.current === catalogFilterKey) {
+      return;
+    }
+    previousCatalogFilterKeyRef.current = catalogFilterKey;
+
+    if (!searchParams.get('page')) {
+      return;
+    }
+
+    const nextParams = new URLSearchParams(searchParams);
+    nextParams.delete('page');
+    setSearchParams(nextParams, { replace: true });
+  }, [catalogFilterKey, searchParams, setSearchParams]);
 
   useEffect(() => {
     if (!weaponParam) {
@@ -425,8 +623,27 @@ export function CatalogPage() {
     setActiveTabId(findTabForWeapon(weaponParam));
   }, [weaponParam]);
 
-  const totalPages = Math.max(1, Math.ceil(total / CATALOG_PAGE_LIMIT));
-  const currentPage = Math.min(page, totalPages);
+  useEffect(() => {
+    if (loading) {
+      return;
+    }
+
+    const scrollY = consumeCatalogScrollRestore();
+    if (scrollY != null) {
+      pendingScrollRestoreRef.current = scrollY;
+    }
+  }, [loading, searchParams]);
+
+  useLayoutEffect(() => {
+    if (pendingScrollRestoreRef.current == null || loading || loadingMore) {
+      return;
+    }
+
+    window.scrollTo({ top: pendingScrollRestoreRef.current, behavior: 'instant' });
+    pendingScrollRestoreRef.current = null;
+  }, [loading, loadingMore, items, searchParams]);
+
+  const hasMoreItems = items.length < total;
 
   function handleCategoryChange(value: string) {
     setCategoryValue(value);
@@ -467,8 +684,8 @@ export function CatalogPage() {
     setFloatMax('');
     setActiveTabId('all');
     setCategoryValue('');
-    setPage(1);
     setSearchParams({}, { replace: true });
+    window.scrollTo({ top: 0, behavior: 'instant' });
   }
 
   return (
@@ -504,6 +721,21 @@ export function CatalogPage() {
             <option value="newest">{t('catalog.sortNewest')}</option>
             <option value="price-asc">{t('catalog.sortPriceAsc')}</option>
             <option value="price-desc">{t('catalog.sortPriceDesc')}</option>
+          </select>
+        </label>
+        <label className="field catalog-filter-field catalog-page-size-field">
+          <span className="sr-only">{t('catalog.pageSize')}</span>
+          <select
+            value={pageLimit}
+            onChange={(event) => setPageLimit(Number(event.target.value))}
+            aria-label={t('catalog.pageSize')}
+            data-testid="catalog-page-size"
+          >
+            {CATALOG_PAGE_SIZE_OPTIONS.map((size) => (
+              <option key={size} value={size}>
+                {t('catalog.pageSizeOption', { count: size })}
+              </option>
+            ))}
           </select>
         </label>
         {showResetFilters ? (
@@ -638,26 +870,19 @@ export function CatalogPage() {
             </div>
           ) : null}
 
-          {!isInitialLoading && !loading && total > CATALOG_PAGE_LIMIT ? (
-            <div className="catalog-pagination" data-testid="catalog-pagination">
+          {!isInitialLoading && !loading && items.length > 0 && hasMoreItems ? (
+            <div className="catalog-load-more" data-testid="catalog-load-more">
+              <p className="muted small catalog-load-more-count">
+                {t('catalog.showingCount', { shown: items.length, total })}
+              </p>
               <button
                 type="button"
-                className="button secondary sm"
-                disabled={currentPage <= 1}
-                onClick={() => setPage((value) => value - 1)}
+                className="button secondary"
+                disabled={loadingMore}
+                onClick={loadMoreCatalogItems}
+                data-testid="catalog-load-more-button"
               >
-                {t('common.back')}
-              </button>
-              <span className="muted small">
-                {t('catalog.pageOf', { current: currentPage, total: totalPages })}
-              </span>
-              <button
-                type="button"
-                className="button secondary sm"
-                disabled={currentPage >= totalPages}
-                onClick={() => setPage((value) => value + 1)}
-              >
-                {t('catalog.next')}
+                {loadingMore ? t('catalog.loadingMore') : t('catalog.loadMore')}
               </button>
             </div>
           ) : null}

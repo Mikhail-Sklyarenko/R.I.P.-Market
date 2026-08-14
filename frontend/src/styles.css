@@ -390,6 +390,50 @@ textarea {
   width: min(100%, 480px);
 }
 
+.auth-required-card {
+  width: min(100%, 420px);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-4);
+  text-align: center;
+}
+
+.auth-required-icon {
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background: color-mix(in srgb, var(--color-text-muted) 12%, transparent);
+  color: var(--color-text-muted);
+}
+
+.auth-required-title {
+  margin: 0;
+  font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-semibold);
+  line-height: var(--line-height-tight);
+}
+
+.auth-required-subtitle {
+  margin: 0;
+  max-width: 34ch;
+}
+
+.auth-required-actions {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: var(--space-3);
+  width: min(100%, 280px);
+  margin-top: var(--space-2);
+}
+
+.auth-required-actions .steam-login-button {
+  justify-content: center;
+}
+
 .account-card {
   width: min(100%, 560px);
 }
@@ -3511,6 +3555,13 @@ a.button.primary {
   white-space: nowrap;
 }
 
+.inventory-asset-card-float-tag {
+  font-size: 10px;
+  line-height: 1;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
 .inventory-asset-card-badge {
   display: inline-flex;
   align-items: center;
@@ -3774,6 +3825,11 @@ a.button.primary {
   min-width: 9.5rem;
 }
 
+.catalog-search-toolbar .catalog-page-size-field {
+  flex: 0 1 9.5rem;
+  min-width: 8.5rem;
+}
+
 .catalog-search-toolbar .catalog-reset-filters-btn {
   flex: 0 0 auto;
 }
@@ -3798,7 +3854,8 @@ a.button.primary {
   }
 
   .catalog-search-toolbar .catalog-search-field,
-  .catalog-search-toolbar .catalog-sort-field {
+  .catalog-search-toolbar .catalog-sort-field,
+  .catalog-search-toolbar .catalog-page-size-field {
     flex: 1 1 100%;
     max-width: none;
     min-width: 0;
@@ -4097,6 +4154,18 @@ a.button.primary {
 
 .catalog-lot-price .money-display-strong {
   font-size: inherit;
+}
+
+.catalog-load-more {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-3);
+  margin-top: var(--space-6);
+}
+
+.catalog-load-more-count {
+  margin: 0;
 }
 
 .catalog-pagination {
@@ -5760,6 +5829,41 @@ a.button.primary {
   background: var(--color-bg-subtle);
 }
 
+.trade-counterparty-card {
+  display: grid;
+  gap: var(--space-2);
+  padding: var(--space-3);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface-muted, rgba(255, 255, 255, 0.02));
+}
+
+.trade-counterparty-scam {
+  margin: 0;
+}
+
+.trade-counterparty-header {
+  display: grid;
+  gap: 0.15rem;
+}
+
+.trade-counterparty-steam-id {
+  display: grid;
+  gap: 0.35rem;
+}
+
+.trade-counterparty-steam-id code {
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-size: var(--font-size-sm);
+  word-break: break-all;
+}
+
+.trade-counterparty-steam-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
 .order-trade-panel-title {
   margin: 0;
   font-size: var(--font-size-base);
@@ -6281,6 +6385,52 @@ a.button.primary {
   padding-top: var(--space-2);
   border-top: 1px solid var(--color-border);
   font-size: var(--font-size-sm);
+}
+
+.item-buy-request-active-list {
+  display: grid;
+  gap: var(--space-3);
+  margin-bottom: var(--space-3);
+}
+
+.item-buy-request-quantity-field input {
+  width: 5.5rem;
+}
+
+.item-buy-request-reserve-preview {
+  margin: 0;
+}
+
+.item-buy-request-wallet-link {
+  margin: var(--space-2) 0 0;
+}
+
+.item-buy-request-active-list .item-buy-request-active {
+  margin: 0;
+}
+
+.admin-support-ticket-list {
+  display: grid;
+  gap: var(--space-4);
+}
+
+.admin-support-ticket-card {
+  margin: 0;
+}
+
+.admin-support-ticket-meta {
+  margin: var(--space-1) 0 0;
+}
+
+.admin-support-ticket-body {
+  margin: 0 0 var(--space-3);
+  white-space: pre-wrap;
+}
+
+.admin-support-reply-form {
+  margin-top: var(--space-3);
+  padding-top: var(--space-3);
+  border-top: 1px solid var(--color-border);
 }
 
 @media (max-width: 900px) {

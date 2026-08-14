@@ -2,9 +2,9 @@ import { APIRequestContext } from '@playwright/test';
 import { decodeUserIdFromToken, fundWallet, linkSteamForUser } from './crypto-payments';
 
 const API_BASE = process.env.PLAYWRIGHT_API_BASE_URL ?? 'http://127.0.0.1:3001/api/v1';
-const MOCK_TRADE_URL =
-  'https://steamcommunity.com/tradeoffer/new/?partner=123456789&token=AbCdEfGh';
 const MOCK_SELLER_STEAM_ID = '76561198000000000';
+const MOCK_TRADE_URL =
+  'https://steamcommunity.com/tradeoffer/new/?partner=39734272&token=AbCdEfGh';
 
 type InventoryAssetSeed = {
   id: string;

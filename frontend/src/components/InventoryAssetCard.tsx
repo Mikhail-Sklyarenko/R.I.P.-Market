@@ -9,6 +9,10 @@ import {
 import { formatPaintSeed } from '../utils/item-image';
 import { getRarityStyle } from '../utils/rarity-colors';
 import {
+  formatWearFloatDisplay,
+  parseWearFloat,
+} from '../utils/wear-bar';
+import {
   assetUnavailableReason,
   canEditListedAsset,
   canOpenInventorySellPanel,
@@ -58,6 +62,9 @@ export function InventoryAssetCard({
   const { weapon, skin } = parseCatalogLotName(name);
   const wearBadge = getWearBadgeStyle(asset.wear);
   const patternText = formatPaintSeed(asset.paintSeed);
+  const floatNumeric = parseWearFloat(asset.floatValue);
+  const floatText =
+    floatNumeric !== null ? formatWearFloatDisplay(floatNumeric) : null;
   const showStatusBadge = asset.status !== 'AVAILABLE';
   const rarityStyle = getRarityStyle(asset.itemDefinition.rarity);
   const unavailableReason = !interactive ? assetUnavailableReason(asset) : null;
@@ -141,6 +148,14 @@ export function InventoryAssetCard({
               data-testid={`inventory-asset-pattern-${asset.id}`}
             >
               #{patternText}
+            </span>
+          ) : null}
+          {floatText ? (
+            <span
+              className="inventory-asset-card-float-tag muted small"
+              data-testid={`inventory-asset-float-${asset.id}`}
+            >
+              {floatText}
             </span>
           ) : null}
         </div>

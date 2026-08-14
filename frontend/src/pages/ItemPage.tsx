@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Link, useNavigate, useParams } from 'react-router-dom';
+import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import {
   cancelBuyRequest,
   createBuyRequest,
@@ -11,6 +11,7 @@ import type { BuyRequest, CatalogItem, Lot } from '../api/types';
 import { useAuth } from '../auth/AuthContext';
 import { useLocale, wearLabel } from '../i18n';
 import { useWearSteamPrice } from '../hooks/useWearSteamPrice';
+import { usePageMeta } from '../hooks/usePageMeta';
 import { DealFlowSteps } from '../components/DealFlowSteps';
 import { BUY_REQUEST_FLOW_STEP_ITEMS } from '../utils/order-flow';
 import { ErrorAlert } from '../components/ErrorAlert';
@@ -27,6 +28,7 @@ import {
   resolveSingleLotId,
   shouldRedirectItemPageToLot,
 } from '../utils/catalog-navigation';
+import { getCatalogItemRef, isUuid } from '../utils/item-slug';
 import {
   formatSteamPriceAge,
   isSteamPriceStale,
@@ -46,25 +48,41 @@ import { preloadWearIcons } from '../utils/wear-icons';
 
 export function ItemPage() {
   const { id } = useParams();
+  const [searchParams] = useSearchParams();
   const { locale, t } = useLocale();
   const { token } = useAuth();
   const navigate = useNavigate();
   const [item, setItem] = useState<CatalogItem | null>(null);
   const [lots, setLots] = useState<Lot[]>([]);
-  const [buyRequest, setBuyRequest] = useState<BuyRequest | null>(null);
+  const [buyRequests, setBuyRequests] = useState<BuyRequest[]>([]);
   const [loading, setLoading] = useState(true);
   const [lotsLoading, setLotsLoading] = useState(true);
   const [error, setError] = useState<unknown>(null);
   const [requestError, setRequestError] = useState<unknown>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [cancelingId, setCancelingId] = useState<string | null>(null);
   const [maxPriceInput, setMaxPriceInput] = useState('');
+  const [quantityInput, setQuantityInput] = useState('1');
   const [selectedWear, setSelectedWear] = useState('');
 
   const maxPriceMinor = useMemo(() => parseUsdToMinor(maxPriceInput), [maxPriceInput]);
   const hasOffers = (item?.activeLotCount ?? 0) > 0;
   const isComparisonPage = hasOffers && (item?.activeLotCount ?? 0) > 1;
   const isBuyRequestPage = Boolean(item) && !hasOffers;
-  const openBuyRequest = buyRequest?.status === 'OPEN' ? buyRequest : null;
+  const openBuyRequests = useMemo(() => {
+    return buyRequests.filter((request) => {
+      if (request.status !== 'OPEN') {
+        return false;
+      }
+      if (!selectedWear) {
+        return true;
+      }
+      const wearInName = parseWearCodeFromMarketHashName(
+        request.itemDefinition?.marketHashName ?? '',
+      );
+      return !wearInName || wearInName === selectedWear;
+    });
+  }, [buyRequests, selectedWear]);
   const cheapestLot = lots[0] ?? null;
   const wearOptions = useMemo(() => {
     if (!item?.availableWears?.length) {
@@ -89,6 +107,11 @@ export function ItemPage() {
     loading: wearSteamPriceLoading,
   } = useWearSteamPrice(item?.marketHashName, wearForSteamPrice, item?.steamPriceMinor, {
     enabled: Boolean(item),
+  });
+
+  usePageMeta({
+    title: item?.marketHashName ?? null,
+    canonicalPath: item ? `/catalog/items/${getCatalogItemRef(item)}` : null,
   });
 
   useEffect(() => {
@@ -117,12 +140,22 @@ export function ItemPage() {
   }, [id]);
 
   useEffect(() => {
-    if (!id) {
+    if (!item?.slug || !id) {
+      return;
+    }
+    if (isUuid(id) && id !== item.slug) {
+      const query = searchParams.toString();
+      navigate(`/catalog/items/${item.slug}${query ? `?${query}` : ''}`, { replace: true });
+    }
+  }, [item, id, navigate, searchParams]);
+
+  useEffect(() => {
+    if (!item?.id) {
       return;
     }
     setLotsLoading(true);
     listLots({
-      itemDefinitionId: id,
+      itemDefinitionId: item.id,
       wear: selectedWear || undefined,
       sort: 'price_asc',
       limit: 24,
@@ -131,7 +164,7 @@ export function ItemPage() {
       .then((page) => setLots(page.items))
       .catch(() => setLots([]))
       .finally(() => setLotsLoading(false));
-  }, [id, selectedWear]);
+  }, [item?.id, selectedWear]);
 
   useEffect(() => {
     if (!item?.wearIcons) {
@@ -141,33 +174,14 @@ export function ItemPage() {
   }, [item?.id, item?.wearIcons]);
 
   useEffect(() => {
-    if (!token || !id) {
-      setBuyRequest(null);
+    if (!token || !item?.id) {
+      setBuyRequests([]);
       return;
     }
-    listMyBuyRequests(token, id)
-      .then((requests) => {
-        const open = requests.find((request) => request.status === 'OPEN');
-        if (open && selectedWear) {
-          const wearInName = parseWearCodeFromMarketHashName(
-            open.itemDefinition?.marketHashName ?? '',
-          );
-          if (wearInName && wearInName !== selectedWear) {
-            const matching = requests.find(
-              (request) =>
-                request.status === 'OPEN' &&
-                parseWearCodeFromMarketHashName(
-                  request.itemDefinition?.marketHashName ?? '',
-                ) === selectedWear,
-            );
-            setBuyRequest(matching ?? open);
-            return;
-          }
-        }
-        setBuyRequest(open ?? requests[0] ?? null);
-      })
-      .catch(() => setBuyRequest(null));
-  }, [token, id, selectedWear]);
+    listMyBuyRequests(token, item.id)
+      .then(setBuyRequests)
+      .catch(() => setBuyRequests([]));
+  }, [token, item?.id]);
 
   useEffect(() => {
     if (!item || lotsLoading) {
@@ -183,12 +197,12 @@ export function ItemPage() {
   }, [item, lots, lotsLoading, navigate]);
 
   async function handleCreateBuyRequest() {
-    if (!id) {
+    if (!item?.id) {
       return;
     }
     if (!token) {
       try {
-        await startSteamLogin(`/catalog/items/${id}`);
+        await startSteamLogin(`/catalog/items/${getCatalogItemRef(item)}`);
       } catch {
         // Stay on item page; user can retry via header Steam CTA.
       }
@@ -198,20 +212,27 @@ export function ItemPage() {
       setRequestError(new Error(t('item.selectWear')));
       return;
     }
-    if (maxPriceInput.trim() && !maxPriceMinor) {
+    if (!maxPriceMinor) {
       setRequestError(new Error(t('item.invalidMaxPrice')));
+      return;
+    }
+    const quantity = Number.parseInt(quantityInput, 10);
+    if (!Number.isFinite(quantity) || quantity < 1 || quantity > 99) {
+      setRequestError(new Error(t('buyRequestPanel.invalidQuantity')));
       return;
     }
 
     setSubmitting(true);
     setRequestError(null);
     try {
-      const created = await createBuyRequest(token, id, {
-        maxPriceMinor: maxPriceMinor ?? undefined,
+      const created = await createBuyRequest(token, item.id, {
+        maxPriceMinor,
+        quantity,
         wear: selectedWear || undefined,
       });
-      setBuyRequest(created);
+      setBuyRequests((current) => [created, ...current]);
       setMaxPriceInput('');
+      setQuantityInput('1');
     } catch (err: unknown) {
       setRequestError(err);
     } finally {
@@ -219,19 +240,21 @@ export function ItemPage() {
     }
   }
 
-  async function handleCancelBuyRequest() {
-    if (!token || !openBuyRequest) {
+  async function handleCancelBuyRequest(requestId: string) {
+    if (!token) {
       return;
     }
-    setSubmitting(true);
+    setCancelingId(requestId);
     setRequestError(null);
     try {
-      const updated = await cancelBuyRequest(token, openBuyRequest.id);
-      setBuyRequest(updated);
+      const updated = await cancelBuyRequest(token, requestId);
+      setBuyRequests((current) =>
+        current.map((request) => (request.id === requestId ? updated : request)),
+      );
     } catch (err: unknown) {
       setRequestError(err);
     } finally {
-      setSubmitting(false);
+      setCancelingId(null);
     }
   }
 
@@ -288,16 +311,19 @@ export function ItemPage() {
                   <ItemBuyRequestPanel
                     item={item}
                     token={token}
-                    openBuyRequest={openBuyRequest}
+                    openBuyRequests={openBuyRequests}
                     selectedWear={selectedWear}
                     onWearChange={setSelectedWear}
                     steamPriceMinor={wearSteamPrice}
                     steamPriceFetchedAt={wearSteamPriceFetchedAt}
                     steamPriceLoading={wearSteamPriceLoading}
                     maxPriceInput={maxPriceInput}
+                    quantityInput={quantityInput}
                     submitting={submitting}
+                    cancelingId={cancelingId}
                     requestError={requestError}
                     onMaxPriceChange={setMaxPriceInput}
+                    onQuantityChange={setQuantityInput}
                     onSubmit={handleCreateBuyRequest}
                     onCancel={handleCancelBuyRequest}
                   />

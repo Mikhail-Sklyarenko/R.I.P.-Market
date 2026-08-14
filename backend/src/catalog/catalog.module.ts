@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { ItemSlugBackfillService } from '../item-definitions/item-slug-backfill.service';
 import { CatalogController } from './catalog.controller';
 import { CatalogPriceBulkImportService } from './catalog-price-bulk-import.service';
 import { CatalogPriceRefreshService } from './catalog-price-refresh.service';
@@ -13,6 +14,7 @@ import { SteamPriceWarmerService } from './steam-price-warmer.service';
   controllers: [CatalogController],
   providers: [
     CatalogService,
+    ItemSlugBackfillService,
     SteamMarketPriceService,
     SteamPriceWarmerService,
     CatalogPriceBulkImportService,

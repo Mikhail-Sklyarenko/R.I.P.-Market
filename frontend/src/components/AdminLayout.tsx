@@ -35,6 +35,9 @@ export function AdminLayout() {
             <NavLink to="/admin/outbox" className={navLinkClass}>
               Outbox
             </NavLink>
+            <NavLink to="/admin/support/tickets" className={navLinkClass}>
+              Тикеты
+            </NavLink>
             <NavLink to="/admin/prices" className={navLinkClass}>
               Цены
             </NavLink>

@@ -1,12 +1,19 @@
 import { Type } from 'class-transformer';
-import { IsIn, IsInt, IsOptional, IsPositive } from 'class-validator';
+import { IsIn, IsInt, IsOptional, IsPositive, Max, Min } from 'class-validator';
+import { MAX_BUY_REQUEST_QUANTITY } from '../buy-request.constants';
 
 export class CreateBuyRequestDto {
-  @IsOptional()
   @Type(() => Number)
   @IsInt()
   @IsPositive()
-  maxPriceMinor?: number;
+  maxPriceMinor!: number;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  @Max(MAX_BUY_REQUEST_QUANTITY)
+  quantity?: number;
 
   /** Wear for catalog-seeded skin cards (FN/MW/FT/WW/BS). */
   @IsOptional()

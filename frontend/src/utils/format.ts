@@ -31,10 +31,29 @@ export function formatUsdtFromMinor(minor: string | number): string {
 }
 
 export function parseUsdToMinor(input: string): number | null {
-  const normalized = input.replace(/[^0-9.]/g, '');
+  const trimmed = input.trim();
+  if (!trimmed) {
+    return null;
+  }
+
+  let normalized = trimmed.replace(/[^\d.,]/g, '');
   if (!normalized) {
     return null;
   }
+
+  const lastComma = normalized.lastIndexOf(',');
+  const lastDot = normalized.lastIndexOf('.');
+
+  if (lastComma >= 0 && lastDot >= 0) {
+    if (lastDot > lastComma) {
+      normalized = normalized.replace(/,/g, '');
+    } else {
+      normalized = normalized.replace(/\./g, '').replace(',', '.');
+    }
+  } else if (lastComma >= 0) {
+    normalized = normalized.replace(',', '.');
+  }
+
   const dollars = Number(normalized);
   if (!Number.isFinite(dollars) || dollars <= 0) {
     return null;
@@ -84,6 +103,8 @@ export const ERROR_MESSAGES: Record<string, string> = {
   INVENTORY_STALE: 'Не удалось обновить инвентарь из Steam. Попробуйте чуть позже.',
   TRADE_URL_REQUIRED:
     'Укажите Trade URL в настройках аккаунта — без него нельзя продавать и покупать.',
+  TRADE_URL_STEAM_MISMATCH:
+    'Trade URL не принадлежит привязанному Steam-аккаунту. Скопируйте ссылку из настроек Steam того же профиля.',
   STEAM_VAC_BANNED:
     'Аккаунт с VAC-баном не может торговать на площадке.',
 };
