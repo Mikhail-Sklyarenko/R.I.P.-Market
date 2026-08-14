@@ -1,4 +1,4 @@
-import { isRealSteamId } from './steam-id';
+import { isRealSteamId } from './steam-id.ts';
 
 export function buildSteamProfileUrl(steamId: string): string {
   return `https://steamcommunity.com/profiles/${steamId}`;
