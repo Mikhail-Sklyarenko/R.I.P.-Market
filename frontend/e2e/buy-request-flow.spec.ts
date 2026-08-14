@@ -77,6 +77,13 @@ test.describe('Buy request balance and quantity', () => {
     await page.goto(`/catalog/items/${item.id}`);
     await expect(page.getByTestId('item-buy-request-active-list')).toBeVisible();
     await expect(page.getByTestId(`item-buy-request-active-${firstBody.id}`)).toBeVisible();
+
+    const wearButton = page.getByTestId(`item-buy-request-wear-${wear.toLowerCase()}`);
+    if ((await wearButton.count()) > 0) {
+      await wearButton.click();
+    }
+    await page.getByTestId('item-buy-request-max-price').fill('10');
+    await page.getByTestId('item-buy-request-quantity').fill('2');
     await expect(page.getByTestId('item-buy-request-reserve-preview')).toBeVisible();
 
     await page.getByTestId(`item-buy-request-cancel-${firstBody.id}`).click();
