@@ -3,8 +3,13 @@ import { decodeUserIdFromToken, fundWallet, linkSteamForUser } from './crypto-pa
 
 const API_BASE = process.env.PLAYWRIGHT_API_BASE_URL ?? 'http://127.0.0.1:3001/api/v1';
 const MOCK_SELLER_STEAM_ID = '76561198000000000';
-const MOCK_TRADE_URL =
-  'https://steamcommunity.com/tradeoffer/new/?partner=39734272&token=AbCdEfGh';
+const STEAM_ID64_BASE = 76561197960265728n;
+const MOCK_TRADE_TOKEN = 'AbCdEfGh';
+
+function buildMockTradeUrl(steamId64: string): string {
+  const accountId = (BigInt(steamId64) - STEAM_ID64_BASE).toString();
+  return `https://steamcommunity.com/tradeoffer/new/?partner=${accountId}&token=${MOCK_TRADE_TOKEN}`;
+}
 
 type InventoryAssetSeed = {
   id: string;
@@ -33,13 +38,17 @@ async function mockLogin(request: APIRequestContext, role: 'SELLER' | 'BUYER') {
   return (await response.json()) as { accessToken: string };
 }
 
-async function setTradeUrlForUser(request: APIRequestContext, accessToken: string) {
+async function setTradeUrlForUser(
+  request: APIRequestContext,
+  accessToken: string,
+  steamId = MOCK_SELLER_STEAM_ID,
+) {
   const tradeUrlResponse = await request.patch(`${API_BASE}/users/me/trade-url`, {
     headers: {
       Authorization: `Bearer ${accessToken}`,
       'Content-Type': 'application/json',
     },
-    data: { tradeUrl: MOCK_TRADE_URL },
+    data: { tradeUrl: buildMockTradeUrl(steamId) },
   });
   if (!tradeUrlResponse.ok()) {
     throw new Error(`trade-url update failed: ${tradeUrlResponse.status()}`);
@@ -52,8 +61,8 @@ export async function prepareUserForTrading(
   steamId = MOCK_SELLER_STEAM_ID,
 ) {
   const userId = decodeUserIdFromToken(accessToken);
-  await setTradeUrlForUser(request, accessToken);
   await linkSteamForUser(request, userId, steamId);
+  await setTradeUrlForUser(request, accessToken, steamId);
 }
 
 export async function prepareSellerForListing(
@@ -121,7 +130,7 @@ export async function seedOpenOrder(
   const buyerBody = (await buyerLogin.json()) as { accessToken: string };
 
   await prepareBuyerForPurchase(request, buyerBody.accessToken);
-  await setTradeUrlForUser(request, sellerToken);
+  await setTradeUrlForUser(request, sellerToken, MOCK_SELLER_STEAM_ID);
 
   await fundWallet(request, buyerBody.accessToken, priceMinor * 2);
 

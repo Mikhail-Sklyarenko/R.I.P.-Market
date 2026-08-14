@@ -10,11 +10,17 @@ async function findCatalogItemWithoutOffers(request: Parameters<typeof resetData
   const catalog = await request.get(`${API_BASE}/catalog/items?limit=50`);
   expect(catalog.ok()).toBeTruthy();
   const body = (await catalog.json()) as {
-    items: Array<{ id: string; activeLotCount: number }>;
+    items: Array<{
+      id: string;
+      activeLotCount: number;
+      availableWears?: string[];
+    }>;
   };
   const item = body.items.find((entry) => entry.activeLotCount === 0);
   expect(item).toBeTruthy();
-  return item!;
+  const wear = item!.availableWears?.[0];
+  expect(wear).toBeTruthy();
+  return { item: item!, wear: wear! };
 }
 
 test.describe('Buy request balance and quantity', () => {
@@ -24,7 +30,7 @@ test.describe('Buy request balance and quantity', () => {
   });
 
   test('reserves wallet balance and allows multiple prices per item', async ({ page, request }) => {
-    const item = await findCatalogItemWithoutOffers(request);
+    const { item, wear } = await findCatalogItemWithoutOffers(request);
 
     const buyerLogin = await request.post(`${API_BASE}/auth/mock-login`, {
       data: { role: 'BUYER' },
@@ -33,7 +39,7 @@ test.describe('Buy request balance and quantity', () => {
 
     const insufficient = await request.post(`${API_BASE}/buy-requests/items/${item.id}`, {
       headers: { Authorization: `Bearer ${buyerToken}` },
-      data: { maxPriceMinor: 1000, quantity: 1 },
+      data: { maxPriceMinor: 1000, quantity: 1, wear },
     });
     expect(insufficient.status()).toBe(400);
     expect(((await insufficient.json()) as { error: { code: string } }).error.code).toBe(
@@ -44,7 +50,7 @@ test.describe('Buy request balance and quantity', () => {
 
     const first = await request.post(`${API_BASE}/buy-requests/items/${item.id}`, {
       headers: { Authorization: `Bearer ${buyerToken}` },
-      data: { maxPriceMinor: 1000, quantity: 2 },
+      data: { maxPriceMinor: 1000, quantity: 2, wear },
     });
     expect(first.ok()).toBeTruthy();
     const firstBody = (await first.json()) as {
@@ -57,13 +63,13 @@ test.describe('Buy request balance and quantity', () => {
 
     const second = await request.post(`${API_BASE}/buy-requests/items/${item.id}`, {
       headers: { Authorization: `Bearer ${buyerToken}` },
-      data: { maxPriceMinor: 500, quantity: 1 },
+      data: { maxPriceMinor: 500, quantity: 1, wear },
     });
     expect(second.ok()).toBeTruthy();
 
     const duplicate = await request.post(`${API_BASE}/buy-requests/items/${item.id}`, {
       headers: { Authorization: `Bearer ${buyerToken}` },
-      data: { maxPriceMinor: 1000, quantity: 1 },
+      data: { maxPriceMinor: 1000, quantity: 1, wear },
     });
     expect(duplicate.status()).toBe(400);
 

@@ -38,7 +38,7 @@ test.describe('Catalog load more', () => {
           items,
           page: pageNumber,
           limit,
-          total: limit + 12,
+          total: 60,
           steamPriceFetchedAt: null,
         }),
       });

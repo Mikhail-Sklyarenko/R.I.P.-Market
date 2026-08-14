@@ -874,7 +874,10 @@ export function CatalogPage() {
 
           {!isInitialLoading && !loading && items.length > 0 && hasMoreItems ? (
             <div className="catalog-load-more" data-testid="catalog-load-more">
-              <p className="muted small catalog-load-more-count">
+              <p
+                className="muted small catalog-load-more-count"
+                data-testid="catalog-load-more-count"
+              >
                 {t('catalog.showingCount', { shown: items.length, total })}
               </p>
               <button
