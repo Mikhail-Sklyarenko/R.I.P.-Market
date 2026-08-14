@@ -2,6 +2,7 @@ import { expect, test } from '@playwright/test';
 import { loginAsBuyer } from './helpers/auth';
 import { fundWallet } from './helpers/crypto-payments';
 import { resetDatabase } from './helpers/reset';
+import { ensureMockCatalogSeeded } from './helpers/seed';
 
 const API_BASE = process.env.PLAYWRIGHT_API_BASE_URL ?? 'http://127.0.0.1:3001/api/v1';
 
@@ -19,6 +20,7 @@ async function findCatalogItemWithoutOffers(request: Parameters<typeof resetData
 test.describe('Buy request balance and quantity', () => {
   test.beforeEach(async ({ request }) => {
     await resetDatabase(request);
+    await ensureMockCatalogSeeded(request);
   });
 
   test('reserves wallet balance and allows multiple prices per item', async ({ page, request }) => {

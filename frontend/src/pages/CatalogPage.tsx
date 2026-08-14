@@ -366,21 +366,22 @@ export function CatalogPage() {
           setError(err);
         }
       } finally {
-        if (!cancelled) {
-          setLoading(false);
-          setLoadingMore(false);
-        }
+        setLoading(false);
+        setLoadingMore(false);
       }
     }
 
     if (baseQueryChanged) {
-      previousBaseQueryKeyRef.current = baseQueryKey;
       const isInitialMount = previousLoadedPageRef.current === 0;
       const pagesToLoad = isInitialMount && loadedPage > 1 ? loadedPage : 1;
+      previousBaseQueryKeyRef.current = baseQueryKey;
       previousLoadedPageRef.current = pagesToLoad;
       void fetchCatalogPages(1, pagesToLoad, 'replace');
       return () => {
         cancelled = true;
+        // Strict Mode remounts after cancel — allow the next effect run to fetch again.
+        previousBaseQueryKeyRef.current = null;
+        previousLoadedPageRef.current = 0;
       };
     }
 
@@ -390,6 +391,7 @@ export function CatalogPage() {
       void fetchCatalogPages(fromPage, loadedPage, 'append');
       return () => {
         cancelled = true;
+        previousLoadedPageRef.current = fromPage;
       };
     }
 

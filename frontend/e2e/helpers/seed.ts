@@ -167,6 +167,17 @@ export async function saveSellerTradeOffer(
   }
 }
 
+/** Seeds mock catalog cards (no lots) via inventory sync — needed after test DB reset. */
+export async function ensureMockCatalogSeeded(request: APIRequestContext) {
+  const sellerBody = await mockLogin(request, 'SELLER');
+  const inventory = await request.get(`${API_BASE}/inventory`, {
+    headers: { Authorization: `Bearer ${sellerBody.accessToken}` },
+  });
+  if (!inventory.ok()) {
+    throw new Error(`inventory sync failed: ${inventory.status()}`);
+  }
+}
+
 export async function seedCatalogLots(request: APIRequestContext) {
   const sellerBody = await mockLogin(request, 'SELLER');
   await prepareSellerForListing(request, sellerBody.accessToken);
