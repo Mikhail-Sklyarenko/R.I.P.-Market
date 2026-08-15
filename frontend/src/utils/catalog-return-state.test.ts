@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { describe, it, beforeEach, afterEach } from 'node:test';
 import {
+  catalogMainGridItemSelector,
   clearCatalogReturnState,
   getCatalogReturnHref,
   hasCatalogReturnState,
@@ -8,7 +9,7 @@ import {
   parseCatalogLimitParam,
   parseCatalogPageParam,
   peekCatalogReturnState,
-  readCatalogScrollRestore,
+  readCatalogReturnRestore,
   rememberCatalogReturnState,
 } from './catalog-return-state.ts';
 
@@ -46,44 +47,53 @@ describe('catalog-return-state', () => {
     Reflect.deleteProperty(globalThis, 'window');
   });
 
-  it('stores and restores scroll for the same catalog URL without clearing early', () => {
-    rememberCatalogReturnState();
+  it('stores anchor item id and restores without clearing early', () => {
+    rememberCatalogReturnState('item-42');
     assert.equal(getCatalogReturnHref(), '/catalog?page=2');
     assert.equal(hasCatalogReturnState(), true);
-    assert.equal(peekCatalogReturnState()?.scrollY, 640);
+    assert.equal(peekCatalogReturnState()?.anchorItemId, 'item-42');
 
-    const scrollY = readCatalogScrollRestore();
-    assert.equal(scrollY, 640);
+    const restore = readCatalogReturnRestore();
+    assert.deepEqual(restore, { scrollY: 640, anchorItemId: 'item-42' });
     assert.equal(hasCatalogReturnState(), true);
 
     clearCatalogReturnState();
-    assert.equal(readCatalogScrollRestore(), null);
-    assert.equal(hasCatalogReturnState(), false);
+    assert.equal(readCatalogReturnRestore(), null);
   });
 
-  it('does not restore scroll when catalog query changed', () => {
-    rememberCatalogReturnState();
+  it('does not restore when catalog query changed', () => {
+    rememberCatalogReturnState('item-1');
     window.location.search = '?page=1';
 
-    assert.equal(readCatalogScrollRestore(), null);
+    assert.equal(readCatalogReturnRestore(), null);
     assert.equal(getCatalogReturnHref(), '/catalog?page=2');
   });
 
-  it('treats home and /catalog paths as equivalent for scroll restore', () => {
+  it('treats home and /catalog paths as equivalent for restore', () => {
     window.location.pathname = '/';
-    rememberCatalogReturnState();
+    rememberCatalogReturnState('home-item');
 
     window.location.pathname = '/catalog';
     window.location.search = '?page=2';
-    assert.equal(readCatalogScrollRestore(), 640);
+    assert.deepEqual(readCatalogReturnRestore(), {
+      scrollY: 640,
+      anchorItemId: 'home-item',
+    });
   });
 
   it('matches query params regardless of order', () => {
     assert.equal(normalizeCatalogSearch('?b=1&a=2'), normalizeCatalogSearch('?a=2&b=1'));
     window.location.search = '?limit=48&page=2';
-    rememberCatalogReturnState();
+    rememberCatalogReturnState('ordered');
     window.location.search = '?page=2&limit=48';
-    assert.equal(readCatalogScrollRestore(), 640);
+    assert.equal(readCatalogReturnRestore()?.anchorItemId, 'ordered');
+  });
+
+  it('builds a main-grid selector for the anchor card', () => {
+    assert.equal(
+      catalogMainGridItemSelector('abc-123'),
+      '[data-testid="catalog-grid"] [data-catalog-item-id="abc-123"]',
+    );
   });
 
   it('parses catalog page query param safely', () => {

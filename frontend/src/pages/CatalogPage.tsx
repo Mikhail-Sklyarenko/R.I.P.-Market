@@ -33,10 +33,12 @@ import { parseUsdToMinor } from '../utils/format';
 import { formatDataTimestamp } from '../utils/lot-display';
 import { resolveCatalogCardDisplaySteamPriceName } from '../utils/steam-market-link';
 import {
+  catalogMainGridItemSelector,
   clearCatalogReturnState,
   parseCatalogLimitParam,
   parseCatalogPageParam,
-  readCatalogScrollRestore,
+  readCatalogReturnRestore,
+  type CatalogReturnRestore,
 } from '../utils/catalog-return-state';
 import {
   dedupeCatalogItems,
@@ -168,7 +170,8 @@ export function CatalogPage() {
   const [floatMax, setFloatMax] = useState('');
   const loadedPage = parseCatalogPageParam(searchParams.get('page'));
   const pageLimit = parseCatalogLimitParam(searchParams.get('limit'), CATALOG_PAGE_LIMIT);
-  const pendingScrollRestoreRef = useRef<number | null>(null);
+  const pendingRestoreRef = useRef<CatalogReturnRestore | null>(null);
+  const restoreCompletedRef = useRef(false);
   const previousBaseQueryKeyRef = useRef<string | null>(null);
   const previousLoadedPageRef = useRef(0);
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -627,52 +630,98 @@ export function CatalogPage() {
   }, [weaponParam]);
 
   useEffect(() => {
-    if (loading || loadingMore) {
+    // New browse query — allow a fresh restore attempt for the next return cycle.
+    restoreCompletedRef.current = false;
+    pendingRestoreRef.current = null;
+  }, [baseQueryKey]);
+
+  useEffect(() => {
+    if (loading || loadingMore || popularLoading) {
       return;
     }
-    // Wait until the list has content (or a confirmed empty result) so scroll
-    // height can actually reach the saved offset. Peek only — do not clear yet
-    // (Strict Mode remounts must not wipe sessionStorage early).
     if (items.length === 0 && total > 0) {
       return;
     }
-
-    const scrollY = readCatalogScrollRestore();
-    if (scrollY != null) {
-      pendingScrollRestoreRef.current = scrollY;
+    if (restoreCompletedRef.current) {
+      return;
     }
-  }, [loading, loadingMore, items.length, total, searchParams]);
+
+    const restore = readCatalogReturnRestore();
+    if (restore) {
+      pendingRestoreRef.current = restore;
+    }
+  }, [loading, loadingMore, popularLoading, items.length, total, searchParams]);
 
   useLayoutEffect(() => {
-    const target = pendingScrollRestoreRef.current;
-    if (target == null || loading || loadingMore) {
+    const restore = pendingRestoreRef.current;
+    if (!restore || loading || loadingMore || popularLoading) {
       return;
     }
     if (items.length === 0 && total > 0) {
+      return;
+    }
+    if (restoreCompletedRef.current) {
       return;
     }
 
     let cancelled = false;
     let attempts = 0;
-    const maxAttempts = 8;
+    let lastHeight = 0;
+    let stableHeightHits = 0;
+    const maxAttempts = 40;
+
+    const finish = () => {
+      pendingRestoreRef.current = null;
+      restoreCompletedRef.current = true;
+      clearCatalogReturnState();
+    };
 
     const apply = () => {
-      if (cancelled || pendingScrollRestoreRef.current == null) {
+      if (cancelled || pendingRestoreRef.current == null) {
         return;
       }
-      window.scrollTo({ top: target, behavior: 'instant' });
       attempts += 1;
-      const closeEnough = Math.abs(window.scrollY - target) <= 8;
-      const maxScroll = Math.max(
-        0,
-        document.documentElement.scrollHeight - window.innerHeight,
-      );
-      const hitDocumentEnd = target > maxScroll && window.scrollY >= maxScroll - 8;
-      if (closeEnough || hitDocumentEnd || attempts >= maxAttempts) {
-        pendingScrollRestoreRef.current = null;
-        clearCatalogReturnState();
+
+      if (restore.anchorItemId) {
+        const anchor = document.querySelector(
+          catalogMainGridItemSelector(restore.anchorItemId),
+        ) as HTMLElement | null;
+        if (anchor) {
+          anchor.scrollIntoView({ block: 'center', behavior: 'instant' });
+          const rect = anchor.getBoundingClientRect();
+          const inView =
+            rect.top < window.innerHeight * 0.9 && rect.bottom > window.innerHeight * 0.1;
+          if (inView) {
+            finish();
+            return;
+          }
+        }
+      } else {
+        window.scrollTo({ top: restore.scrollY, behavior: 'instant' });
+      }
+
+      const height = document.documentElement.scrollHeight;
+      if (height === lastHeight) {
+        stableHeightHits += 1;
+      } else {
+        lastHeight = height;
+        stableHeightHits = 0;
+      }
+
+      // Fallback path (no anchor / anchor not mounted yet): wait for layout to settle.
+      if (!restore.anchorItemId) {
+        const closeEnough = Math.abs(window.scrollY - restore.scrollY) <= 8;
+        if ((closeEnough && stableHeightHits >= 2) || attempts >= maxAttempts) {
+          finish();
+          return;
+        }
+      } else if (attempts >= maxAttempts) {
+        // Anchor never appeared (filtered out) — best-effort scrollY, then stop.
+        window.scrollTo({ top: restore.scrollY, behavior: 'instant' });
+        finish();
         return;
       }
+
       window.setTimeout(apply, 50);
     };
 
@@ -680,7 +729,7 @@ export function CatalogPage() {
     return () => {
       cancelled = true;
     };
-  }, [loading, loadingMore, items, total, searchParams]);
+  }, [loading, loadingMore, popularLoading, items, total, searchParams]);
 
   const hasMoreItems = items.length < total;
 

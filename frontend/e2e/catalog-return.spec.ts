@@ -49,10 +49,12 @@ test.describe('Catalog return to results', () => {
     });
 
     await page.route('**/api/v1/catalog/popular**', async (route) => {
+      // Delay popular strip so restore must wait for layout to settle.
+      await new Promise((resolve) => setTimeout(resolve, 250));
       await route.fulfill({
         status: 200,
         contentType: 'application/json',
-        body: JSON.stringify([]),
+        body: JSON.stringify([buildMockCatalogItem(9001), buildMockCatalogItem(9002)]),
       });
     });
 
@@ -85,11 +87,18 @@ test.describe('Catalog return to results', () => {
     await expect(page.getByTestId('catalog-grid').locator('article')).toHaveCount(48);
     await expect(page).toHaveURL(/page=2/);
 
-    await page.getByTestId('catalog-grid').locator('article').nth(30).click();
+    const targetCard = page.getByTestId('catalog-grid').locator('article').nth(30);
+    const targetId = await targetCard.getAttribute('data-catalog-item-id');
+    expect(targetId).toBeTruthy();
+    await targetCard.click();
     await expect(page.getByTestId('catalog-back-to-results')).toBeVisible();
     await page.getByTestId('catalog-back-to-results').click();
 
     await expect(page).toHaveURL(/page=2/);
     await expect(page.getByTestId('catalog-grid').locator('article')).toHaveCount(48);
+    const restoredCard = page.locator(
+      `[data-testid="catalog-grid"] [data-catalog-item-id="${targetId}"]`,
+    );
+    await expect(restoredCard).toBeInViewport();
   });
 });

@@ -6,7 +6,14 @@ export type CatalogReturnState = {
   pathname: string;
   search: string;
   scrollY: number;
+  /** Prefer scrolling this catalog card into view on return. */
+  anchorItemId: string | null;
   savedAt: number;
+};
+
+export type CatalogReturnRestore = {
+  scrollY: number;
+  anchorItemId: string | null;
 };
 
 export function isCatalogPath(pathname: string): boolean {
@@ -67,10 +74,15 @@ function readRawCatalogReturnState(): CatalogReturnState | null {
       sessionStorage.removeItem(CATALOG_RETURN_STATE_KEY);
       return null;
     }
+    const anchorItemId =
+      typeof parsed.anchorItemId === 'string' && parsed.anchorItemId.trim()
+        ? parsed.anchorItemId.trim()
+        : null;
     return {
       pathname: parsed.pathname,
       search: parsed.search,
       scrollY: Math.max(0, parsed.scrollY),
+      anchorItemId,
       savedAt,
     };
   } catch {
@@ -78,8 +90,11 @@ function readRawCatalogReturnState(): CatalogReturnState | null {
   }
 }
 
-/** Remember catalog list position before opening an item or lot. */
-export function rememberCatalogReturnState(): void {
+/**
+ * Remember catalog list position before opening an item or lot.
+ * Pass the opened card id so return can scroll that card into view.
+ */
+export function rememberCatalogReturnState(anchorItemId?: string | null): void {
   if (typeof window === 'undefined') {
     return;
   }
@@ -95,6 +110,7 @@ export function rememberCatalogReturnState(): void {
       pathname,
       search,
       scrollY: window.scrollY,
+      anchorItemId: anchorItemId?.trim() ? anchorItemId.trim() : null,
       savedAt: Date.now(),
     } satisfies CatalogReturnState),
   );
@@ -136,11 +152,13 @@ function catalogLocationsMatch(
 }
 
 /**
- * Returns saved scroll when the current catalog URL matches the remembered view.
- * Does not clear storage — call `clearCatalogReturnState` after a successful restore
- * so React Strict Mode remounts cannot wipe the position early.
+ * Returns restore payload when the current catalog URL matches the remembered view.
+ * Does not clear storage — call `clearCatalogReturnState` after a successful restore.
  */
-export function readCatalogScrollRestore(currentPath?: string, currentSearch?: string): number | null {
+export function readCatalogReturnRestore(
+  currentPath?: string,
+  currentSearch?: string,
+): CatalogReturnRestore | null {
   if (typeof window === 'undefined') {
     return null;
   }
@@ -156,16 +174,33 @@ export function readCatalogScrollRestore(currentPath?: string, currentSearch?: s
     return null;
   }
 
-  return state.scrollY;
+  return {
+    scrollY: state.scrollY,
+    anchorItemId: state.anchorItemId,
+  };
 }
 
-/** @deprecated Prefer readCatalogScrollRestore + clearCatalogReturnState */
+/** @deprecated Prefer readCatalogReturnRestore */
+export function readCatalogScrollRestore(
+  currentPath?: string,
+  currentSearch?: string,
+): number | null {
+  return readCatalogReturnRestore(currentPath, currentSearch)?.scrollY ?? null;
+}
+
+/** @deprecated Prefer readCatalogReturnRestore + clearCatalogReturnState */
 export function consumeCatalogScrollRestore(): number | null {
   const scrollY = readCatalogScrollRestore();
   if (scrollY != null) {
     clearCatalogReturnState();
   }
   return scrollY;
+}
+
+/** Selector for the main catalog grid card (not the popular strip). */
+export function catalogMainGridItemSelector(itemId: string): string {
+  const safe = itemId.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
+  return `[data-testid="catalog-grid"] [data-catalog-item-id="${safe}"]`;
 }
 
 export function parseCatalogPageParam(raw: string | null): number {

@@ -53,7 +53,7 @@ export function CatalogItemCard({
   const imageWrapClass = catalogCardImageWrapClass(imageProfile);
 
   function openItem() {
-    rememberCatalogReturnState();
+    rememberCatalogReturnState(item.id);
     navigate(itemPath);
   }
 
@@ -68,6 +68,7 @@ export function CatalogItemCard({
     <article
       className={`catalog-lot-card${hasOffers ? '' : ' catalog-lot-card-unlisted'}`}
       style={cardStyle}
+      data-catalog-item-id={item.id}
       data-testid={hasOffers ? 'catalog-open-lot' : `catalog-item-${item.id}`}
       onClick={openItem}
       onKeyDown={handleCardKeyDown}
@@ -137,7 +138,7 @@ export function CatalogItemCard({
                 data-testid={`catalog-item-buy-${item.id}`}
                 onClick={(event) => {
                   event.stopPropagation();
-                  rememberCatalogReturnState();
+                  rememberCatalogReturnState(item.id);
                 }}
               >
                 {t('lot.buyNow')}
@@ -149,7 +150,7 @@ export function CatalogItemCard({
                 data-testid={`catalog-item-request-${item.id}`}
                 onClick={(event) => {
                   event.stopPropagation();
-                  rememberCatalogReturnState();
+                  rememberCatalogReturnState(item.id);
                 }}
               >
                 {t('item.leaveRequest')}
