@@ -1,10 +1,14 @@
 import assert from 'node:assert/strict';
 import { describe, it, beforeEach, afterEach } from 'node:test';
 import {
-  consumeCatalogScrollRestore,
+  clearCatalogReturnState,
   getCatalogReturnHref,
+  hasCatalogReturnState,
+  normalizeCatalogSearch,
   parseCatalogLimitParam,
   parseCatalogPageParam,
+  peekCatalogReturnState,
+  readCatalogScrollRestore,
   rememberCatalogReturnState,
 } from './catalog-return-state.ts';
 
@@ -42,20 +46,26 @@ describe('catalog-return-state', () => {
     Reflect.deleteProperty(globalThis, 'window');
   });
 
-  it('stores and restores scroll for the same catalog URL', () => {
+  it('stores and restores scroll for the same catalog URL without clearing early', () => {
     rememberCatalogReturnState();
     assert.equal(getCatalogReturnHref(), '/catalog?page=2');
+    assert.equal(hasCatalogReturnState(), true);
+    assert.equal(peekCatalogReturnState()?.scrollY, 640);
 
-    const scrollY = consumeCatalogScrollRestore();
+    const scrollY = readCatalogScrollRestore();
     assert.equal(scrollY, 640);
-    assert.equal(consumeCatalogScrollRestore(), null);
+    assert.equal(hasCatalogReturnState(), true);
+
+    clearCatalogReturnState();
+    assert.equal(readCatalogScrollRestore(), null);
+    assert.equal(hasCatalogReturnState(), false);
   });
 
   it('does not restore scroll when catalog query changed', () => {
     rememberCatalogReturnState();
     window.location.search = '?page=1';
 
-    assert.equal(consumeCatalogScrollRestore(), null);
+    assert.equal(readCatalogScrollRestore(), null);
     assert.equal(getCatalogReturnHref(), '/catalog?page=2');
   });
 
@@ -65,7 +75,15 @@ describe('catalog-return-state', () => {
 
     window.location.pathname = '/catalog';
     window.location.search = '?page=2';
-    assert.equal(consumeCatalogScrollRestore(), 640);
+    assert.equal(readCatalogScrollRestore(), 640);
+  });
+
+  it('matches query params regardless of order', () => {
+    assert.equal(normalizeCatalogSearch('?b=1&a=2'), normalizeCatalogSearch('?a=2&b=1'));
+    window.location.search = '?limit=48&page=2';
+    rememberCatalogReturnState();
+    window.location.search = '?page=2&limit=48';
+    assert.equal(readCatalogScrollRestore(), 640);
   });
 
   it('parses catalog page query param safely', () => {

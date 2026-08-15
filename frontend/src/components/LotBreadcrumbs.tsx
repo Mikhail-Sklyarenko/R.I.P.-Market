@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom';
 import { useLocale } from '../i18n';
 import { getCatalogReturnHref } from '../utils/catalog-return-state';
+import { CatalogBackToResults } from './CatalogBackToResults';
 
 type LotBreadcrumbsProps = {
   marketHashName: string;
@@ -21,6 +22,7 @@ export function LotBreadcrumbs({
   categoryLabel,
 }: LotBreadcrumbsProps) {
   const { t } = useLocale();
+  // Prefer the remembered list (page + filters). Fall back to a sensible catalog slice.
   const catalogRootHref = getCatalogReturnHref('/catalog');
   const weaponCatalogHref = getCatalogReturnHref(buildCatalogHref(weapon));
   const crumbs: Array<{ label: string; href?: string }> = [
@@ -38,29 +40,32 @@ export function LotBreadcrumbs({
   crumbs.push({ label: marketHashName });
 
   return (
-    <nav className="lot-breadcrumbs" aria-label={t('lotBreadcrumbs.navAria')} data-testid="lot-breadcrumbs">
-      <ol className="lot-breadcrumbs-list">
-        {crumbs.map((crumb, index) => {
-          const isLast = index === crumbs.length - 1;
+    <div className="lot-breadcrumbs-block">
+      <CatalogBackToResults />
+      <nav className="lot-breadcrumbs" aria-label={t('lotBreadcrumbs.navAria')} data-testid="lot-breadcrumbs">
+        <ol className="lot-breadcrumbs-list">
+          {crumbs.map((crumb, index) => {
+            const isLast = index === crumbs.length - 1;
 
-          return (
-            <li key={`${crumb.label}-${index}`} className="lot-breadcrumbs-item">
-              {crumb.href && !isLast ? (
-                <Link to={crumb.href} className="lot-breadcrumbs-link">
-                  {crumb.label}
-                </Link>
-              ) : (
-                <span
-                  className={isLast ? 'lot-breadcrumbs-current' : undefined}
-                  aria-current={isLast ? 'page' : undefined}
-                >
-                  {crumb.label}
-                </span>
-              )}
-            </li>
-          );
-        })}
-      </ol>
-    </nav>
+            return (
+              <li key={`${crumb.label}-${index}`} className="lot-breadcrumbs-item">
+                {crumb.href && !isLast ? (
+                  <Link to={crumb.href} className="lot-breadcrumbs-link">
+                    {crumb.label}
+                  </Link>
+                ) : (
+                  <span
+                    className={isLast ? 'lot-breadcrumbs-current' : undefined}
+                    aria-current={isLast ? 'page' : undefined}
+                  >
+                    {crumb.label}
+                  </span>
+                )}
+              </li>
+            );
+          })}
+        </ol>
+      </nav>
+    </div>
   );
 }

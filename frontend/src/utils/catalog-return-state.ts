@@ -1,9 +1,12 @@
 const CATALOG_RETURN_STATE_KEY = 'rip_market_catalog_return';
+/** Keep return position for a browsing session; drop stale leftovers. */
+const CATALOG_RETURN_TTL_MS = 30 * 60 * 1000;
 
 export type CatalogReturnState = {
   pathname: string;
   search: string;
   scrollY: number;
+  savedAt: number;
 };
 
 export function isCatalogPath(pathname: string): boolean {
@@ -12,6 +15,28 @@ export function isCatalogPath(pathname: string): boolean {
 
 function normalizeCatalogPath(pathname: string): string {
   return pathname === '/' ? '/catalog' : pathname;
+}
+
+/** Stable query string so `?b=1&a=2` matches `?a=2&b=1`. */
+export function normalizeCatalogSearch(search: string): string {
+  const raw = search.startsWith('?') ? search.slice(1) : search;
+  if (!raw.trim()) {
+    return '';
+  }
+  const params = new URLSearchParams(raw);
+  const keys = [...new Set([...params.keys()])].sort();
+  const normalized = new URLSearchParams();
+  for (const key of keys) {
+    for (const value of params.getAll(key)) {
+      normalized.append(key, value);
+    }
+  }
+  const serialized = normalized.toString();
+  return serialized ? `?${serialized}` : '';
+}
+
+function isFresh(savedAt: number): boolean {
+  return Number.isFinite(savedAt) && Date.now() - savedAt <= CATALOG_RETURN_TTL_MS;
 }
 
 function readRawCatalogReturnState(): CatalogReturnState | null {
@@ -34,10 +59,19 @@ function readRawCatalogReturnState(): CatalogReturnState | null {
     ) {
       return null;
     }
+    const savedAt =
+      typeof parsed.savedAt === 'number' && Number.isFinite(parsed.savedAt)
+        ? parsed.savedAt
+        : 0;
+    if (!isFresh(savedAt)) {
+      sessionStorage.removeItem(CATALOG_RETURN_STATE_KEY);
+      return null;
+    }
     return {
       pathname: parsed.pathname,
       search: parsed.search,
       scrollY: Math.max(0, parsed.scrollY),
+      savedAt,
     };
   } catch {
     return null;
@@ -61,8 +95,24 @@ export function rememberCatalogReturnState(): void {
       pathname,
       search,
       scrollY: window.scrollY,
+      savedAt: Date.now(),
     } satisfies CatalogReturnState),
   );
+}
+
+export function peekCatalogReturnState(): CatalogReturnState | null {
+  return readRawCatalogReturnState();
+}
+
+export function clearCatalogReturnState(): void {
+  if (typeof sessionStorage === 'undefined') {
+    return;
+  }
+  sessionStorage.removeItem(CATALOG_RETURN_STATE_KEY);
+}
+
+export function hasCatalogReturnState(): boolean {
+  return readRawCatalogReturnState() != null;
 }
 
 export function getCatalogReturnHref(fallback = '/catalog'): string {
@@ -81,12 +131,16 @@ function catalogLocationsMatch(
 ): boolean {
   return (
     normalizeCatalogPath(leftPath) === normalizeCatalogPath(rightPath) &&
-    leftSearch === rightSearch
+    normalizeCatalogSearch(leftSearch) === normalizeCatalogSearch(rightSearch)
   );
 }
 
-/** Returns saved scroll position when the current catalog URL matches the remembered view. */
-export function consumeCatalogScrollRestore(): number | null {
+/**
+ * Returns saved scroll when the current catalog URL matches the remembered view.
+ * Does not clear storage — call `clearCatalogReturnState` after a successful restore
+ * so React Strict Mode remounts cannot wipe the position early.
+ */
+export function readCatalogScrollRestore(currentPath?: string, currentSearch?: string): number | null {
   if (typeof window === 'undefined') {
     return null;
   }
@@ -96,13 +150,22 @@ export function consumeCatalogScrollRestore(): number | null {
     return null;
   }
 
-  const { pathname, search } = window.location;
+  const pathname = currentPath ?? window.location.pathname;
+  const search = currentSearch ?? window.location.search;
   if (!catalogLocationsMatch(pathname, search, state.pathname, state.search)) {
     return null;
   }
 
-  sessionStorage.removeItem(CATALOG_RETURN_STATE_KEY);
   return state.scrollY;
+}
+
+/** @deprecated Prefer readCatalogScrollRestore + clearCatalogReturnState */
+export function consumeCatalogScrollRestore(): number | null {
+  const scrollY = readCatalogScrollRestore();
+  if (scrollY != null) {
+    clearCatalogReturnState();
+  }
+  return scrollY;
 }
 
 export function parseCatalogPageParam(raw: string | null): number {

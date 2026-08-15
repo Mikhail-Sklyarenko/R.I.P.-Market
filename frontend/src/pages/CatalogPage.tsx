@@ -33,9 +33,10 @@ import { parseUsdToMinor } from '../utils/format';
 import { formatDataTimestamp } from '../utils/lot-display';
 import { resolveCatalogCardDisplaySteamPriceName } from '../utils/steam-market-link';
 import {
-  consumeCatalogScrollRestore,
+  clearCatalogReturnState,
   parseCatalogLimitParam,
   parseCatalogPageParam,
+  readCatalogScrollRestore,
 } from '../utils/catalog-return-state';
 import {
   dedupeCatalogItems,
@@ -626,24 +627,60 @@ export function CatalogPage() {
   }, [weaponParam]);
 
   useEffect(() => {
-    if (loading) {
+    if (loading || loadingMore) {
+      return;
+    }
+    // Wait until the list has content (or a confirmed empty result) so scroll
+    // height can actually reach the saved offset. Peek only — do not clear yet
+    // (Strict Mode remounts must not wipe sessionStorage early).
+    if (items.length === 0 && total > 0) {
       return;
     }
 
-    const scrollY = consumeCatalogScrollRestore();
+    const scrollY = readCatalogScrollRestore();
     if (scrollY != null) {
       pendingScrollRestoreRef.current = scrollY;
     }
-  }, [loading, searchParams]);
+  }, [loading, loadingMore, items.length, total, searchParams]);
 
   useLayoutEffect(() => {
-    if (pendingScrollRestoreRef.current == null || loading || loadingMore) {
+    const target = pendingScrollRestoreRef.current;
+    if (target == null || loading || loadingMore) {
+      return;
+    }
+    if (items.length === 0 && total > 0) {
       return;
     }
 
-    window.scrollTo({ top: pendingScrollRestoreRef.current, behavior: 'instant' });
-    pendingScrollRestoreRef.current = null;
-  }, [loading, loadingMore, items, searchParams]);
+    let cancelled = false;
+    let attempts = 0;
+    const maxAttempts = 8;
+
+    const apply = () => {
+      if (cancelled || pendingScrollRestoreRef.current == null) {
+        return;
+      }
+      window.scrollTo({ top: target, behavior: 'instant' });
+      attempts += 1;
+      const closeEnough = Math.abs(window.scrollY - target) <= 8;
+      const maxScroll = Math.max(
+        0,
+        document.documentElement.scrollHeight - window.innerHeight,
+      );
+      const hitDocumentEnd = target > maxScroll && window.scrollY >= maxScroll - 8;
+      if (closeEnough || hitDocumentEnd || attempts >= maxAttempts) {
+        pendingScrollRestoreRef.current = null;
+        clearCatalogReturnState();
+        return;
+      }
+      window.setTimeout(apply, 50);
+    };
+
+    apply();
+    return () => {
+      cancelled = true;
+    };
+  }, [loading, loadingMore, items, total, searchParams]);
 
   const hasMoreItems = items.length < total;
 

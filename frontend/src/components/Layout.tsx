@@ -3,6 +3,7 @@ import { Link, NavLink, Outlet, useLocation } from 'react-router-dom';
 import { useAuth } from '../auth/AuthContext';
 import { useLocale } from '../i18n';
 import { useWalletSummary } from '../hooks/useWalletSummary';
+import { CatalogNavLink } from './CatalogBackToResults';
 import { HeaderWalletBalance } from './HeaderWalletBalance';
 import { LanguageSwitcher } from './LanguageSwitcher';
 import { TradeUrlBanner } from './TradeUrlBanner';
@@ -34,16 +35,12 @@ export function Layout() {
           </Link>
 
           <nav className="app-nav" aria-label={t('nav.mainAria')}>
-            <NavLink
-              to="/"
-              className={() =>
-                catalogActive ? 'app-nav-link active' : 'app-nav-link'
-              }
-              end
-              data-testid="nav-catalog"
+            <CatalogNavLink
+              className={catalogActive ? 'app-nav-link active' : 'app-nav-link'}
+              testId="nav-catalog"
             >
               {t('nav.catalog')}
-            </NavLink>
+            </CatalogNavLink>
             <NavLink to="/sell/inventory" className={navLinkClass} data-testid="nav-sell">
               {t('nav.sell')}
             </NavLink>
