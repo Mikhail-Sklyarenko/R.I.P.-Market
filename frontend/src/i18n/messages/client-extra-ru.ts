@@ -254,7 +254,7 @@ export const clientExtraRu = {
   lotBreadcrumbs: {
     catalog: 'Каталог',
     navAria: 'Навигация по каталогу',
-    backToResults: 'К результатам',
+    backToCatalog: 'Назад в каталог',
   },
   lotStickers: {
     label: 'Стикеры',

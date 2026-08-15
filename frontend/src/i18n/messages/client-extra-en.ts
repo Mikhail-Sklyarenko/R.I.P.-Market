@@ -246,7 +246,7 @@ export const clientExtraEn = {
   lotBreadcrumbs: {
     catalog: 'Catalog',
     navAria: 'Catalog navigation',
-    backToResults: 'Back to results',
+    backToCatalog: 'Back to catalog',
   },
   lotStickers: {
     label: 'Stickers',

@@ -2219,7 +2219,7 @@ a.button.primary {
 
 .lot-breadcrumbs-block {
   display: grid;
-  gap: var(--space-2);
+  gap: var(--space-3);
   margin-bottom: var(--space-4);
 }
 
@@ -2235,15 +2235,38 @@ a.button.primary {
 .catalog-back-to-results-link {
   display: inline-flex;
   align-items: center;
-  gap: var(--space-1);
-  font-size: var(--font-size-sm);
-  font-weight: 600;
-  color: var(--color-link);
+  gap: 6px;
+  min-height: 32px;
+  padding: 0 10px 0 8px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: rgba(15, 23, 42, 0.55);
+  color: var(--color-text-muted);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-medium);
+  letter-spacing: 0.01em;
   text-decoration: none;
+  transition:
+    color 0.15s ease,
+    border-color 0.15s ease,
+    background 0.15s ease;
 }
 
 .catalog-back-to-results-link:hover {
-  text-decoration: underline;
+  color: var(--color-text);
+  border-color: var(--color-border-strong);
+  background: rgba(148, 163, 184, 0.1);
+  text-decoration: none;
+}
+
+.catalog-back-to-results-link:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--color-primary) 55%, transparent);
+  outline-offset: 2px;
+}
+
+.catalog-back-to-results-icon {
+  flex: 0 0 auto;
+  opacity: 0.85;
 }
 
 .lot-breadcrumbs-list {

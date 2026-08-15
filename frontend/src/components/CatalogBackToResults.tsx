@@ -11,8 +11,29 @@ type CatalogBackToResultsProps = {
   className?: string;
 };
 
+function CatalogBackIcon() {
+  return (
+    <svg
+      className="catalog-back-to-results-icon"
+      width="14"
+      height="14"
+      viewBox="0 0 16 16"
+      fill="none"
+      aria-hidden="true"
+    >
+      <path
+        d="M10 3.5 5.5 8 10 12.5"
+        stroke="currentColor"
+        strokeWidth="1.6"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
 /**
- * Explicit return to the remembered catalog list (filters + page + scroll).
+ * Quiet return control to the remembered catalog list (filters + page + scroll).
  * Shown on item/lot pages when the shopper arrived from the catalog.
  */
 export function CatalogBackToResults({ className }: CatalogBackToResultsProps) {
@@ -32,7 +53,8 @@ export function CatalogBackToResults({ className }: CatalogBackToResultsProps) {
         className="catalog-back-to-results-link"
         data-testid="catalog-back-to-results"
       >
-        ← {t('lotBreadcrumbs.backToResults')}
+        <CatalogBackIcon />
+        <span>{t('lotBreadcrumbs.backToCatalog')}</span>
       </Link>
     </div>
   );
