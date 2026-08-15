@@ -136,7 +136,7 @@ export function CheckoutPage() {
                 showAttrs={false}
               />
 
-              <ItemParamsPanel item={asset} testId="checkout-params" />
+              <ItemParamsPanel item={asset} testId="checkout-params" showEmptyFloat />
             </div>
           </div>
 

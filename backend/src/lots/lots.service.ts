@@ -739,11 +739,13 @@ export class LotsService {
       );
     }
 
+    const hydrated = await this.hydrateListingSnapshotFromAsset(lot);
+
     const marketHashName =
-      lot.listingSnapshot?.marketHashName ??
-      lot.inventoryAsset.itemDefinition.marketHashName;
+      hydrated.listingSnapshot?.marketHashName ??
+      hydrated.inventoryAsset.itemDefinition.marketHashName;
     const wear =
-      lot.listingSnapshot?.wear ?? lot.inventoryAsset.wear ?? null;
+      hydrated.listingSnapshot?.wear ?? hydrated.inventoryAsset.wear ?? null;
     const steamMarketHashName = resolveSteamMarketHashName(
       marketHashName,
       wear,
@@ -751,23 +753,23 @@ export class LotsService {
     const steamPriceMeta =
       await this.steamMarketPrice.getPriceMeta(steamMarketHashName);
     const inspectLink =
-      lot.listingSnapshot?.inspectLink ??
-      (lot.seller.steamId
+      hydrated.listingSnapshot?.inspectLink ??
+      (hydrated.seller.steamId
         ? (resolveInspectLink(
-            lot.inventoryAsset.inspectLinkTemplate,
-            lot.seller.steamId,
-            lot.inventoryAsset.assetExternalId,
+            hydrated.inventoryAsset.inspectLinkTemplate,
+            hydrated.seller.steamId,
+            hydrated.inventoryAsset.assetExternalId,
           ) ??
           buildFallbackInspectLink({
-            ownerSteamId: lot.seller.steamId,
-            assetExternalId: lot.inventoryAsset.assetExternalId,
-            classId: lot.inventoryAsset.classExternalId,
-            instanceId: lot.inventoryAsset.instanceExternalId,
+            ownerSteamId: hydrated.seller.steamId,
+            assetExternalId: hydrated.inventoryAsset.assetExternalId,
+            classId: hydrated.inventoryAsset.classExternalId,
+            instanceId: hydrated.inventoryAsset.instanceExternalId,
           }))
         : null);
 
     return toJsonSafe({
-      ...lot,
+      ...hydrated,
       inspectLink,
       steamMarketHashName,
       steamMarketUrl: buildSteamMarketListingUrl(marketHashName, wear),
@@ -776,8 +778,54 @@ export class LotsService {
       buffPriceMinor: null,
       csfloatPriceMinor: null,
       referencePriceFetchedAt: null,
-      marketplacePriceMinor: lot.priceMinor.toString(),
+      marketplacePriceMinor: hydrated.priceMinor.toString(),
     });
+  }
+
+  /**
+   * If Steam omitted float at list time but a later inventory sync filled the
+   * asset, copy it into the frozen snapshot so lot pages stay accurate.
+   */
+  private async hydrateListingSnapshotFromAsset<
+    T extends {
+      id: string;
+      listingSnapshot: {
+        floatValue: { toString(): string } | string | null;
+        paintSeed: number | null;
+      } | null;
+      inventoryAsset: {
+        floatValue: { toString(): string } | string | null;
+        paintSeed: number | null;
+      };
+    },
+  >(lot: T): Promise<T> {
+    const snapshot = lot.listingSnapshot;
+    if (!snapshot) {
+      return lot;
+    }
+
+    const needsFloat =
+      snapshot.floatValue == null && lot.inventoryAsset.floatValue != null;
+    const needsSeed =
+      snapshot.paintSeed == null && lot.inventoryAsset.paintSeed != null;
+    if (!needsFloat && !needsSeed) {
+      return lot;
+    }
+
+    const updatedSnapshot = await this.prisma.lotListingSnapshot.update({
+      where: { lotId: lot.id },
+      data: {
+        ...(needsFloat
+          ? { floatValue: lot.inventoryAsset.floatValue as never }
+          : {}),
+        ...(needsSeed ? { paintSeed: lot.inventoryAsset.paintSeed } : {}),
+      },
+    });
+
+    return {
+      ...lot,
+      listingSnapshot: updatedSnapshot as T['listingSnapshot'],
+    };
   }
 
   async listMyLots(sellerId: string) {

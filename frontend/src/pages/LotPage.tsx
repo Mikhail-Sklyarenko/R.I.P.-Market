@@ -148,7 +148,7 @@ export function LotPage() {
                 <LotItemHero item={displayItem} />
 
                 <div className="lot-preview-card-body">
-                  <ItemParamsPanel item={displayItem} testId="lot-spec" />
+                  <ItemParamsPanel item={displayItem} testId="lot-spec" showEmptyFloat />
 
                   <LotStickers stickers={displayItem.stickers} testIdPrefix="lot" />
 

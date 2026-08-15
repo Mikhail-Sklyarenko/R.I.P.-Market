@@ -11,12 +11,18 @@ type ItemParamsPanelProps = {
   item: ItemDisplaySource;
   /** Show title with copy control above the params. */
   showTitle?: boolean;
+  /**
+   * When false (default), hide the Float row if the value is missing.
+   * Lot pages pass true so a missing Steam float is still visible as "—".
+   */
+  showEmptyFloat?: boolean;
   testId?: string;
 };
 
 export function ItemParamsPanel({
   item,
   showTitle = false,
+  showEmptyFloat = false,
   testId = 'item-params',
 }: ItemParamsPanelProps) {
   const [copied, setCopied] = useState(false);
@@ -32,10 +38,8 @@ export function ItemParamsPanel({
     null;
   const wearText = getWearDisplayLabel(wearCode, locale);
   const floatText = formatFloatValue(item.floatValue);
-  const hasFloatGraphic =
-    item.floatValue !== null &&
-    item.floatValue !== undefined &&
-    item.floatValue !== '';
+  const hasFloatGraphic = Boolean(floatText);
+  const showFloatRow = hasFloatGraphic || showEmptyFloat;
   async function copyName() {
     try {
       await navigator.clipboard.writeText(marketHashName);
@@ -66,16 +70,18 @@ export function ItemParamsPanel({
       ) : null}
 
       <dl className="item-params-table">
-        <div className="item-params-row">
-          <dt>{t('item.float')}</dt>
-          <dd data-testid={`${testId}-float`}>
-            {hasFloatGraphic ? (
-              <FloatSpectrum floatValue={item.floatValue!} variant="inline" />
-            ) : (
-              <span data-testid="lot-attr-float">{floatText ?? '—'}</span>
-            )}
-          </dd>
-        </div>
+        {showFloatRow ? (
+          <div className="item-params-row">
+            <dt>{t('item.float')}</dt>
+            <dd data-testid={`${testId}-float`}>
+              {hasFloatGraphic ? (
+                <FloatSpectrum floatValue={item.floatValue!} variant="inline" />
+              ) : (
+                <span data-testid="lot-attr-float">{floatText ?? '—'}</span>
+              )}
+            </dd>
+          </div>
+        ) : null}
 
         {category ? (
           <div className="item-params-row">

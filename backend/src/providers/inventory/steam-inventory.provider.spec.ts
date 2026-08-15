@@ -18,6 +18,7 @@ describe('SteamInventoryProvider', () => {
       upsert: jest.Mock;
       updateMany: jest.Mock;
       count: jest.Mock;
+      findMany: jest.Mock;
     };
   };
   let syncCache: jest.Mocked<
@@ -39,6 +40,7 @@ describe('SteamInventoryProvider', () => {
         upsert: jest.fn().mockResolvedValue({}),
         updateMany: jest.fn().mockResolvedValue({ count: 0 }),
         count: jest.fn().mockResolvedValue(0),
+        findMany: jest.fn().mockResolvedValue([]),
       },
     };
     syncCache = {
@@ -222,5 +224,44 @@ describe('SteamInventoryProvider', () => {
         }),
       }),
     );
+  });
+
+  it('preserves known float when Steam omits asset_properties on refresh', async () => {
+    prisma.inventoryAsset.findMany.mockResolvedValue([
+      {
+        assetExternalId: '999',
+        status: 'LISTED',
+      },
+    ]);
+    jest.spyOn(steamClient, 'fetchAllSteamInventoryPages').mockResolvedValue({
+      success: 1,
+      assets: [
+        {
+          appid: 730,
+          contextid: '2',
+          assetid: '999',
+          classid: '1',
+          instanceid: '1',
+        },
+      ],
+      descriptions: [
+        {
+          classid: '1',
+          instanceid: '1',
+          market_hash_name: 'AK-47 | Redline (Field-Tested)',
+          tradable: 1,
+          marketable: 1,
+        },
+      ],
+      // No asset_properties → float comes back null from parser
+    });
+
+    await provider.syncInventory('user-1', '76561198000000000');
+
+    const upsertArg = prisma.inventoryAsset.upsert.mock.calls[0]?.[0] as {
+      update: Record<string, unknown>;
+    };
+    expect(upsertArg.update.floatValue).toBeUndefined();
+    expect(upsertArg.update).not.toHaveProperty('status');
   });
 });

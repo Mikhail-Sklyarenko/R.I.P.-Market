@@ -211,6 +211,19 @@ export class SteamInventoryProvider implements InventoryProvider {
   }
 
   private async upsertParsedAssets(ownerId: string, items: ParsedSteamAsset[]) {
+    const existingAssets = await this.prisma.inventoryAsset.findMany({
+      where: { ownerId },
+      select: { assetExternalId: true, status: true },
+    });
+    const statusByExternalId = new Map(
+      existingAssets.map((asset) => [asset.assetExternalId, asset.status]),
+    );
+    const preservedStatuses = new Set<InventoryAssetStatus>([
+      InventoryAssetStatus.LISTED,
+      InventoryAssetStatus.RESERVED,
+      InventoryAssetStatus.SOLD,
+    ]);
+
     for (const item of items) {
       const listableByName = isListableMarketHashName(item.marketHashName);
       const marketable = item.marketable && listableByName;
@@ -240,6 +253,10 @@ export class SteamInventoryProvider implements InventoryProvider {
         },
       });
 
+      const previousStatus = statusByExternalId.get(item.assetExternalId);
+      const preserveStatus =
+        previousStatus != null && preservedStatuses.has(previousStatus);
+
       await this.prisma.inventoryAsset.upsert({
         where: {
           ownerId_assetExternalId: {
@@ -268,14 +285,15 @@ export class SteamInventoryProvider implements InventoryProvider {
           tradable,
           marketable,
           tradeLockUntil: item.tradeLockUntil,
-          floatValue: item.floatValue,
-          paintSeed: item.paintSeed,
+          // Keep previously known float/seed when Steam omits asset_properties.
+          ...(item.floatValue != null ? { floatValue: item.floatValue } : {}),
+          ...(item.paintSeed != null ? { paintSeed: item.paintSeed } : {}),
           wear: item.wear,
           stickers: item.stickers,
           inspectLinkTemplate: item.inspectLinkTemplate,
           classExternalId: item.classExternalId,
           instanceExternalId: item.instanceExternalId,
-          status: InventoryAssetStatus.AVAILABLE,
+          ...(preserveStatus ? {} : { status: InventoryAssetStatus.AVAILABLE }),
         },
       });
     }

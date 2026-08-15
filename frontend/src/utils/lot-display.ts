@@ -3,27 +3,46 @@ import type { ItemDisplaySource } from './item-image';
 
 export type { ListingSticker };
 
+function hasFloatValue(value: string | number | null | undefined): boolean {
+  if (value === null || value === undefined || value === '') {
+    return false;
+  }
+  const numeric = typeof value === 'number' ? value : Number(value);
+  return Number.isFinite(numeric);
+}
+
+/**
+ * Prefer frozen listing snapshot, but fall back to live inventory fields when
+ * Steam omitted float/seed at list time and a later sync filled them in.
+ */
 export function resolveLotDisplayItem(
   lot: Lot,
 ): ItemDisplaySource & { capturedAt?: string | null; stickers?: ListingSticker[] | null } {
   const snapshot = lot.listingSnapshot;
-  if (snapshot) {
-    return {
-      wear: snapshot.wear,
-      floatValue: snapshot.floatValue,
-      paintSeed: snapshot.paintSeed,
-      capturedAt: snapshot.capturedAt,
-      stickers: snapshot.stickers ?? [],
-      itemDefinition: {
-        marketHashName: snapshot.marketHashName,
-        weapon: snapshot.weapon,
-        rarity: snapshot.rarity,
-        iconUrl: snapshot.iconUrl,
-      },
-    };
+  const asset = lot.inventoryAsset;
+
+  if (!snapshot) {
+    return asset;
   }
 
-  return lot.inventoryAsset;
+  const snapshotStickers = snapshot.stickers ?? [];
+  const assetStickers = asset.stickers ?? [];
+
+  return {
+    wear: snapshot.wear ?? asset.wear ?? null,
+    floatValue: hasFloatValue(snapshot.floatValue)
+      ? snapshot.floatValue
+      : (asset.floatValue ?? null),
+    paintSeed: snapshot.paintSeed ?? asset.paintSeed ?? null,
+    capturedAt: snapshot.capturedAt,
+    stickers: snapshotStickers.length > 0 ? snapshotStickers : assetStickers,
+    itemDefinition: {
+      marketHashName: snapshot.marketHashName || asset.itemDefinition.marketHashName,
+      weapon: snapshot.weapon ?? asset.itemDefinition.weapon,
+      rarity: snapshot.rarity ?? asset.itemDefinition.rarity,
+      iconUrl: snapshot.iconUrl ?? asset.itemDefinition.iconUrl,
+    },
+  };
 }
 
 export function formatDataTimestamp(value?: string | null): string | null {
