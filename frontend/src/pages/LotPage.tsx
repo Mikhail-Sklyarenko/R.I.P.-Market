@@ -169,7 +169,6 @@ export function LotPage() {
             <aside className="lot-page-sidebar">
               <LotPurchaseCard
                 lot={lot}
-                displayItem={displayItem}
                 token={token}
                 user={user}
                 canProceed={canProceed}

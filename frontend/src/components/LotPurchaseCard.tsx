@@ -1,9 +1,6 @@
 import { Link } from 'react-router-dom';
 import type { AuthUser, Lot } from '../api/types';
 import { useLocale } from '../i18n';
-import { formatFloatValue, type ItemDisplaySource } from '../utils/item-image';
-import { parseWearCodeFromMarketHashName } from '../utils/catalog-lot-display';
-import { getWearDisplayLabel } from '../utils/wear-filters';
 import { isCredibleSteamGuidePrice } from '../utils/steam-guide-price';
 import { formatCounterpartyDisplayName } from '../utils/steam-profile';
 import { DealFlowSteps } from './DealFlowSteps';
@@ -15,7 +12,6 @@ import { StatusBadge } from './StatusBadge';
 
 type LotPurchaseCardProps = {
   lot: Lot;
-  displayItem: ItemDisplaySource;
   token: string | null;
   user: AuthUser | null;
   canProceed: boolean;
@@ -30,11 +26,11 @@ type LotPurchaseCardProps = {
 };
 
 /**
- * Sticky purchase CTA for an active lot: price confidence, item snapshot, seller, buy.
+ * Sticky purchase CTA: seller trust, listing price, disclosures, buy.
+ * Wear/float stay on the item card — this block is for money and who sells.
  */
 export function LotPurchaseCard({
   lot,
-  displayItem,
   token,
   user,
   canProceed,
@@ -47,48 +43,30 @@ export function LotPurchaseCard({
   purchaseError,
   onBuy,
 }: LotPurchaseCardProps) {
-  const { locale, t } = useLocale();
+  const { t } = useLocale();
 
   const listingPriceMinor = lot.marketplacePriceMinor ?? lot.priceMinor;
   const steamForGuide = isCredibleSteamGuidePrice(lot.steamPriceMinor, listingPriceMinor)
     ? lot.steamPriceMinor
     : null;
 
-  const wearCode =
-    displayItem.wear?.trim() ||
-    parseWearCodeFromMarketHashName(displayItem.itemDefinition.marketHashName) ||
-    null;
-  const wearText = getWearDisplayLabel(wearCode, locale);
-  const floatText = formatFloatValue(displayItem.floatValue);
-
   const sellerName = lot.seller
     ? formatCounterpartyDisplayName(lot.seller)
     : null;
 
-  const snapshotBits = [wearText, floatText ? `Float ${floatText}` : null].filter(
-    Boolean,
-  ) as string[];
-
   return (
     <div className="card lot-purchase-card" data-testid="lot-purchase-card">
       <div className="lot-purchase-card-header">
-        <div className="lot-purchase-snapshot" data-testid="lot-purchase-snapshot">
-          {snapshotBits.length > 0 ? (
-            <p className="lot-purchase-snapshot-line muted small">
-              {snapshotBits.join(' · ')}
-            </p>
-          ) : (
-            <p className="lot-purchase-snapshot-line muted small">
-              {t('lot.listingReady')}
-            </p>
-          )}
-          {sellerName ? (
-            <p className="lot-purchase-seller muted small" data-testid="lot-purchase-seller">
-              {t('lot.sellerLabel')}{' '}
-              <span className="lot-purchase-seller-name">{sellerName}</span>
-            </p>
-          ) : null}
-        </div>
+        {sellerName ? (
+          <div className="lot-purchase-seller" data-testid="lot-purchase-seller">
+            <span className="lot-purchase-seller-label">{t('lot.sellerLabel')}</span>
+            <span className="lot-purchase-seller-name" title={sellerName}>
+              {sellerName}
+            </span>
+          </div>
+        ) : (
+          <div className="lot-purchase-seller" aria-hidden="true" />
+        )}
         <StatusBadge status={lot.status} />
       </div>
 
