@@ -1080,11 +1080,11 @@ export function isTabLevelWeaponFilter(weapon: string): boolean {
  * Category dropdown selection:
  * - all: every model in the active tab ("Выбрать все")
  * - subset: only checked option values
- * - empty: user cleared every model checkbox (never auto-promoted to all)
+ * - empty: reserved / legacy URL only (UI no longer creates blank catalogs)
  */
 export type CategorySelectionMode = 'all' | 'subset' | 'empty';
 
-/** Matches nothing — used when the user cleared every model checkbox. */
+/** Matches nothing — legacy empty mode only (UI prefers all / leave tab). */
 export const EMPTY_CATEGORY_MATCH_FILTER: CatalogCategoryFilter = {
   marketHashName: '__no_such_catalog_item__',
 };
@@ -1225,8 +1225,9 @@ export function decodeCategorySelection(weaponParam: string | null): {
   }
   const param = weaponParam.trim();
   if (param.startsWith(EMPTY_CATEGORY_URL_PREFIX)) {
+    // Legacy empty bookmarks: treat as whole-tab browse (never a blank catalog).
     const tabId = param.slice(EMPTY_CATEGORY_URL_PREFIX.length) || 'all';
-    return { tabId, mode: 'empty', values: [] };
+    return { tabId, mode: 'all', values: [] };
   }
   if (isTabLevelWeaponFilter(param)) {
     return { tabId: findTabForWeapon(param), mode: 'all', values: [] };

@@ -257,9 +257,10 @@ export function CatalogCategoryBar({
     }
 
     const nextValues = [...selected];
+    // Clearing the last model returns to browsing the whole tab — never an empty catalog.
     onCategorySelectionChange({
       tabId,
-      mode: nextValues.length === 0 ? 'empty' : 'subset',
+      mode: nextValues.length === 0 ? 'all' : 'subset',
       values: nextValues,
     });
   }
@@ -268,13 +269,10 @@ export function CatalogCategoryBar({
     if (!openTab) {
       return;
     }
-    // Toggle: all ↔ empty. Never force all when clearing model checkboxes.
+    // Already browsing the whole tab: leave the category (back to «Все»).
     if (activeTabId === openTab.id && categoryMode === 'all') {
-      onCategorySelectionChange({
-        tabId: openTab.id,
-        mode: 'empty',
-        values: [],
-      });
+      onTabChange('all');
+      setOpenTabId(null);
       return;
     }
     onCategorySelectionChange({

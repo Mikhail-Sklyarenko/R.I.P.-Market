@@ -206,14 +206,19 @@ describe('catalog-filters utils', () => {
       encodeCategorySelection('snipers', 'empty', []),
       '__empty__:snipers',
     );
+    // Legacy empty URLs recover to whole-tab browse, not a blank catalog.
     assert.deepEqual(decodeCategorySelection('__empty__:snipers'), {
       tabId: 'snipers',
-      mode: 'empty',
+      mode: 'all',
       values: [],
     });
     assert.deepEqual(resolveCatalogFilter('snipers', [], 'empty'), {
       marketHashName: '__no_such_catalog_item__',
     });
+    assert.equal(
+      resolveCatalogFilter('snipers', [], 'all').weapon?.includes('AWP'),
+      true,
+    );
   });
 
   it('uses a fixed default catalog page size', () => {
