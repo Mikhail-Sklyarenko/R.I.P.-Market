@@ -2,12 +2,22 @@
  * Remap Armory terminals from generic Crate → Terminal so the Cases tab can filter them.
  *
  * Usage (from backend/):
- *   npx ts-node -r tsconfig-paths/register src/scripts/backfill-terminal-weapon.ts
+ *   npm run backfill:terminal-weapon
  */
+import 'dotenv/config';
 import { PrismaClient } from '@prisma/client';
+import { PrismaPg } from '@prisma/adapter-pg';
+import { Pool } from 'pg';
 
 async function main() {
-  const prisma = new PrismaClient();
+  const databaseUrl = process.env.DATABASE_URL;
+  if (!databaseUrl) {
+    throw new Error('DATABASE_URL is required');
+  }
+
+  const pool = new Pool({ connectionString: databaseUrl });
+  const prisma = new PrismaClient({ adapter: new PrismaPg(pool) });
+
   try {
     const result = await prisma.itemDefinition.updateMany({
       where: {
@@ -21,6 +31,7 @@ async function main() {
     console.log(`Updated ${result.count} ItemDefinition row(s) to weapon=Terminal`);
   } finally {
     await prisma.$disconnect();
+    await pool.end();
   }
 }
 
