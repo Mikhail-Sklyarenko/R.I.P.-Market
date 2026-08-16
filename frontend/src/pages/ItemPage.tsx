@@ -315,7 +315,6 @@ export function ItemPage() {
                     selectedWear={selectedWear}
                     onWearChange={setSelectedWear}
                     steamPriceMinor={wearSteamPrice}
-                    steamPriceFetchedAt={wearSteamPriceFetchedAt}
                     steamPriceLoading={wearSteamPriceLoading}
                     maxPriceInput={maxPriceInput}
                     quantityInput={quantityInput}

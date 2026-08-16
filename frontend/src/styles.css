@@ -5056,7 +5056,7 @@ a.button.primary {
 
 .item-buy-request-body {
   display: grid;
-  gap: var(--space-4);
+  gap: var(--space-3);
   padding: var(--space-5);
 }
 
@@ -5069,9 +5069,35 @@ a.button.primary {
   color: var(--color-text);
 }
 
+.item-buy-request-how {
+  margin: 0;
+}
+
+.item-buy-request-how-summary {
+  padding: var(--space-2) var(--space-3);
+}
+
 .item-buy-request-lead {
   margin: 0;
+  padding: var(--space-3);
   line-height: 1.45;
+}
+
+.item-buy-request-price-row {
+  display: flex;
+  align-items: stretch;
+  gap: var(--space-2);
+}
+
+.item-buy-request-price-row .item-buy-request-price-control {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.item-buy-request-apply-steam {
+  flex: 0 0 auto;
+  align-self: stretch;
+  white-space: nowrap;
 }
 
 .item-buy-request-wear {
@@ -5167,11 +5193,6 @@ a.button.primary {
 .item-buy-request-price-control input::placeholder {
   color: color-mix(in srgb, var(--color-text-muted) 70%, transparent);
   font-weight: var(--font-weight-normal);
-}
-
-.item-buy-request-price-hint {
-  margin: 0;
-  line-height: 1.35;
 }
 
 .item-buy-request-active {

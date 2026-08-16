@@ -125,6 +125,7 @@ export const clientExtraRu = {
   },
   buyRequestPanel: {
     kicker: 'Заявка на покупку',
+    howItWorks: 'Как работает заявка',
     lead:
       'Сейчас этот скин никто не продаёт. Оставьте заявку — пришлём уведомление, когда появится подходящее предложение. Средства резервируются на кошельке.',
     activeListTitle: 'Активные заявки',
@@ -133,9 +134,7 @@ export const clientExtraRu = {
     cancel: 'Отменить',
     canceling: 'Отмена…',
     stateLabel: 'Состояние',
-    steamGuide: 'Ориентир Steam:',
     maxPriceLabel: 'Максимальная цена',
-    maxPriceHintRequired: 'Обязательно — эта сумма будет зарезервирована на кошельке за каждую единицу',
     quantityLabel: 'Количество',
     quantityShort: '{{filled}}/{{total}} шт.',
     reserved: 'зарезервировано',

@@ -119,6 +119,7 @@ export const clientExtraEn = {
   },
   buyRequestPanel: {
     kicker: 'Buy request',
+    howItWorks: 'How a request works',
     lead:
       "No one is selling this skin right now. Leave a request — we'll notify you when a matching listing appears. Funds are reserved on your wallet.",
     activeListTitle: 'Active requests',
@@ -127,9 +128,7 @@ export const clientExtraEn = {
     cancel: 'Cancel',
     canceling: 'Canceling…',
     stateLabel: 'Condition',
-    steamGuide: 'Steam guide:',
     maxPriceLabel: 'Maximum price',
-    maxPriceHintRequired: 'Required — this amount is reserved on your wallet per unit',
     quantityLabel: 'Quantity',
     quantityShort: '{{filled}}/{{total}} pcs',
     reserved: 'reserved',

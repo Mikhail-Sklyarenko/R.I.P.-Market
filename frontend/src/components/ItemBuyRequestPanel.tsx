@@ -4,7 +4,6 @@ import type { BuyRequest, CatalogItem } from '../api/types';
 import { ApiError } from '../api/types';
 import { useLocale, wearLabel } from '../i18n';
 import { formatUsdFromMinor, parseUsdToMinor } from '../utils/format';
-import { formatSteamPriceAge, isSteamPriceStale } from '../utils/steam-price-age';
 import {
   CATALOG_WEAR_FILTERS,
   getWearDisplayLabel,
@@ -20,7 +19,6 @@ type ItemBuyRequestPanelProps = {
   selectedWear: string;
   onWearChange: (wear: string) => void;
   steamPriceMinor: number | null;
-  steamPriceFetchedAt?: string | null;
   steamPriceLoading?: boolean;
   maxPriceInput: string;
   quantityInput: string;
@@ -54,7 +52,7 @@ function parsePositiveInt(value: string): number | null {
 
 /**
  * Buy-request CTA when an item has no active lots.
- * Supports multiple open requests at different prices with balance reservation.
+ * Compact purchase card: price → form → reserve preview; how-it-works behind details.
  */
 export function ItemBuyRequestPanel({
   item,
@@ -63,7 +61,6 @@ export function ItemBuyRequestPanel({
   selectedWear,
   onWearChange,
   steamPriceMinor,
-  steamPriceFetchedAt = null,
   steamPriceLoading = false,
   maxPriceInput,
   quantityInput,
@@ -114,29 +111,21 @@ export function ItemBuyRequestPanel({
             marketplacePriceMinor={null}
             testIdPrefix="item"
             loading={steamPriceLoading}
+            compact
           />
-          {steamPriceMinor != null && steamPriceFetchedAt ? (
-            <p
-              className={`muted small item-steam-price-age${
-                isSteamPriceStale(steamPriceFetchedAt)
-                  ? ' item-steam-price-age-stale'
-                  : ''
-              }`}
-              data-testid="item-steam-price-age"
-            >
-              {t('item.steamUpdated', {
-                age: formatSteamPriceAge(steamPriceFetchedAt, locale) ?? '',
-              })}
-              {isSteamPriceStale(steamPriceFetchedAt)
-                ? ` · ${t('item.priceMaybeStale')}`
-                : ''}
-            </p>
-          ) : null}
         </div>
 
-        <p className="item-buy-request-lead muted small">
-          {t('buyRequestPanel.lead')}
-        </p>
+        <details
+          className="item-buy-request-how lot-pricing-details"
+          data-testid="item-buy-request-how"
+        >
+          <summary className="lot-pricing-details-summary item-buy-request-how-summary">
+            {t('buyRequestPanel.howItWorks')}
+          </summary>
+          <p className="item-buy-request-lead muted small lot-pricing-details-body">
+            {t('buyRequestPanel.lead')}
+          </p>
+        </details>
 
         {openBuyRequests.length > 0 ? (
           <div className="item-buy-request-active-list" data-testid="item-buy-request-active-list">
@@ -223,51 +212,40 @@ export function ItemBuyRequestPanel({
         ) : null}
 
         <div className="item-buy-request-price-block">
-          {steamSuggestion ? (
-            <div
-              className="inventory-price-recommendation item-buy-request-suggestion"
-              data-testid="item-buy-request-suggestion"
-            >
-              <p className="muted small">
-                {t('buyRequestPanel.steamGuide')}{' '}
-                <strong>{formatUsdFromMinor(steamPriceMinor!)}</strong>
-              </p>
-              <button
-                type="button"
-                className="button secondary sm"
-                data-testid="item-buy-request-apply-steam"
-                onClick={() => onMaxPriceChange(steamSuggestion)}
-              >
-                {t('sellPanel.apply')}
-              </button>
-            </div>
-          ) : null}
-
           <label className="field item-buy-request-price-field" htmlFor="item-buy-request-max-price">
             <span className="field-label">{t('buyRequestPanel.maxPriceLabel')}</span>
-            <div
-              className={`item-buy-request-price-control${
-                hasTypedPrice ? ' has-value' : ''
-              }`}
-            >
-              <span className="item-buy-request-price-prefix" aria-hidden="true">
-                $
-              </span>
-              <input
-                id="item-buy-request-max-price"
-                type="text"
-                inputMode="decimal"
-                placeholder={steamSuggestion ?? '0.00'}
-                value={maxPriceInput}
-                onChange={(event) => onMaxPriceChange(event.target.value)}
-                data-testid="item-buy-request-max-price"
-                autoComplete="off"
-                required
-              />
+            <div className="item-buy-request-price-row">
+              <div
+                className={`item-buy-request-price-control${
+                  hasTypedPrice ? ' has-value' : ''
+                }`}
+              >
+                <span className="item-buy-request-price-prefix" aria-hidden="true">
+                  $
+                </span>
+                <input
+                  id="item-buy-request-max-price"
+                  type="text"
+                  inputMode="decimal"
+                  placeholder={steamSuggestion ?? '0.00'}
+                  value={maxPriceInput}
+                  onChange={(event) => onMaxPriceChange(event.target.value)}
+                  data-testid="item-buy-request-max-price"
+                  autoComplete="off"
+                  required
+                />
+              </div>
+              {steamSuggestion ? (
+                <button
+                  type="button"
+                  className="button secondary sm item-buy-request-apply-steam"
+                  data-testid="item-buy-request-apply-steam"
+                  onClick={() => onMaxPriceChange(steamSuggestion)}
+                >
+                  {t('sellPanel.apply')}
+                </button>
+              ) : null}
             </div>
-            <span className="muted small item-buy-request-price-hint">
-              {t('buyRequestPanel.maxPriceHintRequired')}
-            </span>
           </label>
 
           <label className="field item-buy-request-quantity-field" htmlFor="item-buy-request-quantity">
@@ -284,7 +262,10 @@ export function ItemBuyRequestPanel({
           </label>
 
           {reservePreviewMinor != null && reservePreviewMinor > 0 ? (
-            <p className="muted small item-buy-request-reserve-preview" data-testid="item-buy-request-reserve-preview">
+            <p
+              className="muted small item-buy-request-reserve-preview"
+              data-testid="item-buy-request-reserve-preview"
+            >
               {t('buyRequestPanel.reservePreview')}{' '}
               <strong>{formatUsdFromMinor(reservePreviewMinor)}</strong>
             </p>
