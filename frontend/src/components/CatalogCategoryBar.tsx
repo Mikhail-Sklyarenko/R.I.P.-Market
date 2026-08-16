@@ -5,6 +5,7 @@ import {
   getCategoryOptionsForTab,
   WEAPON_CATEGORY_TABS,
   type CatalogCategoryOption,
+  type CategorySelectionMode,
 } from '../utils/catalog-filters';
 import { WeaponCategoryIcon } from './WeaponCategoryIcon';
 import {
@@ -12,11 +13,18 @@ import {
   WeaponModelIcon,
 } from './WeaponModelIcon';
 
+export type CategorySelectionChange = {
+  tabId: string;
+  mode: CategorySelectionMode;
+  values: string[];
+};
+
 type CatalogCategoryBarProps = {
   activeTabId: string;
+  categoryMode: CategorySelectionMode;
   categoryValues: readonly string[];
   onTabChange: (tabId: string) => void;
-  onCategoryValuesChange: (values: string[]) => void;
+  onCategorySelectionChange: (next: CategorySelectionChange) => void;
 };
 
 function optionDisplayLabel(
@@ -86,9 +94,10 @@ function CatalogFilterCheckbox({
 
 export function CatalogCategoryBar({
   activeTabId,
+  categoryMode,
   categoryValues,
   onTabChange,
-  onCategoryValuesChange,
+  onCategorySelectionChange,
 }: CatalogCategoryBarProps) {
   const { locale, t } = useLocale();
   const [openTabId, setOpenTabId] = useState<string | null>(null);
@@ -103,10 +112,16 @@ export function CatalogCategoryBar({
   const openTab = WEAPON_CATEGORY_TABS.find((tab) => tab.id === openTabId);
   const openOptions = openTab ? getCategoryOptionsForTab(openTab.id) : [];
   const selectedInOpenTab = new Set(
-    openTab && activeTabId === openTab.id ? categoryValues : [],
+    openTab &&
+      activeTabId === openTab.id &&
+      categoryMode === 'subset'
+      ? categoryValues
+      : [],
   );
   const selectAllActive =
-    Boolean(openTab) && activeTabId === openTab?.id && categoryValues.length === 0;
+    Boolean(openTab) &&
+    activeTabId === openTab?.id &&
+    categoryMode === 'all';
 
   const updateDropdownPosition = useCallback(() => {
     if (!openTabId) {
@@ -131,7 +146,7 @@ export function CatalogCategoryBar({
       return;
     }
     updateDropdownPosition();
-  }, [openTabId, updateDropdownPosition, categoryValues]);
+  }, [openTabId, updateDropdownPosition, categoryValues, categoryMode]);
 
   useEffect(() => {
     if (!openTabId) {
@@ -166,7 +181,6 @@ export function CatalogCategoryBar({
       updateDropdownPosition();
     }
 
-    /** Close on page/container scroll so the menu stays fixed — never "chases" the tab. */
     function handleScroll(event: Event) {
       const target = event.target;
       if (
@@ -231,38 +245,43 @@ export function CatalogCategoryBar({
   }
 
   function handleToggleOption(tabId: string, value: string) {
-    const tabOptions = getCategoryOptionsForTab(tabId);
-    const inThisTab =
-      activeTabId === tabId
-        ? categoryValues.filter((entry) =>
-            tabOptions.some((option) => option.value === entry),
-          )
-        : [];
+    const onThisTab = activeTabId === tabId;
+    const selected = new Set(
+      onThisTab && categoryMode === 'subset' ? categoryValues : [],
+    );
 
-    const selected = new Set(inThisTab);
     if (selected.has(value)) {
       selected.delete(value);
     } else {
       selected.add(value);
     }
 
-    // Checking every model ≡ "select all" for a cleaner URL/state.
-    if (selected.size === tabOptions.length) {
-      onCategoryValuesChange([]);
-      if (activeTabId !== tabId) {
-        onTabChange(tabId);
-      }
-      return;
-    }
-
-    onCategoryValuesChange([...selected]);
+    const nextValues = [...selected];
+    onCategorySelectionChange({
+      tabId,
+      mode: nextValues.length === 0 ? 'empty' : 'subset',
+      values: nextValues,
+    });
   }
 
   function handleSelectAll() {
     if (!openTab) {
       return;
     }
-    onTabChange(openTab.id);
+    // Toggle: all ↔ empty. Never force all when clearing model checkboxes.
+    if (activeTabId === openTab.id && categoryMode === 'all') {
+      onCategorySelectionChange({
+        tabId: openTab.id,
+        mode: 'empty',
+        values: [],
+      });
+      return;
+    }
+    onCategorySelectionChange({
+      tabId: openTab.id,
+      mode: 'all',
+      values: [],
+    });
   }
 
   function handleClearTabSelection(
@@ -271,9 +290,15 @@ export function CatalogCategoryBar({
   ) {
     event.preventDefault();
     event.stopPropagation();
-    if (activeTabId === tabId) {
-      onCategoryValuesChange([]);
+    if (activeTabId !== tabId) {
+      return;
     }
+    // Explicit clear of narrowing → back to browsing the whole tab.
+    onCategorySelectionChange({
+      tabId,
+      mode: 'all',
+      values: [],
+    });
   }
 
   function setTabButtonRef(tabId: string, node: HTMLButtonElement | null) {
@@ -324,7 +349,9 @@ export function CatalogCategoryBar({
             />
             {openOptions.map((option) => {
               const checked =
-                activeTabId === openTab.id && selectedInOpenTab.has(option.value);
+                activeTabId === openTab.id &&
+                categoryMode === 'subset' &&
+                selectedInOpenTab.has(option.value);
               return (
                 <button
                   key={option.value}
@@ -368,7 +395,8 @@ export function CatalogCategoryBar({
           {WEAPON_CATEGORY_TABS.map((tab) => {
             const options = getCategoryOptionsForTab(tab.id);
             const isActive = activeTabId === tab.id;
-            const selectedCount = isActive ? categoryValues.length : 0;
+            const selectedCount =
+              isActive && categoryMode === 'subset' ? categoryValues.length : 0;
             const hasMenu = options.length > 0;
             const tabName = catalogTabLabel(tab.id, locale);
             const label =
@@ -378,6 +406,7 @@ export function CatalogCategoryBar({
                     count: selectedCount,
                   })
                 : tabName;
+            const showClear = isActive && categoryMode === 'subset' && selectedCount > 0;
 
             return (
               <div
@@ -399,7 +428,7 @@ export function CatalogCategoryBar({
                 >
                   <WeaponCategoryIcon icon={tab.icon} />
                   <span className="catalog-category-bar-label">{label}</span>
-                  {selectedCount > 0 ? (
+                  {showClear ? (
                     <span
                       className="catalog-category-bar-clear"
                       role="button"

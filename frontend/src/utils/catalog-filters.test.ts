@@ -182,20 +182,38 @@ describe('catalog-filters utils', () => {
   });
 
   it('encodes and decodes multi category selections for URL sync', () => {
-    assert.equal(encodeCategorySelection('snipers', ['AWP', 'SSG 08']), 'AWP|SSG 08');
+    assert.equal(
+      encodeCategorySelection('snipers', 'subset', ['AWP', 'SSG 08']),
+      'AWP|SSG 08',
+    );
     assert.deepEqual(decodeCategorySelection('AWP|SSG 08'), {
       tabId: 'snipers',
+      mode: 'subset',
       values: ['AWP', 'SSG 08'],
     });
     assert.deepEqual(decodeCategorySelection('Case|Terminal'), {
       tabId: 'cases',
+      mode: 'all',
       values: [],
     });
     assert.deepEqual(decodeCategorySelection('Revolution Case'), {
       tabId: 'cases',
+      mode: 'subset',
       values: ['Revolution Case'],
     });
-    assert.equal(encodeCategorySelection('cases', []), 'Case|Terminal');
+    assert.equal(encodeCategorySelection('cases', 'all', []), 'Case|Terminal');
+    assert.equal(
+      encodeCategorySelection('snipers', 'empty', []),
+      '__empty__:snipers',
+    );
+    assert.deepEqual(decodeCategorySelection('__empty__:snipers'), {
+      tabId: 'snipers',
+      mode: 'empty',
+      values: [],
+    });
+    assert.deepEqual(resolveCatalogFilter('snipers', [], 'empty'), {
+      marketHashName: '__no_such_catalog_item__',
+    });
   });
 
   it('uses a fixed default catalog page size', () => {

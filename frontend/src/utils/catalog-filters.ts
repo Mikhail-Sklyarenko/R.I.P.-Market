@@ -1077,10 +1077,20 @@ export function isTabLevelWeaponFilter(weapon: string): boolean {
 }
 
 /**
- * Resolve API filter for the category bar.
- * Specific dropdown option(s) win; otherwise "Все: …" uses every weapon in that tab
- * (exact weapon match — never fragile marketHashName substrings for categories).
+ * Category dropdown selection:
+ * - all: every model in the active tab ("Выбрать все")
+ * - subset: only checked option values
+ * - empty: user cleared every model checkbox (never auto-promoted to all)
  */
+export type CategorySelectionMode = 'all' | 'subset' | 'empty';
+
+/** Matches nothing — used when the user cleared every model checkbox. */
+export const EMPTY_CATEGORY_MATCH_FILTER: CatalogCategoryFilter = {
+  marketHashName: '__no_such_catalog_item__',
+};
+
+const EMPTY_CATEGORY_URL_PREFIX = '__empty__:';
+
 export function normalizeCategoryValues(
   categoryValue: string | readonly string[],
 ): string[] {
@@ -1100,11 +1110,7 @@ function filterFromOption(option: CatalogCategoryOption): CatalogCategoryFilter 
   };
 }
 
-export function resolveCatalogFilter(
-  activeTabId: string,
-  categoryValue: string | readonly string[],
-): CatalogCategoryFilter {
-  const values = normalizeCategoryValues(categoryValue);
+function resolveSubsetFilter(values: readonly string[]): CatalogCategoryFilter {
   if (values.length === 1) {
     const option = findCategoryOption(values[0]!);
     if (option) {
@@ -1143,11 +1149,9 @@ export function resolveCatalogFilter(
       if (weapons.length > 0) {
         filter.weapon = weapons.join('|');
       }
-      // Only pin exact names when every selected option has one (case multi-pick).
       if (hashNames.length === options.length) {
         filter.marketHashName = hashNames.join('|');
       }
-      // Shared substring q only when every option agrees (e.g. all pins).
       if (qs.length === options.length && new Set(qs).size === 1) {
         filter.q = qs[0];
       }
@@ -1158,6 +1162,10 @@ export function resolveCatalogFilter(
     }
   }
 
+  return { ...EMPTY_CATEGORY_MATCH_FILTER };
+}
+
+function resolveTabLevelFilter(activeTabId: string): CatalogCategoryFilter {
   const tab = WEAPON_CATEGORY_TABS.find((entry) => entry.id === activeTabId);
   if (tab?.filter && (tab.filter.weapon || tab.filter.q || tab.filter.rarity)) {
     return { ...tab.filter };
@@ -1180,18 +1188,48 @@ export function resolveCatalogFilter(
 }
 
 /**
- * Decode `?weapon=` into tab + selected option values (supports multi via `|`).
+ * @param mode When omitted, non-empty values ⇒ subset, empty values ⇒ all (legacy tests).
+ */
+export function resolveCatalogFilter(
+  activeTabId: string,
+  categoryValue: string | readonly string[],
+  mode?: CategorySelectionMode,
+): CatalogCategoryFilter {
+  if (activeTabId === 'all') {
+    return {};
+  }
+
+  const values = normalizeCategoryValues(categoryValue);
+  const resolvedMode: CategorySelectionMode =
+    mode ?? (values.length > 0 ? 'subset' : 'all');
+
+  if (resolvedMode === 'empty') {
+    return { ...EMPTY_CATEGORY_MATCH_FILTER };
+  }
+  if (resolvedMode === 'subset') {
+    return resolveSubsetFilter(values);
+  }
+  return resolveTabLevelFilter(activeTabId);
+}
+
+/**
+ * Decode `?weapon=` into tab + selection mode (supports multi via `|`).
  */
 export function decodeCategorySelection(weaponParam: string | null): {
   tabId: string;
+  mode: CategorySelectionMode;
   values: string[];
 } {
   if (!weaponParam?.trim()) {
-    return { tabId: 'all', values: [] };
+    return { tabId: 'all', mode: 'all', values: [] };
   }
   const param = weaponParam.trim();
+  if (param.startsWith(EMPTY_CATEGORY_URL_PREFIX)) {
+    const tabId = param.slice(EMPTY_CATEGORY_URL_PREFIX.length) || 'all';
+    return { tabId, mode: 'empty', values: [] };
+  }
   if (isTabLevelWeaponFilter(param)) {
-    return { tabId: findTabForWeapon(param), values: [] };
+    return { tabId: findTabForWeapon(param), mode: 'all', values: [] };
   }
 
   const parts = param
@@ -1208,14 +1246,18 @@ export function decodeCategorySelection(weaponParam: string | null): {
   if (byExactValue.length === parts.length && byExactValue.length > 0) {
     const tabId = byExactValue[0]!.tabId;
     if (byExactValue.every((option) => option.tabId === tabId)) {
-      return { tabId, values: byExactValue.map((option) => option.value) };
+      return {
+        tabId,
+        mode: 'subset',
+        values: byExactValue.map((option) => option.value),
+      };
     }
   }
 
   if (parts.length === 1) {
     const option = findCategoryOption(parts[0]!);
     if (option) {
-      return { tabId: option.tabId, values: [option.value] };
+      return { tabId: option.tabId, mode: 'subset', values: [option.value] };
     }
   }
 
@@ -1229,20 +1271,31 @@ export function decodeCategorySelection(weaponParam: string | null): {
   if (byWeaponLabel.length === parts.length && byWeaponLabel.length > 0) {
     const tabId = byWeaponLabel[0]!.tabId;
     if (byWeaponLabel.every((option) => option.tabId === tabId)) {
-      return { tabId, values: byWeaponLabel.map((option) => option.value) };
+      return {
+        tabId,
+        mode: 'subset',
+        values: byWeaponLabel.map((option) => option.value),
+      };
     }
   }
 
-  return { tabId: findTabForWeapon(param), values: [] };
+  return { tabId: findTabForWeapon(param), mode: 'all', values: [] };
 }
 
 /** Encode selection for the `weapon` URL param. */
 export function encodeCategorySelection(
   tabId: string,
-  values: readonly string[],
+  mode: CategorySelectionMode,
+  values: readonly string[] = [],
 ): string | undefined {
+  if (tabId === 'all') {
+    return undefined;
+  }
+  if (mode === 'empty') {
+    return `${EMPTY_CATEGORY_URL_PREFIX}${tabId}`;
+  }
   const normalized = normalizeCategoryValues(values);
-  if (normalized.length > 0) {
+  if (mode === 'subset' && normalized.length > 0) {
     return normalized.join('|');
   }
   const tab = WEAPON_CATEGORY_TABS.find((entry) => entry.id === tabId);
@@ -1261,6 +1314,7 @@ export function hasActiveCatalogFilters(input: {
   activeTabId: string;
   categoryValue?: string;
   categoryValues?: readonly string[];
+  categoryMode?: CategorySelectionMode;
   wearFilter?: string;
   floatMin?: string;
   floatMax?: string;
@@ -1269,13 +1323,18 @@ export function hasActiveCatalogFilters(input: {
   const selectedCategories =
     input.categoryValues ??
     (input.categoryValue ? normalizeCategoryValues(input.categoryValue) : []);
+  const narrowedCategory =
+    input.activeTabId !== 'all' &&
+    (input.categoryMode === 'subset' ||
+      input.categoryMode === 'empty' ||
+      selectedCategories.length > 0);
   return Boolean(
     input.search.trim() ||
       input.minPrice.trim() ||
       input.maxPrice.trim() ||
       input.sort !== 'newest' ||
       input.activeTabId !== 'all' ||
-      selectedCategories.length > 0 ||
+      narrowedCategory ||
       input.wearFilter ||
       input.floatMin?.trim() ||
       input.floatMax?.trim() ||

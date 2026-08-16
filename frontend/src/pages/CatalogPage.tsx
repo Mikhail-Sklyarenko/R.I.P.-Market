@@ -21,9 +21,9 @@ import {
   CATALOG_PAGE_SIZE_OPTIONS,
   decodeCategorySelection,
   encodeCategorySelection,
-  findCategoryOption,
   hasActiveCatalogFilters,
   resolveCatalogFilter,
+  type CategorySelectionMode,
 } from '../utils/catalog-filters';
 import {
   EMPTY_SKIN_TRAIT_FILTERS,
@@ -65,6 +65,7 @@ function toCatalogSort(
 
 function getInitialCategorySelection(weaponParam: string | null): {
   tabId: string;
+  mode: CategorySelectionMode;
   values: string[];
 } {
   return decodeCategorySelection(weaponParam);
@@ -177,11 +178,14 @@ export function CatalogPage() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const initialCategory = getInitialCategorySelection(weaponParam);
   const [activeTabId, setActiveTabId] = useState(initialCategory.tabId);
+  const [categoryMode, setCategoryMode] = useState<CategorySelectionMode>(
+    initialCategory.mode,
+  );
   const [categoryValues, setCategoryValues] = useState(initialCategory.values);
 
   const categoryFilter = useMemo(
-    () => resolveCatalogFilter(activeTabId, categoryValues),
-    [activeTabId, categoryValues],
+    () => resolveCatalogFilter(activeTabId, categoryValues, categoryMode),
+    [activeTabId, categoryValues, categoryMode],
   );
 
   const baseQuery = useMemo(() => {
@@ -236,6 +240,7 @@ export function CatalogPage() {
       maxPrice,
       activeTabId,
       categoryValues,
+      categoryMode,
       wearFilter,
       floatMin,
       floatMax,
@@ -262,6 +267,7 @@ export function CatalogPage() {
         floatMax,
         activeTabId,
         categoryValues,
+        categoryMode,
       }),
     [
       search,
@@ -275,6 +281,7 @@ export function CatalogPage() {
       floatMax,
       activeTabId,
       categoryValues,
+      categoryMode,
     ],
   );
   const previousCatalogFilterKeyRef = useRef(catalogFilterKey);
@@ -628,6 +635,7 @@ export function CatalogPage() {
     }
     const next = decodeCategorySelection(weaponParam);
     setCategoryValues(next.values);
+    setCategoryMode(next.mode);
     setActiveTabId(next.tabId);
   }, [weaponParam]);
 
@@ -735,19 +743,17 @@ export function CatalogPage() {
 
   const hasMoreItems = items.length < total;
 
-  function handleCategoryValuesChange(values: string[]) {
-    let nextTabId = activeTabId;
-    if (values.length > 0) {
-      const option = findCategoryOption(values[0]!);
-      if (option && option.tabId !== 'all') {
-        nextTabId = option.tabId;
-      }
-    }
-    setActiveTabId(nextTabId);
-    setCategoryValues(values);
+  function handleCategorySelectionChange(next: {
+    tabId: string;
+    mode: CategorySelectionMode;
+    values: string[];
+  }) {
+    setActiveTabId(next.tabId);
+    setCategoryMode(next.mode);
+    setCategoryValues(next.values);
 
     const nextParams = new URLSearchParams(searchParams);
-    const paramValue = encodeCategorySelection(nextTabId, values);
+    const paramValue = encodeCategorySelection(next.tabId, next.mode, next.values);
     if (paramValue) {
       nextParams.set('weapon', paramValue);
     } else {
@@ -758,9 +764,10 @@ export function CatalogPage() {
 
   function handleTabChange(tabId: string) {
     setActiveTabId(tabId);
+    setCategoryMode('all');
     setCategoryValues([]);
     const nextParams = new URLSearchParams(searchParams);
-    const paramValue = encodeCategorySelection(tabId, []);
+    const paramValue = encodeCategorySelection(tabId, 'all', []);
     if (paramValue) {
       nextParams.set('weapon', paramValue);
     } else {
@@ -780,6 +787,7 @@ export function CatalogPage() {
     setFloatMin('');
     setFloatMax('');
     setActiveTabId('all');
+    setCategoryMode('all');
     setCategoryValues([]);
     setSearchParams({}, { replace: true });
     window.scrollTo({ top: 0, behavior: 'instant' });
@@ -850,9 +858,10 @@ export function CatalogPage() {
       <div className="catalog-category-strip card" data-testid="catalog-category-strip">
         <CatalogCategoryBar
           activeTabId={activeTabId}
+          categoryMode={categoryMode}
           categoryValues={categoryValues}
           onTabChange={handleTabChange}
-          onCategoryValuesChange={handleCategoryValuesChange}
+          onCategorySelectionChange={handleCategorySelectionChange}
         />
       </div>
 
