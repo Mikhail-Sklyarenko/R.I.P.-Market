@@ -33,5 +33,7 @@ test.describe('Lot page', () => {
 
     await expect(page.getByTestId('buy-lot-button')).toHaveText('Купить сейчас');
     await expect(page.getByTestId('lot-purchase-price')).toBeVisible();
+    await expect(page.getByTestId('lot-purchase-card')).toBeVisible();
+    await expect(page.getByTestId('lot-purchase-snapshot')).toBeVisible();
   });
 });

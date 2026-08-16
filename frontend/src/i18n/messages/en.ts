@@ -381,6 +381,8 @@ const baseEnMessages = {
     commissionDetails: 'Fee and seller payout',
     commission: 'Fee',
     sellerReceives: 'Seller receives',
+    sellerLabel: 'Seller',
+    listingReady: 'Ready to buy',
     unavailable: 'Listing unavailable for purchase ({{status}}).',
     ownLot: 'You cannot buy your own listing.',
   },

@@ -2469,7 +2469,27 @@ a.button.primary {
 
 .lot-purchase-card-header {
   display: flex;
-  justify-content: flex-end;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+.lot-purchase-snapshot {
+  display: grid;
+  gap: 0.2rem;
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+.lot-purchase-snapshot-line,
+.lot-purchase-seller {
+  margin: 0;
+  line-height: 1.35;
+}
+
+.lot-purchase-seller-name {
+  color: var(--color-text);
+  font-weight: var(--font-weight-medium);
 }
 
 .lot-purchase-price {
@@ -2489,6 +2509,10 @@ a.button.primary {
 }
 
 .lot-pricing-details-summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
   cursor: pointer;
   padding: var(--space-3) var(--space-4);
   font-size: var(--font-size-sm);
@@ -2498,6 +2522,25 @@ a.button.primary {
 
 .lot-pricing-details-summary::-webkit-details-marker {
   display: none;
+}
+
+.lot-pricing-details-summary::after,
+.checkout-deal-flow-summary::after {
+  content: '';
+  width: 0.4rem;
+  height: 0.4rem;
+  flex: 0 0 auto;
+  border-right: 1.5px solid currentColor;
+  border-bottom: 1.5px solid currentColor;
+  transform: rotate(45deg);
+  opacity: 0.65;
+  transition: transform 0.15s ease;
+}
+
+.lot-pricing-details[open] > .lot-pricing-details-summary::after,
+.checkout-deal-flow[open] > .checkout-deal-flow-summary::after {
+  transform: rotate(225deg);
+  translate: 0 0.15rem;
 }
 
 .lot-pricing-details-body {
@@ -5681,6 +5724,10 @@ a.button.primary {
 }
 
 .checkout-deal-flow-summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
   cursor: pointer;
   padding: var(--space-3) var(--space-4);
   font-size: var(--font-size-sm);

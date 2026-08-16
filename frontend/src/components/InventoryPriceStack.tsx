@@ -65,6 +65,28 @@ export function InventoryPriceStack({
     );
   }
 
+  if (compact && hasMarket) {
+    return (
+      <div className="inventory-price-stack" data-testid={`${testIdPrefix}-prices`}>
+        <p className="inventory-price-primary" data-testid={`${testIdPrefix}-primary-price`}>
+          <MoneyDisplay minor={marketplacePriceMinor!} strong />
+        </p>
+        {hasSteam ? (
+          <p className="inventory-price-secondary muted small">
+            {t('inventoryPriceStack.steam')}{' '}
+            <span data-testid={`${testIdPrefix}-steam-price`}>
+              <MoneyDisplay minor={steamPriceMinor!} />
+            </span>
+          </p>
+        ) : (
+          <span className="sr-only" data-testid={`${testIdPrefix}-market-price`}>
+            {marketplacePriceMinor}
+          </span>
+        )}
+      </div>
+    );
+  }
+
   if (compact && !hasSteam && !hasMarket) {
     return (
       <div className="inventory-price-stack" data-testid={`${testIdPrefix}-prices`}>

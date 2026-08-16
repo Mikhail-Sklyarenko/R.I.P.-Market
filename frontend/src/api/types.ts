@@ -233,6 +233,11 @@ export type LotListingSnapshot = {
 export type Lot = {
   id: string;
   sellerId?: string;
+  seller?: {
+    id: string;
+    username: string;
+    steamPersonaName?: string | null;
+  } | null;
   status: string;
   priceMinor: string;
   commissionMinor: string;

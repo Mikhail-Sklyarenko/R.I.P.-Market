@@ -728,7 +728,14 @@ export class LotsService {
       where: { id: lotId },
       include: {
         ...this.lotInclude(),
-        seller: { select: { steamId: true } },
+        seller: {
+          select: {
+            id: true,
+            username: true,
+            steamPersonaName: true,
+            steamId: true,
+          },
+        },
       },
     });
     if (!lot) {
@@ -740,6 +747,7 @@ export class LotsService {
     }
 
     const hydrated = await this.hydrateListingSnapshotFromAsset(lot);
+    const { seller, ...lotWithoutSeller } = hydrated;
 
     const marketHashName =
       hydrated.listingSnapshot?.marketHashName ??
@@ -754,14 +762,14 @@ export class LotsService {
       await this.steamMarketPrice.getPriceMeta(steamMarketHashName);
     const inspectLink =
       hydrated.listingSnapshot?.inspectLink ??
-      (hydrated.seller.steamId
+      (seller.steamId
         ? (resolveInspectLink(
             hydrated.inventoryAsset.inspectLinkTemplate,
-            hydrated.seller.steamId,
+            seller.steamId,
             hydrated.inventoryAsset.assetExternalId,
           ) ??
           buildFallbackInspectLink({
-            ownerSteamId: hydrated.seller.steamId,
+            ownerSteamId: seller.steamId,
             assetExternalId: hydrated.inventoryAsset.assetExternalId,
             classId: hydrated.inventoryAsset.classExternalId,
             instanceId: hydrated.inventoryAsset.instanceExternalId,
@@ -769,7 +777,12 @@ export class LotsService {
         : null);
 
     return toJsonSafe({
-      ...hydrated,
+      ...lotWithoutSeller,
+      seller: {
+        id: seller.id,
+        username: seller.username,
+        steamPersonaName: seller.steamPersonaName,
+      },
       inspectLink,
       steamMarketHashName,
       steamMarketUrl: buildSteamMarketListingUrl(marketHashName, wear),
