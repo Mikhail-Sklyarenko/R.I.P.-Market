@@ -26,8 +26,7 @@ type LotPurchaseCardProps = {
 };
 
 /**
- * Sticky purchase CTA: seller trust, listing price, disclosures, buy.
- * Wear/float stay on the item card — this block is for money and who sells.
+ * Sticky purchase CTA: listing price is the hero; seller is quiet meta under it.
  */
 export function LotPurchaseCard({
   lot,
@@ -57,26 +56,30 @@ export function LotPurchaseCard({
   return (
     <div className="card lot-purchase-card" data-testid="lot-purchase-card">
       <div className="lot-purchase-card-header">
-        {sellerName ? (
-          <div className="lot-purchase-seller" data-testid="lot-purchase-seller">
-            <span className="lot-purchase-seller-label">{t('lot.sellerLabel')}</span>
-            <span className="lot-purchase-seller-name" title={sellerName}>
-              {sellerName}
-            </span>
-          </div>
-        ) : (
-          <div className="lot-purchase-seller" aria-hidden="true" />
-        )}
         <StatusBadge status={lot.status} />
       </div>
 
-      <div className="lot-purchase-price" data-testid="lot-purchase-price">
-        <InventoryPriceStack
-          steamPriceMinor={steamForGuide}
-          marketplacePriceMinor={listingPriceMinor}
-          testIdPrefix="lot"
-          compact={!steamForGuide}
-        />
+      <div className="lot-purchase-price-block">
+        <div className="lot-purchase-price" data-testid="lot-purchase-price">
+          <InventoryPriceStack
+            steamPriceMinor={steamForGuide}
+            marketplacePriceMinor={listingPriceMinor}
+            testIdPrefix="lot"
+            compact={!steamForGuide}
+          />
+        </div>
+
+        {sellerName ? (
+          <p className="lot-purchase-seller" data-testid="lot-purchase-seller">
+            <span className="lot-purchase-seller-label">{t('lot.sellerLabel')}</span>
+            <span className="lot-purchase-seller-sep" aria-hidden="true">
+              ·
+            </span>
+            <span className="lot-purchase-seller-name" title={sellerName}>
+              {sellerName}
+            </span>
+          </p>
+        ) : null}
       </div>
 
       {siblingOfferCount && siblingOfferCount > 1 && catalogItemPath ? (

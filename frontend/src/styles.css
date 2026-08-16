@@ -2469,35 +2469,14 @@ a.button.primary {
 
 .lot-purchase-card-header {
   display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: var(--space-3);
+  align-items: center;
+  justify-content: flex-end;
 }
 
-.lot-purchase-seller {
+.lot-purchase-price-block {
   display: grid;
-  gap: 0.15rem;
+  gap: var(--space-2);
   min-width: 0;
-  flex: 1 1 auto;
-}
-
-.lot-purchase-seller-label {
-  font-size: var(--font-size-xs);
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  color: var(--color-text-muted);
-  line-height: 1.2;
-}
-
-.lot-purchase-seller-name {
-  margin: 0;
-  color: var(--color-text);
-  font-size: var(--font-size-base);
-  font-weight: var(--font-weight-semibold);
-  line-height: 1.3;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 
 .lot-purchase-price {
@@ -2508,10 +2487,13 @@ a.button.primary {
   font-weight: var(--font-weight-semibold);
 }
 
+.lot-purchase-price .inventory-price-primary,
 .lot-purchase-price .money-display-strong {
   font-size: inherit;
   font-weight: inherit;
   letter-spacing: inherit;
+  line-height: inherit;
+  color: var(--color-text);
 }
 
 .lot-purchase-price .inventory-price-secondary {
@@ -2519,6 +2501,33 @@ a.button.primary {
   font-size: var(--font-size-sm);
   letter-spacing: 0;
   font-weight: var(--font-weight-normal);
+}
+
+.lot-purchase-seller {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  margin: 0;
+  min-width: 0;
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-normal);
+  line-height: 1.35;
+  color: var(--color-text-muted);
+}
+
+.lot-purchase-seller-label,
+.lot-purchase-seller-sep,
+.lot-purchase-seller-name {
+  color: inherit;
+  font-weight: inherit;
+}
+
+.lot-purchase-seller-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 100%;
 }
 
 .lot-pricing-details {
