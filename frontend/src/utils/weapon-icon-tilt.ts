@@ -17,6 +17,7 @@ const CATEGORY_TILT: Partial<Record<WeaponCategoryIconId, WeaponIconTiltId>> = {
   smg: 'smg',
   shotgun: 'shotgun',
   gloves: 'none',
+  cases: 'none',
   all: 'none',
   other: 'none',
 };

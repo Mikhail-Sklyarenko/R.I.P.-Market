@@ -9,6 +9,7 @@ type WeaponCategoryIconProps = {
 };
 
 const CATEGORY_ICON_FILES: Partial<Record<WeaponCategoryIconId, string>> = {
+  cases: 'cases',
   knife: 'knife',
   pistol: 'pistol',
   rifle: 'rifle',
@@ -26,6 +27,37 @@ function FallbackCategoryIcon({
   className: string;
 }) {
   switch (icon) {
+    case 'cases':
+      return (
+        <svg className={className} viewBox="0 0 24 24" aria-hidden="true">
+          <path
+            d="M4.5 8.2c0-.5.3-.9.8-1l6.2-1.3c.3-.1.6-.1.9 0l6.2 1.3c.5.1.8.5.8 1V9H4.5V8.2z"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.6"
+          />
+          <rect
+            x="4.5"
+            y="9"
+            width="15"
+            height="9.5"
+            rx="1.4"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.6"
+          />
+          <rect
+            x="10"
+            y="12.2"
+            width="4"
+            height="2.6"
+            rx="0.5"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.4"
+          />
+        </svg>
+      );
     case 'other':
       return (
         <svg className={className} viewBox="0 0 24 24" aria-hidden="true">

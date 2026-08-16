@@ -489,7 +489,7 @@ export class CatalogService {
       catalogSeeded: true,
       NOT: this.buildNonListableMarketHashNameFilter(),
     };
-    this.applyMarketHashNameQuery(where, query.q);
+    this.applyMarketHashNameQuery(where, query.q, query.marketHashName);
     applyCatalogSkinTraitFilters(where, {
       stattrak: query.stattrak,
       souvenir: query.souvenir,
@@ -568,7 +568,16 @@ export class CatalogService {
   private applyMarketHashNameQuery(
     where: Prisma.ItemDefinitionWhereInput,
     q?: string,
+    marketHashName?: string,
   ): void {
+    if (marketHashName?.trim()) {
+      where.marketHashName = {
+        equals: marketHashName.trim(),
+        mode: 'insensitive',
+      };
+      return;
+    }
+
     if (!q?.trim()) {
       return;
     }

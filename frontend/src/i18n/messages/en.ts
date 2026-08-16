@@ -65,6 +65,7 @@ const baseEnMessages = {
     pageSizeOption: '{{count}} per page',
     tabs: {
       all: 'All',
+      cases: 'Cases',
       knives: 'Knives',
       pistols: 'Pistols',
       rifles: 'Rifles',
@@ -81,7 +82,6 @@ const baseEnMessages = {
       'other-graffiti': 'Graffiti',
       'other-agent': 'Agents',
       'other-music-kit': 'Music Kits',
-      'other-case': 'Cases',
       'other-capsule': 'Capsules',
       'other-key': 'Keys',
       'other-collectible': 'Collectibles',

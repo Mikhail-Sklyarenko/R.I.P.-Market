@@ -64,6 +64,7 @@ const baseRuMessages = {
     pageSizeOption: '{{count}} на странице',
     tabs: {
       all: 'Все',
+      cases: 'Кейсы',
       knives: 'Ножи',
       pistols: 'Пистолеты',
       rifles: 'Винтовки',
@@ -80,7 +81,6 @@ const baseRuMessages = {
       'other-graffiti': 'Графити',
       'other-agent': 'Агенты',
       'other-music-kit': 'Музыкальные наборы',
-      'other-case': 'Кейсы',
       'other-capsule': 'Капсулы',
       'other-key': 'Ключи',
       'other-collectible': 'Коллекционные',

@@ -263,6 +263,33 @@ describe('CatalogService', () => {
     );
   });
 
+  it('filters by exact marketHashName when provided (case picker)', async () => {
+    prisma.lot.findMany.mockResolvedValue([]);
+    prisma.itemDefinition.findMany.mockResolvedValue([]);
+
+    await service.listItems({
+      page: 1,
+      limit: 24,
+      weapon: 'Case',
+      marketHashName: 'CS:GO Weapon Case',
+      q: 'CS:GO Weapon Case',
+    });
+
+    expect(prisma.itemDefinition.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          game: 'CS2',
+          catalogSeeded: true,
+          weapon: { equals: 'Case', mode: 'insensitive' },
+          marketHashName: {
+            equals: 'CS:GO Weapon Case',
+            mode: 'insensitive',
+          },
+        }),
+      }),
+    );
+  });
+
   it('matches any other-tab item type when q contains pipe-separated terms', async () => {
     prisma.lot.findMany.mockResolvedValue([]);
     prisma.itemDefinition.findMany.mockResolvedValue([]);

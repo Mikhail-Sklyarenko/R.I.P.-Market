@@ -107,6 +107,7 @@ export function listLots(params: ListLotsParams) {
 
 export type ListCatalogItemsParams = {
   q?: string;
+  marketHashName?: string;
   weapon?: string;
   rarity?: string;
   wear?: string;
@@ -124,6 +125,7 @@ export type ListCatalogItemsParams = {
 export function listCatalogItems(params: ListCatalogItemsParams) {
   const query = buildQueryString({
     q: params.q,
+    marketHashName: params.marketHashName,
     weapon: params.weapon,
     rarity: params.rarity,
     wear: params.wear,

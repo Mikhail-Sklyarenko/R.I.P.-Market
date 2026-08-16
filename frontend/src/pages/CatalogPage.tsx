@@ -22,7 +22,9 @@ import {
   findCategoryOption,
   findTabForWeapon,
   hasActiveCatalogFilters,
+  isTabLevelWeaponFilter,
   resolveCatalogFilter,
+  WEAPON_CATEGORY_TABS,
 } from '../utils/catalog-filters';
 import {
   EMPTY_SKIN_TRAIT_FILTERS,
@@ -64,6 +66,9 @@ function toCatalogSort(
 
 function getInitialCategoryValue(weaponParam: string | null): string {
   if (!weaponParam) {
+    return '';
+  }
+  if (isTabLevelWeaponFilter(weaponParam)) {
     return '';
   }
   const option = findCategoryOption(weaponParam);
@@ -193,6 +198,9 @@ export function CatalogPage() {
 
     return {
       q: search.trim() || categoryFilter.q || undefined,
+      marketHashName: search.trim()
+        ? undefined
+        : categoryFilter.marketHashName,
       minPriceMinor: minMinor ?? undefined,
       maxPriceMinor: maxMinor ?? undefined,
       weapon: categoryFilter.weapon,
@@ -743,7 +751,11 @@ export function CatalogPage() {
     }
 
     const nextParams = new URLSearchParams(searchParams);
-    const paramValue = option?.weapon ?? (option?.value && option.tabId !== 'all' ? option.value : undefined);
+    // Exact item pins (cases) deep-link by option value; pipe/"other" keep weapon filter.
+    const paramValue = option?.marketHashName
+      ? option.value
+      : option?.weapon ??
+        (option?.value && option.tabId !== 'all' ? option.value : undefined);
     if (paramValue) {
       nextParams.set('weapon', paramValue);
     } else {
@@ -756,7 +768,13 @@ export function CatalogPage() {
     setActiveTabId(tabId);
     setCategoryValue('');
     const nextParams = new URLSearchParams(searchParams);
-    nextParams.delete('weapon');
+    const tab = WEAPON_CATEGORY_TABS.find((entry) => entry.id === tabId);
+    // Persist compact tab filters (e.g. Case). Skip long pipe OR lists (knives/gloves).
+    if (tab?.filter.weapon && !tab.filter.weapon.includes('|')) {
+      nextParams.set('weapon', tab.filter.weapon);
+    } else {
+      nextParams.delete('weapon');
+    }
     setSearchParams(nextParams, { replace: true });
   }
 

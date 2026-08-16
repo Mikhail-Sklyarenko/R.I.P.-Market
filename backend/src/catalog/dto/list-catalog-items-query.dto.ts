@@ -16,6 +16,12 @@ export class ListCatalogItemsQueryDto {
   @IsString()
   q?: string;
 
+  /** Exact ItemDefinition.marketHashName (e.g. a specific case). Wins over `q`. */
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  marketHashName?: string;
+
   @ApiPropertyOptional()
   @IsOptional()
   @IsString()

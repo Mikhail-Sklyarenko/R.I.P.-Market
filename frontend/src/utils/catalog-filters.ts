@@ -5,6 +5,7 @@ import {
 
 export type WeaponCategoryIconId =
   | 'all'
+  | 'cases'
   | 'knife'
   | 'pistol'
   | 'rifle'
@@ -18,6 +19,8 @@ export type CatalogCategoryFilter = {
   weapon?: string;
   rarity?: string;
   q?: string;
+  /** Exact market hash name (catalog API `marketHashName`). */
+  marketHashName?: string;
 };
 
 export type WeaponCategoryTab = {
@@ -36,6 +39,7 @@ export type CatalogCategoryOption = {
   weapon?: string;
   rarity?: string;
   q?: string;
+  marketHashName?: string;
 };
 
 /**
@@ -50,7 +54,6 @@ export const OTHER_CATEGORY_WEAPONS = {
   graffiti: ['Graffiti'],
   agent: ['Agent'],
   musicKit: ['Music Kit', 'Music Kit Box'],
-  case: ['Case'],
   capsule: ['Sticker Capsule', 'Patch Capsule', 'Autograph Capsule'],
   key: ['Key'],
   collectible: ['Collectible'],
@@ -128,6 +131,53 @@ export const KNIFE_WEAPON_NAMES = [
   'Ursus Knife',
 ] as const;
 
+
+/** Exact ItemDefinition.marketHashName values for CS2 weapon cases (ByMykel crates type=Case). */
+export const CASE_MARKET_HASH_NAMES = [
+  "CS20 Case",
+  "CS:GO Weapon Case",
+  "CS:GO Weapon Case 2",
+  "CS:GO Weapon Case 3",
+  "Chroma 2 Case",
+  "Chroma 3 Case",
+  "Chroma Case",
+  "Clutch Case",
+  "Danger Zone Case",
+  "Dreams & Nightmares Case",
+  "Falchion Case",
+  "Fever Case",
+  "Fracture Case",
+  "Gallery Case",
+  "Gamma 2 Case",
+  "Gamma Case",
+  "Glove Case",
+  "Horizon Case",
+  "Huntsman Weapon Case",
+  "Kilowatt Case",
+  "Operation Bravo Case",
+  "Operation Breakout Weapon Case",
+  "Operation Broken Fang Case",
+  "Operation Hydra Case",
+  "Operation Phoenix Weapon Case",
+  "Operation Riptide Case",
+  "Operation Vanguard Weapon Case",
+  "Operation Wildfire Case",
+  "Prisma 2 Case",
+  "Prisma Case",
+  "Recoil Case",
+  "Revolution Case",
+  "Revolver Case",
+  "Shadow Case",
+  "Shattered Web Case",
+  "Snakebite Case",
+  "Spectrum 2 Case",
+  "Spectrum Case",
+  "Winter Offensive Weapon Case",
+  "eSports 2013 Case",
+  "eSports 2013 Winter Case",
+  "eSports 2014 Summer Case",
+] as const;
+
 export const CATALOG_PAGE_LIMIT = 48;
 
 export const CATALOG_PAGE_SIZE_OPTIONS = [24, 48, 96] as const;
@@ -160,6 +210,12 @@ function weaponOptionsForTab(
 export const WEAPON_CATEGORY_TABS: readonly WeaponCategoryTab[] = [
   { id: 'all', label: 'Все', icon: 'all', filter: {} },
   {
+    id: 'cases',
+    label: 'Кейсы',
+    icon: 'cases',
+    filter: { weapon: 'Case' },
+  },
+  {
     id: 'knives',
     label: 'Ножи',
     icon: 'knife',
@@ -186,6 +242,385 @@ export const WEAPON_CATEGORY_TABS: readonly WeaponCategoryTab[] = [
 
 export const CATALOG_CATEGORY_OPTIONS: readonly CatalogCategoryOption[] = [
   { value: '', label: 'Все категории', tabId: 'all', icon: 'all' },
+  // Cases — full marketable CS2 set (exact marketHashName filter)
+  {
+    value: "CS20 Case",
+    label: "CS20 Case",
+    weapon: 'Case',
+    marketHashName: "CS20 Case",
+    tabId: 'cases',
+    icon: 'cases',
+    modelIcon: "CS20 Case",
+  },
+  {
+    value: "CS:GO Weapon Case",
+    label: "CS:GO Weapon Case",
+    weapon: 'Case',
+    marketHashName: "CS:GO Weapon Case",
+    tabId: 'cases',
+    icon: 'cases',
+    modelIcon: "CS:GO Weapon Case",
+  },
+  {
+    value: "CS:GO Weapon Case 2",
+    label: "CS:GO Weapon Case 2",
+    weapon: 'Case',
+    marketHashName: "CS:GO Weapon Case 2",
+    tabId: 'cases',
+    icon: 'cases',
+    modelIcon: "CS:GO Weapon Case 2",
+  },
+  {
+    value: "CS:GO Weapon Case 3",
+    label: "CS:GO Weapon Case 3",
+    weapon: 'Case',
+    marketHashName: "CS:GO Weapon Case 3",
+    tabId: 'cases',
+    icon: 'cases',
+    modelIcon: "CS:GO Weapon Case 3",
+  },
+  {
+    value: "Chroma 2 Case",
+    label: "Chroma 2 Case",
+    weapon: 'Case',
+    marketHashName: "Chroma 2 Case",
+    tabId: 'cases',
+    icon: 'cases',
+    modelIcon: "Chroma 2 Case",
+  },
+  {
+    value: "Chroma 3 Case",
+    label: "Chroma 3 Case",
+    weapon: 'Case',
+    marketHashName: "Chroma 3 Case",
+    tabId: 'cases',
+    icon: 'cases',
+    modelIcon: "Chroma 3 Case",
+  },
+  {
+    value: "Chroma Case",
+    label: "Chroma Case",
+    weapon: 'Case',
+    marketHashName: "Chroma Case",
+    tabId: 'cases',
+    icon: 'cases',
+    modelIcon: "Chroma Case",
+  },
+  {
+    value: "Clutch Case",
+    label: "Clutch Case",
+    weapon: 'Case',
+    marketHashName: "Clutch Case",
+    tabId: 'cases',
+    icon: 'cases',
+    modelIcon: "Clutch Case",
+  },
+  {
+    value: "Danger Zone Case",
+    label: "Danger Zone Case",
+    weapon: 'Case',
+    marketHashName: "Danger Zone Case",
+    tabId: 'cases',
+    icon: 'cases',
+    modelIcon: "Danger Zone Case",
+  },
+  {
+    value: "Dreams & Nightmares Case",
+    label: "Dreams & Nightmares Case",
+    weapon: 'Case',
+    marketHashName: "Dreams & Nightmares Case",
+    tabId: 'cases',
+    icon: 'cases',
+    modelIcon: "Dreams & Nightmares Case",
+  },
+  {
+    value: "Falchion Case",
+    label: "Falchion Case",
+    weapon: 'Case',
+    marketHashName: "Falchion Case",
+    tabId: 'cases',
+    icon: 'cases',
+    modelIcon: "Falchion Case",
+  },
+  {
+    value: "Fever Case",
+    label: "Fever Case",
+    weapon: 'Case',
+    marketHashName: "Fever Case",
+    tabId: 'cases',
+    icon: 'cases',
+    modelIcon: "Fever Case",
+  },
+  {
+    value: "Fracture Case",
+    label: "Fracture Case",
+    weapon: 'Case',
+    marketHashName: "Fracture Case",
+    tabId: 'cases',
+    icon: 'cases',
+    modelIcon: "Fracture Case",
+  },
+  {
+    value: "Gallery Case",
+    label: "Gallery Case",
+    weapon: 'Case',
+    marketHashName: "Gallery Case",
+    tabId: 'cases',
+    icon: 'cases',
+    modelIcon: "Gallery Case",
+  },
+  {
+    value: "Gamma 2 Case",
+    label: "Gamma 2 Case",
+    weapon: 'Case',
+    marketHashName: "Gamma 2 Case",
+    tabId: 'cases',
+    icon: 'cases',
+    modelIcon: "Gamma 2 Case",
+  },
+  {
+    value: "Gamma Case",
+    label: "Gamma Case",
+    weapon: 'Case',
+    marketHashName: "Gamma Case",
+    tabId: 'cases',
+    icon: 'cases',
+    modelIcon: "Gamma Case",
+  },
+  {
+    value: "Glove Case",
+    label: "Glove Case",
+    weapon: 'Case',
+    marketHashName: "Glove Case",
+    tabId: 'cases',
+    icon: 'cases',
+    modelIcon: "Glove Case",
+  },
+  {
+    value: "Horizon Case",
+    label: "Horizon Case",
+    weapon: 'Case',
+    marketHashName: "Horizon Case",
+    tabId: 'cases',
+    icon: 'cases',
+    modelIcon: "Horizon Case",
+  },
+  {
+    value: "Huntsman Weapon Case",
+    label: "Huntsman Weapon Case",
+    weapon: 'Case',
+    marketHashName: "Huntsman Weapon Case",
+    tabId: 'cases',
+    icon: 'cases',
+    modelIcon: "Huntsman Weapon Case",
+  },
+  {
+    value: "Kilowatt Case",
+    label: "Kilowatt Case",
+    weapon: 'Case',
+    marketHashName: "Kilowatt Case",
+    tabId: 'cases',
+    icon: 'cases',
+    modelIcon: "Kilowatt Case",
+  },
+  {
+    value: "Operation Bravo Case",
+    label: "Operation Bravo Case",
+    weapon: 'Case',
+    marketHashName: "Operation Bravo Case",
+    tabId: 'cases',
+    icon: 'cases',
+    modelIcon: "Operation Bravo Case",
+  },
+  {
+    value: "Operation Breakout Weapon Case",
+    label: "Operation Breakout Weapon Case",
+    weapon: 'Case',
+    marketHashName: "Operation Breakout Weapon Case",
+    tabId: 'cases',
+    icon: 'cases',
+    modelIcon: "Operation Breakout Weapon Case",
+  },
+  {
+    value: "Operation Broken Fang Case",
+    label: "Operation Broken Fang Case",
+    weapon: 'Case',
+    marketHashName: "Operation Broken Fang Case",
+    tabId: 'cases',
+    icon: 'cases',
+    modelIcon: "Operation Broken Fang Case",
+  },
+  {
+    value: "Operation Hydra Case",
+    label: "Operation Hydra Case",
+    weapon: 'Case',
+    marketHashName: "Operation Hydra Case",
+    tabId: 'cases',
+    icon: 'cases',
+    modelIcon: "Operation Hydra Case",
+  },
+  {
+    value: "Operation Phoenix Weapon Case",
+    label: "Operation Phoenix Weapon Case",
+    weapon: 'Case',
+    marketHashName: "Operation Phoenix Weapon Case",
+    tabId: 'cases',
+    icon: 'cases',
+    modelIcon: "Operation Phoenix Weapon Case",
+  },
+  {
+    value: "Operation Riptide Case",
+    label: "Operation Riptide Case",
+    weapon: 'Case',
+    marketHashName: "Operation Riptide Case",
+    tabId: 'cases',
+    icon: 'cases',
+    modelIcon: "Operation Riptide Case",
+  },
+  {
+    value: "Operation Vanguard Weapon Case",
+    label: "Operation Vanguard Weapon Case",
+    weapon: 'Case',
+    marketHashName: "Operation Vanguard Weapon Case",
+    tabId: 'cases',
+    icon: 'cases',
+    modelIcon: "Operation Vanguard Weapon Case",
+  },
+  {
+    value: "Operation Wildfire Case",
+    label: "Operation Wildfire Case",
+    weapon: 'Case',
+    marketHashName: "Operation Wildfire Case",
+    tabId: 'cases',
+    icon: 'cases',
+    modelIcon: "Operation Wildfire Case",
+  },
+  {
+    value: "Prisma 2 Case",
+    label: "Prisma 2 Case",
+    weapon: 'Case',
+    marketHashName: "Prisma 2 Case",
+    tabId: 'cases',
+    icon: 'cases',
+    modelIcon: "Prisma 2 Case",
+  },
+  {
+    value: "Prisma Case",
+    label: "Prisma Case",
+    weapon: 'Case',
+    marketHashName: "Prisma Case",
+    tabId: 'cases',
+    icon: 'cases',
+    modelIcon: "Prisma Case",
+  },
+  {
+    value: "Recoil Case",
+    label: "Recoil Case",
+    weapon: 'Case',
+    marketHashName: "Recoil Case",
+    tabId: 'cases',
+    icon: 'cases',
+    modelIcon: "Recoil Case",
+  },
+  {
+    value: "Revolution Case",
+    label: "Revolution Case",
+    weapon: 'Case',
+    marketHashName: "Revolution Case",
+    tabId: 'cases',
+    icon: 'cases',
+    modelIcon: "Revolution Case",
+  },
+  {
+    value: "Revolver Case",
+    label: "Revolver Case",
+    weapon: 'Case',
+    marketHashName: "Revolver Case",
+    tabId: 'cases',
+    icon: 'cases',
+    modelIcon: "Revolver Case",
+  },
+  {
+    value: "Shadow Case",
+    label: "Shadow Case",
+    weapon: 'Case',
+    marketHashName: "Shadow Case",
+    tabId: 'cases',
+    icon: 'cases',
+    modelIcon: "Shadow Case",
+  },
+  {
+    value: "Shattered Web Case",
+    label: "Shattered Web Case",
+    weapon: 'Case',
+    marketHashName: "Shattered Web Case",
+    tabId: 'cases',
+    icon: 'cases',
+    modelIcon: "Shattered Web Case",
+  },
+  {
+    value: "Snakebite Case",
+    label: "Snakebite Case",
+    weapon: 'Case',
+    marketHashName: "Snakebite Case",
+    tabId: 'cases',
+    icon: 'cases',
+    modelIcon: "Snakebite Case",
+  },
+  {
+    value: "Spectrum 2 Case",
+    label: "Spectrum 2 Case",
+    weapon: 'Case',
+    marketHashName: "Spectrum 2 Case",
+    tabId: 'cases',
+    icon: 'cases',
+    modelIcon: "Spectrum 2 Case",
+  },
+  {
+    value: "Spectrum Case",
+    label: "Spectrum Case",
+    weapon: 'Case',
+    marketHashName: "Spectrum Case",
+    tabId: 'cases',
+    icon: 'cases',
+    modelIcon: "Spectrum Case",
+  },
+  {
+    value: "Winter Offensive Weapon Case",
+    label: "Winter Offensive Weapon Case",
+    weapon: 'Case',
+    marketHashName: "Winter Offensive Weapon Case",
+    tabId: 'cases',
+    icon: 'cases',
+    modelIcon: "Winter Offensive Weapon Case",
+  },
+  {
+    value: "eSports 2013 Case",
+    label: "eSports 2013 Case",
+    weapon: 'Case',
+    marketHashName: "eSports 2013 Case",
+    tabId: 'cases',
+    icon: 'cases',
+    modelIcon: "eSports 2013 Case",
+  },
+  {
+    value: "eSports 2013 Winter Case",
+    label: "eSports 2013 Winter Case",
+    weapon: 'Case',
+    marketHashName: "eSports 2013 Winter Case",
+    tabId: 'cases',
+    icon: 'cases',
+    modelIcon: "eSports 2013 Winter Case",
+  },
+  {
+    value: "eSports 2014 Summer Case",
+    label: "eSports 2014 Summer Case",
+    weapon: 'Case',
+    marketHashName: "eSports 2014 Summer Case",
+    tabId: 'cases',
+    icon: 'cases',
+    modelIcon: "eSports 2014 Summer Case",
+  },
   // Pistols — full CS2 set (sorted like Steam / competitors)
   {
     value: 'CZ75-Auto',
@@ -498,14 +933,6 @@ export const CATALOG_CATEGORY_OPTIONS: readonly CatalogCategoryOption[] = [
     ...otherWeaponFilter(OTHER_CATEGORY_WEAPONS.musicKit),
   },
   {
-    value: 'other-case',
-    label: 'Кейсы',
-    tabId: 'other',
-    icon: 'other',
-    modelIcon: 'other-case',
-    ...otherWeaponFilter(OTHER_CATEGORY_WEAPONS.case),
-  },
-  {
     value: 'other-capsule',
     label: 'Капсулы',
     tabId: 'other',
@@ -571,6 +998,13 @@ export function findCategoryOption(value: string): CatalogCategoryOption | undef
 }
 
 export function findTabForWeapon(weapon: string): string {
+  const tabByFilter = WEAPON_CATEGORY_TABS.find(
+    (tab) => tab.filter.weapon === weapon,
+  );
+  if (tabByFilter) {
+    return tabByFilter.id;
+  }
+
   const option = findCategoryOption(weapon);
   if (option) {
     return option.tabId;
@@ -582,6 +1016,11 @@ export function findTabForWeapon(weapon: string): string {
     return entry.weapon.split('|').some((part) => part.trim() === weapon);
   });
   return byWeapon?.tabId ?? 'all';
+}
+
+/** True when `weapon` is a whole-tab filter (e.g. Case), not a single model. */
+export function isTabLevelWeaponFilter(weapon: string): boolean {
+  return WEAPON_CATEGORY_TABS.some((tab) => tab.filter.weapon === weapon);
 }
 
 /**
@@ -600,6 +1039,9 @@ export function resolveCatalogFilter(
         ...(option.q ? { q: option.q } : {}),
         ...(option.weapon ? { weapon: option.weapon } : {}),
         ...(option.rarity ? { rarity: option.rarity } : {}),
+        ...(option.marketHashName
+          ? { marketHashName: option.marketHashName }
+          : {}),
       };
     }
   }

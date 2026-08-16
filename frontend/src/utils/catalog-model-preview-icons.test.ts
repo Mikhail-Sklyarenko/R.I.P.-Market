@@ -16,9 +16,11 @@ describe('catalog model preview icons', () => {
     );
     assert.ok(weaponOptions.length >= 20);
     for (const option of weaponOptions) {
-      const weapon = option.weapon ?? option.value;
-      const hash = getCatalogModelPreviewHash(weapon);
-      assert.ok(hash, `missing preview hash for ${weapon}`);
+      const hash = getCatalogModelPreviewHash(
+        option.value || option.weapon,
+        option.modelIcon,
+      );
+      assert.ok(hash, `missing preview hash for ${option.value}`);
       assert.match(hash, /^[A-Za-z0-9_-]+$/);
     }
   });
@@ -58,6 +60,20 @@ describe('catalog model preview icons', () => {
     assert.ok(getCatalogModelPreviewHash('Karambit'));
     assert.ok(getCatalogModelPreviewHash('Butterfly Knife'));
     assert.ok(getCatalogModelPreviewHash('M9 Bayonet'));
+  });
+
+  it('covers case previews by exact marketHashName', () => {
+    for (const name of ['Revolution Case', 'CS:GO Weapon Case', 'Gallery Case']) {
+      assert.ok(getCatalogModelPreviewHash(name), name);
+    }
+    const cases = getCategoryOptionsForTab('cases');
+    assert.ok(cases.length >= 40);
+    for (const option of cases) {
+      assert.ok(
+        getCatalogModelPreviewHash(option.value, option.modelIcon),
+        option.value,
+      );
+    }
   });
 
   it('covers every Other subcategory via value / modelIcon slug', () => {

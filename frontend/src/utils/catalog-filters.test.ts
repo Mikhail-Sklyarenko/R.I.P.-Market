@@ -1,11 +1,13 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import {
+  CASE_MARKET_HASH_NAMES,
   getCategoryOptionsForTab,
   hasActiveCatalogFilters,
   resolveCatalogFilter,
   WEAPON_CATEGORY_TABS,
   findTabForWeapon,
+  isTabLevelWeaponFilter,
   CATALOG_PAGE_LIMIT,
   GLOVE_WEAPON_NAMES,
   KNIFE_WEAPON_NAMES,
@@ -64,6 +66,25 @@ describe('catalog-filters utils', () => {
     });
   });
 
+  it('filters cases by weapon Case and exact marketHashName per case', () => {
+    const allCases = resolveCatalogFilter('cases', '');
+    assert.deepEqual(allCases, { weapon: 'Case' });
+    assert.equal(allCases.q, undefined);
+    assert.equal(allCases.marketHashName, undefined);
+    assert.ok(CASE_MARKET_HASH_NAMES.length >= 40);
+    assert.deepEqual(resolveCatalogFilter('cases', 'Revolution Case'), {
+      weapon: 'Case',
+      marketHashName: 'Revolution Case',
+    });
+    assert.deepEqual(resolveCatalogFilter('cases', 'CS:GO Weapon Case'), {
+      weapon: 'Case',
+      marketHashName: 'CS:GO Weapon Case',
+    });
+    assert.ok(
+      getCategoryOptionsForTab('cases').length >= CASE_MARKET_HASH_NAMES.length,
+    );
+  });
+
   it('returns model options for a weapon tab', () => {
     const rifleOptions = getCategoryOptionsForTab('rifles');
     assert.ok(rifleOptions.some((option) => option.value === 'AK-47'));
@@ -75,11 +96,14 @@ describe('catalog-filters utils', () => {
     assert.ok(getCategoryOptionsForTab('knives').length >= KNIFE_WEAPON_NAMES.length);
   });
 
-  it('returns other-tab subcategories for stickers, charms, and more', () => {
+  it('returns other-tab subcategories without burying cases there', () => {
     const otherOptions = getCategoryOptionsForTab('other');
     assert.ok(otherOptions.some((option) => option.value === 'other-sticker'));
     assert.ok(otherOptions.some((option) => option.value === 'other-charm'));
-    assert.ok(otherOptions.some((option) => option.value === 'other-case'));
+    assert.equal(
+      otherOptions.some((option) => option.value === 'other-case'),
+      false,
+    );
     assert.equal(otherOptions.find((option) => option.value === 'other-sticker')?.label, 'Наклейки');
   });
 
@@ -92,9 +116,6 @@ describe('catalog-filters utils', () => {
     });
     assert.deepEqual(resolveCatalogFilter('other', 'other-agent'), {
       weapon: 'Agent',
-    });
-    assert.deepEqual(resolveCatalogFilter('other', 'other-case'), {
-      weapon: 'Case',
     });
     assert.deepEqual(resolveCatalogFilter('other', 'other-key'), {
       weapon: 'Key',
@@ -116,30 +137,33 @@ describe('catalog-filters utils', () => {
     const allOther = resolveCatalogFilter('other', '');
     assert.equal(allOther.q, undefined);
     assert.equal(allOther.weapon?.includes('Charm'), true);
-    assert.equal(allOther.weapon?.includes('Case'), true);
+    assert.equal(allOther.weapon?.includes('Case'), false);
     assert.equal(allOther.weapon?.includes('Key'), true);
     assert.equal(allOther.weapon?.includes('Agent'), true);
   });
 
-  it('maps other category values and weapon labels to the other tab', () => {
+  it('maps case and other category values to the correct tabs', () => {
     assert.equal(findTabForWeapon('other-sticker'), 'other');
     assert.equal(findTabForWeapon('other-charm'), 'other');
     assert.equal(findTabForWeapon('Charm'), 'other');
     assert.equal(findTabForWeapon('Graffiti'), 'other');
     assert.equal(findTabForWeapon('Sport Gloves'), 'gloves');
     assert.equal(findTabForWeapon('Karambit'), 'knives');
+    assert.equal(findTabForWeapon('Case'), 'cases');
+    assert.equal(findTabForWeapon('Revolution Case'), 'cases');
+    assert.equal(isTabLevelWeaponFilter('Case'), true);
+    assert.equal(isTabLevelWeaponFilter('Revolution Case'), false);
   });
 
   it('uses a fixed default catalog page size', () => {
     assert.equal(CATALOG_PAGE_LIMIT, 48);
   });
 
-  it('places other last and gloves before other in the category bar', () => {
+  it('places cases after all and other last in the category bar', () => {
     const tabIds = WEAPON_CATEGORY_TABS.map((tab) => tab.id);
-    const glovesIndex = tabIds.indexOf('gloves');
-    const otherIndex = tabIds.indexOf('other');
-    assert.equal(otherIndex, tabIds.length - 1);
-    assert.equal(glovesIndex, otherIndex - 1);
+    assert.equal(tabIds[0], 'all');
+    assert.equal(tabIds[1], 'cases');
+    assert.equal(tabIds[tabIds.length - 1], 'other');
   });
 
   it('detects active filters', () => {
