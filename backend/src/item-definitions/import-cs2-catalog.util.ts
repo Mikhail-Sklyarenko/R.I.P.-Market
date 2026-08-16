@@ -221,6 +221,11 @@ function resolveWeaponLabel(
     if (crateType) {
       return crateType;
     }
+    // Armory terminals arrive without a Steam crate type — keep them off generic Crate.
+    const name = row.market_hash_name?.trim() || row.name?.trim() || '';
+    if (/\bTerminal$/i.test(name)) {
+      return 'Terminal';
+    }
   }
   return source.weaponLabel;
 }

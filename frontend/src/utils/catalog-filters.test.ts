@@ -68,7 +68,7 @@ describe('catalog-filters utils', () => {
 
   it('filters cases by weapon Case and exact marketHashName per case', () => {
     const allCases = resolveCatalogFilter('cases', '');
-    assert.deepEqual(allCases, { weapon: 'Case' });
+    assert.deepEqual(allCases, { weapon: 'Case|Terminal' });
     assert.equal(allCases.q, undefined);
     assert.equal(allCases.marketHashName, undefined);
     assert.ok(CASE_MARKET_HASH_NAMES.length >= 40);
@@ -80,9 +80,18 @@ describe('catalog-filters utils', () => {
       weapon: 'Case',
       marketHashName: 'CS:GO Weapon Case',
     });
-    assert.ok(
-      getCategoryOptionsForTab('cases').length >= CASE_MARKET_HASH_NAMES.length,
-    );
+    assert.deepEqual(resolveCatalogFilter('cases', 'Sealed Genesis Terminal'), {
+      weapon: 'Terminal',
+      marketHashName: 'Sealed Genesis Terminal',
+    });
+    assert.deepEqual(resolveCatalogFilter('cases', 'Sealed Dead Hand Terminal'), {
+      weapon: 'Terminal',
+      marketHashName: 'Sealed Dead Hand Terminal',
+    });
+    const caseOptions = getCategoryOptionsForTab('cases');
+    assert.ok(caseOptions.length >= CASE_MARKET_HASH_NAMES.length + 2);
+    assert.equal(caseOptions[0]?.value, 'Sealed Dead Hand Terminal');
+    assert.equal(caseOptions[1]?.value, 'Sealed Genesis Terminal');
   });
 
   it('returns model options for a weapon tab', () => {
@@ -150,8 +159,13 @@ describe('catalog-filters utils', () => {
     assert.equal(findTabForWeapon('Sport Gloves'), 'gloves');
     assert.equal(findTabForWeapon('Karambit'), 'knives');
     assert.equal(findTabForWeapon('Case'), 'cases');
+    assert.equal(findTabForWeapon('Terminal'), 'cases');
+    assert.equal(findTabForWeapon('Case|Terminal'), 'cases');
     assert.equal(findTabForWeapon('Revolution Case'), 'cases');
+    assert.equal(findTabForWeapon('Sealed Genesis Terminal'), 'cases');
     assert.equal(isTabLevelWeaponFilter('Case'), true);
+    assert.equal(isTabLevelWeaponFilter('Terminal'), true);
+    assert.equal(isTabLevelWeaponFilter('Case|Terminal'), true);
     assert.equal(isTabLevelWeaponFilter('Revolution Case'), false);
   });
 

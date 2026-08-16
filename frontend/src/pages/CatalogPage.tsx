@@ -769,8 +769,9 @@ export function CatalogPage() {
     setCategoryValue('');
     const nextParams = new URLSearchParams(searchParams);
     const tab = WEAPON_CATEGORY_TABS.find((entry) => entry.id === tabId);
-    // Persist compact tab filters (e.g. Case). Skip long pipe OR lists (knives/gloves).
-    if (tab?.filter.weapon && !tab.filter.weapon.includes('|')) {
+    // Persist compact tab filters (Case, Case|Terminal). Skip long knife/glove OR lists.
+    const weaponParts = tab?.filter.weapon?.split('|') ?? [];
+    if (tab?.filter.weapon && weaponParts.length <= 4) {
       nextParams.set('weapon', tab.filter.weapon);
     } else {
       nextParams.delete('weapon');

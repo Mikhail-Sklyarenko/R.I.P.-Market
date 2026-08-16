@@ -63,7 +63,13 @@ describe('catalog model preview icons', () => {
   });
 
   it('covers case previews by exact marketHashName', () => {
-    for (const name of ['Revolution Case', 'CS:GO Weapon Case', 'Gallery Case']) {
+    for (const name of [
+      'Revolution Case',
+      'CS:GO Weapon Case',
+      'Gallery Case',
+      'Sealed Genesis Terminal',
+      'Sealed Dead Hand Terminal',
+    ]) {
       assert.ok(getCatalogModelPreviewHash(name), name);
     }
     const cases = getCategoryOptionsForTab('cases');

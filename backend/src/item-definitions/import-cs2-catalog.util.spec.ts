@@ -134,6 +134,33 @@ describe('buildCatalogCardSeeds for non-skin sources', () => {
       )?.weapon,
     ).toBe('Capsule');
   });
+
+  it('maps Armory terminals without crate type to weapon Terminal', () => {
+    const seeds = buildCatalogCardSeeds(
+      [
+        {
+          market_hash_name: 'Sealed Genesis Terminal',
+          rarity: { name: 'Base Grade' },
+        },
+        {
+          market_hash_name: 'Sealed Dead Hand Terminal',
+        },
+        {
+          market_hash_name: 'Gift Package',
+        },
+      ],
+      crateSource,
+    );
+    expect(
+      seeds.find((s) => s.marketHashName === 'Sealed Genesis Terminal')?.weapon,
+    ).toBe('Terminal');
+    expect(
+      seeds.find((s) => s.marketHashName === 'Sealed Dead Hand Terminal')?.weapon,
+    ).toBe('Terminal');
+    expect(seeds.find((s) => s.marketHashName === 'Gift Package')?.weapon).toBe(
+      'Crate',
+    );
+  });
 });
 
 describe('mergeCatalogCardSeeds', () => {

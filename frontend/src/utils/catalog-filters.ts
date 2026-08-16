@@ -178,6 +178,15 @@ export const CASE_MARKET_HASH_NAMES = [
   "eSports 2014 Summer Case",
 ] as const;
 
+/** Armory terminals (ByMykel crates without type; market names end with Terminal). */
+export const TERMINAL_MARKET_HASH_NAMES = [
+  'Sealed Dead Hand Terminal',
+  'Sealed Genesis Terminal',
+] as const;
+
+/** Cases tab includes classic cases + Armory terminals. */
+export const CASES_TAB_WEAPON_FILTER = 'Case|Terminal';
+
 export const CATALOG_PAGE_LIMIT = 48;
 
 export const CATALOG_PAGE_SIZE_OPTIONS = [24, 48, 96] as const;
@@ -213,7 +222,7 @@ export const WEAPON_CATEGORY_TABS: readonly WeaponCategoryTab[] = [
     id: 'cases',
     label: 'Кейсы',
     icon: 'cases',
-    filter: { weapon: 'Case' },
+    filter: { weapon: CASES_TAB_WEAPON_FILTER },
   },
   {
     id: 'knives',
@@ -242,6 +251,25 @@ export const WEAPON_CATEGORY_TABS: readonly WeaponCategoryTab[] = [
 
 export const CATALOG_CATEGORY_OPTIONS: readonly CatalogCategoryOption[] = [
   { value: '', label: 'Все категории', tabId: 'all', icon: 'all' },
+  // Terminals first (newest Armory containers), then classic cases
+  {
+    value: 'Sealed Dead Hand Terminal',
+    label: 'Sealed Dead Hand Terminal',
+    weapon: 'Terminal',
+    marketHashName: 'Sealed Dead Hand Terminal',
+    tabId: 'cases',
+    icon: 'cases',
+    modelIcon: 'Sealed Dead Hand Terminal',
+  },
+  {
+    value: 'Sealed Genesis Terminal',
+    label: 'Sealed Genesis Terminal',
+    weapon: 'Terminal',
+    marketHashName: 'Sealed Genesis Terminal',
+    tabId: 'cases',
+    icon: 'cases',
+    modelIcon: 'Sealed Genesis Terminal',
+  },
   // Cases — full marketable CS2 set (exact marketHashName filter)
   {
     value: "CS20 Case",
@@ -998,9 +1026,18 @@ export function findCategoryOption(value: string): CatalogCategoryOption | undef
 }
 
 export function findTabForWeapon(weapon: string): string {
-  const tabByFilter = WEAPON_CATEGORY_TABS.find(
-    (tab) => tab.filter.weapon === weapon,
-  );
+  const tabByFilter = WEAPON_CATEGORY_TABS.find((tab) => {
+    if (!tab.filter.weapon) {
+      return false;
+    }
+    if (tab.filter.weapon === weapon) {
+      return true;
+    }
+    return tab.filter.weapon
+      .split('|')
+      .map((part) => part.trim())
+      .includes(weapon);
+  });
   if (tabByFilter) {
     return tabByFilter.id;
   }
@@ -1018,9 +1055,25 @@ export function findTabForWeapon(weapon: string): string {
   return byWeapon?.tabId ?? 'all';
 }
 
-/** True when `weapon` is a whole-tab filter (e.g. Case), not a single model. */
+/**
+ * True when `weapon` is a whole-tab filter (e.g. Case, Case|Terminal),
+ * not a single model option value.
+ */
 export function isTabLevelWeaponFilter(weapon: string): boolean {
-  return WEAPON_CATEGORY_TABS.some((tab) => tab.filter.weapon === weapon);
+  return WEAPON_CATEGORY_TABS.some((tab) => {
+    if (!tab.filter.weapon) {
+      return false;
+    }
+    if (tab.filter.weapon === weapon) {
+      return true;
+    }
+    // Compact multi-type tabs (Case|Terminal). Skip long knife/glove OR lists.
+    const parts = tab.filter.weapon
+      .split('|')
+      .map((part) => part.trim())
+      .filter(Boolean);
+    return parts.length >= 2 && parts.length <= 4 && parts.includes(weapon);
+  });
 }
 
 /**
