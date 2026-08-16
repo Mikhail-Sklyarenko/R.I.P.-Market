@@ -4132,6 +4132,50 @@ a.button.primary {
 
 .catalog-category-bar-label {
   font-size: var(--font-size-sm);
+  white-space: nowrap;
+}
+
+.catalog-category-bar-clear {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.1rem;
+  height: 1.1rem;
+  margin-left: 2px;
+  border-radius: 999px;
+  font-size: 0.95rem;
+  line-height: 1;
+  color: var(--color-text-muted);
+  cursor: pointer;
+}
+
+.catalog-category-bar-clear:hover {
+  color: inherit;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.catalog-category-dropdown-option-label {
+  flex: 1;
+  min-width: 0;
+}
+
+.catalog-category-checkbox {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  margin-left: auto;
+  border: 1.5px solid var(--color-border-strong);
+  border-radius: 4px;
+  color: #fff;
+  background: transparent;
+}
+
+.catalog-category-checkbox.checked {
+  border-color: var(--color-primary);
+  background: var(--color-primary);
 }
 
 .catalog-category-dropdown {

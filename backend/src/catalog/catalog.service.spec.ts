@@ -290,6 +290,40 @@ describe('CatalogService', () => {
     );
   });
 
+  it('ORs exact marketHashName terms when pipe-separated (multi case pick)', async () => {
+    prisma.lot.findMany.mockResolvedValue([]);
+    prisma.itemDefinition.findMany.mockResolvedValue([]);
+
+    await service.listItems({
+      page: 1,
+      limit: 24,
+      weapon: 'Case',
+      marketHashName: 'Revolution Case|Gallery Case',
+    });
+
+    expect(prisma.itemDefinition.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          weapon: { equals: 'Case', mode: 'insensitive' },
+          OR: [
+            {
+              marketHashName: {
+                equals: 'Revolution Case',
+                mode: 'insensitive',
+              },
+            },
+            {
+              marketHashName: {
+                equals: 'Gallery Case',
+                mode: 'insensitive',
+              },
+            },
+          ],
+        }),
+      }),
+    );
+  });
+
   it('matches any other-tab item type when q contains pipe-separated terms', async () => {
     prisma.lot.findMany.mockResolvedValue([]);
     prisma.itemDefinition.findMany.mockResolvedValue([]);

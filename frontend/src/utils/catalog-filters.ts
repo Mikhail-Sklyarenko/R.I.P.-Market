@@ -1078,24 +1078,83 @@ export function isTabLevelWeaponFilter(weapon: string): boolean {
 
 /**
  * Resolve API filter for the category bar.
- * Specific dropdown option wins; otherwise "Все: …" uses every weapon in that tab
+ * Specific dropdown option(s) win; otherwise "Все: …" uses every weapon in that tab
  * (exact weapon match — never fragile marketHashName substrings for categories).
  */
+export function normalizeCategoryValues(
+  categoryValue: string | readonly string[],
+): string[] {
+  if (typeof categoryValue === 'string') {
+    const trimmed = categoryValue.trim();
+    return trimmed ? [trimmed] : [];
+  }
+  return [...new Set(categoryValue.map((value) => value.trim()).filter(Boolean))];
+}
+
+function filterFromOption(option: CatalogCategoryOption): CatalogCategoryFilter {
+  return {
+    ...(option.q ? { q: option.q } : {}),
+    ...(option.weapon ? { weapon: option.weapon } : {}),
+    ...(option.rarity ? { rarity: option.rarity } : {}),
+    ...(option.marketHashName ? { marketHashName: option.marketHashName } : {}),
+  };
+}
+
 export function resolveCatalogFilter(
   activeTabId: string,
-  categoryValue: string,
+  categoryValue: string | readonly string[],
 ): CatalogCategoryFilter {
-  if (categoryValue) {
-    const option = findCategoryOption(categoryValue);
+  const values = normalizeCategoryValues(categoryValue);
+  if (values.length === 1) {
+    const option = findCategoryOption(values[0]!);
     if (option) {
-      return {
-        ...(option.q ? { q: option.q } : {}),
-        ...(option.weapon ? { weapon: option.weapon } : {}),
-        ...(option.rarity ? { rarity: option.rarity } : {}),
-        ...(option.marketHashName
-          ? { marketHashName: option.marketHashName }
-          : {}),
-      };
+      return filterFromOption(option);
+    }
+  }
+
+  if (values.length > 1) {
+    const options = values
+      .map((value) => findCategoryOption(value))
+      .filter((option): option is CatalogCategoryOption => Boolean(option));
+    if (options.length > 0) {
+      const weapons = [
+        ...new Set(
+          options
+            .flatMap((option) => (option.weapon ? option.weapon.split('|') : []))
+            .map((part) => part.trim())
+            .filter(Boolean),
+        ),
+      ];
+      const hashNames = options
+        .map((option) => option.marketHashName?.trim())
+        .filter((name): name is string => Boolean(name));
+      const qs = options
+        .map((option) => option.q?.trim())
+        .filter((q): q is string => Boolean(q));
+      const rarities = [
+        ...new Set(
+          options
+            .map((option) => option.rarity?.trim())
+            .filter((rarity): rarity is string => Boolean(rarity)),
+        ),
+      ];
+
+      const filter: CatalogCategoryFilter = {};
+      if (weapons.length > 0) {
+        filter.weapon = weapons.join('|');
+      }
+      // Only pin exact names when every selected option has one (case multi-pick).
+      if (hashNames.length === options.length) {
+        filter.marketHashName = hashNames.join('|');
+      }
+      // Shared substring q only when every option agrees (e.g. all pins).
+      if (qs.length === options.length && new Set(qs).size === 1) {
+        filter.q = qs[0];
+      }
+      if (rarities.length === 1) {
+        filter.rarity = rarities[0];
+      }
+      return filter;
     }
   }
 
@@ -1120,25 +1179,103 @@ export function resolveCatalogFilter(
   return tab?.filter ?? {};
 }
 
+/**
+ * Decode `?weapon=` into tab + selected option values (supports multi via `|`).
+ */
+export function decodeCategorySelection(weaponParam: string | null): {
+  tabId: string;
+  values: string[];
+} {
+  if (!weaponParam?.trim()) {
+    return { tabId: 'all', values: [] };
+  }
+  const param = weaponParam.trim();
+  if (isTabLevelWeaponFilter(param)) {
+    return { tabId: findTabForWeapon(param), values: [] };
+  }
+
+  const parts = param
+    .split('|')
+    .map((part) => part.trim())
+    .filter(Boolean);
+
+  const byExactValue = parts
+    .map((part) => {
+      const option = CATALOG_CATEGORY_OPTIONS.find((entry) => entry.value === part);
+      return option ?? null;
+    })
+    .filter((option): option is CatalogCategoryOption => Boolean(option));
+  if (byExactValue.length === parts.length && byExactValue.length > 0) {
+    const tabId = byExactValue[0]!.tabId;
+    if (byExactValue.every((option) => option.tabId === tabId)) {
+      return { tabId, values: byExactValue.map((option) => option.value) };
+    }
+  }
+
+  if (parts.length === 1) {
+    const option = findCategoryOption(parts[0]!);
+    if (option) {
+      return { tabId: option.tabId, values: [option.value] };
+    }
+  }
+
+  const byWeaponLabel = parts
+    .map((part) =>
+      CATALOG_CATEGORY_OPTIONS.find(
+        (entry) => entry.weapon === part && entry.tabId !== 'other',
+      ),
+    )
+    .filter((option): option is CatalogCategoryOption => Boolean(option));
+  if (byWeaponLabel.length === parts.length && byWeaponLabel.length > 0) {
+    const tabId = byWeaponLabel[0]!.tabId;
+    if (byWeaponLabel.every((option) => option.tabId === tabId)) {
+      return { tabId, values: byWeaponLabel.map((option) => option.value) };
+    }
+  }
+
+  return { tabId: findTabForWeapon(param), values: [] };
+}
+
+/** Encode selection for the `weapon` URL param. */
+export function encodeCategorySelection(
+  tabId: string,
+  values: readonly string[],
+): string | undefined {
+  const normalized = normalizeCategoryValues(values);
+  if (normalized.length > 0) {
+    return normalized.join('|');
+  }
+  const tab = WEAPON_CATEGORY_TABS.find((entry) => entry.id === tabId);
+  const weaponParts = tab?.filter.weapon?.split('|') ?? [];
+  if (tab?.filter.weapon && weaponParts.length <= 4) {
+    return tab.filter.weapon;
+  }
+  return undefined;
+}
+
 export function hasActiveCatalogFilters(input: {
   search: string;
   sort: string;
   minPrice: string;
   maxPrice: string;
   activeTabId: string;
-  categoryValue: string;
+  categoryValue?: string;
+  categoryValues?: readonly string[];
   wearFilter?: string;
   floatMin?: string;
   floatMax?: string;
   skinTraitFilters?: SkinTraitCheckboxState;
 }): boolean {
+  const selectedCategories =
+    input.categoryValues ??
+    (input.categoryValue ? normalizeCategoryValues(input.categoryValue) : []);
   return Boolean(
     input.search.trim() ||
       input.minPrice.trim() ||
       input.maxPrice.trim() ||
       input.sort !== 'newest' ||
       input.activeTabId !== 'all' ||
-      input.categoryValue ||
+      selectedCategories.length > 0 ||
       input.wearFilter ||
       input.floatMin?.trim() ||
       input.floatMax?.trim() ||

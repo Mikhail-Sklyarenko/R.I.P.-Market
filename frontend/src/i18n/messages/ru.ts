@@ -52,6 +52,8 @@ const baseRuMessages = {
     emptyMessage:
       'Измените фильтры или дождитесь появления новых предметов в каталоге.',
     selectAll: 'Выбрать все',
+    tabSelectedCount: '{{name}}: {{count}}',
+    clearCategorySelection: 'Сбросить выбор категории',
     categoriesAria: 'Категории',
     loading: 'Загрузка каталога…',
     refreshing: 'Обновление…',

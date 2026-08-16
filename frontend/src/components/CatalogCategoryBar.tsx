@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useRef, useState, type MouseEvent as ReactMouseEvent } from 'react';
 import { createPortal } from 'react-dom';
 import { catalogOtherLabel, catalogTabLabel, useLocale } from '../i18n';
 import {
@@ -14,9 +14,9 @@ import {
 
 type CatalogCategoryBarProps = {
   activeTabId: string;
-  categoryValue: string;
+  categoryValues: readonly string[];
   onTabChange: (tabId: string) => void;
-  onCategoryChange: (value: string) => void;
+  onCategoryValuesChange: (values: string[]) => void;
 };
 
 function optionDisplayLabel(
@@ -54,11 +54,41 @@ function getDropdownPosition(
   };
 }
 
+function CatalogFilterCheckbox({
+  checked,
+  className,
+}: {
+  checked: boolean;
+  className?: string;
+}) {
+  return (
+    <span
+      className={`catalog-category-checkbox${checked ? ' checked' : ''}${
+        className ? ` ${className}` : ''
+      }`}
+      aria-hidden="true"
+    >
+      {checked ? (
+        <svg viewBox="0 0 16 16" width="12" height="12">
+          <path
+            d="M3.5 8.2 6.4 11l6.1-6.4"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+        </svg>
+      ) : null}
+    </span>
+  );
+}
+
 export function CatalogCategoryBar({
   activeTabId,
-  categoryValue,
+  categoryValues,
   onTabChange,
-  onCategoryChange,
+  onCategoryValuesChange,
 }: CatalogCategoryBarProps) {
   const { locale, t } = useLocale();
   const [openTabId, setOpenTabId] = useState<string | null>(null);
@@ -72,8 +102,11 @@ export function CatalogCategoryBar({
 
   const openTab = WEAPON_CATEGORY_TABS.find((tab) => tab.id === openTabId);
   const openOptions = openTab ? getCategoryOptionsForTab(openTab.id) : [];
+  const selectedInOpenTab = new Set(
+    openTab && activeTabId === openTab.id ? categoryValues : [],
+  );
   const selectAllActive =
-    Boolean(openTab) && activeTabId === openTab?.id && !categoryValue;
+    Boolean(openTab) && activeTabId === openTab?.id && categoryValues.length === 0;
 
   const updateDropdownPosition = useCallback(() => {
     if (!openTabId) {
@@ -98,7 +131,7 @@ export function CatalogCategoryBar({
       return;
     }
     updateDropdownPosition();
-  }, [openTabId, updateDropdownPosition, categoryValue]);
+  }, [openTabId, updateDropdownPosition, categoryValues]);
 
   useEffect(() => {
     if (!openTabId) {
@@ -197,9 +230,32 @@ export function CatalogCategoryBar({
     setOpenTabId((current) => (current === tabId ? null : tabId));
   }
 
-  function handleModelSelect(value: string) {
-    onCategoryChange(value);
-    setOpenTabId(null);
+  function handleToggleOption(tabId: string, value: string) {
+    const tabOptions = getCategoryOptionsForTab(tabId);
+    const inThisTab =
+      activeTabId === tabId
+        ? categoryValues.filter((entry) =>
+            tabOptions.some((option) => option.value === entry),
+          )
+        : [];
+
+    const selected = new Set(inThisTab);
+    if (selected.has(value)) {
+      selected.delete(value);
+    } else {
+      selected.add(value);
+    }
+
+    // Checking every model ≡ "select all" for a cleaner URL/state.
+    if (selected.size === tabOptions.length) {
+      onCategoryValuesChange([]);
+      if (activeTabId !== tabId) {
+        onTabChange(tabId);
+      }
+      return;
+    }
+
+    onCategoryValuesChange([...selected]);
   }
 
   function handleSelectAll() {
@@ -207,7 +263,17 @@ export function CatalogCategoryBar({
       return;
     }
     onTabChange(openTab.id);
-    setOpenTabId(null);
+  }
+
+  function handleClearTabSelection(
+    event: ReactMouseEvent,
+    tabId: string,
+  ) {
+    event.preventDefault();
+    event.stopPropagation();
+    if (activeTabId === tabId) {
+      onCategoryValuesChange([]);
+    }
   }
 
   function setTabButtonRef(tabId: string, node: HTMLButtonElement | null) {
@@ -241,39 +307,49 @@ export function CatalogCategoryBar({
               className={`catalog-category-dropdown-item catalog-category-dropdown-select-all${
                 selectAllActive ? ' active' : ''
               }`}
-              role="menuitem"
+              role="menuitemcheckbox"
+              aria-checked={selectAllActive}
               data-testid={`catalog-category-select-all-${openTab.id}`}
               onClick={handleSelectAll}
             >
               <span className="catalog-category-dropdown-select-all-label">
                 {t('catalog.selectAll')}
               </span>
+              <CatalogFilterCheckbox checked={selectAllActive} />
             </button>
             <div
               className="catalog-category-dropdown-divider"
               role="separator"
               aria-hidden="true"
             />
-            {openOptions.map((option) => (
-              <button
-                key={option.value}
-                type="button"
-                className={`catalog-category-dropdown-item catalog-category-dropdown-model${
-                  categoryValue === option.value ? ' active' : ''
-                }`}
-                role="menuitem"
-                data-testid={`catalog-category-option-${option.value.replace(/\s+/g, '-').toLowerCase()}`}
-                onClick={() => handleModelSelect(option.value)}
-              >
-                <WeaponModelIcon
-                  weapon={option.value || option.weapon}
-                  slug={option.modelIcon}
-                  fallbackIcon={option.icon ?? openTab.icon}
-                  loading="eager"
-                />
-                <span>{optionDisplayLabel(option, locale)}</span>
-              </button>
-            ))}
+            {openOptions.map((option) => {
+              const checked =
+                activeTabId === openTab.id && selectedInOpenTab.has(option.value);
+              return (
+                <button
+                  key={option.value}
+                  type="button"
+                  className={`catalog-category-dropdown-item catalog-category-dropdown-model${
+                    checked ? ' active' : ''
+                  }`}
+                  role="menuitemcheckbox"
+                  aria-checked={checked}
+                  data-testid={`catalog-category-option-${option.value.replace(/\s+/g, '-').toLowerCase()}`}
+                  onClick={() => handleToggleOption(openTab.id, option.value)}
+                >
+                  <WeaponModelIcon
+                    weapon={option.value || option.weapon}
+                    slug={option.modelIcon}
+                    fallbackIcon={option.icon ?? openTab.icon}
+                    loading="eager"
+                  />
+                  <span className="catalog-category-dropdown-option-label">
+                    {optionDisplayLabel(option, locale)}
+                  </span>
+                  <CatalogFilterCheckbox checked={checked} />
+                </button>
+              );
+            })}
           </div>,
           document.body,
         )
@@ -292,10 +368,16 @@ export function CatalogCategoryBar({
           {WEAPON_CATEGORY_TABS.map((tab) => {
             const options = getCategoryOptionsForTab(tab.id);
             const isActive = activeTabId === tab.id;
-            const tabSelectedOption = options.find(
-              (option) => option.value === categoryValue,
-            );
+            const selectedCount = isActive ? categoryValues.length : 0;
             const hasMenu = options.length > 0;
+            const tabName = catalogTabLabel(tab.id, locale);
+            const label =
+              selectedCount > 0
+                ? t('catalog.tabSelectedCount', {
+                    name: tabName,
+                    count: selectedCount,
+                  })
+                : tabName;
 
             return (
               <div
@@ -315,21 +397,20 @@ export function CatalogCategoryBar({
                   data-testid={`catalog-category-tab-${tab.id}`}
                   onClick={() => handleTabClick(tab.id)}
                 >
-                  {tabSelectedOption?.modelIcon ? (
-                    <WeaponModelIcon
-                      weapon={tabSelectedOption.value || tabSelectedOption.weapon}
-                      slug={tabSelectedOption.modelIcon}
-                      fallbackIcon={tab.icon}
-                    />
-                  ) : (
-                    <WeaponCategoryIcon icon={tab.icon} />
-                  )}
-                  <span className="catalog-category-bar-label">
-                    {tabSelectedOption
-                      ? optionDisplayLabel(tabSelectedOption, locale)
-                      : catalogTabLabel(tab.id, locale)}
-                  </span>
-                  {hasMenu ? (
+                  <WeaponCategoryIcon icon={tab.icon} />
+                  <span className="catalog-category-bar-label">{label}</span>
+                  {selectedCount > 0 ? (
+                    <span
+                      className="catalog-category-bar-clear"
+                      role="button"
+                      tabIndex={-1}
+                      aria-label={t('catalog.clearCategorySelection')}
+                      data-testid={`catalog-category-clear-${tab.id}`}
+                      onClick={(event) => handleClearTabSelection(event, tab.id)}
+                    >
+                      ×
+                    </span>
+                  ) : hasMenu ? (
                     <span className="catalog-category-bar-chevron" aria-hidden="true">
                       ▾
                     </span>

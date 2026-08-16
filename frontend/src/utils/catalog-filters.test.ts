@@ -2,6 +2,8 @@ import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import {
   CASE_MARKET_HASH_NAMES,
+  decodeCategorySelection,
+  encodeCategorySelection,
   getCategoryOptionsForTab,
   hasActiveCatalogFilters,
   resolveCatalogFilter,
@@ -88,6 +90,16 @@ describe('catalog-filters utils', () => {
       weapon: 'Terminal',
       marketHashName: 'Sealed Dead Hand Terminal',
     });
+    assert.deepEqual(
+      resolveCatalogFilter('cases', ['Revolution Case', 'Gallery Case']),
+      {
+        weapon: 'Case',
+        marketHashName: 'Revolution Case|Gallery Case',
+      },
+    );
+    assert.deepEqual(resolveCatalogFilter('snipers', ['AWP', 'SSG 08']), {
+      weapon: 'AWP|SSG 08',
+    });
     const caseOptions = getCategoryOptionsForTab('cases');
     assert.ok(caseOptions.length >= CASE_MARKET_HASH_NAMES.length + 2);
     assert.equal(caseOptions[0]?.value, 'Sealed Dead Hand Terminal');
@@ -169,6 +181,23 @@ describe('catalog-filters utils', () => {
     assert.equal(isTabLevelWeaponFilter('Revolution Case'), false);
   });
 
+  it('encodes and decodes multi category selections for URL sync', () => {
+    assert.equal(encodeCategorySelection('snipers', ['AWP', 'SSG 08']), 'AWP|SSG 08');
+    assert.deepEqual(decodeCategorySelection('AWP|SSG 08'), {
+      tabId: 'snipers',
+      values: ['AWP', 'SSG 08'],
+    });
+    assert.deepEqual(decodeCategorySelection('Case|Terminal'), {
+      tabId: 'cases',
+      values: [],
+    });
+    assert.deepEqual(decodeCategorySelection('Revolution Case'), {
+      tabId: 'cases',
+      values: ['Revolution Case'],
+    });
+    assert.equal(encodeCategorySelection('cases', []), 'Case|Terminal');
+  });
+
   it('uses a fixed default catalog page size', () => {
     assert.equal(CATALOG_PAGE_LIMIT, 48);
   });
@@ -188,7 +217,7 @@ describe('catalog-filters utils', () => {
         minPrice: '',
         maxPrice: '',
         activeTabId: 'all',
-        categoryValue: '',
+        categoryValues: [],
       }),
       false,
     );
@@ -199,7 +228,7 @@ describe('catalog-filters utils', () => {
         minPrice: '',
         maxPrice: '',
         activeTabId: 'all',
-        categoryValue: '',
+        categoryValues: [],
       }),
       true,
     );
@@ -210,7 +239,7 @@ describe('catalog-filters utils', () => {
         minPrice: '',
         maxPrice: '',
         activeTabId: 'all',
-        categoryValue: '',
+        categoryValues: [],
         skinTraitFilters: {
           includeStatTrak: true,
           excludeStatTrak: false,

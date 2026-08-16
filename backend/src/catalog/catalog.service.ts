@@ -571,10 +571,22 @@ export class CatalogService {
     marketHashName?: string,
   ): void {
     if (marketHashName?.trim()) {
-      where.marketHashName = {
-        equals: marketHashName.trim(),
-        mode: 'insensitive',
-      };
+      const exactTerms = marketHashName
+        .split('|')
+        .map((term) => term.trim())
+        .filter(Boolean);
+      if (exactTerms.length > 1) {
+        where.OR = exactTerms.map((term) => ({
+          marketHashName: { equals: term, mode: 'insensitive' as const },
+        }));
+        return;
+      }
+      if (exactTerms.length === 1) {
+        where.marketHashName = {
+          equals: exactTerms[0],
+          mode: 'insensitive',
+        };
+      }
       return;
     }
 

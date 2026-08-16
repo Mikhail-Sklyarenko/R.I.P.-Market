@@ -19,12 +19,11 @@ import { useLocale } from '../i18n';
 import {
   CATALOG_PAGE_LIMIT,
   CATALOG_PAGE_SIZE_OPTIONS,
+  decodeCategorySelection,
+  encodeCategorySelection,
   findCategoryOption,
-  findTabForWeapon,
   hasActiveCatalogFilters,
-  isTabLevelWeaponFilter,
   resolveCatalogFilter,
-  WEAPON_CATEGORY_TABS,
 } from '../utils/catalog-filters';
 import {
   EMPTY_SKIN_TRAIT_FILTERS,
@@ -64,15 +63,11 @@ function toCatalogSort(
   return 'newest';
 }
 
-function getInitialCategoryValue(weaponParam: string | null): string {
-  if (!weaponParam) {
-    return '';
-  }
-  if (isTabLevelWeaponFilter(weaponParam)) {
-    return '';
-  }
-  const option = findCategoryOption(weaponParam);
-  return option?.value ?? weaponParam;
+function getInitialCategorySelection(weaponParam: string | null): {
+  tabId: string;
+  values: string[];
+} {
+  return decodeCategorySelection(weaponParam);
 }
 
 /** Keep chunks small so the first prices appear before Steam finishes the whole page. */
@@ -180,14 +175,13 @@ export function CatalogPage() {
   const previousBaseQueryKeyRef = useRef<string | null>(null);
   const previousLoadedPageRef = useRef(0);
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [activeTabId, setActiveTabId] = useState(
-    weaponParam ? findTabForWeapon(weaponParam) : 'all',
-  );
-  const [categoryValue, setCategoryValue] = useState(getInitialCategoryValue(weaponParam));
+  const initialCategory = getInitialCategorySelection(weaponParam);
+  const [activeTabId, setActiveTabId] = useState(initialCategory.tabId);
+  const [categoryValues, setCategoryValues] = useState(initialCategory.values);
 
   const categoryFilter = useMemo(
-    () => resolveCatalogFilter(activeTabId, categoryValue),
-    [activeTabId, categoryValue],
+    () => resolveCatalogFilter(activeTabId, categoryValues),
+    [activeTabId, categoryValues],
   );
 
   const baseQuery = useMemo(() => {
@@ -241,7 +235,7 @@ export function CatalogPage() {
       minPrice,
       maxPrice,
       activeTabId,
-      categoryValue,
+      categoryValues,
       wearFilter,
       floatMin,
       floatMax,
@@ -267,7 +261,7 @@ export function CatalogPage() {
         floatMin,
         floatMax,
         activeTabId,
-        categoryValue,
+        categoryValues,
       }),
     [
       search,
@@ -280,7 +274,7 @@ export function CatalogPage() {
       floatMin,
       floatMax,
       activeTabId,
-      categoryValue,
+      categoryValues,
     ],
   );
   const previousCatalogFilterKeyRef = useRef(catalogFilterKey);
@@ -632,9 +626,9 @@ export function CatalogPage() {
     if (!weaponParam) {
       return;
     }
-    const nextCategoryValue = getInitialCategoryValue(weaponParam);
-    setCategoryValue(nextCategoryValue);
-    setActiveTabId(findTabForWeapon(weaponParam));
+    const next = decodeCategorySelection(weaponParam);
+    setCategoryValues(next.values);
+    setActiveTabId(next.tabId);
   }, [weaponParam]);
 
   useEffect(() => {
@@ -741,21 +735,19 @@ export function CatalogPage() {
 
   const hasMoreItems = items.length < total;
 
-  function handleCategoryChange(value: string) {
-    setCategoryValue(value);
-    const option = findCategoryOption(value);
-    if (option && option.tabId !== 'all') {
-      setActiveTabId(option.tabId);
-    } else if (!value) {
-      setActiveTabId('all');
+  function handleCategoryValuesChange(values: string[]) {
+    let nextTabId = activeTabId;
+    if (values.length > 0) {
+      const option = findCategoryOption(values[0]!);
+      if (option && option.tabId !== 'all') {
+        nextTabId = option.tabId;
+      }
     }
+    setActiveTabId(nextTabId);
+    setCategoryValues(values);
 
     const nextParams = new URLSearchParams(searchParams);
-    // Exact item pins (cases) deep-link by option value; pipe/"other" keep weapon filter.
-    const paramValue = option?.marketHashName
-      ? option.value
-      : option?.weapon ??
-        (option?.value && option.tabId !== 'all' ? option.value : undefined);
+    const paramValue = encodeCategorySelection(nextTabId, values);
     if (paramValue) {
       nextParams.set('weapon', paramValue);
     } else {
@@ -766,13 +758,11 @@ export function CatalogPage() {
 
   function handleTabChange(tabId: string) {
     setActiveTabId(tabId);
-    setCategoryValue('');
+    setCategoryValues([]);
     const nextParams = new URLSearchParams(searchParams);
-    const tab = WEAPON_CATEGORY_TABS.find((entry) => entry.id === tabId);
-    // Persist compact tab filters (Case, Case|Terminal). Skip long knife/glove OR lists.
-    const weaponParts = tab?.filter.weapon?.split('|') ?? [];
-    if (tab?.filter.weapon && weaponParts.length <= 4) {
-      nextParams.set('weapon', tab.filter.weapon);
+    const paramValue = encodeCategorySelection(tabId, []);
+    if (paramValue) {
+      nextParams.set('weapon', paramValue);
     } else {
       nextParams.delete('weapon');
     }
@@ -790,7 +780,7 @@ export function CatalogPage() {
     setFloatMin('');
     setFloatMax('');
     setActiveTabId('all');
-    setCategoryValue('');
+    setCategoryValues([]);
     setSearchParams({}, { replace: true });
     window.scrollTo({ top: 0, behavior: 'instant' });
   }
@@ -860,9 +850,9 @@ export function CatalogPage() {
       <div className="catalog-category-strip card" data-testid="catalog-category-strip">
         <CatalogCategoryBar
           activeTabId={activeTabId}
-          categoryValue={categoryValue}
+          categoryValues={categoryValues}
           onTabChange={handleTabChange}
-          onCategoryChange={handleCategoryChange}
+          onCategoryValuesChange={handleCategoryValuesChange}
         />
       </div>
 

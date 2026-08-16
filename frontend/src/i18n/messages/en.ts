@@ -53,6 +53,8 @@ const baseEnMessages = {
     emptyTitle: 'Nothing found',
     emptyMessage: 'Try different filters or wait for new items in the catalog.',
     selectAll: 'Select all',
+    tabSelectedCount: '{{name}}: {{count}}',
+    clearCategorySelection: 'Clear category selection',
     categoriesAria: 'Categories',
     loading: 'Loading catalog…',
     refreshing: 'Updating…',
