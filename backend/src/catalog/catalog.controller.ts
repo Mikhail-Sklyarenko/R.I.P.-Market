@@ -8,17 +8,30 @@ import {
   Query,
 } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
+import { GetOrderBookQueryDto } from '../order-book/dto/get-order-book-query.dto';
+import { OrderBookService } from '../order-book/order-book.service';
 import { CatalogService } from './catalog.service';
 import { ListCatalogItemsQueryDto } from './dto/list-catalog-items-query.dto';
 
 @ApiTags('catalog')
 @Controller('catalog')
 export class CatalogController {
-  constructor(private readonly catalogService: CatalogService) {}
+  constructor(
+    private readonly catalogService: CatalogService,
+    private readonly orderBookService: OrderBookService,
+  ) {}
 
   @Get('items')
   listItems(@Query() query: ListCatalogItemsQueryDto) {
     return this.catalogService.listItems(query);
+  }
+
+  @Get('items/:id/order-book')
+  getItemOrderBook(
+    @Param('id') itemId: string,
+    @Query() query: GetOrderBookQueryDto,
+  ) {
+    return this.orderBookService.getForItem(itemId, query.wear);
   }
 
   @Get('items/:id')

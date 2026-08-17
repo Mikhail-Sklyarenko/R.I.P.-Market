@@ -4,10 +4,11 @@ import {
   cancelBuyRequest,
   createBuyRequest,
   getCatalogItem,
+  getItemOrderBook,
   listLots,
   listMyBuyRequests,
 } from '../api/marketplace';
-import type { BuyRequest, CatalogItem, Lot } from '../api/types';
+import type { BuyRequest, CatalogItem, ItemOrderBook as ItemOrderBookData, Lot } from '../api/types';
 import { useAuth } from '../auth/AuthContext';
 import { useLocale, wearLabel } from '../i18n';
 import { useWearSteamPrice } from '../hooks/useWearSteamPrice';
@@ -19,6 +20,7 @@ import { InventoryPriceStack } from '../components/InventoryPriceStack';
 import { ItemBuyRequestPanel } from '../components/ItemBuyRequestPanel';
 import { ItemCompareHeader } from '../components/ItemCompareHeader';
 import { ItemOffersTable } from '../components/ItemOffersTable';
+import { ItemOrderBook } from '../components/ItemOrderBook';
 import { ItemParamsPanel } from '../components/ItemParamsPanel';
 import { LoadingState } from '../components/LoadingState';
 import { LotActionButtons } from '../components/LotActionButtons';
@@ -55,6 +57,8 @@ export function ItemPage() {
   const [item, setItem] = useState<CatalogItem | null>(null);
   const [lots, setLots] = useState<Lot[]>([]);
   const [buyRequests, setBuyRequests] = useState<BuyRequest[]>([]);
+  const [orderBook, setOrderBook] = useState<ItemOrderBookData | null>(null);
+  const [orderBookLoading, setOrderBookLoading] = useState(false);
   const [loading, setLoading] = useState(true);
   const [lotsLoading, setLotsLoading] = useState(true);
   const [error, setError] = useState<unknown>(null);
@@ -101,6 +105,9 @@ export function ItemPage() {
     [item, effectiveWear],
   );
   const wearForSteamPrice = isBuyRequestPage ? selectedWear || effectiveWear : selectedWear;
+  const wearForOrderBook = isBuyRequestPage
+    ? selectedWear || effectiveWear || undefined
+    : selectedWear || undefined;
   const {
     steamPriceMinor: wearSteamPrice,
     steamPriceFetchedAt: wearSteamPriceFetchedAt,
@@ -167,6 +174,19 @@ export function ItemPage() {
   }, [item?.id, selectedWear]);
 
   useEffect(() => {
+    if (!item) {
+      setOrderBook(null);
+      return;
+    }
+    const itemRef = getCatalogItemRef(item);
+    setOrderBookLoading(true);
+    getItemOrderBook(itemRef, wearForOrderBook)
+      .then(setOrderBook)
+      .catch(() => setOrderBook(null))
+      .finally(() => setOrderBookLoading(false));
+  }, [item, wearForOrderBook]);
+
+  useEffect(() => {
     if (!item?.wearIcons) {
       return;
     }
@@ -195,6 +215,18 @@ export function ItemPage() {
       navigate(`/lots/${lotId}`, { replace: true });
     }
   }, [item, lots, lotsLoading, navigate]);
+
+  async function refreshOrderBook() {
+    if (!item) {
+      return;
+    }
+    try {
+      const next = await getItemOrderBook(getCatalogItemRef(item), wearForOrderBook);
+      setOrderBook(next);
+    } catch {
+      setOrderBook(null);
+    }
+  }
 
   async function handleCreateBuyRequest() {
     if (!item?.id) {
@@ -233,6 +265,7 @@ export function ItemPage() {
       setBuyRequests((current) => [created, ...current]);
       setMaxPriceInput('');
       setQuantityInput('1');
+      void refreshOrderBook();
     } catch (err: unknown) {
       setRequestError(err);
     } finally {
@@ -251,6 +284,7 @@ export function ItemPage() {
       setBuyRequests((current) =>
         current.map((request) => (request.id === requestId ? updated : request)),
       );
+      void refreshOrderBook();
     } catch (err: unknown) {
       setRequestError(err);
     } finally {
@@ -329,6 +363,12 @@ export function ItemPage() {
                 </aside>
               </div>
 
+              <ItemOrderBook
+                orderBook={orderBook}
+                loading={orderBookLoading}
+                showSellHint
+              />
+
               <DealFlowSteps
                 title={t('item.howRequestWorks')}
                 steps={BUY_REQUEST_FLOW_STEP_ITEMS}
@@ -372,6 +412,7 @@ export function ItemPage() {
                     ))}
                   </div>
                 ) : null}
+                <ItemOrderBook orderBook={orderBook} loading={orderBookLoading} />
                 {isComparisonPage || lots.length > 0 ? (
                   <ItemOffersTable lots={lots} loading={lotsLoading} />
                 ) : null}

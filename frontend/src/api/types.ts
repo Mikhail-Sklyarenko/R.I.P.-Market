@@ -305,6 +305,32 @@ export type BuyRequest = {
   >;
 };
 
+export type OrderBookBidLevel = {
+  priceMinor: string;
+  quantity: number;
+};
+
+export type OrderBookAskPreview = {
+  lotId: string;
+  priceMinor: string;
+  floatValue: number | null;
+  wear: string | null;
+};
+
+export type ItemOrderBook = {
+  itemDefinitionId: string;
+  wear: string | null;
+  bids: OrderBookBidLevel[];
+  asks: OrderBookAskPreview[];
+  asksSummary: {
+    count: number;
+    minPriceMinor: string | null;
+  };
+  bestBidMinor: string | null;
+  bestAskMinor: string | null;
+  spreadMinor: string | null;
+};
+
 export type PricingPreview = {
   priceMinor: number;
   commissionMinor: number;

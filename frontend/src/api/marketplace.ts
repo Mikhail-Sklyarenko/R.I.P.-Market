@@ -10,6 +10,7 @@ import type {
   CatalogItem,
   CatalogItemsPage,
   BuyRequest,
+  ItemOrderBook,
   Notification,
   NotificationCategory,
   Order,
@@ -144,6 +145,11 @@ export function listCatalogItems(params: ListCatalogItemsParams) {
 
 export function getCatalogItem(itemId: string) {
   return apiRequest<CatalogItem>(`/catalog/items/${itemId}`);
+}
+
+export function getItemOrderBook(itemRef: string, wear?: string) {
+  const query = wear ? `?wear=${encodeURIComponent(wear)}` : '';
+  return apiRequest<ItemOrderBook>(`/catalog/items/${itemRef}/order-book${query}`);
 }
 
 export function createBuyRequest(
