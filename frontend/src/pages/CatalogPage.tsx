@@ -34,13 +34,16 @@ import { parseUsdToMinor } from '../utils/format';
 import { formatDataTimestamp } from '../utils/lot-display';
 import { resolveCatalogCardDisplaySteamPriceName } from '../utils/steam-market-link';
 import {
-  catalogMainGridItemSelector,
   clearCatalogReturnState,
   parseCatalogLimitParam,
   parseCatalogPageParam,
   readCatalogReturnRestore,
   type CatalogReturnRestore,
 } from '../utils/catalog-return-state';
+import {
+  applyCatalogScrollRestore,
+  disableBrowserScrollRestoration,
+} from '../utils/catalog-scroll-restore';
 import {
   catalogSessionCoversPages,
   readCatalogSession,
@@ -177,8 +180,17 @@ export function CatalogPage() {
   const [floatMax, setFloatMax] = useState('');
   const loadedPage = parseCatalogPageParam(searchParams.get('page'));
   const pageLimit = parseCatalogLimitParam(searchParams.get('limit'), CATALOG_PAGE_LIMIT);
-  const pendingRestoreRef = useRef<CatalogReturnRestore | null>(null);
-  const restoreCompletedRef = useRef(false);
+  const pendingRestoreRef = useRef<CatalogReturnRestore | null | undefined>(undefined);
+  if (pendingRestoreRef.current === undefined) {
+    pendingRestoreRef.current = readCatalogReturnRestore();
+  }
+  const restoreCompletedRef = useRef(pendingRestoreRef.current == null);
+  const popularPresentAtRestoreRef = useRef(false);
+  const popularScrollCompensatedRef = useRef(false);
+  const previousRestoreQueryKeyRef = useRef<string | null>(null);
+  const [returnRestoreDone, setReturnRestoreDone] = useState(
+    () => pendingRestoreRef.current == null,
+  );
   const previousBaseQueryKeyRef = useRef<string | null>(null);
   const previousLoadedPageRef = useRef(0);
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -531,6 +543,10 @@ export function CatalogPage() {
       return;
     }
 
+    if (!returnRestoreDone) {
+      return;
+    }
+
     if (popularItems.length > 0) {
       setPopularLoading(false);
       return;
@@ -562,7 +578,7 @@ export function CatalogPage() {
     return () => {
       cancelled = true;
     };
-  }, [filtersActive, loading, popularItems.length, baseQueryKey]);
+  }, [filtersActive, loading, popularItems.length, baseQueryKey, returnRestoreDone]);
 
   useEffect(() => {
     const allItems = [...items, ...popularItems];
@@ -750,110 +766,93 @@ export function CatalogPage() {
   }, [weaponParam]);
 
   useEffect(() => {
-    // New browse query — allow a fresh restore attempt for the next return cycle.
-    restoreCompletedRef.current = false;
+    if (previousRestoreQueryKeyRef.current === null) {
+      previousRestoreQueryKeyRef.current = baseQueryKey;
+      const cached = readCatalogSession(baseQueryKey);
+      if (!cached?.popularItems.length && pendingRestoreRef.current == null) {
+        setPopularItems([]);
+      }
+      return;
+    }
+    if (previousRestoreQueryKeyRef.current === baseQueryKey) {
+      return;
+    }
+    previousRestoreQueryKeyRef.current = baseQueryKey;
     pendingRestoreRef.current = null;
+    restoreCompletedRef.current = true;
+    if (!returnRestoreDone) {
+      setReturnRestoreDone(true);
+    }
     const cached = readCatalogSession(baseQueryKey);
     if (!cached?.popularItems.length) {
       setPopularItems([]);
     }
-  }, [baseQueryKey]);
-
-  useEffect(() => {
-    if (loading || loadingMore || popularLoading) {
-      return;
-    }
-    if (items.length === 0 && total > 0) {
-      return;
-    }
-    if (restoreCompletedRef.current) {
-      return;
-    }
-
-    const restore = readCatalogReturnRestore();
-    if (restore) {
-      pendingRestoreRef.current = restore;
-    }
-  }, [loading, loadingMore, popularLoading, items.length, total, searchParams]);
+  }, [baseQueryKey, returnRestoreDone]);
 
   useLayoutEffect(() => {
+    disableBrowserScrollRestoration();
     const restore = pendingRestoreRef.current;
-    if (!restore || loading || loadingMore || popularLoading) {
+    if (restoreCompletedRef.current || !restore) {
       return;
     }
-    if (items.length === 0 && total > 0) {
+    if (items.length === 0) {
       return;
     }
-    if (restoreCompletedRef.current) {
+
+    popularPresentAtRestoreRef.current = popularItems.length > 0;
+    const result = applyCatalogScrollRestore(restore);
+    if (result === 'anchored' || !restore.anchorItemId) {
+      pendingRestoreRef.current = null;
+      restoreCompletedRef.current = true;
+      clearCatalogReturnState();
+      setReturnRestoreDone(true);
       return;
     }
 
     let cancelled = false;
-    let attempts = 0;
-    let lastHeight = 0;
-    let stableHeightHits = 0;
-    const maxAttempts = 40;
-
-    const finish = () => {
-      pendingRestoreRef.current = null;
-      restoreCompletedRef.current = true;
-      clearCatalogReturnState();
-    };
-
-    const apply = () => {
-      if (cancelled || pendingRestoreRef.current == null) {
+    let frames = 0;
+    const tick = () => {
+      if (cancelled || restoreCompletedRef.current) {
         return;
       }
-      attempts += 1;
-
-      if (restore.anchorItemId) {
-        const anchor = document.querySelector(
-          catalogMainGridItemSelector(restore.anchorItemId),
-        ) as HTMLElement | null;
-        if (anchor) {
-          anchor.scrollIntoView({ block: 'center', behavior: 'instant' });
-          const rect = anchor.getBoundingClientRect();
-          const inView =
-            rect.top < window.innerHeight * 0.9 && rect.bottom > window.innerHeight * 0.1;
-          if (inView) {
-            finish();
-            return;
-          }
-        }
-      } else {
-        window.scrollTo({ top: restore.scrollY, behavior: 'instant' });
-      }
-
-      const height = document.documentElement.scrollHeight;
-      if (height === lastHeight) {
-        stableHeightHits += 1;
-      } else {
-        lastHeight = height;
-        stableHeightHits = 0;
-      }
-
-      // Fallback path (no anchor / anchor not mounted yet): wait for layout to settle.
-      if (!restore.anchorItemId) {
-        const closeEnough = Math.abs(window.scrollY - restore.scrollY) <= 8;
-        if ((closeEnough && stableHeightHits >= 2) || attempts >= maxAttempts) {
-          finish();
-          return;
-        }
-      } else if (attempts >= maxAttempts) {
-        // Anchor never appeared (filtered out) — best-effort scrollY, then stop.
-        window.scrollTo({ top: restore.scrollY, behavior: 'instant' });
-        finish();
+      frames += 1;
+      const next = applyCatalogScrollRestore(restore);
+      if (next === 'anchored' || frames >= 8) {
+        pendingRestoreRef.current = null;
+        restoreCompletedRef.current = true;
+        clearCatalogReturnState();
+        setReturnRestoreDone(true);
         return;
       }
-
-      window.setTimeout(apply, 50);
+      window.requestAnimationFrame(tick);
     };
-
-    apply();
+    const frame = window.requestAnimationFrame(tick);
     return () => {
       cancelled = true;
+      window.cancelAnimationFrame(frame);
     };
-  }, [loading, loadingMore, popularLoading, items, total, searchParams]);
+  }, [items.length, popularItems.length]);
+
+  useLayoutEffect(() => {
+    if (!returnRestoreDone || popularScrollCompensatedRef.current) {
+      return;
+    }
+    if (popularPresentAtRestoreRef.current) {
+      popularScrollCompensatedRef.current = true;
+      return;
+    }
+    const popularSection = document.querySelector(
+      '[data-testid="catalog-popular-section"]',
+    );
+    if (!popularSection) {
+      return;
+    }
+    popularScrollCompensatedRef.current = true;
+    window.scrollBy({
+      top: (popularSection as HTMLElement).offsetHeight,
+      behavior: 'instant',
+    });
+  }, [returnRestoreDone, popularItems.length, filtersActive]);
 
   const hasMoreItems = items.length < total;
 
