@@ -42,6 +42,12 @@ import {
   type CatalogReturnRestore,
 } from '../utils/catalog-return-state';
 import {
+  catalogSessionCoversPages,
+  readCatalogSession,
+  sliceCatalogSessionItems,
+  writeCatalogSession,
+} from '../utils/catalog-session-cache';
+import {
   dedupeCatalogItems,
   mergeCatalogItems,
 } from '../utils/catalog-load-more';
@@ -72,7 +78,7 @@ function getInitialCategorySelection(weaponParam: string | null): {
 }
 
 /** Keep chunks small so the first prices appear before Steam finishes the whole page. */
-const STEAM_PRICE_CHUNK_SIZE = 4;
+const STEAM_PRICE_CHUNK_SIZE = 8;
 const STEAM_PRICE_STALE_MS = 20 * 60 * 1000;
 
 function chunkArray<T>(items: T[], size: number): T[][] {
@@ -285,6 +291,10 @@ export function CatalogPage() {
     ],
   );
   const previousCatalogFilterKeyRef = useRef(catalogFilterKey);
+  const itemsRef = useRef(items);
+  const popularItemsRef = useRef(popularItems);
+  itemsRef.current = items;
+  popularItemsRef.current = popularItems;
 
   function setPageLimit(nextLimit: number) {
     const nextParams = new URLSearchParams(searchParams);
@@ -318,6 +328,24 @@ export function CatalogPage() {
     goToPage(loadedPage + 1);
   }
 
+  useLayoutEffect(() => {
+    const cached = readCatalogSession(baseQueryKey);
+    if (!cached || !catalogSessionCoversPages(cached, loadedPage, pageLimit)) {
+      return;
+    }
+    setItems(sliceCatalogSessionItems(cached, loadedPage, pageLimit));
+    setTotal(cached.total);
+    setSteamPrices((prev) => ({ ...cached.steamPrices, ...prev }));
+    if (cached.steamPriceFetchedAt) {
+      setSteamPriceFetchedAt(cached.steamPriceFetchedAt);
+    }
+    if (cached.popularItems.length > 0) {
+      setPopularItems(cached.popularItems);
+      setPopularLoading(false);
+    }
+    setLoading(false);
+  }, [baseQueryKey, loadedPage, pageLimit]);
+
   useEffect(() => {
     let cancelled = false;
     const baseQueryChanged = previousBaseQueryKeyRef.current !== baseQueryKey;
@@ -327,13 +355,41 @@ export function CatalogPage() {
       setSteamPriceFetchedAt,
     };
 
-    async function fetchCatalogPages(fromPage: number, toPage: number, mode: 'replace' | 'append') {
-      if (mode === 'append') {
-        setLoadingMore(true);
-      } else {
-        setLoading(true);
+    async function persistSession(
+      nextItems: CatalogItem[],
+      nextTotal: number,
+      nextPage: number,
+      steamFetchedAt?: string | null,
+      nextPopular?: CatalogItem[],
+    ) {
+      const seeded = buildPriceStateFromItems(nextItems);
+      writeCatalogSession({
+        queryKey: baseQueryKey,
+        items: nextItems,
+        total: nextTotal,
+        steamPrices: seeded.steamPrices,
+        steamPriceFetchedAt: steamFetchedAt ?? null,
+        loadedPage: nextPage,
+        pageLimit,
+        popularItems: nextPopular ?? popularItemsRef.current,
+        savedAt: Date.now(),
+      });
+    }
+
+    async function fetchCatalogPages(
+      fromPage: number,
+      toPage: number,
+      mode: 'replace' | 'append',
+      options?: { silent?: boolean },
+    ) {
+      if (!options?.silent) {
+        if (mode === 'append') {
+          setLoadingMore(true);
+        } else {
+          setLoading(true);
+        }
+        setError(null);
       }
-      setError(null);
 
       try {
         if (toPage <= 1) {
@@ -344,6 +400,7 @@ export function CatalogPage() {
           setItems(response.items);
           setTotal(response.total);
           applyCatalogPriceState(response.items, priceSetters, response.steamPriceFetchedAt);
+          await persistSession(response.items, response.total, 1, response.steamPriceFetchedAt);
           return;
         }
 
@@ -352,47 +409,70 @@ export function CatalogPage() {
           if (cancelled) {
             return;
           }
-          setItems((current) => mergeCatalogItems(current, response.items));
+          const merged = mergeCatalogItems(itemsRef.current, response.items);
+          setItems(merged);
           setTotal(response.total);
           applyCatalogPriceState(response.items, priceSetters, response.steamPriceFetchedAt);
+          await persistSession(merged, response.total, toPage, response.steamPriceFetchedAt);
           return;
         }
 
-        const mergedItems: CatalogItem[] = [];
-        let totalCount = 0;
-        let latestSteamPriceFetchedAt: string | null | undefined;
-        for (let pageNumber = 1; pageNumber <= toPage; pageNumber += 1) {
-          const response = await listCatalogItems({ ...baseQuery, page: pageNumber });
-          if (cancelled) {
-            return;
-          }
-          mergedItems.push(...response.items);
-          totalCount = response.total;
-          latestSteamPriceFetchedAt = response.steamPriceFetchedAt ?? latestSteamPriceFetchedAt;
+        const responses = await Promise.all(
+          Array.from({ length: toPage }, (_, index) =>
+            listCatalogItems({ ...baseQuery, page: index + 1 }),
+          ),
+        );
+        if (cancelled) {
+          return;
         }
-        const deduped = dedupeCatalogItems(mergedItems);
-        setItems(deduped);
+        const mergedItems = dedupeCatalogItems(responses.flatMap((response) => response.items));
+        const totalCount = responses.at(-1)?.total ?? mergedItems.length;
+        const latestSteamPriceFetchedAt =
+          responses
+            .map((response) => response.steamPriceFetchedAt)
+            .filter((value): value is string => Boolean(value))
+            .at(-1) ?? null;
+        setItems(mergedItems);
         setTotal(totalCount);
-        applyCatalogPriceState(deduped, priceSetters, latestSteamPriceFetchedAt);
+        applyCatalogPriceState(mergedItems, priceSetters, latestSteamPriceFetchedAt);
+        await persistSession(mergedItems, totalCount, toPage, latestSteamPriceFetchedAt);
       } catch (err: unknown) {
-        if (!cancelled) {
+        if (!cancelled && !options?.silent) {
           setError(err);
         }
       } finally {
-        setLoading(false);
-        setLoadingMore(false);
+        if (!options?.silent) {
+          setLoading(false);
+          setLoadingMore(false);
+        }
       }
     }
+
+    const coveringSession = readCatalogSession(baseQueryKey);
 
     if (baseQueryChanged) {
       const isInitialMount = previousLoadedPageRef.current === 0;
       const pagesToLoad = isInitialMount && loadedPage > 1 ? loadedPage : 1;
       previousBaseQueryKeyRef.current = baseQueryKey;
       previousLoadedPageRef.current = pagesToLoad;
+
+      if (
+        coveringSession &&
+        catalogSessionCoversPages(coveringSession, pagesToLoad, pageLimit)
+      ) {
+        if (pagesToLoad <= 1) {
+          void fetchCatalogPages(1, 1, 'replace', { silent: true });
+        }
+        return () => {
+          cancelled = true;
+          previousBaseQueryKeyRef.current = null;
+          previousLoadedPageRef.current = 0;
+        };
+      }
+
       void fetchCatalogPages(1, pagesToLoad, 'replace');
       return () => {
         cancelled = true;
-        // Strict Mode remounts after cancel — allow the next effect run to fetch again.
         previousBaseQueryKeyRef.current = null;
         previousLoadedPageRef.current = 0;
       };
@@ -401,6 +481,15 @@ export function CatalogPage() {
     if (loadedPage > previousLoadedPageRef.current) {
       const fromPage = previousLoadedPageRef.current;
       previousLoadedPageRef.current = loadedPage;
+      if (
+        coveringSession &&
+        catalogSessionCoversPages(coveringSession, loadedPage, pageLimit)
+      ) {
+        return () => {
+          cancelled = true;
+          previousLoadedPageRef.current = fromPage;
+        };
+      }
       void fetchCatalogPages(fromPage, loadedPage, 'append');
       return () => {
         cancelled = true;
@@ -410,6 +499,14 @@ export function CatalogPage() {
 
     if (loadedPage < previousLoadedPageRef.current) {
       previousLoadedPageRef.current = loadedPage;
+      if (
+        coveringSession &&
+        catalogSessionCoversPages(coveringSession, loadedPage, pageLimit)
+      ) {
+        return () => {
+          cancelled = true;
+        };
+      }
       void fetchCatalogPages(1, Math.max(loadedPage, 1), 'replace');
       return () => {
         cancelled = true;
@@ -430,12 +527,25 @@ export function CatalogPage() {
       return;
     }
 
+    if (loading) {
+      return;
+    }
+
+    if (popularItems.length > 0) {
+      setPopularLoading(false);
+      return;
+    }
+
     let cancelled = false;
     setPopularLoading(true);
     listPopularCatalogItems(12)
       .then((popular) => {
         if (!cancelled) {
           setPopularItems(popular);
+          const cached = readCatalogSession(baseQueryKey);
+          if (cached) {
+            writeCatalogSession({ ...cached, popularItems: popular });
+          }
         }
       })
       .catch(() => {
@@ -452,7 +562,7 @@ export function CatalogPage() {
     return () => {
       cancelled = true;
     };
-  }, [filtersActive, loading]);
+  }, [filtersActive, loading, popularItems.length, baseQueryKey]);
 
   useEffect(() => {
     const allItems = [...items, ...popularItems];
@@ -643,6 +753,10 @@ export function CatalogPage() {
     // New browse query — allow a fresh restore attempt for the next return cycle.
     restoreCompletedRef.current = false;
     pendingRestoreRef.current = null;
+    const cached = readCatalogSession(baseQueryKey);
+    if (!cached?.popularItems.length) {
+      setPopularItems([]);
+    }
   }, [baseQueryKey]);
 
   useEffect(() => {

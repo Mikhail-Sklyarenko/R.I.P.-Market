@@ -33,6 +33,7 @@ describe('CatalogService', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+    service.resetQueryCaches();
     prisma.order.findMany.mockResolvedValue([]);
     prisma.itemDefinition.count.mockResolvedValue(0);
     steamMarketPrice.getPricesMinor.mockResolvedValue({});
@@ -84,50 +85,27 @@ describe('CatalogService', () => {
   });
 
   it('aggregates wear-variant lots onto the seeded base skin card', async () => {
-    prisma.lot.findMany.mockImplementation((args: { select?: unknown; orderBy?: unknown }) => {
-      if (args.orderBy) {
-        return Promise.resolve([
-          {
-            id: 'lot-1',
-            inventoryAsset: {
-              itemDefinitionId: 'item-wear-ft',
-              wear: 'FT',
-              floatValue: null,
-              itemDefinition: {
-                marketHashName: 'AK-47 | Redline (Field-Tested)',
-                baseMarketHashName: 'AK-47 | Redline',
-              },
-            },
-            listingSnapshot: {
-              wear: 'FT',
-              floatValue: null,
-              marketHashName: 'AK-47 | Redline (Field-Tested)',
-            },
+    prisma.lot.findMany.mockResolvedValue([
+      {
+        id: 'lot-1',
+        priceMinor: 1000n,
+        createdAt: new Date('2026-01-01T00:00:00.000Z'),
+        inventoryAsset: {
+          itemDefinitionId: 'item-wear-ft',
+          wear: 'FT',
+          floatValue: null,
+          itemDefinition: {
+            marketHashName: 'AK-47 | Redline (Field-Tested)',
+            baseMarketHashName: 'AK-47 | Redline',
           },
-        ]);
-      }
-      if (args.select && typeof args.select === 'object' && args.select !== null && 'priceMinor' in args.select) {
-        return Promise.resolve([
-          {
-            priceMinor: 1000n,
-            inventoryAsset: {
-              itemDefinitionId: 'item-wear-ft',
-              wear: 'FT',
-              floatValue: null,
-              itemDefinition: {
-                marketHashName: 'AK-47 | Redline (Field-Tested)',
-                baseMarketHashName: 'AK-47 | Redline',
-              },
-            },
-            listingSnapshot: {
-              wear: 'FT',
-              floatValue: null,
-            },
-          },
-        ]);
-      }
-      return Promise.resolve([]);
-    });
+        },
+        listingSnapshot: {
+          wear: 'FT',
+          floatValue: null,
+          marketHashName: 'AK-47 | Redline (Field-Tested)',
+        },
+      },
+    ]);
     prisma.itemDefinition.findMany.mockResolvedValue([
       {
         id: 'item-seeded',
@@ -405,49 +383,38 @@ describe('CatalogService', () => {
   });
 
   it('sorts catalog by newest active listing first', async () => {
-    prisma.lot.findMany.mockImplementation((args: { select?: unknown; orderBy?: unknown }) => {
-      if (args.orderBy) {
-        return Promise.resolve([]);
-      }
-      if (
-        args.select &&
-        typeof args.select === 'object' &&
-        args.select !== null &&
-        'priceMinor' in args.select
-      ) {
-        return Promise.resolve([
-          {
-            priceMinor: 2000n,
-            createdAt: new Date('2026-01-10T12:00:00.000Z'),
-            inventoryAsset: {
-              itemDefinitionId: 'item-old',
-              wear: 'FT',
-              floatValue: null,
-              itemDefinition: {
-                marketHashName: 'AK-47 | Redline (Field-Tested)',
-                baseMarketHashName: 'AK-47 | Redline',
-              },
-            },
-            listingSnapshot: { wear: 'FT', floatValue: null },
+    prisma.lot.findMany.mockResolvedValue([
+      {
+        id: 'lot-old',
+        priceMinor: 2000n,
+        createdAt: new Date('2026-01-10T12:00:00.000Z'),
+        inventoryAsset: {
+          itemDefinitionId: 'item-old',
+          wear: 'FT',
+          floatValue: null,
+          itemDefinition: {
+            marketHashName: 'AK-47 | Redline (Field-Tested)',
+            baseMarketHashName: 'AK-47 | Redline',
           },
-          {
-            priceMinor: 1500n,
-            createdAt: new Date('2026-02-15T12:00:00.000Z'),
-            inventoryAsset: {
-              itemDefinitionId: 'item-new',
-              wear: 'MW',
-              floatValue: null,
-              itemDefinition: {
-                marketHashName: 'AWP | Asiimov (Minimal Wear)',
-                baseMarketHashName: 'AWP | Asiimov',
-              },
-            },
-            listingSnapshot: { wear: 'MW', floatValue: null },
+        },
+        listingSnapshot: { wear: 'FT', floatValue: null, marketHashName: null },
+      },
+      {
+        id: 'lot-new',
+        priceMinor: 1500n,
+        createdAt: new Date('2026-02-15T12:00:00.000Z'),
+        inventoryAsset: {
+          itemDefinitionId: 'item-new',
+          wear: 'MW',
+          floatValue: null,
+          itemDefinition: {
+            marketHashName: 'AWP | Asiimov (Minimal Wear)',
+            baseMarketHashName: 'AWP | Asiimov',
           },
-        ]);
-      }
-      return Promise.resolve([]);
-    });
+        },
+        listingSnapshot: { wear: 'MW', floatValue: null, marketHashName: null },
+      },
+    ]);
     prisma.itemDefinition.findMany.mockResolvedValue([
       {
         id: 'item-old',
@@ -491,50 +458,77 @@ describe('CatalogService', () => {
     expect(result.items[0]?.latestListedAt).toBe('2026-02-15T12:00:00.000Z');
   });
 
+  it('reuses the catalog index cache for the next page of the same query', async () => {
+    prisma.lot.findMany.mockResolvedValue([]);
+    prisma.itemDefinition.findMany.mockResolvedValue([
+      {
+        id: 'item-a',
+        marketHashName: 'AK-47 | Redline',
+        baseMarketHashName: 'AK-47 | Redline',
+        weapon: 'Rifle',
+        rarity: 'Classified',
+        iconUrl: 'https://example.com/a.png',
+        availableWears: ['FT'],
+        catalogSeeded: true,
+      },
+      {
+        id: 'item-b',
+        marketHashName: 'AWP | Asiimov',
+        baseMarketHashName: 'AWP | Asiimov',
+        weapon: 'Sniper Rifle',
+        rarity: 'Covert',
+        iconUrl: 'https://example.com/b.png',
+        availableWears: ['MW'],
+        catalogSeeded: true,
+      },
+    ]);
+
+    const first = await service.listItems({ page: 1, limit: 1, sort: 'newest' });
+    prisma.itemDefinition.findMany.mockClear();
+    prisma.lot.findMany.mockClear();
+    prisma.order.findMany.mockClear();
+    const second = await service.listItems({ page: 2, limit: 1, sort: 'newest' });
+
+    expect(first.items[0]?.id).toBe('item-a');
+    expect(second.items[0]?.id).toBe('item-b');
+    expect(prisma.itemDefinition.findMany).not.toHaveBeenCalled();
+    expect(prisma.lot.findMany).not.toHaveBeenCalled();
+    expect(prisma.order.findMany).not.toHaveBeenCalled();
+  });
+
   it('sorts catalog by marketplace price ascending', async () => {
-    prisma.lot.findMany.mockImplementation((args: { select?: unknown; orderBy?: unknown }) => {
-      if (args.orderBy) {
-        return Promise.resolve([]);
-      }
-      if (
-        args.select &&
-        typeof args.select === 'object' &&
-        args.select !== null &&
-        'priceMinor' in args.select
-      ) {
-        return Promise.resolve([
-          {
-            priceMinor: 3000n,
-            createdAt: new Date('2026-01-01T00:00:00.000Z'),
-            inventoryAsset: {
-              itemDefinitionId: 'item-expensive',
-              wear: null,
-              floatValue: null,
-              itemDefinition: {
-                marketHashName: 'AWP | Asiimov',
-                baseMarketHashName: 'AWP | Asiimov',
-              },
-            },
-            listingSnapshot: null,
+    prisma.lot.findMany.mockResolvedValue([
+      {
+        id: 'lot-cheap',
+        priceMinor: 1000n,
+        createdAt: new Date('2026-01-02T00:00:00.000Z'),
+        inventoryAsset: {
+          itemDefinitionId: 'item-cheap',
+          wear: null,
+          floatValue: null,
+          itemDefinition: {
+            marketHashName: 'AK-47 | Redline',
+            baseMarketHashName: 'AK-47 | Redline',
           },
-          {
-            priceMinor: 1000n,
-            createdAt: new Date('2026-01-02T00:00:00.000Z'),
-            inventoryAsset: {
-              itemDefinitionId: 'item-cheap',
-              wear: null,
-              floatValue: null,
-              itemDefinition: {
-                marketHashName: 'AK-47 | Redline',
-                baseMarketHashName: 'AK-47 | Redline',
-              },
-            },
-            listingSnapshot: null,
+        },
+        listingSnapshot: null,
+      },
+      {
+        id: 'lot-expensive',
+        priceMinor: 3000n,
+        createdAt: new Date('2026-01-01T00:00:00.000Z'),
+        inventoryAsset: {
+          itemDefinitionId: 'item-expensive',
+          wear: null,
+          floatValue: null,
+          itemDefinition: {
+            marketHashName: 'AWP | Asiimov',
+            baseMarketHashName: 'AWP | Asiimov',
           },
-        ]);
-      }
-      return Promise.resolve([]);
-    });
+        },
+        listingSnapshot: null,
+      },
+    ]);
     prisma.itemDefinition.findMany.mockResolvedValue([
       {
         id: 'item-expensive',

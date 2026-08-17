@@ -5,10 +5,6 @@ import { ErrorCode } from '../common/errors/error-codes';
 import { toJsonSafe } from '../common/json-safe.util';
 import { PrismaService } from '../prisma/prisma.service';
 import {
-  lotWearMatchesMarketHashName,
-  resolveSteamMarketHashName,
-} from '../lots/steam-market-link.util';
-import {
   DEFAULT_STOCK_WEAPON_MARKET_HASH_NAMES,
   isListableMarketHashName,
   NON_LISTABLE_MARKET_HASH_NAME_FRAGMENTS,
@@ -16,14 +12,25 @@ import {
 import { ItemIconService } from './item-icon.service';
 import { SteamMarketPriceService } from './steam-market-price.service';
 import type { ListCatalogItemsQueryDto } from './dto/list-catalog-items-query.dto';
-import { catalogLotMatchesWearFloatFilters } from './catalog-lot-filters.util';
 import { applyCatalogSkinTraitFilters } from './catalog-skin-trait-filter.util';
 import { deriveBaseMarketHashName } from '../item-definitions/base-market-hash-name.util';
 import { isUuid } from '../item-definitions/item-slug.util';
 import { parseWearIcons } from '../item-definitions/wear-icons.util';
 import { resolveCatalogCardDisplaySteamPriceName } from './catalog-steam-price-names.util';
+import {
+  buildCatalogLotAggregates,
+  catalogDefinitionsCacheKey,
+  catalogIndexCacheKey,
+  catalogLotAggregatesCacheKey,
+  type CatalogLotAggregates,
+} from './catalog-lot-aggregates.util';
+import { TtlLruCache } from './catalog-ttl-cache';
 
 const POPULAR_WINDOW_MS = 30 * 24 * 60 * 60 * 1000;
+const CATALOG_INDEX_TTL_MS = 15_000;
+const CATALOG_LOT_STATS_TTL_MS = 15_000;
+const CATALOG_POPULAR_STATS_TTL_MS = 45_000;
+const CATALOG_DEFINITIONS_TTL_MS = 30_000;
 
 export type CatalogItemRow = {
   id: string;
@@ -71,88 +78,51 @@ type ItemDefinitionRecord = {
   catalogSeeded?: boolean;
 };
 
+type CatalogListIndex = {
+  rows: CatalogItemRow[];
+};
+
 @Injectable()
 export class CatalogService {
+  private readonly catalogIndexCache = new TtlLruCache<CatalogListIndex>(
+    24,
+    CATALOG_INDEX_TTL_MS,
+  );
+  private readonly lotAggregatesCache = new TtlLruCache<CatalogLotAggregates>(
+    16,
+    CATALOG_LOT_STATS_TTL_MS,
+  );
+  private readonly popularStatsCache = new TtlLruCache<Map<string, number>>(
+    4,
+    CATALOG_POPULAR_STATS_TTL_MS,
+  );
+  private readonly definitionsCache = new TtlLruCache<ItemDefinitionRecord[]>(
+    16,
+    CATALOG_DEFINITIONS_TTL_MS,
+  );
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly steamMarketPrice: SteamMarketPriceService,
     private readonly itemIcons: ItemIconService,
   ) {}
 
+  /** Test helper: keep specs isolated when the service instance is reused. */
+  resetQueryCaches(): void {
+    this.catalogIndexCache.clear();
+    this.lotAggregatesCache.clear();
+    this.popularStatsCache.clear();
+    this.definitionsCache.clear();
+  }
+
   async listItems(query: ListCatalogItemsQueryDto) {
     const page = query.page ?? 1;
     const limit = query.limit ?? 48;
     const skip = (page - 1) * limit;
-    const where = this.buildItemWhere(query);
 
-    const [lotStats, popularStats, featuredLots] = await Promise.all([
-      this.loadActiveLotStats(query, {}),
-      this.loadPopularStats(),
-      this.loadFeaturedLots(query, {}),
-    ]);
-
-    if (this.canPaginateInDatabase(query)) {
-      const [total, definitions] = await Promise.all([
-        this.prisma.itemDefinition.count({ where }),
-        this.prisma.itemDefinition.findMany({
-          where,
-          orderBy: { marketHashName: 'asc' },
-          skip,
-          take: limit,
-        }),
-      ]);
-
-      const rows = definitions.map((item) =>
-        this.buildCatalogItemRow(
-          item,
-          lotStats,
-          popularStats,
-          featuredLots,
-          {},
-          {},
-        ),
-      );
-      const hydrated = await this.hydrateRowsWithCachedSteamPrices(rows);
-      const withIcons = await this.hydrateMissingIconsFromSnapshots(hydrated.rows);
-      this.scheduleMissingSteamPriceRefresh(withIcons);
-      this.itemIcons.scheduleMissingIconRefresh(withIcons);
-
-      return this.buildListResponse(
-        withIcons,
-        total,
-        page,
-        limit,
-        hydrated.steamPriceFetchedAt,
-      );
-    }
-
-    const scopedIds = this.resolveCatalogDefinitionIds(
-      query,
-      lotStats,
-      popularStats,
-    );
-    const definitions = await this.prisma.itemDefinition.findMany({
-      where: scopedIds ? { ...where, id: { in: scopedIds } } : where,
-      orderBy: { marketHashName: 'asc' },
-    });
-
-    const rows: CatalogItemRow[] = definitions
-      .map((item) =>
-        this.buildCatalogItemRow(
-          item,
-          lotStats,
-          popularStats,
-          featuredLots,
-          {},
-          {},
-        ),
-      )
-      .filter((row) => this.matchesCatalogVisibility(row, query));
-
-    const sorted = this.sortItems(rows, query.sort ?? 'newest');
-    const filtered = this.filterByPrice(sorted, query);
-    const total = filtered.length;
-    const pageRows = filtered.slice(skip, skip + limit);
+    const index = await this.getCatalogListIndex(query);
+    const total = index.rows.length;
+    const pageRows = index.rows.slice(skip, skip + limit);
     const hydrated = await this.hydrateRowsWithCachedSteamPrices(pageRows);
     const withIcons = await this.hydrateMissingIconsFromSnapshots(hydrated.rows);
     this.scheduleMissingSteamPriceRefresh(withIcons);
@@ -179,10 +149,9 @@ export class CatalogService {
 
     const baseName =
       item.baseMarketHashName ?? deriveBaseMarketHashName(item.marketHashName);
-    const [lotStats, popularStats, featuredLots] = await Promise.all([
-      this.loadActiveLotStats({}, { baseNames: [baseName] }),
+    const [aggregates, popularStats] = await Promise.all([
+      this.loadActiveLotAggregates({}, { baseNames: [baseName] }),
       this.loadPopularStats({ baseNames: [baseName] }),
-      this.loadFeaturedLots({}, { baseNames: [baseName] }),
     ]);
     const steamPrices = await this.steamMarketPrice.getPricesWithMeta(
       [item.marketHashName],
@@ -191,9 +160,9 @@ export class CatalogService {
 
     const row = this.buildCatalogItemRow(
       item,
-      lotStats,
+      aggregates.lotStats,
       popularStats,
-      featuredLots,
+      aggregates.featuredLots,
       steamPrices,
       {},
     );
@@ -205,14 +174,13 @@ export class CatalogService {
   async listPopular(limit = 12) {
     const capped = Math.min(Math.max(limit, 1), 24);
     const itemWhere = this.buildItemWhere({});
-    const [popularStats, lotStats, featuredLots] = await Promise.all([
+    const [popularStats, aggregates] = await Promise.all([
       this.loadPopularStats(),
-      this.loadActiveLotStats({}, {}),
-      this.loadFeaturedLots({}, {}),
+      this.loadActiveLotAggregates({}, {}),
     ]);
 
     const bases = new Set<string>();
-    for (const key of lotStats.keys()) {
+    for (const key of aggregates.lotStats.keys()) {
       if (key.startsWith('base:')) {
         bases.add(key.slice('base:'.length));
       }
@@ -240,7 +208,14 @@ export class CatalogService {
     const rows = definitions
       .filter((item) => isListableMarketHashName(item.marketHashName))
       .map((item) =>
-        this.buildCatalogItemRow(item, lotStats, popularStats, featuredLots, {}, {}),
+        this.buildCatalogItemRow(
+          item,
+          aggregates.lotStats,
+          popularStats,
+          aggregates.featuredLots,
+          {},
+          {},
+        ),
       )
       .sort((a, b) => {
         if (b.orderCount30d !== a.orderCount30d) {
@@ -399,18 +374,48 @@ export class CatalogService {
     void this.steamMarketPrice.getPricesWithMeta(missing);
   }
 
-  private canPaginateInDatabase(_query: ListCatalogItemsQueryDto): boolean {
-    // Catalog sorts (newest, price, popular) depend on active lot aggregates loaded in memory.
-    return false;
+  private async getCatalogListIndex(
+    query: ListCatalogItemsQueryDto,
+  ): Promise<CatalogListIndex> {
+    const indexKey = catalogIndexCacheKey(query);
+    return this.catalogIndexCache.getOrSet(indexKey, async () => {
+      const where = this.buildItemWhere(query);
+      const [aggregates, popularStats, definitions] = await Promise.all([
+        this.loadActiveLotAggregates(query, {}),
+        this.loadPopularStats(),
+        this.loadCatalogDefinitions(query, where),
+      ]);
+
+      const rows = definitions
+        .map((item) =>
+          this.buildCatalogItemRow(
+            item,
+            aggregates.lotStats,
+            popularStats,
+            aggregates.featuredLots,
+            {},
+            {},
+          ),
+        )
+        .filter((row) => this.matchesCatalogVisibility(row, query));
+
+      const sorted = this.sortItems(rows, query.sort ?? 'newest');
+      return { rows: this.filterByPrice(sorted, query) };
+    });
   }
 
-  private resolveCatalogDefinitionIds(
-    _query: ListCatalogItemsQueryDto,
-    _lotStats: Map<string, { minPriceMinor: bigint; count: number }>,
-    _popularStats: Map<string, number>,
-  ): string[] | null {
-    // Lot stats are keyed by base:…; load seeded cards in-memory for filtered sorts.
-    return null;
+  private async loadCatalogDefinitions(
+    query: ListCatalogItemsQueryDto,
+    where: Prisma.ItemDefinitionWhereInput,
+  ): Promise<ItemDefinitionRecord[]> {
+    return this.definitionsCache.getOrSet(
+      catalogDefinitionsCacheKey(query),
+      () =>
+        this.prisma.itemDefinition.findMany({
+          where,
+          orderBy: { marketHashName: 'asc' },
+        }),
+    );
   }
 
   private buildCatalogItemRow(
@@ -608,208 +613,111 @@ export class CatalogService {
     where.marketHashName = { contains: terms[0], mode: 'insensitive' };
   }
 
-  private async loadActiveLotStats(
-    query: ListCatalogItemsQueryDto,
+  private async loadActiveLotAggregates(
+    query: Pick<ListCatalogItemsQueryDto, 'wear' | 'floatMin' | 'floatMax'>,
     options: { baseNames?: string[] } = {},
-  ): Promise<Map<string, { minPriceMinor: bigint; count: number; latestListedAt: Date | null }>> {
-    const lots = await this.prisma.lot.findMany({
-      where: {
-        status: LotStatus.ACTIVE,
-        inventoryAsset: {
-          itemDefinition: this.buildLotItemDefinitionFilter(options.baseNames),
+  ): Promise<CatalogLotAggregates> {
+    const cacheKey = catalogLotAggregatesCacheKey(query, options.baseNames);
+    return this.lotAggregatesCache.getOrSet(cacheKey, async () => {
+      const lots = await this.prisma.lot.findMany({
+        where: {
+          status: LotStatus.ACTIVE,
+          inventoryAsset: {
+            itemDefinition: this.buildLotItemDefinitionFilter(options.baseNames),
+          },
         },
-      },
-      select: {
-        priceMinor: true,
-        createdAt: true,
-        inventoryAsset: {
-          select: {
-            itemDefinitionId: true,
-            wear: true,
-            floatValue: true,
-            itemDefinition: {
-              select: {
-                baseMarketHashName: true,
-                marketHashName: true,
+        orderBy: { priceMinor: 'asc' },
+        select: {
+          id: true,
+          priceMinor: true,
+          createdAt: true,
+          inventoryAsset: {
+            select: {
+              itemDefinitionId: true,
+              wear: true,
+              floatValue: true,
+              itemDefinition: {
+                select: {
+                  baseMarketHashName: true,
+                  marketHashName: true,
+                },
               },
             },
           },
-        },
-        listingSnapshot: {
-          select: {
-            wear: true,
-            floatValue: true,
+          listingSnapshot: {
+            select: {
+              wear: true,
+              floatValue: true,
+              marketHashName: true,
+            },
           },
         },
-      },
+      });
+
+      return buildCatalogLotAggregates(lots, query);
     });
-
-    const map = new Map<
-      string,
-      { minPriceMinor: bigint; count: number; latestListedAt: Date | null }
-    >();
-    const bump = (key: string, priceMinor: bigint, listedAt: Date) => {
-      const current = map.get(key);
-      if (!current) {
-        map.set(key, { minPriceMinor: priceMinor, count: 1, latestListedAt: listedAt });
-        return;
-      }
-      current.count += 1;
-      if (priceMinor < current.minPriceMinor) {
-        current.minPriceMinor = priceMinor;
-      }
-      if (!current.latestListedAt || listedAt > current.latestListedAt) {
-        current.latestListedAt = listedAt;
-      }
-    };
-
-    for (const lot of lots) {
-      if (!catalogLotMatchesWearFloatFilters(lot, query)) {
-        continue;
-      }
-      const def = lot.inventoryAsset.itemDefinition;
-      bump(lot.inventoryAsset.itemDefinitionId, lot.priceMinor, lot.createdAt);
-      const baseKey =
-        def.baseMarketHashName ?? deriveBaseMarketHashName(def.marketHashName);
-      if (baseKey) {
-        bump(catalogBaseKey(baseKey), lot.priceMinor, lot.createdAt);
-      }
-    }
-    return map;
   }
 
   private async loadPopularStats(
     options: { baseNames?: string[] } = {},
   ): Promise<Map<string, number>> {
-    const since = new Date(Date.now() - POPULAR_WINDOW_MS);
-    const orders = await this.prisma.order.findMany({
-      where: {
-        status: OrderStatus.COMPLETED,
-        createdAt: { gte: since },
-        ...(options.baseNames?.length
-          ? {
-              lot: {
-                inventoryAsset: {
-                  itemDefinition: this.buildLotItemDefinitionFilter(
-                    options.baseNames,
-                  ),
+    const cacheKey = JSON.stringify({
+      baseNames: options.baseNames?.length ? [...options.baseNames].sort() : null,
+    });
+    return this.popularStatsCache.getOrSet(cacheKey, async () => {
+      const since = new Date(Date.now() - POPULAR_WINDOW_MS);
+      const orders = await this.prisma.order.findMany({
+        where: {
+          status: OrderStatus.COMPLETED,
+          createdAt: { gte: since },
+          ...(options.baseNames?.length
+            ? {
+                lot: {
+                  inventoryAsset: {
+                    itemDefinition: this.buildLotItemDefinitionFilter(
+                      options.baseNames,
+                    ),
+                  },
                 },
-              },
-            }
-          : {}),
-      },
-      select: {
-        lot: {
-          select: {
-            inventoryAsset: {
-              select: {
-                itemDefinitionId: true,
-                itemDefinition: {
-                  select: {
-                    baseMarketHashName: true,
-                    marketHashName: true,
+              }
+            : {}),
+        },
+        select: {
+          lot: {
+            select: {
+              inventoryAsset: {
+                select: {
+                  itemDefinitionId: true,
+                  itemDefinition: {
+                    select: {
+                      baseMarketHashName: true,
+                      marketHashName: true,
+                    },
                   },
                 },
               },
             },
           },
         },
-      },
+      });
+
+      const map = new Map<string, number>();
+      for (const order of orders) {
+        const asset = order.lot.inventoryAsset;
+        map.set(
+          asset.itemDefinitionId,
+          (map.get(asset.itemDefinitionId) ?? 0) + 1,
+        );
+        const baseKey =
+          asset.itemDefinition.baseMarketHashName ??
+          deriveBaseMarketHashName(asset.itemDefinition.marketHashName);
+        if (baseKey) {
+          const key = catalogBaseKey(baseKey);
+          map.set(key, (map.get(key) ?? 0) + 1);
+        }
+      }
+      return map;
     });
-
-    const map = new Map<string, number>();
-    for (const order of orders) {
-      const asset = order.lot.inventoryAsset;
-      map.set(
-        asset.itemDefinitionId,
-        (map.get(asset.itemDefinitionId) ?? 0) + 1,
-      );
-      const baseKey =
-        asset.itemDefinition.baseMarketHashName ??
-        deriveBaseMarketHashName(asset.itemDefinition.marketHashName);
-      if (baseKey) {
-        const key = catalogBaseKey(baseKey);
-        map.set(key, (map.get(key) ?? 0) + 1);
-      }
-    }
-    return map;
-  }
-
-  private async loadFeaturedLots(
-    query: ListCatalogItemsQueryDto,
-    options: { baseNames?: string[] } = {},
-  ): Promise<Map<string, string>> {
-    const lots = await this.prisma.lot.findMany({
-      where: {
-        status: LotStatus.ACTIVE,
-        inventoryAsset: {
-          itemDefinition: this.buildLotItemDefinitionFilter(options.baseNames),
-        },
-      },
-      orderBy: { priceMinor: 'asc' },
-      select: {
-        id: true,
-        inventoryAsset: {
-          select: {
-            itemDefinitionId: true,
-            wear: true,
-            floatValue: true,
-            itemDefinition: {
-              select: {
-                marketHashName: true,
-                baseMarketHashName: true,
-              },
-            },
-          },
-        },
-        listingSnapshot: {
-          select: {
-            wear: true,
-            floatValue: true,
-            marketHashName: true,
-          },
-        },
-      },
-    });
-
-    const map = new Map<string, string>();
-    for (const lot of lots) {
-      if (!catalogLotMatchesWearFloatFilters(lot, query)) {
-        continue;
-      }
-
-      const itemDefinitionId = lot.inventoryAsset.itemDefinitionId;
-      const def = lot.inventoryAsset.itemDefinition;
-      const baseKey =
-        def.baseMarketHashName ?? deriveBaseMarketHashName(def.marketHashName);
-      const baseMapKey = catalogBaseKey(baseKey);
-
-      if (map.has(itemDefinitionId) && map.has(baseMapKey)) {
-        continue;
-      }
-
-      const wear = lot.listingSnapshot?.wear ?? lot.inventoryAsset.wear;
-      const marketHashName =
-        lot.listingSnapshot?.marketHashName ??
-        lot.inventoryAsset.itemDefinition.marketHashName;
-      const itemDefinitionName = lot.inventoryAsset.itemDefinition.marketHashName;
-
-      if (
-        !lotWearMatchesMarketHashName(itemDefinitionName, wear) ||
-        resolveSteamMarketHashName(marketHashName, wear) !==
-          resolveSteamMarketHashName(itemDefinitionName, wear)
-      ) {
-        continue;
-      }
-
-      if (!map.has(itemDefinitionId)) {
-        map.set(itemDefinitionId, lot.id);
-      }
-      if (!map.has(baseMapKey)) {
-        map.set(baseMapKey, lot.id);
-      }
-    }
-    return map;
   }
 
   /** Lots attach to wear-specific definitions — never filter by catalogSeeded here. */

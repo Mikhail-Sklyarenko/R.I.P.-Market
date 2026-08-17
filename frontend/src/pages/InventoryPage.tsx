@@ -29,6 +29,7 @@ import { InventorySellPanel } from '../components/InventorySellPanel';
 import { PageHeader } from '../components/PageHeader';
 import { SellerSaleInfo } from '../components/SellerSaleInfo';
 import { canShowDevPanels, parseUsdToMinor, ERROR_MESSAGES } from '../utils/format';
+import { formatDataTimestamp } from '../utils/lot-display';
 import { getRecommendedPriceMinor, minorToPriceInput } from '../utils/inventory-pricing';
 import { hasLinkedSteamId } from '../utils/steam-id';
 import {
@@ -47,7 +48,7 @@ import {
 } from '../utils/seller-flow';
 import { profileToAuthUser } from '../utils/user-profile';
 import { hasTradeUrl } from '../utils/trade-url';
-import { formatDataTimestamp } from '../utils/lot-display';
+import { readInventorySession, writeInventorySession } from '../utils/inventory-session-cache';
 
 const STALE_INVENTORY_REVALIDATE_MS = 2_500;
 const PRICE_HINT_REFRESH_BATCH = 8;
@@ -247,6 +248,14 @@ export function InventoryPage() {
             .then((response) => {
               setAssets(response.assets);
               setSync(response.sync);
+              if (user?.id) {
+                writeInventorySession({
+                  ownerKey: user.id,
+                  assets: response.assets,
+                  sync: response.sync,
+                  savedAt: Date.now(),
+                });
+              }
               void loadPriceHints(response.assets);
               if (response.sync.stale && attempt < 2) {
                 revalidate(attempt + 1);
@@ -261,7 +270,7 @@ export function InventoryPage() {
       };
       revalidate(1);
     },
-    [token, loadPriceHints],
+    [token, loadPriceHints, user?.id],
   );
 
   const loadInventory = useCallback(
@@ -273,7 +282,7 @@ export function InventoryPage() {
       }
       if (forceRefresh) {
         setRefreshing(true);
-      } else {
+      } else if (assets.length === 0) {
         setLoading(true);
       }
       setError(null);
@@ -281,6 +290,14 @@ export function InventoryPage() {
         const response = await getInventory(token, { forceRefresh });
         setAssets(response.assets);
         setSync(response.sync);
+        if (user?.id) {
+          writeInventorySession({
+            ownerKey: user.id,
+            assets: response.assets,
+            sync: response.sync,
+            savedAt: Date.now(),
+          });
+        }
         void loadPriceHints(response.assets);
         // Force refresh may return cache instantly with stale=true while Steam syncs in background.
         scheduleStaleRevalidate(Boolean(response.sync.stale));
@@ -294,7 +311,7 @@ export function InventoryPage() {
         setRefreshing(false);
       }
     },
-    [token, steamLinked, loadPriceHints, scheduleStaleRevalidate],
+    [token, steamLinked, assets.length, loadPriceHints, scheduleStaleRevalidate, user?.id],
   );
 
   useEffect(() => {
@@ -302,8 +319,17 @@ export function InventoryPage() {
       return;
     }
 
+    const cached = user?.id ? readInventorySession(user.id) : null;
+    if (cached?.assets.length) {
+      setAssets(cached.assets);
+      setSync(cached.sync);
+      setLoading(false);
+    }
+
     let cancelled = false;
-    setLoading(true);
+    if (!cached?.assets.length) {
+      setLoading(true);
+    }
 
     void (async () => {
       try {
@@ -331,6 +357,12 @@ export function InventoryPage() {
         }
         setAssets(response.assets);
         setSync(response.sync);
+        writeInventorySession({
+          ownerKey: profile.id,
+          assets: response.assets,
+          sync: response.sync,
+          savedAt: Date.now(),
+        });
         void loadPriceHints(response.assets);
         scheduleStaleRevalidate(Boolean(response.sync.stale));
       } catch (err: unknown) {
@@ -347,7 +379,7 @@ export function InventoryPage() {
     return () => {
       cancelled = true;
     };
-  }, [token, updateUser, loadPriceHints, scheduleStaleRevalidate]);
+  }, [token, updateUser, loadPriceHints, scheduleStaleRevalidate, user?.id]);
 
   useEffect(() => {
     if (!priceMinor) {
