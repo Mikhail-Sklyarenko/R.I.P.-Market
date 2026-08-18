@@ -18,7 +18,6 @@ import { TrustBanner } from '../components/TrustBanner';
 import { useLocale } from '../i18n';
 import {
   CATALOG_PAGE_LIMIT,
-  CATALOG_PAGE_SIZE_OPTIONS,
   decodeCategorySelection,
   encodeCategorySelection,
   hasActiveCatalogFilters,
@@ -35,7 +34,6 @@ import { formatDataTimestamp } from '../utils/lot-display';
 import { resolveCatalogCardDisplaySteamPriceName } from '../utils/steam-market-link';
 import {
   clearCatalogReturnState,
-  parseCatalogLimitParam,
   parseCatalogPageParam,
   readCatalogReturnRestore,
   type CatalogReturnRestore,
@@ -179,7 +177,7 @@ export function CatalogPage() {
   const [floatMin, setFloatMin] = useState('');
   const [floatMax, setFloatMax] = useState('');
   const loadedPage = parseCatalogPageParam(searchParams.get('page'));
-  const pageLimit = parseCatalogLimitParam(searchParams.get('limit'), CATALOG_PAGE_LIMIT);
+  const pageLimit = CATALOG_PAGE_LIMIT;
   const pendingRestoreRef = useRef<CatalogReturnRestore | null | undefined>(undefined);
   if (pendingRestoreRef.current === undefined) {
     pendingRestoreRef.current = readCatalogReturnRestore();
@@ -307,18 +305,6 @@ export function CatalogPage() {
   const popularItemsRef = useRef(popularItems);
   itemsRef.current = items;
   popularItemsRef.current = popularItems;
-
-  function setPageLimit(nextLimit: number) {
-    const nextParams = new URLSearchParams(searchParams);
-    if (nextLimit === CATALOG_PAGE_LIMIT) {
-      nextParams.delete('limit');
-    } else {
-      nextParams.set('limit', String(nextLimit));
-    }
-    nextParams.delete('page');
-    setSearchParams(nextParams, { replace: true });
-    window.scrollTo({ top: 0, behavior: 'instant' });
-  }
 
   function goToPage(nextPage: number, options?: { scrollToTop?: boolean }) {
     const nextParams = new URLSearchParams(searchParams);
@@ -939,21 +925,6 @@ export function CatalogPage() {
             <option value="newest">{t('catalog.sortNewest')}</option>
             <option value="price-asc">{t('catalog.sortPriceAsc')}</option>
             <option value="price-desc">{t('catalog.sortPriceDesc')}</option>
-          </select>
-        </label>
-        <label className="field catalog-filter-field catalog-page-size-field">
-          <span className="sr-only">{t('catalog.pageSize')}</span>
-          <select
-            value={pageLimit}
-            onChange={(event) => setPageLimit(Number(event.target.value))}
-            aria-label={t('catalog.pageSize')}
-            data-testid="catalog-page-size"
-          >
-            {CATALOG_PAGE_SIZE_OPTIONS.map((size) => (
-              <option key={size} value={size}>
-                {t('catalog.pageSizeOption', { count: size })}
-              </option>
-            ))}
           </select>
         </label>
         {showResetFilters ? (

@@ -222,7 +222,7 @@ describe('catalog-filters utils', () => {
   });
 
   it('uses a fixed default catalog page size', () => {
-    assert.equal(CATALOG_PAGE_LIMIT, 48);
+    assert.equal(CATALOG_PAGE_LIMIT, 96);
   });
 
   it('places cases after all and other last in the category bar', () => {

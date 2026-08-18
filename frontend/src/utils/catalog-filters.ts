@@ -187,9 +187,9 @@ export const TERMINAL_MARKET_HASH_NAMES = [
 /** Cases tab includes classic cases + Armory terminals. */
 export const CASES_TAB_WEAPON_FILTER = 'Case|Terminal';
 
-export const CATALOG_PAGE_LIMIT = 48;
+export const CATALOG_PAGE_LIMIT = 96;
 
-export const CATALOG_PAGE_SIZE_OPTIONS = [24, 48, 96] as const;
+export const CATALOG_PAGE_SIZE_OPTIONS = [96] as const;
 
 export type CatalogPageSize = (typeof CATALOG_PAGE_SIZE_OPTIONS)[number];
 
