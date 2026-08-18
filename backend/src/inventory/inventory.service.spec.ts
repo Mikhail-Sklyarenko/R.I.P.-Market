@@ -64,6 +64,7 @@ describe('InventoryService', () => {
     expect(inventoryProvider.syncInventory).not.toHaveBeenCalled();
     expect(result.sync.cacheHit).toBe(true);
     expect(result.sync.stale).toBe(false);
+    expect(result.sync.backgroundPending).toBe(false);
     expect(result.assets).toHaveLength(1);
   });
 
@@ -101,6 +102,7 @@ describe('InventoryService', () => {
 
     expect(result.sync.stale).toBe(true);
     expect(result.sync.cacheHit).toBe(true);
+    expect(result.sync.backgroundPending).toBe(true);
     expect(inventoryProvider.syncInventory).toHaveBeenCalled();
   });
 
@@ -150,6 +152,7 @@ describe('InventoryService', () => {
     expect(result.sync.cacheHit).toBe(true);
     expect(result.sync.stale).toBe(true);
     expect(result.sync.warning).toMatch(/фоне/i);
+    expect(result.sync.backgroundPending).toBe(true);
     expect(inventoryProvider.syncInventory).toHaveBeenCalledWith(
       'user-1',
       '76561198000000000',

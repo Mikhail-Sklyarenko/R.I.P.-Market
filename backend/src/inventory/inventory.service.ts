@@ -2,6 +2,7 @@ import {
   HttpStatus,
   Inject,
   Injectable,
+  Logger,
   NotFoundException,
 } from '@nestjs/common';
 import { InventoryAssetStatus, LotStatus } from '@prisma/client';
@@ -35,6 +36,7 @@ export type InventoryListResult = {
     itemCount: number;
     warning?: string | null;
     errorCode?: string | null;
+    backgroundPending?: boolean;
   };
 };
 
@@ -45,6 +47,7 @@ type PriceHintFetchOptions = {
 
 @Injectable()
 export class InventoryService {
+  private readonly logger = new Logger(InventoryService.name);
   private readonly backgroundSyncInflight = new Map<string, Promise<void>>();
 
   constructor(
@@ -75,10 +78,13 @@ export class InventoryService {
     if (!force) {
       const soft = await this.tryServeCachedInventory(ownerId);
       if (soft) {
-        if (soft.refreshInBackground) {
-          this.scheduleBackgroundSync(ownerId, user.steamId, false);
-        }
-        return soft.result;
+        return this.attachBackgroundSync(
+          ownerId,
+          user.steamId,
+          soft.result,
+          soft.refreshInBackground,
+          false,
+        );
       }
     } else {
       // Force refresh: never block the seller UI on Steam when we already have
@@ -90,18 +96,21 @@ export class InventoryService {
         Array.isArray(cachedAssets) &&
         cachedAssets.length > 0
       ) {
-        this.scheduleBackgroundSync(ownerId, user.steamId, true);
-        return {
-          ...soft.result,
-          sync: {
-            ...soft.result.sync,
-            stale: true,
-            cacheHit: true,
-            warning:
-              soft.result.sync.warning ??
-              'Обновляем инвентарь из Steam в фоне…',
+        return this.attachBackgroundSync(
+          ownerId,
+          user.steamId,
+          {
+            ...soft.result,
+            sync: {
+              ...soft.result.sync,
+              stale: true,
+              cacheHit: true,
+              warning: 'Обновляем инвентарь из Steam в фоне…',
+            },
           },
-        };
+          true,
+          true,
+        );
       }
     }
 
@@ -159,7 +168,9 @@ export class InventoryService {
       stale: !cacheFresh,
       warning: cacheFresh
         ? null
-        : 'Показываем последнюю копию — обновляем из Steam в фоне',
+        : latest.status === 'FAILED'
+          ? null
+          : 'Показываем последнюю копию — обновляем из Steam в фоне',
       errorCode: latest.errorCode,
     };
 
@@ -175,9 +186,36 @@ export class InventoryService {
           itemCount: syncResult.itemCount,
           warning: syncResult.warning ?? null,
           errorCode: syncResult.errorCode ?? null,
+          backgroundPending: false,
         },
       },
       refreshInBackground: !cacheFresh,
+    };
+  }
+
+  private attachBackgroundSync(
+    ownerId: string,
+    steamId: string | null | undefined,
+    result: InventoryListResult,
+    refreshInBackground: boolean,
+    force: boolean,
+  ): InventoryListResult {
+    if (refreshInBackground) {
+      this.scheduleBackgroundSync(ownerId, steamId, force);
+    }
+    const backgroundPending = this.backgroundSyncInflight.has(ownerId);
+    return {
+      ...result,
+      sync: {
+        ...result.sync,
+        backgroundPending,
+        warning: result.sync.stale
+          ? backgroundPending
+            ? result.sync.warning ??
+              'Показываем последнюю копию — обновляем из Steam в фоне'
+            : result.sync.warning
+          : null,
+      },
     };
   }
 
@@ -192,7 +230,12 @@ export class InventoryService {
     const task = this.inventoryProvider
       .syncInventory(ownerId, steamId, { force })
       .then(() => undefined)
-      .catch(() => undefined)
+      .catch((error: unknown) => {
+        const message = error instanceof Error ? error.message : String(error);
+        this.logger.warn(
+          `Background inventory sync failed for ${ownerId}: ${message}`,
+        );
+      })
       .finally(() => {
         this.backgroundSyncInflight.delete(ownerId);
       });
@@ -223,6 +266,7 @@ export class InventoryService {
         itemCount: syncResult.itemCount,
         warning: syncResult.warning ?? null,
         errorCode: syncResult.errorCode ?? null,
+        backgroundPending: false,
       },
     };
   }

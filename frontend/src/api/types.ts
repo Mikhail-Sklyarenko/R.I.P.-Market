@@ -168,6 +168,7 @@ export type InventorySyncMeta = {
   itemCount: number;
   warning?: string | null;
   errorCode?: string | null;
+  backgroundPending?: boolean;
 };
 
 export type InventoryResponse = {

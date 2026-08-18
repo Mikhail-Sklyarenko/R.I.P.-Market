@@ -20,7 +20,7 @@ import type {
   PricingPreview,
 } from '../api/types';
 import { useAuth } from '../auth/AuthContext';
-import { useLocale, type Locale } from '../i18n';
+import { useLocale } from '../i18n';
 import { EmptyState } from '../components/EmptyState';
 import { ErrorAlert } from '../components/ErrorAlert';
 import { InventoryAssetCard } from '../components/InventoryAssetCard';
@@ -42,6 +42,7 @@ import {
   INVENTORY_SORT_OPTION_IDS,
   INVENTORY_STATUS_FILTER_IDS,
   inventorySortOptionLabelKey,
+  isInventoryAssetVisible,
   sortInventoryAssets,
   type InventorySortOption,
   type InventoryStatusFilter,
@@ -56,32 +57,11 @@ import {
   namesMissingSteamPrice,
   uniqueMarketHashNames,
 } from '../utils/inventory-price-hints';
-
-const STALE_INVENTORY_REVALIDATE_MS = 2_500;
-
-function formatInventoryPositionsLabel(
-  count: number,
-  locale: Locale,
-  t: (key: string, params?: Record<string, string | number>) => string,
-): string {
-  if (locale === 'en') {
-    return count === 1
-      ? t('inventory.positions_one', { count })
-      : t('inventory.positions_many', { count });
-  }
-  const mod100 = count % 100;
-  const mod10 = count % 10;
-  if (mod100 >= 11 && mod100 <= 14) {
-    return t('inventory.positions_many', { count });
-  }
-  if (mod10 === 1) {
-    return t('inventory.positions_one', { count });
-  }
-  if (mod10 >= 2 && mod10 <= 4) {
-    return t('inventory.positions_few', { count });
-  }
-  return t('inventory.positions_many', { count });
-}
+import { formatInventoryFilterTotal } from '../utils/inventory-filter-total';
+import {
+  decideInventorySyncPoll,
+  nextInventorySyncPollDelayMs,
+} from '../utils/inventory-sync-poll';
 
 export function InventoryPage() {
   const { locale, t } = useLocale();
@@ -93,6 +73,8 @@ export function InventoryPage() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [backgroundSyncing, setBackgroundSyncing] = useState(false);
+  const [syncPollTimedOut, setSyncPollTimedOut] = useState(false);
+  const inventorySyncPollRef = useRef(0);
   const [resettingDevTrades, setResettingDevTrades] = useState(false);
   const [error, setError] = useState<unknown>(null);
   const [sellError, setSellError] = useState<unknown>(null);
@@ -314,16 +296,46 @@ export function InventoryPage() {
   );
 
   const scheduleStaleRevalidate = useCallback(
-    (isStale: boolean) => {
-      if (!token || !isStale) {
+    (syncMeta: InventorySyncMeta | null | undefined) => {
+      const generation = ++inventorySyncPollRef.current;
+      if (!token || !syncMeta) {
         setBackgroundSyncing(false);
+        setSyncPollTimedOut(false);
         return;
       }
+
+      const firstDecision = decideInventorySyncPoll({
+        stale: syncMeta.stale,
+        backgroundPending: syncMeta.backgroundPending,
+        errorCode: syncMeta.errorCode,
+        elapsedMs: 0,
+      });
+      if (firstDecision === 'fresh') {
+        setBackgroundSyncing(false);
+        setSyncPollTimedOut(false);
+        return;
+      }
+      if (firstDecision === 'failed') {
+        setBackgroundSyncing(false);
+        setSyncPollTimedOut(false);
+        return;
+      }
+
+      setSyncPollTimedOut(false);
       setBackgroundSyncing(true);
-      const revalidate = (attempt: number) => {
+      const startedAt = Date.now();
+      let attempt = 0;
+
+      const tick = () => {
         window.setTimeout(() => {
+          if (generation !== inventorySyncPollRef.current || !token) {
+            return;
+          }
           void getInventory(token)
             .then((response) => {
+              if (generation !== inventorySyncPollRef.current) {
+                return;
+              }
               setAssets(response.assets);
               setSync(response.sync);
               if (user?.id) {
@@ -334,19 +346,39 @@ export function InventoryPage() {
                   savedAt: Date.now(),
                 });
               }
-              void loadPriceHints(response.assets);
-              if (response.sync.stale && attempt < 2) {
-                revalidate(attempt + 1);
+              if (!response.sync.stale) {
+                void loadPriceHints(response.assets);
+              }
+              const decision = decideInventorySyncPoll({
+                stale: response.sync.stale,
+                backgroundPending: response.sync.backgroundPending,
+                errorCode: response.sync.errorCode,
+                elapsedMs: Date.now() - startedAt,
+              });
+              if (decision === 'fresh') {
+                setBackgroundSyncing(false);
+                setSyncPollTimedOut(false);
+                return;
+              }
+              if (decision === 'failed' || decision === 'timeout') {
+                setBackgroundSyncing(false);
+                setSyncPollTimedOut(decision === 'timeout');
+                return;
+              }
+              attempt += 1;
+              tick();
+            })
+            .catch(() => {
+              if (generation !== inventorySyncPollRef.current) {
                 return;
               }
               setBackgroundSyncing(false);
-            })
-            .catch(() => {
-              setBackgroundSyncing(false);
+              setSyncPollTimedOut(true);
             });
-        }, STALE_INVENTORY_REVALIDATE_MS);
+        }, nextInventorySyncPollDelayMs(attempt));
       };
-      revalidate(1);
+
+      tick();
     },
     [token, loadPriceHints, user?.id],
   );
@@ -363,6 +395,8 @@ export function InventoryPage() {
       } else if (assets.length === 0) {
         setLoading(true);
       }
+      inventorySyncPollRef.current += 1;
+      setSyncPollTimedOut(false);
       setError(null);
       try {
         const response = await getInventory(token, { forceRefresh });
@@ -377,11 +411,7 @@ export function InventoryPage() {
           });
         }
         void loadPriceHints(response.assets);
-        // Force refresh may return cache instantly with stale=true while Steam syncs in background.
-        scheduleStaleRevalidate(Boolean(response.sync.stale));
-        if (forceRefresh && response.sync.stale) {
-          setBackgroundSyncing(true);
-        }
+        scheduleStaleRevalidate(response.sync);
       } catch (err: unknown) {
         setError(err);
       } finally {
@@ -442,7 +472,7 @@ export function InventoryPage() {
           savedAt: Date.now(),
         });
         void loadPriceHints(response.assets);
-        scheduleStaleRevalidate(Boolean(response.sync.stale));
+        scheduleStaleRevalidate(response.sync);
       } catch (err: unknown) {
         if (!cancelled) {
           setError(err);
@@ -456,6 +486,7 @@ export function InventoryPage() {
 
     return () => {
       cancelled = true;
+      inventorySyncPollRef.current += 1;
     };
   }, [token, updateUser, loadPriceHints, scheduleStaleRevalidate, user?.id]);
 
@@ -502,6 +533,13 @@ export function InventoryPage() {
     () => filterInventoryAssets(assets, '', 'all', showUnavailable).length,
     [assets, showUnavailable],
   );
+
+  const hiddenCount = useMemo(() => {
+    if (showUnavailable) {
+      return 0;
+    }
+    return assets.filter((asset) => !isInventoryAssetVisible(asset, false)).length;
+  }, [assets, showUnavailable]);
 
   function selectAsset(asset: InventoryAsset) {
     if (!canOpenInventorySellPanel(asset)) {
@@ -794,6 +832,23 @@ export function InventoryPage() {
               </p>
             ) : null}
 
+            {!backgroundSyncing && syncPollTimedOut ? (
+              <div
+                className="inventory-price-banner"
+                data-testid="inventory-sync-timeout"
+              >
+                <p className="muted small">{t('inventory.syncTimedOut')}</p>
+                <button
+                  type="button"
+                  className="button secondary sm"
+                  data-testid="inventory-sync-retry"
+                  onClick={() => void loadInventory(true)}
+                >
+                  {t('inventory.retry')}
+                </button>
+              </div>
+            ) : null}
+
             {pricesLoading || pricesRefreshing ? (
               <p className="muted small inventory-price-inline" data-testid="inventory-prices-loading">
                 {pricesLoading ? t('inventory.pricesLoading') : t('inventory.pricesRefreshing')}
@@ -896,11 +951,14 @@ export function InventoryPage() {
                 </label>
               </div>
               <p className="muted small inventory-filter-total" data-testid="inventory-filter-total">
-                {formatInventoryPositionsLabel(displayStacks.length, locale, t)}
-                {filteredAssets.length !== displayStacks.length
-                  ? ` (${filteredAssets.length})`
-                  : null}{' '}
-                / {visibleCount}
+                {formatInventoryFilterTotal({
+                  itemCount: filteredAssets.length,
+                  stackCount: displayStacks.length,
+                  hiddenCount,
+                  visibleTotal: visibleCount,
+                  locale,
+                  t,
+                })}
               </p>
             </div>
 

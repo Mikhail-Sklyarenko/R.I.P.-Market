@@ -112,6 +112,13 @@ const baseRuMessages = {
     positions_one: '{{count}} позиция',
     positions_few: '{{count}} позиции',
     positions_many: '{{count}} позиций',
+    filterItems_one: '{{count}} предмет',
+    filterItems_few: '{{count}} предмета',
+    filterItems_many: '{{count}} предметов',
+    filterStacks_one: '{{count}} стопка',
+    filterStacks_few: '{{count}} стопки',
+    filterStacks_many: '{{count}} стопок',
+    hiddenUnavailable: 'ещё {{count}} недоступных',
     selectPlaceholderTitle: 'Выберите предмет',
     selectPlaceholderText:
       'Кликните по доступному предмету в инвентаре, укажите цену и выставьте лот.',
@@ -140,6 +147,8 @@ const baseRuMessages = {
     tradeUrlRequiredSuffix: '— без него нельзя выставлять предметы.',
     loadingHint: 'Загрузка инвентаря…',
     backgroundSyncing: 'Обновляем инвентарь из Steam в фоне…',
+    syncTimedOut:
+      'Не удалось обновить из Steam — показана последняя копия. Можно повторить.',
   },
   deals: {
     title: 'Сделки',

@@ -112,6 +112,13 @@ const baseEnMessages = {
     positions_one: '{{count}} position',
     positions_few: '{{count}} positions',
     positions_many: '{{count}} positions',
+    filterItems_one: '{{count}} item',
+    filterItems_few: '{{count}} items',
+    filterItems_many: '{{count}} items',
+    filterStacks_one: '{{count}} stack',
+    filterStacks_few: '{{count}} stacks',
+    filterStacks_many: '{{count}} stacks',
+    hiddenUnavailable: '{{count}} hidden',
     selectPlaceholderTitle: 'Select an item',
     selectPlaceholderText: 'Click an available item in your inventory, set a price, and list it.',
     sortPriceDesc: 'Highest price first',
@@ -139,6 +146,8 @@ const baseEnMessages = {
     tradeUrlRequiredSuffix: '— you can’t list items without it.',
     loadingHint: 'Loading inventory…',
     backgroundSyncing: 'Refreshing inventory from Steam in the background…',
+    syncTimedOut:
+      'Could not refresh from Steam — showing the last copy. You can retry.',
   },
   deals: {
     title: 'Deals',
