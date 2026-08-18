@@ -20,10 +20,7 @@ export function ItemCompareHeader({ item, iconUrl }: ItemCompareHeaderProps) {
     : getWearBadgeStyle(parseWearCodeFromMarketHashName(item.marketHashName));
   const rarityLabel = getRarityDisplayLabel(item.rarity, locale);
   const rarityStyle = getRarityStyle(item.rarity);
-  const offerLabel =
-    item.activeLotCount > 0
-      ? formatOfferCountLabel(item.activeLotCount, locale)
-      : t('item.noActiveOffers');
+  const offerLabel = formatOfferCountLabel(item.activeLotCount, locale);
 
   return (
     <section className="card item-compare-header" data-testid="item-compare-header">
@@ -37,7 +34,9 @@ export function ItemCompareHeader({ item, iconUrl }: ItemCompareHeaderProps) {
         </div>
 
         <div className="item-compare-header-copy">
-          <p className="item-compare-header-eyebrow muted small">{t('itemCompareHeader.eyebrow')}</p>
+          <p className="item-compare-header-eyebrow muted small">
+            {t('itemCompareHeader.eyebrow', { count: item.activeLotCount })}
+          </p>
           <h1 className="item-compare-header-title">{item.marketHashName}</h1>
 
           <div className="item-compare-header-meta">

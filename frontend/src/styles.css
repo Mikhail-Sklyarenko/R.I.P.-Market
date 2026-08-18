@@ -5097,6 +5097,21 @@ a.button.primary {
   gap: var(--space-4);
 }
 
+.item-order-book-grid-asks-only {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.item-page-wear-filter-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  padding: 0;
+}
+
+.item-page-wear-filter-chips .catalog-rarity-filter {
+  width: auto;
+}
+
 .item-order-book-table {
   width: 100%;
   border-collapse: collapse;

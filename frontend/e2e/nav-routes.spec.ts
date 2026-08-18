@@ -66,6 +66,8 @@ test.describe('Main navigation', () => {
     await page.getByTestId('catalog-open-lot').first().click();
     await expect(page).toHaveURL(/\/catalog\/items\//);
     await expect(page.getByTestId('item-page')).toBeVisible();
+    await expect(page.getByTestId('lot-preview-card')).toBeVisible();
+    await expect(page.getByTestId('buy-lot-button')).toBeVisible();
   });
 
   test('faq nav link opens full faq page', async ({ page }) => {

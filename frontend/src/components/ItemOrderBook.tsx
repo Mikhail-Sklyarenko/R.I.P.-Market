@@ -8,6 +8,8 @@ type ItemOrderBookProps = {
   orderBook: ItemOrderBookData | null;
   loading?: boolean;
   showSellHint?: boolean;
+  /** When true, hide the bids column if there are no buy requests. */
+  hideEmptyBids?: boolean;
 };
 
 function formatFloat(value: number | null): string {
@@ -21,6 +23,7 @@ export function ItemOrderBook({
   orderBook,
   loading = false,
   showSellHint = false,
+  hideEmptyBids = false,
 }: ItemOrderBookProps) {
   const { locale, t } = useLocale();
 
@@ -42,6 +45,7 @@ export function ItemOrderBook({
   );
   const hasBids = orderBook.bids.length > 0;
   const hasAsks = orderBook.asksSummary.count > 0;
+  const showBidsColumn = hasBids || !hideEmptyBids;
 
   if (!hasBids && !hasAsks) {
     return (
@@ -84,7 +88,12 @@ export function ItemOrderBook({
         </p>
       ) : null}
 
-      <div className="item-order-book-grid">
+      <div
+        className={`item-order-book-grid${
+          showBidsColumn ? '' : ' item-order-book-grid-asks-only'
+        }`}
+      >
+        {showBidsColumn ? (
         <div className="item-order-book-side item-order-book-bids" data-testid="item-order-book-bids">
           <h3 className="item-order-book-side-title">{t('orderBook.bidsTitle')}</h3>
           {!hasBids ? (
@@ -117,6 +126,7 @@ export function ItemOrderBook({
             </table>
           )}
         </div>
+        ) : null}
 
         <div className="item-order-book-side item-order-book-asks" data-testid="item-order-book-asks">
           <h3 className="item-order-book-side-title">{t('orderBook.asksTitle')}</h3>

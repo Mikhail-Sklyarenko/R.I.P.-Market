@@ -720,7 +720,7 @@ export const clientExtraRu = {
     pattern: 'Pattern',
   },
   itemCompareHeader: {
-    eyebrow: 'Сравнение предложений',
+    eyebrow: '{{count}} предложений в продаже',
   },
   inventoryAssetCardAria: {
     editLotWithCount: 'Изменить лот {{name}}, {{count}} шт.',

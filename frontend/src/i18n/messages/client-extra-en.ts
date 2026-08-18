@@ -701,7 +701,7 @@ export const clientExtraEn = {
     pattern: 'Pattern',
   },
   itemCompareHeader: {
-    eyebrow: 'Comparing listings',
+    eyebrow: '{{count}} listings for sale',
   },
   inventoryAssetCardAria: {
     editLotWithCount: 'Edit listing {{name}}, {{count}} pcs.',

@@ -3,14 +3,17 @@ import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import {
   cancelBuyRequest,
   createBuyRequest,
+  getAuthConfig,
   getCatalogItem,
   getItemOrderBook,
+  getLot,
   listLots,
   listMyBuyRequests,
+  listSimilarLots,
 } from '../api/marketplace';
 import type { BuyRequest, CatalogItem, ItemOrderBook as ItemOrderBookData, Lot } from '../api/types';
 import { useAuth } from '../auth/AuthContext';
-import { useLocale, wearLabel } from '../i18n';
+import { useLocale } from '../i18n';
 import { useWearSteamPrice } from '../hooks/useWearSteamPrice';
 import { usePageMeta } from '../hooks/usePageMeta';
 import { DealFlowSteps } from '../components/DealFlowSteps';
@@ -22,10 +25,12 @@ import { ItemCompareHeader } from '../components/ItemCompareHeader';
 import { ItemOffersTable } from '../components/ItemOffersTable';
 import { ItemOrderBook } from '../components/ItemOrderBook';
 import { ItemParamsPanel } from '../components/ItemParamsPanel';
+import { ItemWearFilterChips } from '../components/ItemWearFilterChips';
 import { LoadingState } from '../components/LoadingState';
 import { LotActionButtons } from '../components/LotActionButtons';
 import { LotBreadcrumbs } from '../components/LotBreadcrumbs';
 import { LotItemHero } from '../components/LotItemHero';
+import { LotListingDetail } from '../components/LotListingDetail';
 import { getCatalogItemRef, isUuid } from '../utils/item-slug';
 import {
   formatSteamPriceAge,
@@ -40,35 +45,43 @@ import {
   resolveSteamMarketHashName,
   toCatalogItemDisplaySource,
 } from '../utils/steam-market-link';
-import { CATALOG_WEAR_FILTERS } from '../utils/wear-filters';
 import { getSteamItemImageUrl } from '../utils/item-image';
 import { preloadWearIcons } from '../utils/wear-icons';
+import { resolveItemPageMode } from '../utils/item-page-mode';
 
 export function ItemPage() {
   const { id } = useParams();
   const [searchParams] = useSearchParams();
   const { locale, t } = useLocale();
-  const { token } = useAuth();
+  const { token, user } = useAuth();
   const navigate = useNavigate();
   const [item, setItem] = useState<CatalogItem | null>(null);
   const [lots, setLots] = useState<Lot[]>([]);
+  const [featuredLot, setFeaturedLot] = useState<Lot | null>(null);
+  const [similarLots, setSimilarLots] = useState<Lot[]>([]);
   const [buyRequests, setBuyRequests] = useState<BuyRequest[]>([]);
   const [orderBook, setOrderBook] = useState<ItemOrderBookData | null>(null);
   const [orderBookLoading, setOrderBookLoading] = useState(false);
   const [loading, setLoading] = useState(true);
   const [lotsLoading, setLotsLoading] = useState(true);
+  const [featuredLotLoading, setFeaturedLotLoading] = useState(false);
+  const [similarLoading, setSimilarLoading] = useState(false);
   const [error, setError] = useState<unknown>(null);
+  const [lotError, setLotError] = useState<unknown>(null);
   const [requestError, setRequestError] = useState<unknown>(null);
   const [submitting, setSubmitting] = useState(false);
   const [cancelingId, setCancelingId] = useState<string | null>(null);
+  const [requiresSteamLink, setRequiresSteamLink] = useState(false);
   const [maxPriceInput, setMaxPriceInput] = useState('');
   const [quantityInput, setQuantityInput] = useState('1');
   const [selectedWear, setSelectedWear] = useState('');
 
+  const pageMode = item ? resolveItemPageMode(item.activeLotCount) : null;
+  const isBuyRequestPage = pageMode === 'buy-request';
+  const isSingleListingPage = pageMode === 'single-listing';
+  const isComparisonPage = pageMode === 'comparison';
+
   const maxPriceMinor = useMemo(() => parseUsdToMinor(maxPriceInput), [maxPriceInput]);
-  const hasOffers = (item?.activeLotCount ?? 0) > 0;
-  const isComparisonPage = hasOffers && (item?.activeLotCount ?? 0) > 1;
-  const isBuyRequestPage = Boolean(item) && !hasOffers;
   const openBuyRequests = useMemo(() => {
     return buyRequests.filter((request) => {
       if (request.status !== 'OPEN') {
@@ -84,14 +97,7 @@ export function ItemPage() {
     });
   }, [buyRequests, selectedWear]);
   const cheapestLot = lots[0] ?? null;
-  const wearOptions = useMemo(() => {
-    if (!item?.availableWears?.length) {
-      return [];
-    }
-    return CATALOG_WEAR_FILTERS.filter((option) =>
-      item.availableWears!.includes(option.value),
-    );
-  }, [item]);
+  const wearOptions = item?.availableWears ?? [];
   const effectiveWear =
     selectedWear ||
     parseWearCodeFromMarketHashName(item?.marketHashName ?? '') ||
@@ -109,13 +115,22 @@ export function ItemPage() {
     steamPriceFetchedAt: wearSteamPriceFetchedAt,
     loading: wearSteamPriceLoading,
   } = useWearSteamPrice(item?.marketHashName, wearForSteamPrice, item?.steamPriceMinor, {
-    enabled: Boolean(item),
+    enabled: Boolean(item) && !isSingleListingPage,
   });
 
   usePageMeta({
     title: item?.marketHashName ?? null,
     canonicalPath: item ? `/catalog/items/${getCatalogItemRef(item)}` : null,
   });
+
+  useEffect(() => {
+    if (!isSingleListingPage) {
+      return;
+    }
+    getAuthConfig()
+      .then((config) => setRequiresSteamLink(config.inventoryProvider === 'steam'))
+      .catch(() => undefined);
+  }, [isSingleListingPage]);
 
   useEffect(() => {
     if (!id) {
@@ -131,7 +146,6 @@ export function ItemPage() {
           if (prev && wears.includes(prev)) {
             return prev;
           }
-          // Offers page: show all wears by default. Buy-request page: pick first wear.
           if ((next.activeLotCount ?? 0) > 0) {
             return '';
           }
@@ -153,25 +167,73 @@ export function ItemPage() {
   }, [item, id, navigate, searchParams]);
 
   useEffect(() => {
-    if (!item?.id) {
+    if (!item?.id || !pageMode || pageMode === 'buy-request') {
+      setLots([]);
+      setLotsLoading(false);
       return;
     }
+
+    if (pageMode === 'single-listing' && item.featuredLotId) {
+      setLots([]);
+      setLotsLoading(false);
+      return;
+    }
+
     setLotsLoading(true);
     listLots({
       itemDefinitionId: item.id,
-      wear: selectedWear || undefined,
+      wear: pageMode === 'comparison' ? selectedWear || undefined : undefined,
       sort: 'price_asc',
-      limit: 24,
+      limit: pageMode === 'single-listing' ? 1 : 24,
       page: 1,
     })
       .then((page) => setLots(page.items))
       .catch(() => setLots([]))
       .finally(() => setLotsLoading(false));
-  }, [item?.id, selectedWear]);
+  }, [item?.id, item?.featuredLotId, pageMode, selectedWear]);
 
   useEffect(() => {
-    if (!item) {
+    if (!isSingleListingPage || !item) {
+      setFeaturedLot(null);
+      setLotError(null);
+      setFeaturedLotLoading(false);
+      return;
+    }
+
+    const lotId = item.featuredLotId ?? lots[0]?.id;
+    if (!lotId) {
+      return;
+    }
+
+    setFeaturedLotLoading(true);
+    setLotError(null);
+    void getLot(lotId)
+      .then(setFeaturedLot)
+      .catch((err: unknown) => {
+        setFeaturedLot(null);
+        setLotError(err);
+      })
+      .finally(() => setFeaturedLotLoading(false));
+  }, [isSingleListingPage, item, item?.featuredLotId, lots]);
+
+  useEffect(() => {
+    if (!isSingleListingPage || !featuredLot?.id) {
+      setSimilarLots([]);
+      setSimilarLoading(false);
+      return;
+    }
+
+    setSimilarLoading(true);
+    void listSimilarLots(featuredLot.id, 6)
+      .then(setSimilarLots)
+      .catch(() => setSimilarLots([]))
+      .finally(() => setSimilarLoading(false));
+  }, [isSingleListingPage, featuredLot?.id]);
+
+  useEffect(() => {
+    if (!item || isSingleListingPage) {
       setOrderBook(null);
+      setOrderBookLoading(false);
       return;
     }
     const itemRef = getCatalogItemRef(item);
@@ -180,7 +242,7 @@ export function ItemPage() {
       .then(setOrderBook)
       .catch(() => setOrderBook(null))
       .finally(() => setOrderBookLoading(false));
-  }, [item, wearForOrderBook]);
+  }, [item, wearForOrderBook, isSingleListingPage]);
 
   useEffect(() => {
     if (!item?.wearIcons) {
@@ -275,6 +337,21 @@ export function ItemPage() {
     }
   }
 
+  async function handleSingleListingBuy() {
+    if (!featuredLot?.id) {
+      return;
+    }
+    if (!token) {
+      try {
+        await startSteamLogin(`/lots/${featuredLot.id}/checkout`);
+      } catch {
+        // Stay on item page; user can retry via header Steam CTA.
+      }
+      return;
+    }
+    navigate(`/lots/${featuredLot.id}/checkout`);
+  }
+
   if (!id) {
     return null;
   }
@@ -347,113 +424,118 @@ export function ItemPage() {
                 steps={BUY_REQUEST_FLOW_STEP_ITEMS}
               />
             </>
-          ) : (
-            <div
-              className={`item-compare-layout${isComparisonPage ? '' : ' item-compare-layout-single'}`}
-            >
+          ) : null}
+
+          {isSingleListingPage ? (
+            <>
+              {featuredLotLoading || lotsLoading ? (
+                <LoadingState message={t('lot.loading')} />
+              ) : null}
+              {featuredLot ? (
+                <LotListingDetail
+                  lot={featuredLot}
+                  token={token}
+                  user={user}
+                  requiresSteamLink={requiresSteamLink}
+                  purchaseError={lotError}
+                  siblingOfferCount={item.activeLotCount}
+                  catalogItemPath={`/catalog/items/${getCatalogItemRef(item)}`}
+                  similarLots={similarLots}
+                  similarLoading={similarLoading}
+                  previewTestId="lot-preview-card"
+                  specTestId="lot-spec"
+                  stickersTestIdPrefix="lot"
+                  layoutTestId="item-single-listing-layout"
+                  onBuy={handleSingleListingBuy}
+                />
+              ) : null}
+              {!featuredLotLoading && !lotsLoading && !featuredLot ? (
+                <ErrorAlert error={lotError ?? new Error(t('item.noActiveOffers'))} />
+              ) : null}
+            </>
+          ) : null}
+
+          {isComparisonPage ? (
+            <div className="item-compare-layout" data-testid="item-comparison-layout">
               <div className="item-compare-main">
                 <ItemCompareHeader
                   item={item}
                   iconUrl={displayItem?.itemDefinition.iconUrl ?? item.iconUrl}
                 />
-                {wearOptions.length > 0 ? (
-                  <div
-                    className="item-page-wear-filters"
-                    data-testid="item-page-wear-filters"
-                  >
-                    <button
-                      type="button"
-                      className={`catalog-rarity-filter${selectedWear === '' ? ' active' : ''}`}
-                      data-testid="item-wear-all"
-                      onClick={() => setSelectedWear('')}
-                    >
-                      {t('catalog.all')}
-                    </button>
-                    {wearOptions.map((option) => (
-                      <button
-                        key={option.value}
-                        type="button"
-                        className={`catalog-rarity-filter${
-                          selectedWear === option.value ? ' active' : ''
-                        }`}
-                        style={{ color: option.color }}
-                        data-testid={`item-wear-${option.value.toLowerCase()}`}
-                        onClick={() => setSelectedWear(option.value)}
-                      >
-                        {wearLabel(option.value, locale)}
-                      </button>
-                    ))}
-                  </div>
-                ) : null}
-                <ItemOrderBook orderBook={orderBook} loading={orderBookLoading} />
-                {isComparisonPage || lots.length > 0 ? (
-                  <ItemOffersTable lots={lots} loading={lotsLoading} />
-                ) : null}
+                <ItemWearFilterChips
+                  value={selectedWear}
+                  availableWears={wearOptions}
+                  onChange={setSelectedWear}
+                />
+                <ItemOrderBook
+                  orderBook={orderBook}
+                  loading={orderBookLoading}
+                  hideEmptyBids
+                />
+                <ItemOffersTable lots={lots} loading={lotsLoading} />
               </div>
 
-              {isComparisonPage || cheapestLot ? (
-                <aside className="item-compare-sidebar">
-                  <div className="card lot-purchase-card item-purchase-card">
-                    <p className="item-purchase-label muted small">{t('item.bestOffer')}</p>
-                    <div data-testid="item-market-price">
-                      <InventoryPriceStack
-                        steamPriceMinor={wearSteamPrice}
-                        marketplacePriceMinor={
-                          cheapestLot?.priceMinor ?? item.minMarketplacePriceMinor
-                        }
-                        testIdPrefix="item"
-                        loading={wearSteamPriceLoading}
-                      />
-                      {wearSteamPrice != null && wearSteamPriceFetchedAt ? (
-                        <p
-                          className={`muted small item-steam-price-age${
-                            isSteamPriceStale(wearSteamPriceFetchedAt)
-                              ? ' item-steam-price-age-stale'
-                              : ''
-                          }`}
-                          data-testid="item-steam-price-age"
-                        >
-                          {t('item.steamUpdated', {
-                            age: formatSteamPriceAge(wearSteamPriceFetchedAt, locale) ?? '',
-                          })}
-                          {isSteamPriceStale(wearSteamPriceFetchedAt)
-                            ? ` · ${t('item.priceMaybeStale')}`
-                            : ''}
-                        </p>
-                      ) : null}
-                    </div>
-
-                    {cheapestLot ? (
-                      <Link
-                        to={`/lots/${cheapestLot.id}`}
-                        className="button primary lot-purchase-button"
-                        data-testid="item-open-cheapest"
+              <aside className="item-compare-sidebar">
+                <div className="card lot-purchase-card item-purchase-card">
+                  <p className="item-purchase-label muted small">{t('item.bestOffer')}</p>
+                  <div data-testid="item-market-price">
+                    <InventoryPriceStack
+                      steamPriceMinor={wearSteamPrice}
+                      marketplacePriceMinor={
+                        cheapestLot?.priceMinor ?? item.minMarketplacePriceMinor
+                      }
+                      testIdPrefix="item"
+                      loading={wearSteamPriceLoading}
+                    />
+                    {wearSteamPrice != null && wearSteamPriceFetchedAt ? (
+                      <p
+                        className={`muted small item-steam-price-age${
+                          isSteamPriceStale(wearSteamPriceFetchedAt)
+                            ? ' item-steam-price-age-stale'
+                            : ''
+                        }`}
+                        data-testid="item-steam-price-age"
                       >
-                        {t('item.openBestOffer')}
-                      </Link>
+                        {t('item.steamUpdated', {
+                          age: formatSteamPriceAge(wearSteamPriceFetchedAt, locale) ?? '',
+                        })}
+                        {isSteamPriceStale(wearSteamPriceFetchedAt)
+                          ? ` · ${t('item.priceMaybeStale')}`
+                          : ''}
+                      </p>
                     ) : null}
-
-                    <a
-                      className="button secondary lot-purchase-button"
-                      href={buildSteamMarketListingUrl(
-                        item.marketHashName,
-                        effectiveWear || null,
-                      )}
-                      target="_blank"
-                      rel="noreferrer"
-                      data-testid="item-steam-market-link"
-                    >
-                      Steam Market
-                    </a>
-
-                    <p className="muted small">
-                      {t('item.floatStickersHint')}
-                    </p>
                   </div>
-                </aside>
-              ) : null}
+
+                  {cheapestLot ? (
+                    <Link
+                      to={`/lots/${cheapestLot.id}`}
+                      className="button primary lot-purchase-button"
+                      data-testid="item-open-cheapest"
+                    >
+                      {t('item.openBestOffer')}
+                    </Link>
+                  ) : null}
+
+                  <a
+                    className="button secondary lot-purchase-button"
+                    href={buildSteamMarketListingUrl(
+                      item.marketHashName,
+                      effectiveWear || null,
+                    )}
+                    target="_blank"
+                    rel="noreferrer"
+                    data-testid="item-steam-market-link"
+                  >
+                    Steam Market
+                  </a>
+
+                  <p className="muted small">
+                    {t('item.floatStickersHint')}
+                  </p>
+                </div>
+              </aside>
             </div>
-          )}
+          ) : null}
         </>
       ) : null}
     </div>

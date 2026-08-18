@@ -45,7 +45,7 @@ test.describe('Catalog item slugs', () => {
     );
   });
 
-  test('catalog card for a listed item opens the named item page', async ({
+  test('catalog card for a listed item opens purchase-ready item page', async ({
     page,
     request,
   }) => {
@@ -71,5 +71,15 @@ test.describe('Catalog item slugs', () => {
     await page.locator(`[data-catalog-item-id="${id}"]`).click();
     await expect(page.getByTestId('item-page')).toBeVisible();
     await expect(page).toHaveURL(new RegExp(`/catalog/items/${slug}$`));
+
+    if ((listed?.activeLotCount ?? 0) === 1) {
+      await expect(page.getByTestId('item-single-listing-layout')).toBeVisible();
+      await expect(page.getByTestId('lot-preview-card')).toBeVisible();
+      await expect(page.getByTestId('buy-lot-button')).toBeVisible();
+      await expect(page.getByTestId('item-compare-header')).toHaveCount(0);
+    } else {
+      await expect(page.getByTestId('item-comparison-layout')).toBeVisible();
+      await expect(page.getByTestId('item-compare-header')).toBeVisible();
+    }
   });
 });
