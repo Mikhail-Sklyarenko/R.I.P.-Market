@@ -20,7 +20,7 @@ test.describe('Buy error handling', () => {
     await loginAsBuyer(page);
     await page.goto(`/lots/${lotId}`);
 
-    await expect(page.getByTestId('purchase-trade-hint')).toBeVisible();
+    await expect(page.getByTestId('checkout-deposit-link')).toBeVisible();
     await page.getByTestId('checkout-deposit-link').click();
     await expect(page).toHaveURL(/\/wallet/);
     await expect(page.getByTestId('deposit-needed-banner')).toBeVisible();

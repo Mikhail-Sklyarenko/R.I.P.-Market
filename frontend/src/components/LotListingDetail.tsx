@@ -1,6 +1,5 @@
 import type { AuthUser, Lot } from '../api/types';
-import { useLocale } from '../i18n';
-import { formatDataTimestamp, resolveLotDisplayItem } from '../utils/lot-display';
+import { resolveLotDisplayItem } from '../utils/lot-display';
 import { ItemParamsPanel } from './ItemParamsPanel';
 import { LotActionButtons } from './LotActionButtons';
 import { LotItemHero } from './LotItemHero';
@@ -43,10 +42,8 @@ export function LotListingDetail({
   layoutTestId = 'lot-page-grid',
   showSimilarLots = true,
 }: LotListingDetailProps) {
-  const { t } = useLocale();
   const displayItem = resolveLotDisplayItem(lot);
   const isUnavailable = lot.status !== 'ACTIVE';
-  const snapshotCapturedAt = formatDataTimestamp(displayItem.capturedAt ?? null);
 
   return (
     <>
@@ -63,12 +60,6 @@ export function LotListingDetail({
               <ItemParamsPanel item={displayItem} testId={specTestId} showEmptyFloat />
 
               <LotStickers stickers={displayItem.stickers} testIdPrefix={stickersTestIdPrefix} />
-
-              {snapshotCapturedAt ? (
-                <p className="muted small lot-preview-meta" data-testid="lot-snapshot-captured-at">
-                  {t('lot.snapshotCaptured', { when: snapshotCapturedAt })}
-                </p>
-              ) : null}
 
               <LotActionButtons
                 inspectLink={lot.inspectLink}

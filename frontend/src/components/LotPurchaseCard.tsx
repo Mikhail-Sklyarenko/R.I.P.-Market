@@ -10,7 +10,6 @@ import { formatCounterpartyDisplayName } from '../utils/steam-profile';
 import { startSteamLogin } from '../utils/start-steam-login';
 import { DealFlowSteps } from './DealFlowSteps';
 import { ErrorAlert } from './ErrorAlert';
-import { EscrowNotice } from './EscrowNotice';
 import { InventoryPriceStack } from './InventoryPriceStack';
 import { MoneyDisplay } from './MoneyDisplay';
 import { isPurchaseBlocked, PurchaseReadinessAlerts } from './PurchaseReadinessAlerts';
@@ -199,11 +198,6 @@ export function LotPurchaseCard({
           {t('lot.ownLot')}
         </p>
       ) : null}
-
-      <p className="checkout-footnote" data-testid="purchase-trade-hint">
-        {t('checkout.tradeHint')}
-      </p>
-      <EscrowNotice compact />
 
       <DealFlowSteps compact />
 
