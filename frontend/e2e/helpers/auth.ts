@@ -60,7 +60,8 @@ export async function loginAsAdmin(page: Page) {
 }
 
 export async function openFirstCatalogLot(page: Page) {
-  await page.getByTestId('catalog-open-lot').first().click();
+  const card = page.getByTestId('catalog-open-lot').first();
+  await card.locator('[data-testid^="catalog-item-buy-"]').click();
 }
 
 export async function buyerPurchaseWaitingTrade(page: Page, depositAmountMinor = 200_000) {

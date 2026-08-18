@@ -52,23 +52,18 @@ export function LotPage() {
       return;
     }
     setLoading(true);
+    setSimilarLoading(true);
     setError(null);
-    getLot(id)
+    setSimilarLots([]);
+    void getLot(id)
       .then(setLot)
       .catch((err: unknown) => setError(err))
       .finally(() => setLoading(false));
-  }, [id]);
-
-  useEffect(() => {
-    if (!id || !lot) {
-      return;
-    }
-    setSimilarLoading(true);
-    listSimilarLots(id, 6)
+    void listSimilarLots(id, 6)
       .then(setSimilarLots)
       .catch(() => setSimilarLots([]))
       .finally(() => setSimilarLoading(false));
-  }, [id, lot]);
+  }, [id]);
 
   const itemDefinitionId =
     lot?.inventoryAsset.itemDefinitionId ?? lot?.inventoryAsset.itemDefinition.id ?? null;

@@ -26,7 +26,7 @@ test.describe('Smoke: sell list and buyer complete', () => {
     await page.evaluate(() => localStorage.removeItem('rip_market_auth'));
     await loginAsBuyer(page);
 
-    await page.getByTestId('catalog-open-lot').first().click();
+    await page.getByTestId('catalog-open-lot').first().locator('[data-testid^="catalog-item-buy-"]').click();
     await page.getByTestId('buy-lot-button').click();
     await expect(page).toHaveURL(/\/checkout$/);
     await expect(page.getByTestId('checkout-page')).toBeVisible();

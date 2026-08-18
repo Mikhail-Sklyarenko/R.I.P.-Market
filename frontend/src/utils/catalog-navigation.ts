@@ -6,29 +6,17 @@ type CatalogNavigationItem = Pick<
   'id' | 'slug' | 'activeLotCount' | 'featuredLotId'
 >;
 
-/** Route catalog cards to a lot when there is only one active offer. */
+/** Catalog cards always open the named item page. */
 export function getCatalogItemPath(item: CatalogNavigationItem): string {
-  if (item.activeLotCount === 1 && item.featuredLotId) {
-    return `/lots/${item.featuredLotId}`;
-  }
   return `/catalog/items/${getCatalogItemRef(item)}`;
 }
 
+/** Buy CTA jumps to a specific listing instance. */
 export function getCatalogBuyPath(item: CatalogNavigationItem): string | null {
   if (!item.featuredLotId || item.activeLotCount <= 0) {
     return null;
   }
   return `/lots/${item.featuredLotId}`;
-}
-
-export function shouldRedirectItemPageToLot(
-  item: CatalogNavigationItem,
-  loadedLotCount: number,
-): boolean {
-  if (item.activeLotCount !== 1) {
-    return false;
-  }
-  return loadedLotCount === 1 || Boolean(item.featuredLotId);
 }
 
 export function resolveSingleLotId(

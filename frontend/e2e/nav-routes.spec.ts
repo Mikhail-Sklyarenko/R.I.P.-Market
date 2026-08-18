@@ -58,14 +58,14 @@ test.describe('Main navigation', () => {
     await expect(page.getByTestId('catalog-grid')).toHaveCount(0);
   });
 
-  test('guest can open catalog and lot without auth', async ({ page, request }) => {
+  test('guest can open catalog item by name without auth', async ({ page, request }) => {
     await seedActiveLot(request);
     await page.goto('/');
     await expect(page.getByTestId('catalog-grid')).toBeVisible();
 
     await page.getByTestId('catalog-open-lot').first().click();
-    await expect(page).toHaveURL(/\/lots\//);
-    await expect(page.getByTestId('buy-lot-button')).toBeVisible();
+    await expect(page).toHaveURL(/\/catalog\/items\//);
+    await expect(page.getByTestId('item-page')).toBeVisible();
   });
 
   test('faq nav link opens full faq page', async ({ page }) => {

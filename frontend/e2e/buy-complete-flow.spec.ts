@@ -21,7 +21,7 @@ test.describe('Buy complete flow', () => {
     await loginAsBuyer(page);
 
     await expect(page.getByTestId('catalog-grid').locator('article').first()).toBeVisible();
-    await page.getByTestId('catalog-open-lot').first().click();
+    await page.getByTestId('catalog-open-lot').first().locator('[data-testid^="catalog-item-buy-"]').click();
 
     await page.getByTestId('buy-lot-button').click();
     await expect(page).toHaveURL(/\/checkout$/);

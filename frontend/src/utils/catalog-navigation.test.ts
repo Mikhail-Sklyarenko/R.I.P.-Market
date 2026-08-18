@@ -4,20 +4,22 @@ import {
   getCatalogBuyPath,
   getCatalogItemPath,
   resolveSingleLotId,
-  shouldRedirectItemPageToLot,
 } from './catalog-navigation.ts';
 
 describe('catalog-navigation', () => {
-  it('routes single-offer catalog items directly to the lot page', () => {
+  it('keeps single-offer catalog items on the named item page', () => {
     const item = {
       id: 'item-1',
+      slug: 'p250-plum-netting-minimal-wear',
       activeLotCount: 1,
       featuredLotId: 'lot-1',
     };
 
-    assert.equal(getCatalogItemPath(item), '/lots/lot-1');
+    assert.equal(
+      getCatalogItemPath(item),
+      '/catalog/items/p250-plum-netting-minimal-wear',
+    );
     assert.equal(getCatalogBuyPath(item), '/lots/lot-1');
-    assert.equal(shouldRedirectItemPageToLot(item, 1), true);
     assert.equal(resolveSingleLotId(item, [{ id: 'lot-1' }]), 'lot-1');
   });
 
@@ -31,7 +33,6 @@ describe('catalog-navigation', () => {
 
     assert.equal(getCatalogItemPath(item), '/catalog/items/ak-47-redline');
     assert.equal(getCatalogBuyPath(item), '/lots/lot-a');
-    assert.equal(shouldRedirectItemPageToLot(item, 3), false);
   });
 
   it('falls back to id when slug is missing', () => {

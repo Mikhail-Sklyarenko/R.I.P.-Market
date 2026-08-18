@@ -44,4 +44,32 @@ test.describe('Catalog item slugs', () => {
       new RegExp(`/catalog/items/${slug}$`),
     );
   });
+
+  test('catalog card for a listed item opens the named item page', async ({
+    page,
+    request,
+  }) => {
+    await seedCatalogLots(request);
+
+    const catalogResponse = await request.get(`${API_BASE}/catalog/items?page=1&limit=48`);
+    expect(catalogResponse.ok()).toBeTruthy();
+    const catalog = (await catalogResponse.json()) as {
+      items: Array<{
+        id: string;
+        slug?: string | null;
+        activeLotCount: number;
+      }>;
+    };
+
+    const listed = catalog.items.find(
+      (entry) => entry.activeLotCount > 0 && entry.slug,
+    );
+    expect(listed).toBeTruthy();
+    const { id, slug } = listed!;
+
+    await page.goto('/catalog');
+    await page.locator(`[data-catalog-item-id="${id}"]`).click();
+    await expect(page.getByTestId('item-page')).toBeVisible();
+    await expect(page).toHaveURL(new RegExp(`/catalog/items/${slug}$`));
+  });
 });

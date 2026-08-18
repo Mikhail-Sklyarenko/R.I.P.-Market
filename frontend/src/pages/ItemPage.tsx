@@ -26,10 +26,6 @@ import { LoadingState } from '../components/LoadingState';
 import { LotActionButtons } from '../components/LotActionButtons';
 import { LotBreadcrumbs } from '../components/LotBreadcrumbs';
 import { LotItemHero } from '../components/LotItemHero';
-import {
-  resolveSingleLotId,
-  shouldRedirectItemPageToLot,
-} from '../utils/catalog-navigation';
 import { getCatalogItemRef, isUuid } from '../utils/item-slug';
 import {
   formatSteamPriceAge,
@@ -203,19 +199,6 @@ export function ItemPage() {
       .catch(() => setBuyRequests([]));
   }, [token, item?.id]);
 
-  useEffect(() => {
-    if (!item || lotsLoading) {
-      return;
-    }
-    if (!shouldRedirectItemPageToLot(item, lots.length)) {
-      return;
-    }
-    const lotId = resolveSingleLotId(item, lots);
-    if (lotId) {
-      navigate(`/lots/${lotId}`, { replace: true });
-    }
-  }, [item, lots, lotsLoading, navigate]);
-
   async function refreshOrderBook() {
     if (!item) {
       return;
@@ -294,16 +277,6 @@ export function ItemPage() {
 
   if (!id) {
     return null;
-  }
-
-  const redirectingToSingleLot =
-    item &&
-    !lotsLoading &&
-    shouldRedirectItemPageToLot(item, lots.length) &&
-    Boolean(resolveSingleLotId(item, lots));
-
-  if (redirectingToSingleLot) {
-    return <LoadingState message={t('item.openingOffer')} />;
   }
 
   return (

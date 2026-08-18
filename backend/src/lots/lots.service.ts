@@ -758,8 +758,13 @@ export class LotsService {
       marketHashName,
       wear,
     );
-    const steamPriceMeta =
-      await this.steamMarketPrice.getPriceMeta(steamMarketHashName);
+    const steamPriceMeta = await this.steamMarketPrice.getPriceMeta(
+      steamMarketHashName,
+      { cacheOnly: true },
+    );
+    if (steamPriceMeta.priceMinor == null) {
+      void this.steamMarketPrice.getPriceMeta(steamMarketHashName);
+    }
     const inspectLink =
       hydrated.listingSnapshot?.inspectLink ??
       (seller.steamId
