@@ -3,7 +3,7 @@ import { ArrayMaxSize, ArrayMinSize, IsArray, IsBoolean, IsOptional, IsString } 
 export class InventoryPriceHintsDto {
   @IsArray()
   @ArrayMinSize(1)
-  @ArrayMaxSize(60)
+  @ArrayMaxSize(400)
   @IsString({ each: true })
   marketHashNames!: string[];
 

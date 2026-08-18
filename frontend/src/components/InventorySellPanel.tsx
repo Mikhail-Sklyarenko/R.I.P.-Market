@@ -94,7 +94,6 @@ export function InventorySellPanel({
         }
       : preview;
   const busy = submitting || canceling;
-  const blockOnMissingSteam = !isEdit && steamPriceMissing;
   const lotsLabel = formatLotCountLabel(listingCount, locale);
 
   useEffect(() => {
@@ -174,7 +173,7 @@ export function InventorySellPanel({
               <MoneyDisplay minor={priceHint.steamPriceMinor} strong />
             </p>
           ) : steamPriceMissing ? (
-            <p className="field-error small" data-testid="inventory-sell-steam-price-missing">
+            <p className="muted small" data-testid="inventory-sell-steam-price-missing">
               {isEdit
                 ? t('sellPanel.steamMissingEdit')
                 : t('sellPanel.steamMissingCreate')}
@@ -309,7 +308,7 @@ export function InventorySellPanel({
           <button
             type="submit"
             className="button primary inventory-listing-modal-submit"
-            disabled={busy || !priceMinor || !!priceError || blockOnMissingSteam}
+            disabled={busy || !priceMinor || !!priceError}
             data-testid="submit-listing"
           >
             {submitting

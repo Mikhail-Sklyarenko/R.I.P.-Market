@@ -130,9 +130,9 @@ const baseRuMessages = {
     pricesError: 'Не удалось загрузить цены Steam.',
     retry: 'Повторить',
     missingPricesCount_one:
-      'Нет цен Steam у {{count}} предмета — выставить можно только с ценой.',
+      'Нет цены Steam у {{count}} предмета — можно выставить, указав цену вручную.',
     missingPricesCount_many:
-      'Нет цен Steam у {{count}} предметов — выставить можно только с ценой.',
+      'Нет цен Steam у {{count}} предметов — можно выставить, указав цену вручную.',
     steamRequiredBody:
       'Сначала привяжите Steam и укажите Trade URL — без этого инвентарь и обмены недоступны.',
     tradeUrlRequiredPrefix: 'Укажите Trade URL в',
@@ -184,7 +184,7 @@ const baseRuMessages = {
     price: 'Цена ($)',
     steamPrice: 'Цена Steam:',
     steamMissingCreate:
-      'Цена Steam недоступна — выставление лота временно заблокировано.',
+      'Цена Steam недоступна — укажите цену вручную, лот всё равно можно выставить.',
     steamMissingEdit:
       'Цена Steam недоступна — ориентируйтесь на конкуренцию на R.I.P.',
     marketFrom: 'На R.I.P. от',

@@ -15,6 +15,7 @@ import type {
   NotificationCategory,
   Order,
   PricingPreview,
+  InventoryPriceHintsResponse,
   InventoryResponse,
   UserProfile,
   Wallet,
@@ -22,6 +23,11 @@ import type {
   WalletDepositStatus,
   WithdrawalRequest,
 } from './types';
+import {
+  INVENTORY_PRICE_HINTS_MAX_NAMES,
+  INVENTORY_PRICE_HINTS_REFRESH_BATCH,
+  fetchInventoryPriceHintsInChunks,
+} from '../utils/inventory-price-hints';
 
 export { createIdempotencyKey };
 
@@ -226,7 +232,7 @@ export function getInventoryPriceHints(
   marketHashNames: string[],
   options?: { forceRefresh?: boolean; cacheOnly?: boolean },
 ) {
-  return apiRequest<import('./types').InventoryPriceHintsResponse>('/inventory/price-hints', {
+  return apiRequest<InventoryPriceHintsResponse>('/inventory/price-hints', {
     method: 'POST',
     token,
     body: {
@@ -235,6 +241,28 @@ export function getInventoryPriceHints(
       ...(options?.cacheOnly ? { cacheOnly: true } : {}),
     },
   });
+}
+
+export function getInventoryPriceHintsBatched(
+  token: string,
+  marketHashNames: string[],
+  options?: { forceRefresh?: boolean; cacheOnly?: boolean; chunkSize?: number },
+) {
+  const chunkSize =
+    options?.chunkSize ??
+    (options?.forceRefresh
+      ? INVENTORY_PRICE_HINTS_REFRESH_BATCH
+      : INVENTORY_PRICE_HINTS_MAX_NAMES);
+  return fetchInventoryPriceHintsInChunks(
+    marketHashNames,
+    (chunk) =>
+      getInventoryPriceHints(token, chunk, {
+        forceRefresh: options?.forceRefresh,
+        cacheOnly: options?.cacheOnly,
+      }),
+    chunkSize,
+    { parallel: options?.cacheOnly === true && options?.forceRefresh !== true },
+  );
 }
 
 export function checkInventoryAsset(token: string, assetId: string) {

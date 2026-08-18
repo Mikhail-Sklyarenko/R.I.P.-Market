@@ -8,6 +8,7 @@ export {
   getAuthMe,
   getInventory,
   getInventoryPriceHints,
+  getInventoryPriceHintsBatched,
   getMyLots,
   getPricingPreview,
   getSteamLoginUrl,

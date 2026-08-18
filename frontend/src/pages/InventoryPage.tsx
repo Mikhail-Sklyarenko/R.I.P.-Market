@@ -1,4 +1,4 @@
-import { type FormEvent, useCallback, useEffect, useMemo, useState } from 'react';
+import { type FormEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import {
   cancelLot,
@@ -6,7 +6,7 @@ import {
   createLotsBulk,
   getAuthConfig,
   getInventory,
-  getInventoryPriceHints,
+  getInventoryPriceHintsBatched,
   getPricingPreview,
   getUserMe,
   resetDevTrades,
@@ -49,9 +49,15 @@ import {
 import { profileToAuthUser } from '../utils/user-profile';
 import { hasTradeUrl } from '../utils/trade-url';
 import { readInventorySession, writeInventorySession } from '../utils/inventory-session-cache';
+import {
+  INVENTORY_PRICE_HINTS_REFRESH_BATCH,
+  hasAnySteamPrice,
+  listableNamesMissingSteamPrice,
+  namesMissingSteamPrice,
+  uniqueMarketHashNames,
+} from '../utils/inventory-price-hints';
 
 const STALE_INVENTORY_REVALIDATE_MS = 2_500;
-const PRICE_HINT_REFRESH_BATCH = 8;
 
 function formatInventoryPositionsLabel(
   count: number,
@@ -107,6 +113,11 @@ export function InventoryPage() {
   const [pricesLoading, setPricesLoading] = useState(false);
   const [pricesRefreshing, setPricesRefreshing] = useState(false);
   const [pricesError, setPricesError] = useState<unknown>(null);
+  const priceHintsRef = useRef<Record<string, InventoryPriceHint>>({});
+  const priceHintsGenerationRef = useRef(0);
+  const steamPriceMissingRef = useRef<string[]>([]);
+  priceHintsRef.current = priceHints;
+  steamPriceMissingRef.current = steamPriceMissing;
 
   const inventoryProvider = config?.inventoryProvider ?? 'mock';
   const requiresSteamLink = inventoryProvider === 'steam';
@@ -134,7 +145,10 @@ export function InventoryPage() {
     Boolean(selectedAsset) &&
     !pricesLoading &&
     !pricesRefreshing &&
-    steamPriceMissing.includes(selectedAsset!.itemDefinition.marketHashName);
+    namesMissingSteamPrice(
+      [selectedAsset!.itemDefinition.marketHashName],
+      priceHints,
+    ).length > 0;
 
   const priceMinor = useMemo(() => parseUsdToMinor(priceInput), [priceInput]);
   const selectedListable = selectedAsset ? canListAsset(selectedAsset) : false;
@@ -143,19 +157,10 @@ export function InventoryPage() {
   const sellPanelOpen =
     Boolean(selectedAsset) && (selectedListable || selectedEditable);
 
-  const mergePriceHints = useCallback(
-    (response: Awaited<ReturnType<typeof getInventoryPriceHints>>) => {
-      setPriceHints((previous) => ({ ...previous, ...response.hints }));
-      if (response.steamPriceFetchedAt) {
-        setSteamPriceFetchedAt(response.steamPriceFetchedAt);
-      }
-    },
-    [],
-  );
-
   const loadPriceHints = useCallback(
     async (inventoryAssets: InventoryAsset[], forceRefresh = false) => {
       if (!token || inventoryAssets.length === 0) {
+        priceHintsRef.current = {};
         setPriceHints({});
         setSteamPriceFetchedAt(null);
         setSteamPriceMissing([]);
@@ -165,74 +170,147 @@ export function InventoryPage() {
         return;
       }
 
-      const marketHashNames = [
-        ...new Set(inventoryAssets.map((asset) => asset.itemDefinition.marketHashName)),
-      ];
-      setPricesError(null);
+      const generation = ++priceHintsGenerationRef.current;
+      const stillCurrent = () => generation === priceHintsGenerationRef.current;
+      const marketHashNames = uniqueMarketHashNames(inventoryAssets);
+      const retryTargets = steamPriceMissingRef.current;
+      const retryOnlyMissing =
+        forceRefresh &&
+        hasAnySteamPrice(priceHintsRef.current) &&
+        retryTargets.length > 0;
 
-      if (forceRefresh) {
+      if (retryOnlyMissing) {
+        setPricesLoading(false);
+        setPricesRefreshing(true);
+      } else {
         setPricesLoading(true);
         setPricesRefreshing(false);
-        try {
-          const response = await getInventoryPriceHints(token, marketHashNames, {
-            forceRefresh: true,
-          });
-          setPriceHints(response.hints);
-          setSteamPriceFetchedAt(response.steamPriceFetchedAt ?? null);
-          setSteamPriceMissing(response.steamPriceMissing ?? []);
-        } catch (err: unknown) {
-          setPriceHints({});
-          setSteamPriceFetchedAt(null);
-          setSteamPriceMissing([]);
-          setPricesError(err);
-        } finally {
-          setPricesLoading(false);
+      }
+
+      const applyHints = (
+        patch: Record<string, InventoryPriceHint>,
+        fetchedAt: string | null | undefined,
+        missingScope: string[],
+      ) => {
+        if (!stillCurrent()) {
+          return;
         }
-        return;
-      }
+        const next = { ...priceHintsRef.current, ...patch };
+        priceHintsRef.current = next;
+        setPriceHints(next);
+        if (fetchedAt) {
+          setSteamPriceFetchedAt(fetchedAt);
+        }
+        const nextMissing = listableNamesMissingSteamPrice(
+          inventoryAssets,
+          namesMissingSteamPrice(missingScope, next),
+        );
+        steamPriceMissingRef.current = nextMissing;
+        setSteamPriceMissing(nextMissing);
+      };
 
-      // 1) Unlock the grid from cache immediately.
-      setPricesLoading(true);
-      let missing: string[] = [];
-      try {
-        const cached = await getInventoryPriceHints(token, marketHashNames, {
-          cacheOnly: true,
-        });
-        setPriceHints(cached.hints);
-        setSteamPriceFetchedAt(cached.steamPriceFetchedAt ?? null);
-        missing = cached.steamPriceMissing ?? [];
-        setSteamPriceMissing(missing);
-      } catch (err: unknown) {
-        setPricesError(err);
-        setPricesLoading(false);
-        return;
-      }
-      setPricesLoading(false);
+      setPricesError(null);
 
-      if (missing.length === 0) {
-        return;
-      }
-
-      // 2) Fill misses in small batches so one slow Steam call never blocks the UI.
-      setPricesRefreshing(true);
-      const stillMissing: string[] = [];
-      try {
-        for (let index = 0; index < missing.length; index += PRICE_HINT_REFRESH_BATCH) {
-          const batch = missing.slice(index, index + PRICE_HINT_REFRESH_BATCH);
-          try {
-            const refreshed = await getInventoryPriceHints(token, batch);
-            mergePriceHints(refreshed);
-            stillMissing.push(...(refreshed.steamPriceMissing ?? []));
-          } catch {
-            stillMissing.push(...batch);
+      if (retryOnlyMissing) {
+        setPricesRefreshing(true);
+        try {
+          const live = await getInventoryPriceHintsBatched(token, retryTargets, {
+            forceRefresh: true,
+            chunkSize: INVENTORY_PRICE_HINTS_REFRESH_BATCH,
+          });
+          if (!stillCurrent()) {
+            return;
+          }
+          applyHints(
+            live.response.hints,
+            live.response.steamPriceFetchedAt,
+            retryTargets,
+          );
+          if (live.okCount === 0 && !hasAnySteamPrice(priceHintsRef.current)) {
+            setPricesError(live.lastError);
+          } else {
+            setPricesError(null);
+          }
+        } catch (err: unknown) {
+          if (stillCurrent() && !hasAnySteamPrice(priceHintsRef.current)) {
+            setPricesError(err);
+          }
+        } finally {
+          if (stillCurrent()) {
+            setPricesRefreshing(false);
           }
         }
-        setSteamPriceMissing(stillMissing);
+        return;
+      }
+
+      let reportedMissing = listableNamesMissingSteamPrice(
+        inventoryAssets,
+        namesMissingSteamPrice(marketHashNames, priceHintsRef.current),
+      );
+      try {
+        const cached = await getInventoryPriceHintsBatched(token, marketHashNames, {
+          cacheOnly: true,
+        });
+        if (!stillCurrent()) {
+          return;
+        }
+        if (cached.okCount > 0) {
+          const apiMissing = cached.response.steamPriceMissing ?? [];
+          applyHints(
+            cached.response.hints,
+            cached.response.steamPriceFetchedAt,
+            apiMissing,
+          );
+          reportedMissing = listableNamesMissingSteamPrice(
+            inventoryAssets,
+            apiMissing,
+          );
+        } else if (!hasAnySteamPrice(priceHintsRef.current)) {
+          setPricesError(cached.lastError);
+        }
+      } catch (err: unknown) {
+        if (stillCurrent() && !hasAnySteamPrice(priceHintsRef.current)) {
+          setPricesError(err);
+        }
       } finally {
-        setPricesRefreshing(false);
+        if (stillCurrent()) {
+          setPricesLoading(false);
+        }
+      }
+
+      if (!stillCurrent() || reportedMissing.length === 0) {
+        return;
+      }
+
+      setPricesRefreshing(true);
+      try {
+        const live = await getInventoryPriceHintsBatched(token, reportedMissing, {
+          chunkSize: INVENTORY_PRICE_HINTS_REFRESH_BATCH,
+        });
+        if (!stillCurrent()) {
+          return;
+        }
+        applyHints(
+          live.response.hints,
+          live.response.steamPriceFetchedAt,
+          reportedMissing,
+        );
+        if (live.okCount === 0 && !hasAnySteamPrice(priceHintsRef.current)) {
+          setPricesError(live.lastError);
+        } else if (hasAnySteamPrice(priceHintsRef.current) || live.okCount > 0) {
+          setPricesError(null);
+        }
+      } catch (err: unknown) {
+        if (stillCurrent() && !hasAnySteamPrice(priceHintsRef.current)) {
+          setPricesError(err);
+        }
+      } finally {
+        if (stillCurrent()) {
+          setPricesRefreshing(false);
+        }
       }
     },
-    [token, mergePriceHints],
+    [token],
   );
 
   const scheduleStaleRevalidate = useCallback(

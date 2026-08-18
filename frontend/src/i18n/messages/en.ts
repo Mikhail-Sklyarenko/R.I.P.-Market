@@ -183,7 +183,7 @@ const baseEnMessages = {
     price: 'Price ($)',
     steamPrice: 'Steam price:',
     steamMissingCreate:
-      'Steam price unavailable — listing is temporarily blocked.',
+      'Steam price unavailable — enter a price yourself. You can still list the item.',
     steamMissingEdit:
       'Steam price unavailable — use R.I.P. competition as a guide.',
     marketFrom: 'On R.I.P. from',

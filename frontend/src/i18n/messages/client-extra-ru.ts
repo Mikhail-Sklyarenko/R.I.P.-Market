@@ -242,7 +242,7 @@ export const clientExtraRu = {
     backgroundSync: 'Обновляем инвентарь из Steam в фоне…',
     steamPricesFailed: 'Не удалось загрузить цены Steam.',
     retry: 'Повторить',
-    steamPricesMissing: 'Нет цен Steam у {{count}} {{items}} — выставить можно только с ценой.',
+    steamPricesMissing: 'Нет цен Steam у {{count}} {{items}} — можно выставить, указав цену вручную.',
     items_one: 'предмета',
     items_few: 'предметов',
     items_many: 'предметов',
