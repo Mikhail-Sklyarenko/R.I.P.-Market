@@ -66,8 +66,7 @@ export async function openFirstCatalogLot(page: Page) {
 
 export async function buyerPurchaseWaitingTrade(page: Page, depositAmountMinor = 200_000) {
   await openFirstCatalogLot(page);
-  await page.getByTestId('buy-lot-button').click();
-  await expect(page).toHaveURL(/\/checkout$/);
+  await expect(page.getByTestId('lot-purchase-card')).toBeVisible();
 
   const buyerLogin = await page.request.post(`${API_BASE}/auth/mock-login`, {
     data: { role: 'BUYER' },
@@ -76,6 +75,6 @@ export async function buyerPurchaseWaitingTrade(page: Page, depositAmountMinor =
   await fundWallet(page.request, buyerBody.accessToken, depositAmountMinor);
 
   await page.reload();
-  await page.getByTestId('confirm-purchase-button').click();
+  await page.getByTestId('buy-lot-button').click();
   await expect(page.getByTestId('order-status')).toHaveText('WAITING_TRADE');
 }

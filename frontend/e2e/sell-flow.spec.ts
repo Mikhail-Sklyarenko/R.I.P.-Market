@@ -75,8 +75,12 @@ test.describe('Seller flow', () => {
     await loginAsSeller(page);
 
     await page.locator('[data-testid^="list-asset-"]').first().click();
+    await expect(page.getByTestId('inventory-sell-panel')).toBeVisible();
+    await expect(page.getByTestId('inventory-listing-modal-action')).toBeVisible();
+    await expect(page.getByTestId('inventory-price-error')).toHaveCount(0);
+
     await page.getByTestId('price-input').fill('0');
-    await expect(page.getByText('Enter a valid price greater than zero.')).toBeVisible();
+    await expect(page.getByTestId('inventory-price-error')).toBeVisible();
     await expect(page.getByTestId('submit-listing')).toBeDisabled();
   });
 

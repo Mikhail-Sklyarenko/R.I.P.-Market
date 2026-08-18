@@ -25,8 +25,6 @@ test.describe('Unified user trading', () => {
     await page.goto(`/lots/${lotId}`);
     await expect(page.getByTestId('buy-lot-button')).toBeEnabled();
     await page.getByTestId('buy-lot-button').click();
-    await expect(page).toHaveURL(/\/checkout$/);
-    await page.getByTestId('confirm-purchase-button').click();
     await expect(page.getByTestId('order-status')).toHaveText('WAITING_TRADE');
   });
 

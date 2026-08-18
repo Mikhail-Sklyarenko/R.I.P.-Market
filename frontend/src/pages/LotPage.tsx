@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useParams } from 'react-router-dom';
 import { getAuthConfig, getCatalogItem, getLot, listSimilarLots } from '../api/marketplace';
 import type { CatalogItem, Lot } from '../api/types';
 import { useAuth } from '../auth/AuthContext';
@@ -11,13 +11,11 @@ import { LotListingDetail } from '../components/LotListingDetail';
 import { getRarityDisplayLabel } from '../utils/rarity-colors';
 import { getCatalogItemRef } from '../utils/item-slug';
 import { resolveLotDisplayItem } from '../utils/lot-display';
-import { startSteamLogin } from '../utils/start-steam-login';
 
 export function LotPage() {
   const { id } = useParams();
   const { locale, t } = useLocale();
   const { token, user } = useAuth();
-  const navigate = useNavigate();
   const [lot, setLot] = useState<Lot | null>(null);
   const [similarLots, setSimilarLots] = useState<Lot[]>([]);
   const [loading, setLoading] = useState(true);
@@ -78,21 +76,6 @@ export function LotPage() {
         ? `/catalog/items/${itemDefinitionId}`
         : null;
 
-  async function handleProceedToCheckout() {
-    if (!id) {
-      return;
-    }
-    if (!token) {
-      try {
-        await startSteamLogin(`/lots/${id}/checkout`);
-      } catch {
-        // Stay on lot; user can retry via header Steam CTA.
-      }
-      return;
-    }
-    navigate(`/lots/${id}/checkout`);
-  }
-
   if (!id) {
     return null;
   }
@@ -120,9 +103,9 @@ export function LotPage() {
             purchaseError={error}
             siblingOfferCount={siblingOfferCount}
             catalogItemPath={catalogItemPath}
+            returnPath={`/lots/${id}`}
             similarLots={similarLots}
             similarLoading={similarLoading}
-            onBuy={handleProceedToCheckout}
           />
         </>
       ) : null}

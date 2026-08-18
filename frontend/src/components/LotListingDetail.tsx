@@ -1,7 +1,6 @@
 import type { AuthUser, Lot } from '../api/types';
 import { useLocale } from '../i18n';
 import { formatDataTimestamp, resolveLotDisplayItem } from '../utils/lot-display';
-import { isPurchaseBlocked } from './PurchaseReadinessAlerts';
 import { ItemParamsPanel } from './ItemParamsPanel';
 import { LotActionButtons } from './LotActionButtons';
 import { LotItemHero } from './LotItemHero';
@@ -17,6 +16,7 @@ type LotListingDetailProps = {
   purchaseError: unknown;
   siblingOfferCount: number | null;
   catalogItemPath: string | null;
+  returnPath: string;
   similarLots: Lot[];
   similarLoading: boolean;
   previewTestId?: string;
@@ -24,7 +24,6 @@ type LotListingDetailProps = {
   stickersTestIdPrefix?: string;
   layoutTestId?: string;
   showSimilarLots?: boolean;
-  onBuy: () => void;
 };
 
 export function LotListingDetail({
@@ -35,6 +34,7 @@ export function LotListingDetail({
   purchaseError,
   siblingOfferCount,
   catalogItemPath,
+  returnPath,
   similarLots,
   similarLoading,
   previewTestId = 'lot-preview-card',
@@ -42,16 +42,10 @@ export function LotListingDetail({
   stickersTestIdPrefix = 'lot',
   layoutTestId = 'lot-page-grid',
   showSimilarLots = true,
-  onBuy,
 }: LotListingDetailProps) {
   const { t } = useLocale();
   const displayItem = resolveLotDisplayItem(lot);
-  const isOwnLot = Boolean(user && lot.sellerId === user.id);
   const isUnavailable = lot.status !== 'ACTIVE';
-  const steamPurchaseBlocked = isPurchaseBlocked(user, requiresSteamLink, Boolean(token));
-  const canProceed = lot.status === 'ACTIVE' && !isOwnLot && !steamPurchaseBlocked;
-  const showPurchaseBlockers =
-    Boolean(token) && !isOwnLot && !isUnavailable && steamPurchaseBlocked;
   const snapshotCapturedAt = formatDataTimestamp(displayItem.capturedAt ?? null);
 
   return (
@@ -92,15 +86,11 @@ export function LotListingDetail({
             lot={lot}
             token={token}
             user={user}
-            canProceed={canProceed}
-            isOwnLot={isOwnLot}
-            isUnavailable={isUnavailable}
-            showPurchaseBlockers={showPurchaseBlockers}
             requiresSteamLink={requiresSteamLink}
             siblingOfferCount={siblingOfferCount}
             catalogItemPath={catalogItemPath}
+            returnPath={returnPath}
             purchaseError={purchaseError}
-            onBuy={onBuy}
           />
         </aside>
       </div>

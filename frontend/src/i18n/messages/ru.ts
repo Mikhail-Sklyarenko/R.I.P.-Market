@@ -192,13 +192,16 @@ const baseRuMessages = {
     editTitle: 'Изменить лот',
     price: 'Цена ($)',
     steamPrice: 'Цена Steam:',
+    steamLoading: 'Загружаем цену Steam…',
     steamMissingCreate:
       'Цена Steam недоступна — укажите цену вручную, лот всё равно можно выставить.',
     steamMissingEdit:
       'Цена Steam недоступна — ориентируйтесь на конкуренцию на R.I.P.',
     marketFrom: 'На R.I.P. от',
-    recommend: 'Рекомендуем от {{price}} — Steam −5%',
+    recommend: 'Рекомендуем {{price}} — Steam −5%',
     apply: 'Подставить',
+    applied: 'Подставлено',
+    pricePlaceholder: '0.00',
     quantity: 'Количество (доступно {{count}} шт.)',
     quantityHint:
       'Одинаковые предметы без float — выставите нужное число по одной цене.',

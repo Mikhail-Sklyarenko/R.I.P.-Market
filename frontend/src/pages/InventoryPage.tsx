@@ -30,7 +30,7 @@ import { PageHeader } from '../components/PageHeader';
 import { SellerSaleInfo } from '../components/SellerSaleInfo';
 import { canShowDevPanels, parseUsdToMinor, ERROR_MESSAGES } from '../utils/format';
 import { formatDataTimestamp } from '../utils/lot-display';
-import { getRecommendedPriceMinor, minorToPriceInput } from '../utils/inventory-pricing';
+import { getRecommendedPriceMinor, minorToPriceInput, shouldAutofillListingPrice } from '../utils/inventory-pricing';
 import { hasLinkedSteamId } from '../utils/steam-id';
 import {
   canEditListedAsset,
@@ -84,11 +84,12 @@ export function InventoryPage() {
   const [showUnavailable, setShowUnavailable] = useState(false);
   const [selectedAssetId, setSelectedAssetId] = useState<string | null>(null);
   const [bulkListCount, setBulkListCount] = useState(1);
-  const [priceInput, setPriceInput] = useState('10.00');
+  const [priceInput, setPriceInput] = useState('');
   const [preview, setPreview] = useState<PricingPreview | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [canceling, setCanceling] = useState(false);
   const [priceError, setPriceError] = useState<string | null>(null);
+  const [priceDirty, setPriceDirty] = useState(false);
   const [priceHints, setPriceHints] = useState<Record<string, InventoryPriceHint>>({});
   const [steamPriceFetchedAt, setSteamPriceFetchedAt] = useState<string | null>(null);
   const [steamPriceMissing, setSteamPriceMissing] = useState<string[]>([]);
@@ -123,10 +124,10 @@ export function InventoryPage() {
   const selectedPriceHint = selectedAsset
     ? priceHints[selectedAsset.itemDefinition.marketHashName]
     : null;
+  const steamPricesLoading = pricesLoading || pricesRefreshing;
   const selectedSteamPriceMissing =
     Boolean(selectedAsset) &&
-    !pricesLoading &&
-    !pricesRefreshing &&
+    !steamPricesLoading &&
     namesMissingSteamPrice(
       [selectedAsset!.itemDefinition.marketHashName],
       priceHints,
@@ -493,14 +494,18 @@ export function InventoryPage() {
   useEffect(() => {
     if (!priceMinor) {
       setPreview(null);
-      setPriceError('Enter a valid price greater than zero.');
+      if (priceInput.trim() !== '') {
+        setPriceError(t('lots.invalidPrice'));
+      } else {
+        setPriceError(null);
+      }
       return;
     }
     setPriceError(null);
     getPricingPreview(priceMinor)
       .then(setPreview)
       .catch((err: unknown) => setSellError(err));
-  }, [priceMinor]);
+  }, [priceMinor, priceInput, t]);
 
   useEffect(() => {
     if (!selectedAssetId) {
@@ -549,6 +554,7 @@ export function InventoryPage() {
     setBulkListCount(1);
     setSellError(null);
     setPriceError(null);
+    setPriceDirty(false);
 
     if (canEditListedAsset(asset)) {
       const listedMinor = asset.listedPriceMinor
@@ -573,12 +579,33 @@ export function InventoryPage() {
     setBulkListCount(1);
     setSellError(null);
     setCanceling(false);
+    setPriceDirty(false);
+    setPriceError(null);
+    setPriceInput('');
   }, []);
+
+  useEffect(() => {
+    if (!sellPanelOpen || sellPanelMode !== 'create') {
+      return;
+    }
+    const recommendedMinor = getRecommendedPriceMinor(selectedPriceHint);
+    if (
+      !shouldAutofillListingPrice({
+        mode: sellPanelMode,
+        priceDirty,
+        currentInput: priceInput,
+        recommendedMinor,
+      })
+    ) {
+      return;
+    }
+    setPriceInput(minorToPriceInput(recommendedMinor!));
+  }, [sellPanelOpen, sellPanelMode, priceDirty, priceInput, selectedPriceHint]);
 
   async function handleSubmitListing(event: FormEvent) {
     event.preventDefault();
     if (!token || !selectedAsset || !priceMinor) {
-      setPriceError('Enter a valid price greater than zero.');
+      setPriceError(t('lots.invalidPrice'));
       return;
     }
 
@@ -1023,6 +1050,8 @@ export function InventoryPage() {
                 asset={selectedAsset}
                 priceHint={selectedPriceHint}
                 steamPriceMissing={selectedSteamPriceMissing}
+                steamPricesLoading={steamPricesLoading}
+                steamPriceFetchedAt={steamPriceFetchedAt}
                 priceInput={priceInput}
                 priceError={priceError}
                 preview={preview}
@@ -1036,7 +1065,10 @@ export function InventoryPage() {
                 bulkListCount={bulkListCount}
                 stackCount={sellPanelMode === 'edit' ? 1 : bulkListTargets.length}
                 onBulkListCountChange={setBulkListCount}
-                onPriceChange={setPriceInput}
+                onPriceChange={(value) => {
+                  setPriceDirty(true);
+                  setPriceInput(value);
+                }}
                 onSubmit={(event) => void handleSubmitListing(event)}
                 onCancelListing={
                   sellPanelMode === 'edit'

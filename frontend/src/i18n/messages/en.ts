@@ -191,13 +191,16 @@ const baseEnMessages = {
     editTitle: 'Edit listing',
     price: 'Price ($)',
     steamPrice: 'Steam price:',
+    steamLoading: 'Loading Steam price…',
     steamMissingCreate:
       'Steam price unavailable — enter a price yourself. You can still list the item.',
     steamMissingEdit:
       'Steam price unavailable — use R.I.P. competition as a guide.',
     marketFrom: 'On R.I.P. from',
-    recommend: 'Suggested from {{price}} — Steam −5%',
+    recommend: 'Suggested {{price}} — Steam −5%',
     apply: 'Apply',
+    applied: 'Applied',
+    pricePlaceholder: '0.00',
     quantity: 'Quantity ({{count}} available)',
     quantityHint:
       'Identical items without float — list several at one price.',

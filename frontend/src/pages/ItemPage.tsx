@@ -337,21 +337,6 @@ export function ItemPage() {
     }
   }
 
-  async function handleSingleListingBuy() {
-    if (!featuredLot?.id) {
-      return;
-    }
-    if (!token) {
-      try {
-        await startSteamLogin(`/lots/${featuredLot.id}/checkout`);
-      } catch {
-        // Stay on item page; user can retry via header Steam CTA.
-      }
-      return;
-    }
-    navigate(`/lots/${featuredLot.id}/checkout`);
-  }
-
   if (!id) {
     return null;
   }
@@ -440,13 +425,13 @@ export function ItemPage() {
                   purchaseError={lotError}
                   siblingOfferCount={item.activeLotCount}
                   catalogItemPath={`/catalog/items/${getCatalogItemRef(item)}`}
+                  returnPath={`/catalog/items/${getCatalogItemRef(item)}`}
                   similarLots={similarLots}
                   similarLoading={similarLoading}
                   previewTestId="lot-preview-card"
                   specTestId="lot-spec"
                   stickersTestIdPrefix="lot"
                   layoutTestId="item-single-listing-layout"
-                  onBuy={handleSingleListingBuy}
                 />
               ) : null}
               {!featuredLotLoading && !lotsLoading && !featuredLot ? (

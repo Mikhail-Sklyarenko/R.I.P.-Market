@@ -28,3 +28,19 @@ export function getRecommendedPriceSource(
 export function minorToPriceInput(minor: number): string {
   return (minor / 100).toFixed(2);
 }
+
+/** Fill Steam −5% only for a new listing the seller has not typed into yet. */
+export function shouldAutofillListingPrice(options: {
+  mode: 'create' | 'edit';
+  priceDirty: boolean;
+  currentInput: string;
+  recommendedMinor: number | null;
+}): boolean {
+  if (options.mode !== 'create' || options.priceDirty) {
+    return false;
+  }
+  if (options.recommendedMinor == null || options.recommendedMinor <= 0) {
+    return false;
+  }
+  return options.currentInput.trim() === '';
+}

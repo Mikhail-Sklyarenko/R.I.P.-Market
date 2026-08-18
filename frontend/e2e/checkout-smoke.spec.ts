@@ -8,29 +8,33 @@ test.describe('Checkout route', () => {
     await resetDatabase(request);
   });
 
-  test('lot page routes to checkout with pricing preview', async ({ page, request }) => {
+  test('lot page buys in place and shows wallet when balance is short', async ({
+    page,
+    request,
+  }) => {
     const { lotId } = await seedActiveLot(request);
 
     await loginAsBuyer(page);
     await page.goto(`/lots/${lotId}`);
-    await page.getByTestId('buy-lot-button').click();
 
-    await expect(page).toHaveURL(new RegExp(`/lots/${lotId}/checkout$`));
-    await expect(page.getByTestId('checkout-page')).toBeVisible();
+    await expect(page).toHaveURL(new RegExp(`/lots/${lotId}$`));
+    await expect(page.getByTestId('lot-purchase-card')).toBeVisible();
     await expect(page.getByTestId('checkout-pricing')).toBeVisible();
     await expect(page.getByTestId('purchase-trade-hint')).toBeVisible();
     await expect(page.getByTestId('escrow-notice')).toBeVisible();
     await expect(page.getByTestId('checkout-deposit-link')).toBeVisible();
+    await expect(page.getByTestId('buy-lot-button')).toHaveCount(0);
   });
 
-  test('checkout blocks purchase without sufficient balance', async ({ page, request }) => {
+  test('legacy checkout URL returns to the listing', async ({ page, request }) => {
     const { lotId } = await seedActiveLot(request, 500_000);
 
     await loginAsBuyer(page);
     await page.goto(`/lots/${lotId}/checkout`);
+    await expect(page).toHaveURL(new RegExp(`/lots/${lotId}$`));
     await expect(page.getByTestId('checkout-wallet')).toBeVisible();
     await expect(page.getByTestId('checkout-deposit-link')).toBeVisible();
-    await expect(page.getByTestId('confirm-purchase-button')).toHaveCount(0);
+    await expect(page.getByTestId('buy-lot-button')).toHaveCount(0);
   });
 });
 

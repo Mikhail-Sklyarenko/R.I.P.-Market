@@ -17,8 +17,6 @@ test.describe('Buy cancel flow', () => {
     await loginAsBuyer(page);
     await page.goto(`/lots/${lotId}`);
 
-    await page.getByTestId('buy-lot-button').click();
-    await expect(page).toHaveURL(/\/checkout$/);
     await page.getByTestId('checkout-deposit-link').click();
     await expect(page).toHaveURL(/\/wallet/);
     const returnUrl = new URL(page.url()).searchParams.get('returnUrl');
@@ -30,7 +28,7 @@ test.describe('Buy cancel flow', () => {
     if (returnUrl) {
       await page.goto(returnUrl);
     }
-    await page.getByTestId('confirm-purchase-button').click();
+    await page.getByTestId('buy-lot-button').click();
     await expect(page.getByTestId('order-status')).toHaveText('WAITING_TRADE');
 
     await page.getByTestId('cancel-order-button').click();

@@ -50,19 +50,19 @@ export function CreateLotPage() {
   useEffect(() => {
     if (!priceMinor) {
       setPreview(null);
-      setFieldError('Enter a valid price greater than zero.');
+      setFieldError(priceInput.trim() ? t('lots.invalidPrice') : null);
       return;
     }
     setFieldError(null);
     getPricingPreview(priceMinor)
       .then(setPreview)
       .catch((err: unknown) => setError(err));
-  }, [priceMinor]);
+  }, [priceMinor, priceInput, t]);
 
   async function handleSubmit(event: FormEvent) {
     event.preventDefault();
     if (!token || !assetId || !priceMinor) {
-      setFieldError('Enter a valid price greater than zero.');
+      setFieldError(t('lots.invalidPrice'));
       return;
     }
 

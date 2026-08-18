@@ -31,7 +31,7 @@ test.describe('Lot page', () => {
     await loginAsBuyer(page);
     await page.goto(`/lots/${sourceLotId}`);
 
-    await expect(page.getByTestId('buy-lot-button')).toHaveText('Купить сейчас');
+    await expect(page.getByTestId('checkout-deposit-link')).toBeVisible();
     await expect(page.getByTestId('lot-purchase-price')).toBeVisible();
     await expect(page.getByTestId('lot-purchase-card')).toBeVisible();
     await expect(page.getByTestId('lot-purchase-seller')).toBeVisible();

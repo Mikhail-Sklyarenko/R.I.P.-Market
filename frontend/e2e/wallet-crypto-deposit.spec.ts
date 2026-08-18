@@ -47,7 +47,7 @@ test.describe('Wallet crypto deposit', () => {
     const { lotId, priceMinor } = await seedActiveLot(request);
 
     await loginAsBuyer(page);
-    await page.goto(`/lots/${lotId}/checkout`);
+    await page.goto(`/lots/${lotId}`);
 
     await expect(page.getByTestId('purchase-insufficient-balance')).toBeVisible();
     await page.getByTestId('checkout-deposit-link').click();

@@ -27,9 +27,7 @@ test.describe('Smoke: sell list and buyer complete', () => {
     await loginAsBuyer(page);
 
     await page.getByTestId('catalog-open-lot').first().locator('[data-testid^="catalog-item-buy-"]').click();
-    await page.getByTestId('buy-lot-button').click();
-    await expect(page).toHaveURL(/\/checkout$/);
-    await expect(page.getByTestId('checkout-page')).toBeVisible();
+    await expect(page.getByTestId('lot-purchase-card')).toBeVisible();
 
     await page.getByTestId('checkout-deposit-link').click();
     await expect(page).toHaveURL(/\/wallet/);
@@ -43,7 +41,7 @@ test.describe('Smoke: sell list and buyer complete', () => {
       await page.goto(returnUrl);
     }
 
-    await page.getByTestId('confirm-purchase-button').click();
+    await page.getByTestId('buy-lot-button').click();
     await expect(page.getByTestId('order-status')).toHaveText('WAITING_TRADE');
     await expect(page.getByTestId('mock-trade-panel')).toBeVisible();
 

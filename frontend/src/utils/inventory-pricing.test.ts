@@ -4,6 +4,7 @@ import {
   getRecommendedPriceMinor,
   getRecommendedPriceSource,
   minorToPriceInput,
+  shouldAutofillListingPrice,
 } from '../utils/inventory-pricing.ts';
 
 describe('inventory-pricing utils', () => {
@@ -51,5 +52,53 @@ describe('inventory-pricing utils', () => {
 
   it('formats minor units for price input', () => {
     assert.equal(minorToPriceInput(1099), '10.99');
+  });
+
+  it('autofills recommended price only for a clean create listing', () => {
+    assert.equal(
+      shouldAutofillListingPrice({
+        mode: 'create',
+        priceDirty: false,
+        currentInput: '',
+        recommendedMinor: 1900,
+      }),
+      true,
+    );
+    assert.equal(
+      shouldAutofillListingPrice({
+        mode: 'create',
+        priceDirty: true,
+        currentInput: '',
+        recommendedMinor: 1900,
+      }),
+      false,
+    );
+    assert.equal(
+      shouldAutofillListingPrice({
+        mode: 'create',
+        priceDirty: false,
+        currentInput: '12.00',
+        recommendedMinor: 1900,
+      }),
+      false,
+    );
+    assert.equal(
+      shouldAutofillListingPrice({
+        mode: 'edit',
+        priceDirty: false,
+        currentInput: '',
+        recommendedMinor: 1900,
+      }),
+      false,
+    );
+    assert.equal(
+      shouldAutofillListingPrice({
+        mode: 'create',
+        priceDirty: false,
+        currentInput: '',
+        recommendedMinor: null,
+      }),
+      false,
+    );
   });
 });

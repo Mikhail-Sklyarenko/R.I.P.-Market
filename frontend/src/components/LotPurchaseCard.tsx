@@ -1,57 +1,106 @@
-import { Link } from 'react-router-dom';
+import { useState } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
+import { createOrder } from '../api/marketplace';
 import type { AuthUser, Lot } from '../api/types';
 import { useLocale } from '../i18n';
+import { useWalletSummary } from '../hooks/useWalletSummary';
+import { formatUsdtFromMinor } from '../utils/format';
 import { isCredibleSteamGuidePrice } from '../utils/steam-guide-price';
 import { formatCounterpartyDisplayName } from '../utils/steam-profile';
+import { startSteamLogin } from '../utils/start-steam-login';
 import { DealFlowSteps } from './DealFlowSteps';
 import { ErrorAlert } from './ErrorAlert';
+import { EscrowNotice } from './EscrowNotice';
 import { InventoryPriceStack } from './InventoryPriceStack';
 import { MoneyDisplay } from './MoneyDisplay';
-import { PurchaseReadinessAlerts } from './PurchaseReadinessAlerts';
+import { isPurchaseBlocked, PurchaseReadinessAlerts } from './PurchaseReadinessAlerts';
 import { StatusBadge } from './StatusBadge';
 
 type LotPurchaseCardProps = {
   lot: Lot;
   token: string | null;
   user: AuthUser | null;
-  canProceed: boolean;
-  isOwnLot: boolean;
-  isUnavailable: boolean;
-  showPurchaseBlockers: boolean;
   requiresSteamLink: boolean;
   siblingOfferCount: number | null;
   catalogItemPath: string | null;
-  purchaseError: unknown;
-  onBuy: () => void;
+  /** Where to return after Steam login or wallet deposit. */
+  returnPath: string;
+  purchaseError?: unknown;
 };
 
 /**
- * Sticky purchase CTA: listing price is the hero; seller is quiet meta under it.
+ * Sticky purchase CTA: listing price is the hero; Buy Now creates the order here.
  */
 export function LotPurchaseCard({
   lot,
   token,
   user,
-  canProceed,
-  isOwnLot,
-  isUnavailable,
-  showPurchaseBlockers,
   requiresSteamLink,
   siblingOfferCount,
   catalogItemPath,
+  returnPath,
   purchaseError,
-  onBuy,
 }: LotPurchaseCardProps) {
   const { t } = useLocale();
+  const navigate = useNavigate();
+  const { summary, availableMinor, loading: walletLoading } = useWalletSummary();
+  const [confirming, setConfirming] = useState(false);
+  const [buyError, setBuyError] = useState<unknown>(null);
 
   const listingPriceMinor = lot.marketplacePriceMinor ?? lot.priceMinor;
+  const priceMinor = Number(lot.priceMinor);
   const steamForGuide = isCredibleSteamGuidePrice(lot.steamPriceMinor, listingPriceMinor)
     ? lot.steamPriceMinor
     : null;
+  const sellerName = lot.seller ? formatCounterpartyDisplayName(lot.seller) : null;
 
-  const sellerName = lot.seller
-    ? formatCounterpartyDisplayName(lot.seller)
-    : null;
+  const isOwnLot = Boolean(user && lot.sellerId === user.id);
+  const isUnavailable = lot.status !== 'ACTIVE';
+  const purchaseBlocked = isPurchaseBlocked(user, requiresSteamLink, Boolean(token));
+  const insufficient =
+    Boolean(token) &&
+    availableMinor !== null &&
+    priceMinor > 0 &&
+    availableMinor < priceMinor;
+  const shortfallMinor =
+    insufficient && availableMinor !== null ? priceMinor - availableMinor : 0;
+  const depositHref = `/wallet?tab=deposit&returnUrl=${encodeURIComponent(returnPath)}&needed=${priceMinor}`;
+  const showReadiness =
+    Boolean(token) && !isOwnLot && !isUnavailable;
+  const canBuy =
+    Boolean(token) &&
+    lot.status === 'ACTIVE' &&
+    !isOwnLot &&
+    !purchaseBlocked &&
+    !insufficient &&
+    !confirming &&
+    !walletLoading;
+  const displayError = buyError ?? purchaseError;
+
+  async function handleBuy() {
+    if (!token) {
+      try {
+        await startSteamLogin(returnPath);
+      } catch {
+        // Stay on listing; user can retry via header Steam CTA.
+      }
+      return;
+    }
+    if (!canBuy) {
+      return;
+    }
+
+    setConfirming(true);
+    setBuyError(null);
+    try {
+      const order = await createOrder(token, lot.id);
+      navigate(`/orders/${order.id}`);
+    } catch (err) {
+      setBuyError(err);
+    } finally {
+      setConfirming(false);
+    }
+  }
 
   return (
     <div className="card lot-purchase-card" data-testid="lot-purchase-card">
@@ -59,7 +108,7 @@ export function LotPurchaseCard({
         <StatusBadge status={lot.status} />
       </div>
 
-      <div className="lot-purchase-price-block">
+      <div className="lot-purchase-price-block" data-testid="checkout-pricing">
         <div className="lot-purchase-price" data-testid="lot-purchase-price">
           <InventoryPriceStack
             steamPriceMinor={steamForGuide}
@@ -92,6 +141,21 @@ export function LotPurchaseCard({
         </Link>
       ) : null}
 
+      {token && summary ? (
+        <div className="checkout-wallet-summary" data-testid="checkout-wallet">
+          <div className="checkout-wallet-row">
+            <span>{t('checkout.available')}</span>
+            <MoneyDisplay minor={summary.availableMinor} strong />
+          </div>
+          {insufficient && shortfallMinor > 0 ? (
+            <div className="checkout-wallet-row checkout-wallet-shortfall">
+              <span>{t('checkout.shortfall')}</span>
+              <MoneyDisplay minor={shortfallMinor} strong />
+            </div>
+          ) : null}
+        </div>
+      ) : null}
+
       <details className="lot-pricing-details">
         <summary className="lot-pricing-details-summary">
           {t('lot.commissionDetails')}
@@ -108,14 +172,19 @@ export function LotPurchaseCard({
         </div>
       </details>
 
-      <ErrorAlert error={purchaseError} />
+      <ErrorAlert error={displayError} />
 
-      {showPurchaseBlockers ? (
+      {showReadiness ? (
         <PurchaseReadinessAlerts
           user={user}
           requiresSteamLink={requiresSteamLink}
           authenticated
+          insufficientBalance={insufficient}
+          neededMinor={priceMinor}
+          walletDepositHref={depositHref}
+          showDepositAction={false}
           showTradeHint={false}
+          compactTradeUrlWarning
         />
       ) : null}
 
@@ -131,17 +200,37 @@ export function LotPurchaseCard({
         </p>
       ) : null}
 
+      <p className="checkout-footnote" data-testid="purchase-trade-hint">
+        {t('checkout.tradeHint')}
+      </p>
+      <EscrowNotice compact />
+
       <DealFlowSteps compact />
 
-      <button
-        type="button"
-        className="button primary lot-purchase-button"
-        disabled={!canProceed}
-        data-testid="buy-lot-button"
-        onClick={onBuy}
-      >
-        {!token ? t('lot.loginToBuy') : t('lot.buyNow')}
-      </button>
+      {insufficient && !isOwnLot && !isUnavailable ? (
+        <Link
+          to={depositHref}
+          className="button primary lot-purchase-button"
+          data-testid="checkout-deposit-link"
+        >
+          {t('checkout.depositButton')}
+          {shortfallMinor > 0 ? ` · ${formatUsdtFromMinor(shortfallMinor)}` : ''}
+        </Link>
+      ) : (
+        <button
+          type="button"
+          className="button primary lot-purchase-button"
+          disabled={Boolean(token) ? !canBuy : isUnavailable || isOwnLot}
+          data-testid="buy-lot-button"
+          onClick={() => void handleBuy()}
+        >
+          {!token
+            ? t('lot.loginToBuy')
+            : confirming
+              ? t('checkout.confirming')
+              : t('lot.buyNow')}
+        </button>
+      )}
     </div>
   );
 }

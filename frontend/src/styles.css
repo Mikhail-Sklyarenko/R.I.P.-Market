@@ -2577,8 +2577,8 @@ a.button.primary {
   border-radius: 0 0 var(--radius-md) var(--radius-md);
 }
 
-.lot-purchase-button {
-  width: 100%;
+.lot-purchase-card .checkout-wallet-summary {
+  margin: 0;
 }
 
 .similar-lots {
@@ -3407,6 +3407,44 @@ a.button.primary {
 .inventory-sell-panel-pattern {
   margin: 0;
   text-align: left;
+}
+
+.inventory-listing-price-guides {
+  display: grid;
+  gap: var(--space-2);
+  margin: 0;
+  padding: var(--space-3);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--color-bg-subtle) 88%, transparent);
+}
+
+.inventory-listing-price-guide-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+.inventory-listing-price-guide-row dt {
+  margin: 0;
+  color: var(--color-text-muted);
+  font-size: var(--font-size-sm);
+}
+
+.inventory-listing-price-guide-row dd {
+  margin: 0;
+  text-align: right;
+  font-weight: var(--font-weight-semibold);
+}
+
+.inventory-listing-price-guide-age {
+  font-weight: var(--font-weight-regular);
+}
+
+.inventory-listing-price-guide-note {
+  margin: 0;
+  line-height: 1.4;
 }
 
 .inventory-price-recommendation {

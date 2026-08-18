@@ -19,9 +19,6 @@ test.describe('Wallet hold and refund', () => {
     await expect(page.getByTestId('wallet-hold')).toContainText('$0.00');
 
     await page.goto(`/lots/${lotId}`);
-    await page.getByTestId('buy-lot-button').click();
-    await expect(page).toHaveURL(new RegExp(`/lots/${lotId}/checkout$`));
-
     await page.getByTestId('checkout-deposit-link').click();
     await expect(page).toHaveURL(/\/wallet/);
 
@@ -30,9 +27,9 @@ test.describe('Wallet hold and refund', () => {
     });
     const buyerBody = (await buyerLogin.json()) as { accessToken: string };
     await fundWallet(request, buyerBody.accessToken, 200_000);
-    await page.goto(`/lots/${lotId}/checkout`);
+    await page.goto(`/lots/${lotId}`);
 
-    await page.getByTestId('confirm-purchase-button').click();
+    await page.getByTestId('buy-lot-button').click();
     await expect(page.getByTestId('order-status')).toHaveText('WAITING_TRADE');
     await expect(page).toHaveURL(/\/orders\//);
     const orderUrl = page.url();

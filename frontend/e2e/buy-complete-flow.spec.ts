@@ -23,8 +23,7 @@ test.describe('Buy complete flow', () => {
     await expect(page.getByTestId('catalog-grid').locator('article').first()).toBeVisible();
     await page.getByTestId('catalog-open-lot').first().locator('[data-testid^="catalog-item-buy-"]').click();
 
-    await page.getByTestId('buy-lot-button').click();
-    await expect(page).toHaveURL(/\/checkout$/);
+    await expect(page.getByTestId('lot-purchase-card')).toBeVisible();
     await page.getByTestId('checkout-deposit-link').click();
     await expect(page).toHaveURL(/\/wallet/);
 
@@ -37,7 +36,7 @@ test.describe('Buy complete flow', () => {
     if (returnUrl) {
       await page.goto(returnUrl);
     }
-    await page.getByTestId('confirm-purchase-button').click();
+    await page.getByTestId('buy-lot-button').click();
 
     await expect(page.getByTestId('order-status')).toHaveText('WAITING_TRADE');
     await page.getByTestId('mock-trade-success').click();

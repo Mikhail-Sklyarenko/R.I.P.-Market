@@ -7,6 +7,7 @@ import {
   getRecommendedPriceMinor,
   minorToPriceInput,
 } from '../utils/inventory-pricing';
+import { formatSteamPriceAge } from '../utils/steam-price-age';
 import { ErrorAlert } from './ErrorAlert';
 import { LotItemHero } from './LotItemHero';
 import { MoneyDisplay } from './MoneyDisplay';
@@ -34,6 +35,8 @@ type InventorySellPanelProps = {
   asset: InventoryAsset;
   priceHint?: InventoryPriceHint | null;
   steamPriceMissing?: boolean;
+  steamPricesLoading?: boolean;
+  steamPriceFetchedAt?: string | null;
   priceInput: string;
   priceError: string | null;
   preview: PricingPreview | null;
@@ -57,6 +60,8 @@ export function InventorySellPanel({
   asset,
   priceHint,
   steamPriceMissing = false,
+  steamPricesLoading = false,
+  steamPriceFetchedAt = null,
   priceInput,
   priceError,
   preview,
@@ -77,6 +82,15 @@ export function InventorySellPanel({
   const isEdit = mode === 'edit';
   const patternText = formatPaintSeed(asset.paintSeed);
   const recommendedMinor = getRecommendedPriceMinor(priceHint);
+  const recommendedInput =
+    recommendedMinor != null ? minorToPriceInput(recommendedMinor) : null;
+  const recommendedApplied =
+    recommendedInput != null && priceInput.trim() === recommendedInput;
+  const steamAge = formatSteamPriceAge(steamPriceFetchedAt, locale);
+  const hasSteamPrice = Boolean(priceHint?.steamPriceMinor);
+  const hasMarketPrice = Boolean(priceHint?.minMarketplacePriceMinor);
+  const showPriceGuides =
+    hasSteamPrice || hasMarketPrice || steamPricesLoading || steamPriceMissing;
   const hasFloat =
     asset.floatValue !== null &&
     asset.floatValue !== undefined &&
@@ -136,7 +150,10 @@ export function InventorySellPanel({
       </div>
 
       <div className="inventory-listing-modal-grid">
-        <section className="inventory-listing-modal-preview">
+        <section
+          className="inventory-listing-modal-preview"
+          data-testid="inventory-listing-modal-preview"
+        >
           <div className="inventory-listing-modal-preview-media">
             {stackCount > 1 ? (
               <span
@@ -163,36 +180,63 @@ export function InventorySellPanel({
               {t('sellPanel.pattern', { value: patternText })}
             </p>
           ) : null}
-
-          {priceHint?.steamPriceMinor ? (
-            <p
-              className="inventory-sell-steam-price muted small"
-              data-testid="inventory-sell-steam-price"
-            >
-              {t('sellPanel.steamPrice')}{' '}
-              <MoneyDisplay minor={priceHint.steamPriceMinor} strong />
-            </p>
-          ) : steamPriceMissing ? (
-            <p className="muted small" data-testid="inventory-sell-steam-price-missing">
-              {isEdit
-                ? t('sellPanel.steamMissingEdit')
-                : t('sellPanel.steamMissingCreate')}
-            </p>
-          ) : null}
-
-          {priceHint?.minMarketplacePriceMinor ? (
-            <p
-              className="inventory-sell-market-price muted small"
-              data-testid="inventory-sell-market-price"
-            >
-              {t('sellPanel.marketFrom')}{' '}
-              <MoneyDisplay minor={priceHint.minMarketplacePriceMinor} />
-            </p>
-          ) : null}
         </section>
 
-        <section className="inventory-listing-modal-action">
-          {recommendedMinor ? (
+        <section
+          className="inventory-listing-modal-action"
+          data-testid="inventory-listing-modal-action"
+        >
+          {showPriceGuides ? (
+            <dl
+              className="inventory-listing-price-guides"
+              data-testid="inventory-listing-price-guides"
+            >
+              {hasSteamPrice ? (
+                <div className="inventory-listing-price-guide-row">
+                  <dt>{t('sellPanel.steamPrice')}</dt>
+                  <dd data-testid="inventory-sell-steam-price">
+                    <MoneyDisplay minor={priceHint!.steamPriceMinor!} strong />
+                    {steamAge ? (
+                      <span className="muted small inventory-listing-price-guide-age">
+                        {' '}
+                        · {steamAge}
+                      </span>
+                    ) : null}
+                  </dd>
+                </div>
+              ) : steamPricesLoading ? (
+                <div className="inventory-listing-price-guide-row">
+                  <dt>{t('sellPanel.steamPrice')}</dt>
+                  <dd
+                    className="muted small"
+                    data-testid="inventory-sell-steam-price-loading"
+                  >
+                    {t('sellPanel.steamLoading')}
+                  </dd>
+                </div>
+              ) : steamPriceMissing ? (
+                <div
+                  className="muted small inventory-listing-price-guide-note"
+                  data-testid="inventory-sell-steam-price-missing"
+                >
+                  {isEdit
+                    ? t('sellPanel.steamMissingEdit')
+                    : t('sellPanel.steamMissingCreate')}
+                </div>
+              ) : null}
+
+              {hasMarketPrice ? (
+                <div className="inventory-listing-price-guide-row">
+                  <dt>{t('sellPanel.marketFrom')}</dt>
+                  <dd data-testid="inventory-sell-market-price">
+                    <MoneyDisplay minor={priceHint!.minMarketplacePriceMinor!} />
+                  </dd>
+                </div>
+              ) : null}
+            </dl>
+          ) : null}
+
+          {recommendedMinor && recommendedInput ? (
             <div
               className="inventory-price-recommendation"
               data-testid="inventory-price-recommendation"
@@ -206,9 +250,10 @@ export function InventorySellPanel({
                 type="button"
                 className="button secondary sm"
                 data-testid="inventory-apply-recommended-price"
-                onClick={() => onPriceChange(minorToPriceInput(recommendedMinor))}
+                disabled={recommendedApplied}
+                onClick={() => onPriceChange(recommendedInput)}
               >
-                {t('sellPanel.apply')}
+                {recommendedApplied ? t('sellPanel.applied') : t('sellPanel.apply')}
               </button>
             </div>
           ) : null}
@@ -220,13 +265,18 @@ export function InventorySellPanel({
               type="text"
               inputMode="decimal"
               value={priceInput}
+              placeholder={t('sellPanel.pricePlaceholder')}
               onChange={(event) => onPriceChange(event.target.value)}
               data-testid="price-input"
               autoFocus
             />
           </label>
 
-          {priceError ? <p className="field-error">{priceError}</p> : null}
+          {priceError ? (
+            <p className="field-error" data-testid="inventory-price-error">
+              {priceError}
+            </p>
+          ) : null}
 
           {showQuantityPicker ? (
             <label

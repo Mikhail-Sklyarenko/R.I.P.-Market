@@ -20,12 +20,9 @@ test.describe('Buy error handling', () => {
     await loginAsBuyer(page);
     await page.goto(`/lots/${lotId}`);
 
-    await page.getByTestId('buy-lot-button').click();
-    await expect(page).toHaveURL(/\/checkout$/);
     await expect(page.getByTestId('purchase-trade-hint')).toBeVisible();
     await page.getByTestId('checkout-deposit-link').click();
     await expect(page).toHaveURL(/\/wallet/);
-    await expect(page.getByTestId('deposit-needed-banner')).toBeVisible();
     await expect(page.getByTestId('deposit-needed-banner')).toBeVisible();
     await expect(page.getByTestId('deposit-needed-banner')).toContainText('1,000.00');
 
@@ -34,7 +31,7 @@ test.describe('Buy error handling', () => {
     });
     const buyerBody = (await buyerLogin.json()) as { accessToken: string };
     await fundWallet(request, buyerBody.accessToken, 200_000);
-    await page.goto(`/lots/${lotId}/checkout`);
+    await page.goto(`/lots/${lotId}`);
   });
 
   test('cannot buy own listing', async ({ page }) => {
