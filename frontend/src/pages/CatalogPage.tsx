@@ -263,11 +263,30 @@ export function CatalogPage() {
       skinTraitFilters,
     }) || Boolean(rarityFilter);
 
+  const popularSortSelected = sort === 'popular';
   const filtersActive = showResetFilters;
+  const hasNonSortFilters =
+    hasActiveCatalogFilters({
+      search,
+      sort: 'newest',
+      minPrice,
+      maxPrice,
+      activeTabId,
+      categoryValues,
+      categoryMode,
+      wearFilter,
+      floatMin,
+      floatMax,
+      skinTraitFilters,
+    }) || Boolean(rarityFilter);
   const isInitialLoading = loading && items.length === 0;
   const isRefreshing = loading && items.length > 0;
   const showPopularSection =
-    (!filtersActive || loading) && !popularLoading && popularItems.length > 0;
+    popularSortSelected &&
+    !hasNonSortFilters &&
+    !isInitialLoading &&
+    !popularLoading &&
+    popularItems.length > 0;
 
   const catalogFilterKey = useMemo(
     () =>
@@ -564,7 +583,7 @@ export function CatalogPage() {
     return () => {
       cancelled = true;
     };
-  }, [filtersActive, loading, popularItems.length, baseQueryKey, returnRestoreDone]);
+  }, [popularSortSelected, hasNonSortFilters, popularItems.length, baseQueryKey, returnRestoreDone]);
 
   useEffect(() => {
     const allItems = [...items, ...popularItems];

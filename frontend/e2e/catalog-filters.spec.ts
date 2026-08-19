@@ -128,4 +128,27 @@ test.describe('Catalog filters', () => {
     await expect(page).toHaveURL(/limit=96/);
     await expect(page.url()).not.toContain('page=');
   });
+
+  test('sort selector applies to the catalog and hides popular shelf outside popular mode', async ({
+    page,
+    request,
+  }) => {
+    await seedCatalogLots(request);
+
+    await page.goto('/catalog');
+    await expect(page.getByTestId('catalog-sort')).toHaveValue('newest');
+    await expect(page.getByTestId('catalog-popular-section')).toHaveCount(0);
+    await expect(page.getByTestId('catalog-grid')).toBeVisible();
+
+    await page.getByTestId('catalog-sort').selectOption('popular');
+    await expect(page.getByTestId('catalog-popular-section')).toBeVisible();
+
+    await page.getByTestId('catalog-sort').selectOption('price-asc');
+    await expect(page.getByTestId('catalog-popular-section')).toHaveCount(0);
+    await expect(page.getByTestId('catalog-grid')).toBeVisible();
+
+    await page.getByTestId('catalog-sort').selectOption('price-desc');
+    await expect(page.getByTestId('catalog-popular-section')).toHaveCount(0);
+    await expect(page.getByTestId('catalog-grid')).toBeVisible();
+  });
 });
