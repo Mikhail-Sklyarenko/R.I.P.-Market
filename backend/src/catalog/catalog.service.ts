@@ -399,7 +399,12 @@ export class CatalogService {
         )
         .filter((row) => this.matchesCatalogVisibility(row, query));
 
-      const sorted = this.sortItems(rows, query.sort ?? 'newest');
+      const inStockOnly = query.inStock === 'true' || query.inStock === '1';
+      const visible = inStockOnly
+        ? rows.filter((row) => row.activeLotCount > 0)
+        : rows;
+
+      const sorted = this.sortItems(visible, query.sort ?? 'newest');
       return { rows: this.filterByPrice(sorted, query) };
     });
   }

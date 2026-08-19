@@ -34,6 +34,7 @@ const baseEnMessages = {
     sortPriceAsc: 'Price ↑',
     sortPriceDesc: 'Price ↓',
     resetFilters: 'Reset filters',
+    inStock: 'In stock',
     filters: 'Filters',
     price: 'Price',
     priceFrom: 'Min price',

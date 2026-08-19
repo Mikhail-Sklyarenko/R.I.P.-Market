@@ -176,6 +176,7 @@ export function CatalogPage() {
     useState<SkinTraitCheckboxState>(EMPTY_SKIN_TRAIT_FILTERS);
   const [floatMin, setFloatMin] = useState('');
   const [floatMax, setFloatMax] = useState('');
+  const [inStock, setInStock] = useState(false);
   const loadedPage = parseCatalogPageParam(searchParams.get('page'));
   const pageLimit = CATALOG_PAGE_LIMIT;
   const pendingRestoreRef = useRef<CatalogReturnRestore | null | undefined>(undefined);
@@ -230,6 +231,7 @@ export function CatalogPage() {
           ? parsedFloatMax
           : undefined,
       sort: toCatalogSort(sort),
+      inStock: inStock || undefined,
       limit: pageLimit,
     };
   }, [
@@ -242,6 +244,7 @@ export function CatalogPage() {
     skinTraitFilters,
     floatMin,
     floatMax,
+    inStock,
     pageLimit,
     categoryFilter,
   ]);
@@ -261,7 +264,7 @@ export function CatalogPage() {
       floatMin,
       floatMax,
       skinTraitFilters,
-    }) || Boolean(rarityFilter);
+    }) || Boolean(rarityFilter) || inStock;
 
   const popularSortSelected = sort === 'popular';
   const filtersActive = showResetFilters;
@@ -904,6 +907,7 @@ export function CatalogPage() {
     setSkinTraitFilters(EMPTY_SKIN_TRAIT_FILTERS);
     setFloatMin('');
     setFloatMax('');
+    setInStock(false);
     setActiveTabId('all');
     setCategoryMode('all');
     setCategoryValues([]);
@@ -946,6 +950,15 @@ export function CatalogPage() {
             <option value="price-desc">{t('catalog.sortPriceDesc')}</option>
           </select>
         </label>
+        <button
+          type="button"
+          className={`button sm catalog-in-stock-btn${inStock ? ' primary' : ' secondary'}`}
+          data-testid="catalog-in-stock-filter"
+          onClick={() => setInStock((v) => !v)}
+          aria-pressed={inStock}
+        >
+          {t('catalog.inStock')}
+        </button>
         {showResetFilters ? (
           <button
             type="button"

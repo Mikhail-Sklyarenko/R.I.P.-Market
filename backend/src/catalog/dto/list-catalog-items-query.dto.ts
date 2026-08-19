@@ -98,4 +98,9 @@ export class ListCatalogItemsQueryDto {
   @IsOptional()
   @IsIn(['only', 'exclude'])
   souvenir?: 'only' | 'exclude';
+
+  @ApiPropertyOptional({ description: 'Show only items with active lots' })
+  @IsOptional()
+  @IsIn(['true', '1'])
+  inStock?: string;
 }

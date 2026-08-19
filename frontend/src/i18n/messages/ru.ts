@@ -32,6 +32,7 @@ const baseRuMessages = {
     sortPriceAsc: 'Цена ↑',
     sortPriceDesc: 'Цена ↓',
     resetFilters: 'Сбросить фильтры',
+    inStock: 'В наличии',
     filters: 'Фильтры',
     price: 'Цена',
     priceFrom: 'Цена от',

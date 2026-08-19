@@ -125,6 +125,7 @@ export type ListCatalogItemsParams = {
   minPriceMinor?: number;
   maxPriceMinor?: number;
   sort?: 'popular' | 'cheapest' | 'newest' | 'price_desc';
+  inStock?: boolean;
   page?: number;
   limit?: number;
 };
@@ -143,6 +144,7 @@ export function listCatalogItems(params: ListCatalogItemsParams) {
     minPriceMinor: params.minPriceMinor,
     maxPriceMinor: params.maxPriceMinor,
     sort: params.sort,
+    inStock: params.inStock ? 'true' : undefined,
     page: params.page,
     limit: params.limit,
   });
