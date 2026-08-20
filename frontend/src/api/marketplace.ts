@@ -20,7 +20,9 @@ import type {
   UserProfile,
   Wallet,
   WalletDepositInfo,
+  WalletDepositCheckout,
   WalletDepositStatus,
+  PaymentMethodRail,
   WithdrawalRequest,
 } from './types';
 import {
@@ -327,6 +329,21 @@ export function getWalletDeposit(token: string) {
   return apiRequest<WalletDepositInfo>('/wallet/deposit', { token });
 }
 
+export function createWalletDepositCheckout(
+  token: string,
+  body: {
+    amountMinor: number;
+    paymentMethod: PaymentMethodRail;
+    returnUrl?: string;
+  },
+) {
+  return apiRequest<WalletDepositCheckout>('/wallet/deposit/checkout', {
+    method: 'POST',
+    token,
+    body,
+  });
+}
+
 export function getWalletDepositStatus(token: string) {
   return apiRequest<WalletDepositStatus>('/wallet/deposit/status', { token });
 }
@@ -337,7 +354,11 @@ export function getWalletWithdrawals(token: string) {
 
 export function createWalletWithdrawal(
   token: string,
-  body: { toAddress: string; amountMinor: number },
+  body: {
+    toAddress: string;
+    amountMinor: number;
+    paymentMethod?: PaymentMethodRail;
+  },
   idempotencyKey?: string,
 ) {
   return apiRequest<WithdrawalRequest>('/wallet/withdrawals', {

@@ -1,4 +1,6 @@
-export type PaymentProviderKind = 'mock' | 'crypto_tron';
+import { NORTH_PAYMENT_METHODS } from './north/north.types';
+
+export type PaymentProviderKind = 'mock' | 'crypto_tron' | 'north';
 
 export type PaymentConfig = {
   provider: PaymentProviderKind;
@@ -16,15 +18,33 @@ export type PaymentConfig = {
   mockDepositEnabled: boolean;
 };
 
+export function parsePaymentProviderKind(
+  value: string | undefined,
+): PaymentProviderKind {
+  if (value === 'crypto_tron' || value === 'north') {
+    return value;
+  }
+  return 'mock';
+}
+
 export function getPaymentConfig(): PaymentConfig {
-  const provider: PaymentProviderKind =
-    process.env.PAYMENT_PROVIDER === 'crypto_tron' ? 'crypto_tron' : 'mock';
+  const provider = parsePaymentProviderKind(process.env.PAYMENT_PROVIDER);
+  const gateway =
+    provider === 'north'
+      ? {
+          gatewayUrl: process.env.NORTH_GATEWAY_URL ?? '',
+          gatewayApiKey: process.env.NORTH_GATEWAY_API_KEY ?? '',
+          webhookSecret: process.env.NORTH_WEBHOOK_SECRET ?? '',
+        }
+      : {
+          gatewayUrl: process.env.CRYPTO_GATEWAY_URL ?? 'http://localhost:3100',
+          gatewayApiKey: process.env.CRYPTO_GATEWAY_API_KEY ?? '',
+          webhookSecret: process.env.CRYPTO_GATEWAY_WEBHOOK_SECRET ?? '',
+        };
 
   return {
     provider,
-    gatewayUrl: process.env.CRYPTO_GATEWAY_URL ?? 'http://localhost:3100',
-    gatewayApiKey: process.env.CRYPTO_GATEWAY_API_KEY ?? '',
-    webhookSecret: process.env.CRYPTO_GATEWAY_WEBHOOK_SECRET ?? '',
+    ...gateway,
     minDepositMinor: Math.max(
       100,
       Number(process.env.MIN_DEPOSIT_MINOR ?? 500) || 500,
@@ -56,6 +76,21 @@ export function getPaymentConfig(): PaymentConfig {
   };
 }
 
+/** Legacy permanent-address USDT tunnel (own crypto-gateway). */
 export function isCryptoPaymentProvider(): boolean {
   return getPaymentConfig().provider === 'crypto_tron';
+}
+
+export function isNorthPaymentProvider(): boolean {
+  return getPaymentConfig().provider === 'north';
+}
+
+/** Real-money payments enabled (own gateway or NORTH). */
+export function isLivePaymentProvider(): boolean {
+  const provider = getPaymentConfig().provider;
+  return provider === 'crypto_tron' || provider === 'north';
+}
+
+export function getNorthPaymentMethods() {
+  return [...NORTH_PAYMENT_METHODS];
 }

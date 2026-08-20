@@ -10,6 +10,7 @@ import {
   Prisma,
   WithdrawalRequestStatus,
 } from '@prisma/client';
+import { randomUUID } from 'node:crypto';
 import { toJsonSafe } from '../common/json-safe.util';
 import { PrismaService } from '../prisma/prisma.service';
 import type {
@@ -18,16 +19,28 @@ import type {
 } from '../providers/payment/payment-provider.interface';
 import {
   getPaymentConfig,
+  getNorthPaymentMethods,
   isCryptoPaymentProvider,
+  isLivePaymentProvider,
+  isNorthPaymentProvider,
 } from '../providers/payment/payment.config';
+import { NorthGatewayError } from '../providers/payment/north/north.types';
+import {
+  isNorthPaymentMethod,
+  type NorthPaymentMethod,
+} from '../providers/payment/north/north.types';
 import {
   isValidTronAddress,
   sunToUsdMinor,
+  usdDecimalToMinor,
+  usdMinorToDecimalString,
   usdMinorToSun,
 } from '../providers/payment/payment.util';
 import { PAYMENT_PROVIDER } from '../providers/tokens';
 import { LedgerService } from '../wallet/ledger.service';
 import { WithdrawalGuardService } from './withdrawal-guard.service';
+
+const EVM_ADDRESS_RE = /^0x[a-fA-F0-9]{40}$/;
 
 @Injectable()
 export class PaymentsService {
@@ -40,11 +53,22 @@ export class PaymentsService {
   ) {}
 
   async getDepositInfo(userId: string) {
-    if (!isCryptoPaymentProvider()) {
+    if (!isLivePaymentProvider()) {
       throw new ForbiddenException('Crypto payments are not enabled');
     }
 
     const config = getPaymentConfig();
+
+    if (isNorthPaymentProvider()) {
+      return toJsonSafe({
+        mode: 'checkout' as const,
+        paymentMethods: getNorthPaymentMethods(),
+        minDepositMinor: config.minDepositMinor,
+        token: 'USDT',
+        network: 'MULTI',
+      });
+    }
+
     let deposit = await this.prisma.userCryptoDeposit.findUnique({
       where: { userId },
     });
@@ -72,13 +96,114 @@ export class PaymentsService {
     }
 
     return toJsonSafe({
+      mode: 'address' as const,
       address: deposit.depositAddress,
       network: 'TRON',
       token: 'USDT TRC-20',
+      paymentMethods: ['trc20'],
       minDepositMinor: config.minDepositMinor,
       qrData: `tron:${deposit.depositAddress}`,
       walletIndex: deposit.walletIndex,
     });
+  }
+
+  async createDepositCheckout(params: {
+    userId: string;
+    amountMinor: number;
+    paymentMethod: NorthPaymentMethod;
+    returnUrl?: string;
+  }) {
+    if (!isNorthPaymentProvider()) {
+      throw new ForbiddenException('Checkout deposits require NORTH provider');
+    }
+    if (!this.paymentProvider.createCheckout) {
+      throw new ForbiddenException('Payment provider does not support checkout');
+    }
+
+    const config = getPaymentConfig();
+    if (params.amountMinor < config.minDepositMinor) {
+      throw new BadRequestException(
+        `Minimum deposit is ${config.minDepositMinor} minor units`,
+      );
+    }
+    if (!isNorthPaymentMethod(params.paymentMethod)) {
+      throw new BadRequestException(
+        'paymentMethod must be trc20, bep20, or erc20',
+      );
+    }
+
+    const externalId = `dep_${randomUUID()}`;
+    const amountUsd = usdMinorToDecimalString(params.amountMinor);
+
+    await this.prisma.paymentIntent.create({
+      data: {
+        userId: params.userId,
+        provider: 'north',
+        amountMinor: BigInt(params.amountMinor),
+        status: PaymentIntentStatus.PENDING,
+        idempotencyKey: externalId,
+        metadata: {
+          paymentMethod: params.paymentMethod,
+          amountUsd,
+          returnUrl: params.returnUrl ?? null,
+        },
+      },
+    });
+
+    try {
+      const session = await this.paymentProvider.createCheckout({
+        externalId,
+        userId: params.userId,
+        amountUsd,
+        paymentMethod: params.paymentMethod,
+        returnUrl: params.returnUrl,
+      });
+
+      await this.prisma.paymentIntent.update({
+        where: { idempotencyKey: externalId },
+        data: {
+          providerRef: session.invoiceId,
+          depositAddress: session.address ?? undefined,
+          metadata: {
+            paymentMethod: params.paymentMethod,
+            amountUsd,
+            returnUrl: params.returnUrl ?? null,
+            checkoutUrl: session.checkoutUrl,
+            creditUsd: session.creditUsd,
+            expiresAt: session.expiresAt,
+          },
+        },
+      });
+
+      return toJsonSafe({
+        mode: 'checkout' as const,
+        checkoutUrl: session.checkoutUrl,
+        invoiceId: session.invoiceId,
+        externalId,
+        paymentMethod: session.paymentMethod,
+        amountMinor: params.amountMinor,
+        amountUsd,
+        creditUsd: session.creditUsd,
+        expiresAt: session.expiresAt,
+      });
+    } catch (error) {
+      await this.prisma.paymentIntent.update({
+        where: { idempotencyKey: externalId },
+        data: { status: PaymentIntentStatus.FAILED },
+      });
+
+      if (error instanceof NorthGatewayError) {
+        if (error.status === 400) {
+          throw new BadRequestException(
+            error.message || 'Invalid checkout request',
+          );
+        }
+        throw new BadRequestException(
+          `Checkout failed: ${error.message || 'gateway error'}`,
+        );
+      }
+      throw error;
+    }
   }
 
   async getDepositStatus(userId: string) {
@@ -105,8 +230,9 @@ export class PaymentsService {
     toAddress: string;
     amountMinor: number;
     idempotencyKey: string;
+    paymentMethod?: NorthPaymentMethod;
   }) {
-    if (!isCryptoPaymentProvider()) {
+    if (!isLivePaymentProvider()) {
       throw new ForbiddenException('Crypto payments are not enabled');
     }
 
@@ -117,9 +243,11 @@ export class PaymentsService {
       );
     }
 
-    if (!isValidTronAddress(params.toAddress)) {
-      throw new BadRequestException('Invalid TRC-20 address');
-    }
+    const paymentMethod = this.resolveWithdrawalPaymentMethod(
+      params.toAddress,
+      params.paymentMethod,
+    );
+    this.assertWithdrawalAddress(params.toAddress, paymentMethod);
 
     const existing = await this.prisma.withdrawalRequest.findUnique({
       where: { idempotencyKey: params.idempotencyKey },
@@ -165,6 +293,7 @@ export class PaymentsService {
         data: {
           userId: params.userId,
           toAddress: params.toAddress,
+          paymentMethod,
           amountMinor,
           feeMinor,
           netMinor,
@@ -233,6 +362,8 @@ export class PaymentsService {
       config.withdrawManualReview &&
       withdrawal.status === WithdrawalRequestStatus.PENDING_REVIEW;
 
+    const providerName = config.provider;
+
     await this.prisma.$transaction(async (tx) => {
       await this.ledgerService.withdraw({
         userId: withdrawal.userId,
@@ -243,8 +374,9 @@ export class PaymentsService {
         withdrawalRequestId: withdrawal.id,
         fromFrozen,
         metadata: {
-          source: 'crypto_tron',
+          source: providerName,
           toAddress: withdrawal.toAddress,
+          paymentMethod: withdrawal.paymentMethod,
         },
         tx,
       });
@@ -259,11 +391,17 @@ export class PaymentsService {
     });
 
     try {
+      const paymentMethod = isNorthPaymentMethod(withdrawal.paymentMethod)
+        ? withdrawal.paymentMethod
+        : 'trc20';
+
       const gatewayWithdrawal =
         await this.paymentProvider.createGatewayWithdrawal({
           userId: withdrawal.userId,
           toAddress: withdrawal.toAddress,
           amountSun: usdMinorToSun(withdrawal.netMinor).toString(),
+          externalId: `wd_${withdrawal.id}`,
+          paymentMethod,
         });
 
       const updated = await this.prisma.withdrawalRequest.update({
@@ -329,22 +467,17 @@ export class PaymentsService {
       return { ok: true, duplicate: true };
     }
 
+    const providerName = getPaymentConfig().provider;
+    const amountMinor = this.resolveWebhookAmountMinor(payload);
+
     try {
       await this.prisma.paymentEvent.create({
         data: {
-          provider: 'crypto_tron',
+          provider: providerName === 'mock' ? 'crypto_tron' : providerName,
           providerEventId,
           eventType: payload.type,
-          userId:
-            payload.type === 'deposit.credited'
-              ? payload.externalUserId
-              : payload.externalUserId,
-          amountMinor:
-            payload.type === 'deposit.credited'
-              ? sunToUsdMinor(BigInt(payload.amountSun))
-              : payload.type === 'withdrawal.paid'
-                ? sunToUsdMinor(BigInt(payload.amountSun))
-                : 0n,
+          userId: payload.externalUserId,
+          amountMinor,
           payload: payload,
         },
       });
@@ -374,10 +507,41 @@ export class PaymentsService {
     return { ok: true };
   }
 
+  private resolveWebhookAmountMinor(payload: PaymentWebhookPayload): bigint {
+    if (payload.type === 'deposit.credited') {
+      if (payload.creditUsd != null && payload.creditUsd !== '') {
+        return usdDecimalToMinor(payload.creditUsd);
+      }
+      if (payload.amountSun) {
+        return sunToUsdMinor(BigInt(payload.amountSun));
+      }
+      return 0n;
+    }
+    if (payload.type === 'withdrawal.paid' && payload.amountSun) {
+      return sunToUsdMinor(BigInt(payload.amountSun));
+    }
+    return 0n;
+  }
+
   private async handleDepositCredited(
     payload: Extract<PaymentWebhookPayload, { type: 'deposit.credited' }>,
   ) {
-    const amountMinor = sunToUsdMinor(BigInt(payload.amountSun));
+    let amountMinor: bigint;
+    try {
+      if (payload.creditUsd != null && payload.creditUsd !== '') {
+        amountMinor = usdDecimalToMinor(payload.creditUsd);
+      } else if (payload.amountSun) {
+        amountMinor = sunToUsdMinor(BigInt(payload.amountSun));
+      } else {
+        throw new BadRequestException('Missing creditUsd/amountSun');
+      }
+    } catch (error) {
+      if (error instanceof BadRequestException) {
+        throw error;
+      }
+      throw new BadRequestException('Invalid deposit amount');
+    }
+
     if (amountMinor <= 0n) {
       throw new BadRequestException('Invalid deposit amount');
     }
@@ -387,40 +551,67 @@ export class PaymentsService {
       return;
     }
 
+    const providerName =
+      config.provider === 'north' ? 'north' : 'crypto_tron';
     const wallet = await this.ledgerService.ensureUserWallet(
       payload.externalUserId,
     );
+
+    const idempotencyKey = payload.txHash
+      ? `${providerName}:deposit:${payload.txHash}`
+      : `${providerName}:deposit:event:${payload.eventId}`;
 
     await this.prisma.$transaction(async (tx) => {
       await this.ledgerService.deposit({
         userId: payload.externalUserId,
         amountMinor,
-        idempotencyKey: `crypto:deposit:${payload.txHash}`,
+        idempotencyKey,
         metadata: {
-          source: 'crypto_tron',
+          source: providerName,
           txHash: payload.txHash,
           gatewayEventId: payload.eventId,
           address: payload.address,
           amountSun: payload.amountSun,
+          creditUsd: payload.creditUsd,
+          externalId: payload.externalId,
+          invoiceId: payload.invoiceId,
+          paymentMethod: payload.paymentMethod,
         },
         tx,
       });
 
-      await tx.userCryptoDeposit.updateMany({
-        where: { userId: payload.externalUserId },
-        data: { depositAddress: payload.address },
-      });
+      if (payload.address && isCryptoPaymentProvider()) {
+        await tx.userCryptoDeposit.updateMany({
+          where: { userId: payload.externalUserId },
+          data: { depositAddress: payload.address },
+        });
+      }
 
-      await tx.paymentIntent.updateMany({
-        where: {
-          userId: payload.externalUserId,
-          status: PaymentIntentStatus.PENDING,
-        },
-        data: {
-          status: PaymentIntentStatus.SUCCEEDED,
-          providerRef: payload.txHash,
-        },
-      });
+      if (payload.externalId) {
+        await tx.paymentIntent.updateMany({
+          where: {
+            userId: payload.externalUserId,
+            idempotencyKey: payload.externalId,
+            status: PaymentIntentStatus.PENDING,
+          },
+          data: {
+            status: PaymentIntentStatus.SUCCEEDED,
+            providerRef: payload.txHash || payload.invoiceId || payload.eventId,
+            depositAddress: payload.address,
+          },
+        });
+      } else {
+        await tx.paymentIntent.updateMany({
+          where: {
+            userId: payload.externalUserId,
+            status: PaymentIntentStatus.PENDING,
+          },
+          data: {
+            status: PaymentIntentStatus.SUCCEEDED,
+            providerRef: payload.txHash,
+          },
+        });
+      }
 
       await tx.outboxEvent.create({
         data: {
@@ -431,6 +622,8 @@ export class PaymentsService {
             userId: payload.externalUserId,
             amountMinor: amountMinor.toString(),
             txHash: payload.txHash,
+            creditUsd: payload.creditUsd ?? null,
+            externalId: payload.externalId ?? null,
           },
         },
       });
@@ -440,9 +633,7 @@ export class PaymentsService {
   private async handleWithdrawalPaid(
     payload: Extract<PaymentWebhookPayload, { type: 'withdrawal.paid' }>,
   ) {
-    const withdrawal = await this.prisma.withdrawalRequest.findFirst({
-      where: { gatewayRef: payload.withdrawalId },
-    });
+    const withdrawal = await this.findWithdrawalForWebhook(payload);
     if (!withdrawal || withdrawal.status === WithdrawalRequestStatus.PAID) {
       return;
     }
@@ -460,9 +651,7 @@ export class PaymentsService {
   private async handleWithdrawalFailed(
     payload: Extract<PaymentWebhookPayload, { type: 'withdrawal.failed' }>,
   ) {
-    const withdrawal = await this.prisma.withdrawalRequest.findFirst({
-      where: { gatewayRef: payload.withdrawalId },
-    });
+    const withdrawal = await this.findWithdrawalForWebhook(payload);
     if (!withdrawal || withdrawal.status === WithdrawalRequestStatus.FAILED) {
       return;
     }
@@ -485,6 +674,66 @@ export class PaymentsService {
         },
       });
     });
+  }
+
+  private async findWithdrawalForWebhook(payload: {
+    withdrawalId: string;
+    externalId?: string;
+  }) {
+    if (payload.externalId?.startsWith('wd_')) {
+      const byId = await this.prisma.withdrawalRequest.findUnique({
+        where: { id: payload.externalId.slice(3) },
+      });
+      if (byId) {
+        return byId;
+      }
+    }
+
+    return this.prisma.withdrawalRequest.findFirst({
+      where: {
+        OR: [
+          { gatewayRef: payload.withdrawalId },
+          ...(payload.externalId
+            ? [{ idempotencyKey: payload.externalId }]
+            : []),
+        ],
+      },
+    });
+  }
+
+  private resolveWithdrawalPaymentMethod(
+    toAddress: string,
+    requested?: NorthPaymentMethod,
+  ): NorthPaymentMethod {
+    if (requested) {
+      return requested;
+    }
+    if (isValidTronAddress(toAddress)) {
+      return 'trc20';
+    }
+    if (EVM_ADDRESS_RE.test(toAddress)) {
+      throw new BadRequestException(
+        'paymentMethod (bep20 or erc20) is required for EVM addresses',
+      );
+    }
+    return 'trc20';
+  }
+
+  private assertWithdrawalAddress(
+    toAddress: string,
+    paymentMethod: NorthPaymentMethod,
+  ) {
+    if (paymentMethod === 'trc20') {
+      if (!isValidTronAddress(toAddress)) {
+        throw new BadRequestException('Invalid TRC-20 address');
+      }
+      return;
+    }
+    if (!EVM_ADDRESS_RE.test(toAddress)) {
+      throw new BadRequestException(
+        `Invalid ${paymentMethod.toUpperCase()} address`,
+      );
+    }
   }
 
   private async failWithdrawalAfterApprove(

@@ -12,6 +12,7 @@ import { ApiBearerAuth, ApiHeader, ApiTags } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { CurrentUser } from '../common/current-user.decorator';
 import type { AuthUser } from '../common/auth-user.interface';
+import { CreateDepositCheckoutDto } from './dto/create-deposit-checkout.dto';
 import { CreateWithdrawalDto } from './dto/create-withdrawal.dto';
 import { PaymentsService } from './payments.service';
 
@@ -25,6 +26,19 @@ export class WalletPaymentsController {
   @Get('deposit')
   async getDeposit(@CurrentUser() user: AuthUser) {
     return this.paymentsService.getDepositInfo(user.sub);
+  }
+
+  @Post('deposit/checkout')
+  async createDepositCheckout(
+    @CurrentUser() user: AuthUser,
+    @Body() body: CreateDepositCheckoutDto,
+  ) {
+    return this.paymentsService.createDepositCheckout({
+      userId: user.sub,
+      amountMinor: body.amountMinor,
+      paymentMethod: body.paymentMethod,
+      returnUrl: body.returnUrl,
+    });
   }
 
   @Get('deposit/status')
@@ -47,6 +61,7 @@ export class WalletPaymentsController {
       userId: user.sub,
       toAddress: body.toAddress,
       amountMinor: body.amountMinor,
+      paymentMethod: body.paymentMethod,
       idempotencyKey,
     });
   }

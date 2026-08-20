@@ -6394,6 +6394,27 @@ a.button.primary {
   flex: 1;
 }
 
+.wallet-payment-methods {
+  border: 0;
+  margin: 0 0 1rem;
+  padding: 0;
+}
+
+.wallet-payment-method-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.65rem 1rem;
+  margin-top: 0.4rem;
+}
+
+.wallet-payment-method-option {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  cursor: pointer;
+  font-size: var(--font-size-sm);
+}
+
 .wallet-crypto-history {
   margin-top: 1rem;
 }

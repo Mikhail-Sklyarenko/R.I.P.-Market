@@ -252,6 +252,26 @@ const baseEnMessages = {
     depositNeeded: 'You need at least {{amount}} in your balance to buy.',
     depositQrAlt: 'QR code for USDT TRC-20 deposit',
     depositUsdtTitle: 'Deposit USDT (TRC-20)',
+    depositUsdtCheckoutTitle: 'Deposit USDT',
+    depositAwaitingCheckout:
+      'Waiting for payment on the checkout page… Funds appear after network confirmation.',
+    depositPayCta: 'Continue to payment',
+    depositRedirecting: 'Opening checkout…',
+    checkoutReturnTitle: 'Checking your payment',
+    checkoutReturnBody:
+      'If you already sent the transfer, the credit will appear here automatically after network confirmations. You can close the checkout page and wait here.',
+    paymentNetwork: 'Network',
+    paymentMethod: {
+      trc20: 'USDT · TRC-20 (TRON)',
+      bep20: 'USDT · BEP-20 (BNB Chain)',
+      erc20: 'USDT · ERC-20 (Ethereum)',
+    },
+    warningCheckoutNetwork:
+      'Choose one network and pay only USDT on that rail on the checkout page.',
+    warningCreditUsd:
+      'Your balance is credited in USD (creditUsd), not USDT 1:1 — the gateway locks the rate.',
+    evmAddress: 'Address (0x…)',
+    invalidEvmAddress: 'Enter a valid EVM address (0x…).',
     frozen: 'Frozen',
     frozenHint: 'Temporarily unavailable',
     historyTitle: 'Withdrawal history',

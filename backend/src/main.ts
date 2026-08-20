@@ -5,7 +5,8 @@ import { AppModule } from './app.module';
 import { GlobalExceptionFilter } from './common/errors/global-exception.filter';
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule);
+  // rawBody required for NORTH / crypto gateway HMAC (X-Gateway-Signature).
+  const app = await NestFactory.create(AppModule, { rawBody: true });
   app.setGlobalPrefix('api/v1');
 
   const frontendOrigin = process.env.FRONTEND_ORIGIN ?? 'http://localhost:5173';

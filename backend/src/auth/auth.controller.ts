@@ -48,12 +48,25 @@ export class AuthController {
       mockTradeEnabled: process.env.ENABLE_MOCK_TRADE !== 'false',
       mockDepositEnabled: paymentConfig.mockDepositEnabled,
       paymentProvider: config.payment,
-      cryptoPaymentsEnabled: config.payment === 'crypto_tron',
+      cryptoPaymentsEnabled:
+        config.payment === 'crypto_tron' || config.payment === 'north',
+      depositMode:
+        config.payment === 'north'
+          ? 'checkout'
+          : config.payment === 'crypto_tron'
+            ? 'address'
+            : 'none',
+      paymentMethods:
+        config.payment === 'north'
+          ? (['trc20', 'bep20', 'erc20'] as const)
+          : config.payment === 'crypto_tron'
+            ? (['trc20'] as const)
+            : [],
       minDepositMinor: paymentConfig.minDepositMinor,
       minWithdrawMinor: paymentConfig.minWithdrawMinor,
       withdrawFeeMinor: paymentConfig.withdrawFeeMinor,
-      usdtNetwork: 'TRON',
-      usdtToken: 'USDT TRC-20',
+      usdtNetwork: config.payment === 'north' ? 'MULTI' : 'TRON',
+      usdtToken: 'USDT',
       tradeVerificationMode: (
         process.env.TRADE_VERIFICATION_MODE ?? 'live'
       ).toLowerCase(),

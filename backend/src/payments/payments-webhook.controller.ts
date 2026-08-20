@@ -3,6 +3,7 @@ import {
   Body,
   Controller,
   Headers,
+  HttpCode,
   Post,
   Req,
   UnauthorizedException,
@@ -23,13 +24,21 @@ export class PaymentsWebhookController {
     @Inject(PAYMENT_PROVIDER) private readonly paymentProvider: PaymentProvider,
   ) {}
 
+  @HttpCode(200)
   @Post('crypto')
   async handleCryptoWebhook(
-    @Req() req: Request & { rawBody?: string },
+    @Req() req: Request & { rawBody?: Buffer | string },
     @Headers('x-gateway-signature') signature?: string,
     @Body() body?: PaymentWebhookPayload,
   ) {
-    const rawBody = req.rawBody ?? (body ? JSON.stringify(body) : '');
+    const raw = req.rawBody;
+    const rawBody = Buffer.isBuffer(raw)
+      ? raw.toString('utf8')
+      : typeof raw === 'string' && raw.length > 0
+        ? raw
+        : body
+          ? JSON.stringify(body)
+          : '';
 
     if (!this.paymentProvider.verifyWebhookSignature(rawBody, signature)) {
       throw new UnauthorizedException('Invalid gateway signature');

@@ -202,7 +202,49 @@ describe('PaymentsService', () => {
       expect.objectContaining({
         userId: 'user-1',
         amountMinor: 500n,
-        idempotencyKey: 'crypto:deposit:tx-abc',
+        idempotencyKey: 'crypto_tron:deposit:tx-abc',
+      }),
+    );
+  });
+
+  it('credits ledger from NORTH creditUsd, not amountUsdt', async () => {
+    process.env.PAYMENT_PROVIDER = 'north';
+    const { service, ledger, prisma } = createService({
+      provider: { name: 'north' },
+      prisma: {
+        paymentIntent: {
+          create: jest.fn(),
+          updateMany: jest.fn(async () => ({ count: 1 })),
+        },
+      },
+    });
+
+    await service.handleWebhook('{}', {
+      eventId: 'north-evt-1',
+      type: 'deposit.credited',
+      externalUserId: 'user-1',
+      externalId: 'dep_smoke_1',
+      invoiceId: 'inv-1',
+      txHash: '0xabc',
+      creditUsd: '10',
+      amountUsdt: '10.05',
+      amountSun: '10050000',
+      paymentMethod: 'trc20',
+      address: 'T9yD14Nj9j7xAB4dbGeiX9h8unkKHxuWwb',
+    });
+
+    expect(ledger.deposit).toHaveBeenCalledWith(
+      expect.objectContaining({
+        userId: 'user-1',
+        amountMinor: 1000n,
+        idempotencyKey: 'north:deposit:0xabc',
+      }),
+    );
+    expect(prisma.paymentIntent.updateMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          idempotencyKey: 'dep_smoke_1',
+        }),
       }),
     );
   });

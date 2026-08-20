@@ -255,6 +255,26 @@ const baseRuMessages = {
     depositNeeded: 'Для покупки нужно минимум {{amount}} на балансе.',
     depositQrAlt: 'QR-код для пополнения USDT TRC-20',
     depositUsdtTitle: 'Пополнить USDT (TRC-20)',
+    depositUsdtCheckoutTitle: 'Пополнить USDT',
+    depositAwaitingCheckout:
+      'Ожидаем оплату на странице кассы… Зачисление появится после подтверждения сети.',
+    depositPayCta: 'Перейти к оплате',
+    depositRedirecting: 'Открываем кассу…',
+    checkoutReturnTitle: 'Проверяем оплату',
+    checkoutReturnBody:
+      'Если перевод уже отправлен, зачисление появится здесь автоматически после подтверждений сети. Можно закрыть кассу и подождать на этой странице.',
+    paymentNetwork: 'Сеть',
+    paymentMethod: {
+      trc20: 'USDT · TRC-20 (TRON)',
+      bep20: 'USDT · BEP-20 (BNB Chain)',
+      erc20: 'USDT · ERC-20 (Ethereum)',
+    },
+    warningCheckoutNetwork:
+      'Выберите одну сеть и оплатите только USDT в этой сети на странице кассы.',
+    warningCreditUsd:
+      'На баланс зачисляется сумма в USD (creditUsd), а не USDT 1:1 — курс фиксирует касса.',
+    evmAddress: 'Адрес (0x…)',
+    invalidEvmAddress: 'Укажите корректный EVM-адрес (0x…).',
     frozen: 'Заморожено',
     frozenHint: 'Временно недоступно',
     historyTitle: 'История выводов',

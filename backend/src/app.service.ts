@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { checkCryptoGatewayHealth } from './providers/payment/payment-gateway-health.util';
-import { isCryptoPaymentProvider } from './providers/payment/payment.config';
+import { isLivePaymentProvider } from './providers/payment/payment.config';
 import { isSteamHttpProxyConfigured } from './common/steam/steam-http.client';
 import { PrismaService } from './prisma/prisma.service';
 import { ExtensionFlowMetricsService } from './common/observability/extension-flow-metrics.service';
@@ -28,7 +28,7 @@ export class AppService {
 
     try {
       await this.prisma.$queryRaw`SELECT 1`;
-      const cryptoRequired = isCryptoPaymentProvider();
+      const cryptoRequired = isLivePaymentProvider();
       const cryptoOk =
         !cryptoRequired ||
         cryptoGateway.status === 'ok' ||

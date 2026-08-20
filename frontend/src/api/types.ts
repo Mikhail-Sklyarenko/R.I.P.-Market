@@ -38,8 +38,10 @@ export type AuthConfig = {
   mockLoginAvailable: boolean;
   mockTradeEnabled: boolean;
   mockDepositEnabled: boolean;
-  paymentProvider: 'mock' | 'crypto_tron';
+  paymentProvider: 'mock' | 'crypto_tron' | 'north';
   cryptoPaymentsEnabled: boolean;
+  depositMode?: 'address' | 'checkout' | 'none';
+  paymentMethods?: Array<'trc20' | 'bep20' | 'erc20'>;
   minDepositMinor: number;
   minWithdrawMinor: number;
   withdrawFeeMinor: number;
@@ -66,20 +68,36 @@ export type ExtensionPublicConfig = {
   extensionRolloutKillSwitch: boolean;
 };
 
+export type PaymentMethodRail = 'trc20' | 'bep20' | 'erc20';
+
 export type WalletDepositInfo = {
-  address: string;
+  mode?: 'address' | 'checkout';
+  address?: string;
   network: string;
   token: string;
+  paymentMethods?: PaymentMethodRail[];
   minDepositMinor: number;
-  qrData: string;
-  walletIndex: number;
+  qrData?: string;
+  walletIndex?: number;
+};
+
+export type WalletDepositCheckout = {
+  mode: 'checkout';
+  checkoutUrl: string;
+  invoiceId: string;
+  externalId: string;
+  paymentMethod: PaymentMethodRail;
+  amountMinor: number;
+  amountUsd: string;
+  creditUsd: string | null;
+  expiresAt: string;
 };
 
 export type WalletDepositStatus = {
   intents: Array<{
     id: string;
     status: string;
-    depositAddress: string;
+    depositAddress: string | null;
     createdAt: string;
   }>;
   events: Array<{
@@ -97,6 +115,7 @@ export type WithdrawalRequest = {
   feeMinor: string;
   netMinor: string;
   toAddress: string;
+  paymentMethod?: string;
   status:
     | 'PENDING_REVIEW'
     | 'APPROVED'

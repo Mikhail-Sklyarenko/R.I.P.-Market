@@ -44,6 +44,22 @@ strip_env_key() {
   fi
 }
 
+# Upsert KEY=VALUE in backend/.env without rewriting the whole file.
+upsert_env_value() {
+  local key="$1"
+  local value="$2"
+  local file="${3:-$ENV_PATH}"
+  mkdir -p "$(dirname "$file")"
+  if [ ! -f "$file" ]; then
+    (umask 077 && printf '# Managed by staging rollout scripts — do not commit.\n' >"$file")
+  fi
+  local mode
+  mode="$(stat -c %a "$file" 2>/dev/null || stat -f %Lp "$file")"
+  strip_env_key "$key" "$file"
+  printf '%s=%s\n' "$key" "$value" >>"$file"
+  chmod "$mode" "$file"
+}
+
 upsert_secrets_value() {
   local key="$1"
   local value="$2"
@@ -121,7 +137,10 @@ require_env_or_file() {
     value="$(read_env_value "$file_key" "")"
   fi
   if [ -z "$value" ]; then
-    echo "ERROR: set $var_name or $file_key in $ENV_PATH" >&2
+    value="$(read_secrets_value "$file_key" "")"
+  fi
+  if [ -z "$value" ]; then
+    echo "ERROR: set $var_name or $file_key in $ENV_PATH / $SECRETS_PATH" >&2
     exit 1
   fi
   printf '%s' "$value"

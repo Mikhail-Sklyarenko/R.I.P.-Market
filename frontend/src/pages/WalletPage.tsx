@@ -2,6 +2,7 @@ import { type FormEvent, useCallback, useEffect, useMemo, useRef, useState } fro
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import {
   createIdempotencyKey,
+  createWalletDepositCheckout,
   createWalletWithdrawal,
   getAuthConfig,
   getWalletDeposit,
@@ -11,6 +12,7 @@ import {
 } from '../api/marketplace';
 import type {
   AuthConfig,
+  PaymentMethodRail,
   WalletDepositInfo,
   WalletDepositStatus,
   WithdrawalRequest,
@@ -55,6 +57,7 @@ export function WalletPage() {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const returnUrl = searchParams.get('returnUrl');
+  const fromCheckout = searchParams.get('fromCheckout') === '1';
   const neededMinor = searchParams.get('needed');
   const activeTab = parseWalletTab(searchParams.get('tab'));
 
@@ -74,6 +77,8 @@ export function WalletPage() {
     AuthConfig,
     | 'mockDepositEnabled'
     | 'cryptoPaymentsEnabled'
+    | 'depositMode'
+    | 'paymentMethods'
     | 'enableRealSettlement'
     | 'minDepositMinor'
     | 'minWithdrawMinor'
@@ -86,14 +91,24 @@ export function WalletPage() {
   const [withdrawals, setWithdrawals] = useState<WithdrawalRequest[]>([]);
   const [withdrawAddress, setWithdrawAddress] = useState('');
   const [withdrawAmountInput, setWithdrawAmountInput] = useState('');
+  const [withdrawPaymentMethod, setWithdrawPaymentMethod] =
+    useState<PaymentMethodRail>('trc20');
   const [withdrawSubmitting, setWithdrawSubmitting] = useState(false);
   const [withdrawError, setWithdrawError] = useState<string | null>(null);
   const [addressCopied, setAddressCopied] = useState(false);
   const [depositCreditedNotice, setDepositCreditedNotice] = useState<string | null>(null);
+  const [checkoutPaymentMethod, setCheckoutPaymentMethod] =
+    useState<PaymentMethodRail>('trc20');
   const knownDepositEventCountRef = useRef(0);
 
   const mockDepositEnabled = paymentConfig?.mockDepositEnabled ?? false;
   const cryptoPaymentsEnabled = paymentConfig?.cryptoPaymentsEnabled ?? false;
+  const depositMode =
+    paymentConfig?.depositMode ??
+    (cryptoPaymentsEnabled ? 'address' : 'none');
+  const paymentMethods = paymentConfig?.paymentMethods?.length
+    ? paymentConfig.paymentMethods
+    : (['trc20'] as PaymentMethodRail[]);
   const realSettlementEnabled = paymentConfig?.enableRealSettlement ?? false;
   const minDepositMinor = paymentConfig?.minDepositMinor ?? 100;
   const minWithdrawMinor = paymentConfig?.minWithdrawMinor ?? 100;
@@ -109,15 +124,19 @@ export function WalletPage() {
     if (!token || !cryptoPaymentsEnabled) {
       return;
     }
-    const deposit = await getWalletDeposit(token);
-    setDepositInfo(deposit);
-    const [status, withdrawalItems] = await Promise.all([
+    const [deposit, status, withdrawalItems] = await Promise.all([
+      getWalletDeposit(token),
       getWalletDepositStatus(token),
       getWalletWithdrawals(token),
     ]);
+    setDepositInfo(deposit);
     setDepositStatus(status);
     setWithdrawals(withdrawalItems);
     knownDepositEventCountRef.current = status.events.length;
+    if (deposit.paymentMethods?.length) {
+      setCheckoutPaymentMethod(deposit.paymentMethods[0]!);
+      setWithdrawPaymentMethod(deposit.paymentMethods[0]!);
+    }
   }, [token, cryptoPaymentsEnabled]);
 
   useEffect(() => {
@@ -126,6 +145,8 @@ export function WalletPage() {
         setPaymentConfig({
           mockDepositEnabled: config.mockDepositEnabled,
           cryptoPaymentsEnabled: config.cryptoPaymentsEnabled,
+          depositMode: config.depositMode,
+          paymentMethods: config.paymentMethods,
           enableRealSettlement: config.enableRealSettlement,
           minDepositMinor: config.minDepositMinor,
           minWithdrawMinor: config.minWithdrawMinor,
@@ -133,6 +154,10 @@ export function WalletPage() {
           usdtNetwork: config.usdtNetwork,
           usdtToken: config.usdtToken,
         });
+        if (config.paymentMethods?.length) {
+          setCheckoutPaymentMethod(config.paymentMethods[0]!);
+          setWithdrawPaymentMethod(config.paymentMethods[0]!);
+        }
       })
       .catch(() => undefined);
   }, []);
@@ -164,14 +189,27 @@ export function WalletPage() {
             }
             knownDepositEventCountRef.current = status.events.length;
             void refresh();
+            if (fromCheckout) {
+              const next = new URLSearchParams(searchParams);
+              next.delete('fromCheckout');
+              setSearchParams(next, { replace: true });
+            }
           }
           setDepositStatus(status);
         })
         .catch(() => undefined);
-    }, DEPOSIT_STATUS_POLL_MS);
+    }, fromCheckout ? 3_000 : DEPOSIT_STATUS_POLL_MS);
 
     return () => window.clearInterval(intervalId);
-  }, [token, cryptoPaymentsEnabled, refresh, t]);
+  }, [token, cryptoPaymentsEnabled, refresh, t, fromCheckout, searchParams, setSearchParams]);
+
+  useEffect(() => {
+    if (!fromCheckout || !token || !cryptoPaymentsEnabled) {
+      return;
+    }
+    void refresh();
+    void loadCryptoData();
+  }, [fromCheckout, token, cryptoPaymentsEnabled, refresh, loadCryptoData]);
 
   function validateDepositAmount(): number | null {
     const amountMinor = parseUsdToMinor(amountInput);
@@ -214,6 +252,41 @@ export function WalletPage() {
     }
   }
 
+  async function handleCheckoutDeposit(event: FormEvent) {
+    event.preventDefault();
+    if (!token) {
+      return;
+    }
+
+    const amountMinor = validateDepositAmount();
+    if (!amountMinor) {
+      return;
+    }
+
+    setSubmitting(true);
+    setDepositError(null);
+    try {
+      const origin = window.location.origin;
+      const returnParams = new URLSearchParams({
+        tab: 'deposit',
+        fromCheckout: '1',
+      });
+      if (returnUrl?.startsWith('/')) {
+        returnParams.set('returnUrl', returnUrl);
+      }
+      const walletReturn = `${origin}/wallet?${returnParams.toString()}`;
+      const session = await createWalletDepositCheckout(token, {
+        amountMinor,
+        paymentMethod: checkoutPaymentMethod,
+        returnUrl: walletReturn,
+      });
+      window.location.assign(session.checkoutUrl);
+    } catch (err) {
+      setDepositError(err);
+      setSubmitting(false);
+    }
+  }
+
   async function handleCopyAddress() {
     if (!depositInfo?.address) {
       return;
@@ -229,9 +302,14 @@ export function WalletPage() {
       return;
     }
 
-    const addressError = getTrc20AddressError(withdrawAddress, locale);
-    if (addressError) {
-      setWithdrawError(addressError);
+    if (withdrawPaymentMethod === 'trc20') {
+      const addressError = getTrc20AddressError(withdrawAddress, locale);
+      if (addressError) {
+        setWithdrawError(addressError);
+        return;
+      }
+    } else if (!/^0x[a-fA-F0-9]{40}$/.test(withdrawAddress.trim())) {
+      setWithdrawError(t('wallet.invalidEvmAddress'));
       return;
     }
 
@@ -254,7 +332,11 @@ export function WalletPage() {
     try {
       await createWalletWithdrawal(
         token,
-        { toAddress: withdrawAddress.trim(), amountMinor },
+        {
+          toAddress: withdrawAddress.trim(),
+          amountMinor,
+          paymentMethod: withdrawPaymentMethod,
+        },
         createIdempotencyKey('withdrawal'),
       );
       setWithdrawAmountInput('');
@@ -266,8 +348,16 @@ export function WalletPage() {
     }
   }
 
-  const depositWarnings = useMemo(
-    () => [
+  const depositWarnings = useMemo(() => {
+    if (depositMode === 'checkout') {
+      return [
+        t('wallet.warningCheckoutNetwork'),
+        t('wallet.warningOtherLost'),
+        t('wallet.warningMinDeposit', { amount: formatUsdtFromMinor(minDepositMinor) }),
+        t('wallet.warningCreditUsd'),
+      ];
+    }
+    return [
       t('wallet.warningTokenNetwork', {
         token: paymentConfig?.usdtToken ?? 'USDT TRC-20',
         network: paymentConfig?.usdtNetwork ?? 'TRON',
@@ -275,9 +365,8 @@ export function WalletPage() {
       t('wallet.warningOtherLost'),
       t('wallet.warningMinDeposit', { amount: formatUsdtFromMinor(minDepositMinor) }),
       t('wallet.warningRate'),
-    ],
-    [minDepositMinor, paymentConfig?.usdtNetwork, paymentConfig?.usdtToken, t],
-  );
+    ];
+  }, [depositMode, minDepositMinor, paymentConfig?.usdtNetwork, paymentConfig?.usdtToken, t]);
 
   return (
     <div className="page">
@@ -321,6 +410,16 @@ export function WalletPage() {
           data-testid="wallet-real-money-beta-banner"
         >
           {t('wallet.realMoneyBetaBody')}
+        </ErrorAlert>
+      ) : null}
+
+      {fromCheckout && cryptoPaymentsEnabled && !depositCreditedNotice ? (
+        <ErrorAlert
+          variant="info"
+          title={t('wallet.checkoutReturnTitle')}
+          data-testid="wallet-checkout-return-banner"
+        >
+          {t('wallet.checkoutReturnBody')}
         </ErrorAlert>
       ) : null}
 
@@ -394,75 +493,165 @@ export function WalletPage() {
           </nav>
 
           {activeTab === 'deposit' && cryptoPaymentsEnabled ? (
-            <div className="card wallet-deposit-form" data-testid="wallet-usdt-deposit">
-              <h3>{t('wallet.depositUsdtTitle')}</h3>
-              <ul className="wallet-crypto-warnings" data-testid="deposit-warnings">
-                {depositWarnings.map((warning) => (
-                  <li key={warning} className="muted small">
-                    {warning}
-                  </li>
-                ))}
-              </ul>
+            depositMode === 'checkout' ? (
+              <form
+                className="card form-card wallet-deposit-form"
+                onSubmit={(event) => void handleCheckoutDeposit(event)}
+                data-testid="wallet-usdt-deposit"
+              >
+                <h3>{t('wallet.depositUsdtCheckoutTitle')}</h3>
+                <ul className="wallet-crypto-warnings" data-testid="deposit-warnings">
+                  {depositWarnings.map((warning) => (
+                    <li key={warning} className="muted small">
+                      {warning}
+                    </li>
+                  ))}
+                </ul>
 
-              {awaitingDeposit ? (
-                <p className="wallet-deposit-awaiting" data-testid="deposit-awaiting-status">
-                  {t('wallet.depositAwaiting')}
-                </p>
-              ) : null}
+                {awaitingDeposit ? (
+                  <p className="wallet-deposit-awaiting" data-testid="deposit-awaiting-status">
+                    {t('wallet.depositAwaitingCheckout')}
+                  </p>
+                ) : null}
 
-              {depositInfo ? (
-                <div className="wallet-deposit-details">
-                  <div className="wallet-deposit-qr-wrap">
-                    <QrCode
-                      value={depositInfo.qrData}
-                      label={t('wallet.depositQrAlt')}
-                      size={180}
-                      className="wallet-deposit-qr"
-                      testId="deposit-qr"
-                    />
-                  </div>
-                  <FormField label={t('wallet.depositAddress')} htmlFor="deposit-trc20-address">
-                    <div className="wallet-address-row">
-                      <input
-                        id="deposit-trc20-address"
-                        type="text"
-                        readOnly
-                        value={depositInfo.address}
-                        data-testid="deposit-trc20-address"
-                      />
-                      <button
-                        type="button"
-                        className="button secondary"
-                        onClick={() => void handleCopyAddress()}
-                        data-testid="deposit-address-copy"
-                      >
-                        {addressCopied ? t('wallet.copied') : t('wallet.copy')}
-                      </button>
-                    </div>
-                  </FormField>
-                </div>
-              ) : (
-                <p className="muted small">{t('wallet.depositAddressLoading')}</p>
-              )}
+                <FormField label={t('wallet.amountUsdt')} htmlFor="checkout-deposit-amount">
+                  <input
+                    id="checkout-deposit-amount"
+                    type="text"
+                    inputMode="decimal"
+                    value={amountInput}
+                    onChange={(event) => {
+                      setAmountInput(event.target.value);
+                      setFieldError(null);
+                    }}
+                    data-testid="checkout-deposit-amount"
+                  />
+                </FormField>
 
-              {(depositStatus?.events.length ?? 0) > 0 ? (
-                <div className="wallet-crypto-history" data-testid="wallet-crypto-deposits">
-                  <h4>{t('wallet.depositHistoryTitle')}</h4>
-                  <ul className="wallet-crypto-list">
-                    {depositStatus!.events.slice(0, 5).map((event) => (
-                      <li key={event.id} data-testid={`deposit-event-${event.id}`}>
-                        <span>{formatUsdtFromMinor(event.amountMinor)}</span>
-                        <span className="muted small">
-                          {new Date(event.createdAt).toLocaleString(
-                            locale === 'en' ? 'en-US' : 'ru-RU',
-                          )}
-                        </span>
-                      </li>
+                <fieldset className="wallet-payment-methods" data-testid="deposit-payment-methods">
+                  <legend className="form-label">{t('wallet.paymentNetwork')}</legend>
+                  <div className="wallet-payment-method-row">
+                    {paymentMethods.map((method) => (
+                      <label key={method} className="wallet-payment-method-option">
+                        <input
+                          type="radio"
+                          name="deposit-payment-method"
+                          value={method}
+                          checked={checkoutPaymentMethod === method}
+                          onChange={() => setCheckoutPaymentMethod(method)}
+                          data-testid={`deposit-method-${method}`}
+                        />
+                        <span>{t(`wallet.paymentMethod.${method}`)}</span>
+                      </label>
                     ))}
-                  </ul>
-                </div>
-              ) : null}
-            </div>
+                  </div>
+                </fieldset>
+
+                {fieldError ? (
+                  <p className="field-error" data-testid="checkout-deposit-field-error">
+                    {fieldError}
+                  </p>
+                ) : null}
+                {depositError ? <ErrorAlert error={depositError} /> : null}
+
+                <button
+                  type="submit"
+                  className="button primary"
+                  disabled={submitting}
+                  data-testid="checkout-deposit-submit"
+                >
+                  {submitting ? t('wallet.depositRedirecting') : t('wallet.depositPayCta')}
+                </button>
+
+                {(depositStatus?.events.length ?? 0) > 0 ? (
+                  <div className="wallet-crypto-history" data-testid="wallet-crypto-deposits">
+                    <h4>{t('wallet.depositHistoryTitle')}</h4>
+                    <ul className="wallet-crypto-list">
+                      {depositStatus!.events.slice(0, 5).map((event) => (
+                        <li key={event.id} data-testid={`deposit-event-${event.id}`}>
+                          <span>{formatUsdtFromMinor(event.amountMinor)}</span>
+                          <span className="muted small">
+                            {new Date(event.createdAt).toLocaleString(
+                              locale === 'en' ? 'en-US' : 'ru-RU',
+                            )}
+                          </span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                ) : null}
+              </form>
+            ) : (
+              <div className="card wallet-deposit-form" data-testid="wallet-usdt-deposit">
+                <h3>{t('wallet.depositUsdtTitle')}</h3>
+                <ul className="wallet-crypto-warnings" data-testid="deposit-warnings">
+                  {depositWarnings.map((warning) => (
+                    <li key={warning} className="muted small">
+                      {warning}
+                    </li>
+                  ))}
+                </ul>
+
+                {awaitingDeposit ? (
+                  <p className="wallet-deposit-awaiting" data-testid="deposit-awaiting-status">
+                    {t('wallet.depositAwaiting')}
+                  </p>
+                ) : null}
+
+                {depositInfo?.address && depositInfo.qrData ? (
+                  <div className="wallet-deposit-details">
+                    <div className="wallet-deposit-qr-wrap">
+                      <QrCode
+                        value={depositInfo.qrData}
+                        label={t('wallet.depositQrAlt')}
+                        size={180}
+                        className="wallet-deposit-qr"
+                        testId="deposit-qr"
+                      />
+                    </div>
+                    <FormField label={t('wallet.depositAddress')} htmlFor="deposit-trc20-address">
+                      <div className="wallet-address-row">
+                        <input
+                          id="deposit-trc20-address"
+                          type="text"
+                          readOnly
+                          value={depositInfo.address}
+                          data-testid="deposit-trc20-address"
+                        />
+                        <button
+                          type="button"
+                          className="button secondary"
+                          onClick={() => void handleCopyAddress()}
+                          data-testid="deposit-address-copy"
+                        >
+                          {addressCopied ? t('wallet.copied') : t('wallet.copy')}
+                        </button>
+                      </div>
+                    </FormField>
+                  </div>
+                ) : (
+                  <p className="muted small">{t('wallet.depositAddressLoading')}</p>
+                )}
+
+                {(depositStatus?.events.length ?? 0) > 0 ? (
+                  <div className="wallet-crypto-history" data-testid="wallet-crypto-deposits">
+                    <h4>{t('wallet.depositHistoryTitle')}</h4>
+                    <ul className="wallet-crypto-list">
+                      {depositStatus!.events.slice(0, 5).map((event) => (
+                        <li key={event.id} data-testid={`deposit-event-${event.id}`}>
+                          <span>{formatUsdtFromMinor(event.amountMinor)}</span>
+                          <span className="muted small">
+                            {new Date(event.createdAt).toLocaleString(
+                              locale === 'en' ? 'en-US' : 'ru-RU',
+                            )}
+                          </span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                ) : null}
+              </div>
+            )
           ) : null}
 
           {activeTab === 'withdraw' && cryptoPaymentsEnabled ? (
@@ -473,11 +662,41 @@ export function WalletPage() {
             >
               <h3>{t('wallet.withdrawUsdtTitle')}</h3>
               <p className="muted small">{t('wallet.withdrawUsdtBody')}</p>
-              <FormField label={t('wallet.trc20Address')} htmlFor="withdraw-address-input">
+              {paymentMethods.length > 1 ? (
+                <fieldset className="wallet-payment-methods" data-testid="withdraw-payment-methods">
+                  <legend className="form-label">{t('wallet.paymentNetwork')}</legend>
+                  <div className="wallet-payment-method-row">
+                    {paymentMethods.map((method) => (
+                      <label key={method} className="wallet-payment-method-option">
+                        <input
+                          type="radio"
+                          name="withdraw-payment-method"
+                          value={method}
+                          checked={withdrawPaymentMethod === method}
+                          onChange={() => {
+                            setWithdrawPaymentMethod(method);
+                            setWithdrawError(null);
+                          }}
+                          data-testid={`withdraw-method-${method}`}
+                        />
+                        <span>{t(`wallet.paymentMethod.${method}`)}</span>
+                      </label>
+                    ))}
+                  </div>
+                </fieldset>
+              ) : null}
+              <FormField
+                label={
+                  withdrawPaymentMethod === 'trc20'
+                    ? t('wallet.trc20Address')
+                    : t('wallet.evmAddress')
+                }
+                htmlFor="withdraw-address-input"
+              >
                 <input
                   id="withdraw-address-input"
                   type="text"
-                  placeholder="T..."
+                  placeholder={withdrawPaymentMethod === 'trc20' ? 'T...' : '0x...'}
                   value={withdrawAddress}
                   onChange={(event) => {
                     setWithdrawAddress(event.target.value);

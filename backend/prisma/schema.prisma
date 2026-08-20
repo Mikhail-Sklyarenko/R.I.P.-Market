@@ -717,6 +717,8 @@ model WithdrawalRequest {
   feeMinor       BigInt
   netMinor       BigInt
   toAddress      String
+  /// NORTH / multi-rail: trc20 | bep20 | erc20 (legacy crypto_tron = trc20)
+  paymentMethod  String                  @default("trc20")
   status         WithdrawalRequestStatus
   gatewayRef     String?
   payoutTxHash   String?

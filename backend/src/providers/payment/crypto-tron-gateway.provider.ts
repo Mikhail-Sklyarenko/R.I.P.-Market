@@ -12,6 +12,7 @@ import { verifyGatewayWebhookSignature } from './payment.util';
 @Injectable()
 export class CryptoTronGatewayProvider implements PaymentProvider {
   readonly name = 'crypto_tron';
+  readonly depositMode = 'address' as const;
   private readonly config = getPaymentConfig();
 
   private async request<T>(

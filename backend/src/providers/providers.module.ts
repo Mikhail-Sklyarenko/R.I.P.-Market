@@ -14,6 +14,7 @@ import { SteamTradeProvider } from './trade/steam-trade.provider';
 import { MockPaymentProvider } from './payment/mock-payment.provider';
 import { CryptoTronGatewayProvider } from './payment/crypto-tron-gateway.provider';
 import { E2eCryptoPaymentProvider } from './payment/e2e-crypto-payment.provider';
+import { NorthGatewayProvider } from './payment/north/north.gateway.provider';
 import {
   AUTH_PROVIDER,
   INVENTORY_PROVIDER,
@@ -38,6 +39,7 @@ import {
     MockPaymentProvider,
     CryptoTronGatewayProvider,
     E2eCryptoPaymentProvider,
+    NorthGatewayProvider,
     {
       provide: AUTH_PROVIDER,
       useFactory: (mock: MockAuthProvider, steam: SteamAuthProvider) => {
@@ -73,8 +75,12 @@ import {
         mock: MockPaymentProvider,
         crypto: CryptoTronGatewayProvider,
         e2eCrypto: E2eCryptoPaymentProvider,
+        north: NorthGatewayProvider,
       ) => {
         const payment = getProvidersConfig().payment;
+        if (payment === 'north') {
+          return north;
+        }
         if (payment !== 'crypto_tron') {
           return mock;
         }
@@ -87,6 +93,7 @@ import {
         MockPaymentProvider,
         CryptoTronGatewayProvider,
         E2eCryptoPaymentProvider,
+        NorthGatewayProvider,
       ],
     },
   ],

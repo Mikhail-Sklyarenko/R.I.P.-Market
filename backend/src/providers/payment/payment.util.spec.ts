@@ -2,6 +2,8 @@ import {
   isValidTronAddress,
   signGatewayWebhook,
   sunToUsdMinor,
+  usdDecimalToMinor,
+  usdMinorToDecimalString,
   usdMinorToSun,
   verifyGatewayWebhookSignature,
 } from './payment.util';
@@ -24,9 +26,20 @@ describe('payment.util', () => {
     const signature = signGatewayWebhook(secret, body);
 
     expect(verifyGatewayWebhookSignature(secret, body, signature)).toBe(true);
+    expect(
+      verifyGatewayWebhookSignature(secret, body, `sha256=${signature}`),
+    ).toBe(true);
     expect(verifyGatewayWebhookSignature(secret, body, 'bad-signature')).toBe(
       false,
     );
     expect(verifyGatewayWebhookSignature(secret, body, undefined)).toBe(false);
+  });
+
+  it('converts USD decimal strings to minor and back', () => {
+    expect(usdDecimalToMinor('10')).toBe(1000n);
+    expect(usdDecimalToMinor('10.50')).toBe(1050n);
+    expect(usdDecimalToMinor('10.555')).toBe(1056n);
+    expect(usdMinorToDecimalString(1000n)).toBe('10');
+    expect(usdMinorToDecimalString(1050n)).toBe('10.50');
   });
 });

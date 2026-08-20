@@ -76,7 +76,29 @@ API_BASE=https://p2pcs.ru/api/v1 GATEWAY_URL=http://127.0.0.1:3001 \
 
 ## Фаза 1 — USDT deposits (текущий шаг)
 
-### Enable platform
+Два варианта кассы (выберите один):
+
+| | Own `crypto_tron` | Partner **NORTH** |
+|--|-------------------|-------------------|
+| UX | Постоянный TRC-20 адрес | Сумма + сеть → redirect на `/pay` |
+| Enable | `scripts/enable-crypto-payments-staging.sh` | `scripts/enable-north-payments-staging.sh` |
+| Docs | [payments-crypto-tron.md](./payments-crypto-tron.md) | [payments-north.md](./payments-north.md) |
+
+### Enable platform (NORTH)
+
+```bash
+export NORTH_GATEWAY_URL=...
+export NORTH_GATEWAY_API_KEY=...
+export NORTH_WEBHOOK_SECRET=...
+bash scripts/enable-north-payments-staging.sh
+
+API_BASE=https://p2pcs.ru/api/v1 GATEWAY_URL=$NORTH_GATEWAY_URL EXPECT_PROVIDER=north \
+  bash scripts/verify-payments-readiness.sh
+```
+
+Партнёру после verify: webhook URL `https://p2pcs.ru/api/v1/payments/webhooks/crypto` + test userId.
+
+### Enable platform (crypto_tron)
 
 ```bash
 export CRYPTO_GATEWAY_API_KEY=...
@@ -92,16 +114,16 @@ bash scripts/enable-crypto-payments-staging.sh
 
 ### Smoke (invite-only)
 
-1. Войти через Steam → **Кошелёк** → вкладка **Пополнение**
-2. Скопировать TRC-20 адрес → отправить **≥ $5 USDT** (mainnet)
-3. Дождаться зачисления (до ~3 мин, 19 confirmations)
-4. Баннер «Пополнение зачислено» + баланс **Доступно**
+**NORTH:** Кошелёк → сумма + сеть → оплата на кассе → баннер «Пополнение зачислено».
+
+**crypto_tron:** Кошелёк → адрес TRC-20 → ≥ $5 USDT → баннер + баланс.
+
 5. Купить лот → hold → Admin mock complete (временно)
 
 ### Gate выхода
 
 - [ ] 10+ депозитов без инцидентов
-- [ ] `npm run reconcile:payments` → 0 issues (7 дней)
+- [ ] `npm run reconcile:payments` → 0 issues (7 дней) — для `crypto_tron`; для NORTH — ledger + webhook smoke idempotency
 - [ ] 0 support-тикетов «деньги пропали»
 
 ---
@@ -194,7 +216,9 @@ curl -sf https://p2pcs.ru/api/v1/health
 | Скрипт | Назначение |
 |--------|------------|
 | `scripts/deploy-crypto-gateway-staging.sh` | Gateway api + scanner + DB |
-| `scripts/enable-crypto-payments-staging.sh` | Phase 1 на p2pcs |
+| `scripts/enable-crypto-payments-staging.sh` | Phase 1 на p2pcs (own gateway) |
+| `scripts/enable-north-payments-staging.sh` | Phase 1 на p2pcs (NORTH checkout) |
+| `scripts/smoke-north-webhook.sh` | Signed webhook → ledger smoke |
 | `scripts/enable-phase2-shadow-trade-staging.sh` | Phase 2a — shadow + extension |
 | `scripts/enable-phase2-live-trade-staging.sh` | Phase 2b — live verify, no settle |
 | `scripts/enable-phase3-settlement-staging.sh` | Phase 3 — allowlisted settlement |
@@ -211,6 +235,7 @@ curl -sf https://p2pcs.ru/api/v1/health
 ## Связанные документы
 
 - [payments-crypto-tron.md](./payments-crypto-tron.md)
+- [payments-north.md](./payments-north.md) — NORTH checkout (HTTP partner gateway)
 - [RELEASE.md](./RELEASE.md) — Gate 4
 - [phase-4-settlement.md](./phase-4-settlement.md)
 - [phase-5-extension-first.md](./phase-5-extension-first.md)
