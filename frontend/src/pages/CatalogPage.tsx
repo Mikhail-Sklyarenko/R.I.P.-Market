@@ -281,7 +281,7 @@ export function CatalogPage() {
       floatMin,
       floatMax,
       skinTraitFilters,
-    }) || Boolean(rarityFilter);
+    }) || Boolean(rarityFilter) || inStock;
   const isInitialLoading = loading && items.length === 0;
   const isRefreshing = loading && items.length > 0;
   const showPopularSection =
@@ -303,6 +303,7 @@ export function CatalogPage() {
         skinTraitFilters,
         floatMin,
         floatMax,
+        inStock,
         activeTabId,
         categoryValues,
         categoryMode,
@@ -317,6 +318,7 @@ export function CatalogPage() {
       skinTraitFilters,
       floatMin,
       floatMax,
+      inStock,
       activeTabId,
       categoryValues,
       categoryMode,

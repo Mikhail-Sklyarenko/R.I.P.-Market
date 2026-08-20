@@ -1,4 +1,7 @@
-import { buildCatalogLotAggregates } from './catalog-lot-aggregates.util';
+import {
+  buildCatalogLotAggregates,
+  catalogIndexCacheKey,
+} from './catalog-lot-aggregates.util';
 
 describe('buildCatalogLotAggregates', () => {
   it('counts lots by base skin and picks the cheapest featured lot', () => {
@@ -51,5 +54,17 @@ describe('buildCatalogLotAggregates', () => {
       minPriceMinor: 1000n,
     });
     expect(result.featuredLots.get('base:AK-47 | Redline')).toBe('lot-cheap');
+  });
+});
+
+describe('catalogIndexCacheKey', () => {
+  it('treats inStock as part of the cache identity', () => {
+    const base = { page: 1, limit: 24, sort: 'newest' as const };
+    const without = catalogIndexCacheKey(base);
+    const withStock = catalogIndexCacheKey({ ...base, inStock: 'true' });
+    const withStockAlt = catalogIndexCacheKey({ ...base, inStock: '1' });
+
+    expect(withStock).not.toBe(without);
+    expect(withStock).toBe(withStockAlt);
   });
 });

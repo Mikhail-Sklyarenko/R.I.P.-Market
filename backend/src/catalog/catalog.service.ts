@@ -751,12 +751,18 @@ export class CatalogService {
 
     if (effectiveSort === 'cheapest' || effectiveSort === 'price_desc') {
       copy.sort((a, b) => {
-        const aPrice = a.minMarketplacePriceMinor
-          ? Number(a.minMarketplacePriceMinor)
-          : Number.POSITIVE_INFINITY;
-        const bPrice = b.minMarketplacePriceMinor
-          ? Number(b.minMarketplacePriceMinor)
-          : Number.POSITIVE_INFINITY;
+        const aHasPrice = a.minMarketplacePriceMinor != null;
+        const bHasPrice = b.minMarketplacePriceMinor != null;
+        // Cards without a marketplace listing always sort after priced cards,
+        // so "price ↑/↓" matches the prices users see on buyable items.
+        if (aHasPrice !== bHasPrice) {
+          return aHasPrice ? -1 : 1;
+        }
+        if (!aHasPrice) {
+          return a.marketHashName.localeCompare(b.marketHashName);
+        }
+        const aPrice = Number(a.minMarketplacePriceMinor);
+        const bPrice = Number(b.minMarketplacePriceMinor);
         if (aPrice !== bPrice) {
           return effectiveSort === 'price_desc' ? bPrice - aPrice : aPrice - bPrice;
         }

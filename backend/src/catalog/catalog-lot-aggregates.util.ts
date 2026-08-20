@@ -131,6 +131,7 @@ export function catalogLotAggregatesCacheKey(
 export function catalogIndexCacheKey(
   query: ListCatalogItemsQueryDto,
 ): string {
+  const inStockOnly = query.inStock === 'true' || query.inStock === '1';
   return JSON.stringify({
     q: query.q ?? null,
     marketHashName: query.marketHashName ?? null,
@@ -144,6 +145,7 @@ export function catalogIndexCacheKey(
     sort: query.sort ?? 'newest',
     stattrak: query.stattrak ?? null,
     souvenir: query.souvenir ?? null,
+    inStock: inStockOnly,
   });
 }
 

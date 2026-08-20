@@ -557,6 +557,139 @@ describe('CatalogService', () => {
     expect(result.items.map((item) => item.id)).toEqual(['item-cheap', 'item-expensive']);
   });
 
+  it('sorts price_desc with listed items first and unpriced cards last', async () => {
+    prisma.lot.findMany.mockResolvedValue([
+      {
+        id: 'lot-mid',
+        priceMinor: 2000n,
+        createdAt: new Date('2026-01-02T00:00:00.000Z'),
+        inventoryAsset: {
+          itemDefinitionId: 'item-mid',
+          wear: null,
+          floatValue: null,
+          itemDefinition: {
+            marketHashName: 'M4A4 | Howl',
+            baseMarketHashName: 'M4A4 | Howl',
+          },
+        },
+        listingSnapshot: null,
+      },
+      {
+        id: 'lot-expensive',
+        priceMinor: 5000n,
+        createdAt: new Date('2026-01-01T00:00:00.000Z'),
+        inventoryAsset: {
+          itemDefinitionId: 'item-expensive',
+          wear: null,
+          floatValue: null,
+          itemDefinition: {
+            marketHashName: 'AWP | Dragon Lore',
+            baseMarketHashName: 'AWP | Dragon Lore',
+          },
+        },
+        listingSnapshot: null,
+      },
+    ]);
+    prisma.itemDefinition.findMany.mockResolvedValue([
+      {
+        id: 'item-empty',
+        marketHashName: 'AAA Unlisted',
+        baseMarketHashName: 'AAA Unlisted',
+        weapon: 'Rifle',
+        rarity: 'Consumer Grade',
+        iconUrl: null,
+        availableWears: [],
+        catalogSeeded: true,
+      },
+      {
+        id: 'item-mid',
+        marketHashName: 'M4A4 | Howl',
+        baseMarketHashName: 'M4A4 | Howl',
+        weapon: 'Rifle',
+        rarity: 'Contraband',
+        iconUrl: null,
+        availableWears: [],
+        catalogSeeded: true,
+      },
+      {
+        id: 'item-expensive',
+        marketHashName: 'AWP | Dragon Lore',
+        baseMarketHashName: 'AWP | Dragon Lore',
+        weapon: 'Sniper Rifle',
+        rarity: 'Covert',
+        iconUrl: null,
+        availableWears: [],
+        catalogSeeded: true,
+      },
+    ]);
+
+    const result = await service.listItems({
+      page: 1,
+      limit: 24,
+      sort: 'price_desc',
+    });
+
+    expect(result.items.map((item) => item.id)).toEqual([
+      'item-expensive',
+      'item-mid',
+      'item-empty',
+    ]);
+  });
+
+  it('filters to in-stock items and does not reuse the full-catalog cache', async () => {
+    prisma.lot.findMany.mockResolvedValue([
+      {
+        id: 'lot-listed',
+        priceMinor: 1500n,
+        createdAt: new Date('2026-01-02T00:00:00.000Z'),
+        inventoryAsset: {
+          itemDefinitionId: 'item-listed',
+          wear: null,
+          floatValue: null,
+          itemDefinition: {
+            marketHashName: 'AK-47 | Redline',
+            baseMarketHashName: 'AK-47 | Redline',
+          },
+        },
+        listingSnapshot: null,
+      },
+    ]);
+    prisma.itemDefinition.findMany.mockResolvedValue([
+      {
+        id: 'item-listed',
+        marketHashName: 'AK-47 | Redline',
+        baseMarketHashName: 'AK-47 | Redline',
+        weapon: 'Rifle',
+        rarity: 'Classified',
+        iconUrl: null,
+        availableWears: ['FT'],
+        catalogSeeded: true,
+      },
+      {
+        id: 'item-empty',
+        marketHashName: 'AWP | Asiimov',
+        baseMarketHashName: 'AWP | Asiimov',
+        weapon: 'Sniper Rifle',
+        rarity: 'Covert',
+        iconUrl: null,
+        availableWears: ['FT'],
+        catalogSeeded: true,
+      },
+    ]);
+
+    const full = await service.listItems({ page: 1, limit: 24, sort: 'newest' });
+    const inStock = await service.listItems({
+      page: 1,
+      limit: 24,
+      sort: 'newest',
+      inStock: 'true',
+    });
+
+    expect(full.total).toBe(2);
+    expect(inStock.total).toBe(1);
+    expect(inStock.items.map((item) => item.id)).toEqual(['item-listed']);
+  });
+
   it('returns not found for non-listable catalog item detail', async () => {
     prisma.itemDefinition.findUnique.mockResolvedValue({
       id: 'medal-1',
