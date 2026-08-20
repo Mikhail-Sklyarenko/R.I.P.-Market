@@ -9,6 +9,10 @@ import { CatalogItemCard } from '../components/CatalogItemCard';
 import { CatalogPriceRangeFilter } from '../components/CatalogPriceRangeFilter';
 import { CatalogRarityFilter } from '../components/CatalogRarityFilter';
 import { CatalogSkinTraitsFilter } from '../components/CatalogSkinTraitsFilter';
+import {
+  CatalogSortMenu,
+  type CatalogSortOption,
+} from '../components/CatalogSortMenu';
 import { CatalogWearFilter } from '../components/CatalogWearFilter';
 import { ErrorAlert } from '../components/ErrorAlert';
 import { EmptyState } from '../components/EmptyState';
@@ -53,7 +57,7 @@ import {
   mergeCatalogItems,
 } from '../utils/catalog-load-more';
 
-type SortOption = 'newest' | 'price-asc' | 'price-desc' | 'popular';
+type SortOption = CatalogSortOption;
 
 function toCatalogSort(
   sort: SortOption,
@@ -938,29 +942,15 @@ export function CatalogPage() {
             data-testid="catalog-search"
           />
         </label>
-        <label className="field catalog-filter-field catalog-sort-field">
+        <div className="field catalog-filter-field catalog-sort-field">
           <span className="sr-only">{t('catalog.sort')}</span>
-          <select
-            value={sort}
-            onChange={(event) => setSort(event.target.value as SortOption)}
-            aria-label={t('catalog.sort')}
-            data-testid="catalog-sort"
-          >
-            <option value="popular">{t('catalog.sortPopular')}</option>
-            <option value="newest">{t('catalog.sortNewest')}</option>
-            <option value="price-asc">{t('catalog.sortPriceAsc')}</option>
-            <option value="price-desc">{t('catalog.sortPriceDesc')}</option>
-          </select>
-        </label>
-        <button
-          type="button"
-          className={`button sm catalog-in-stock-btn${inStock ? ' primary' : ' secondary'}`}
-          data-testid="catalog-in-stock-filter"
-          onClick={() => setInStock((v) => !v)}
-          aria-pressed={inStock}
-        >
-          {t('catalog.inStock')}
-        </button>
+          <CatalogSortMenu
+            sort={sort}
+            inStock={inStock}
+            onSortChange={setSort}
+            onInStockChange={setInStock}
+          />
+        </div>
         {showResetFilters ? (
           <button
             type="button"

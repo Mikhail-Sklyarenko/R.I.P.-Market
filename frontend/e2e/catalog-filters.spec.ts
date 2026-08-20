@@ -136,19 +136,36 @@ test.describe('Catalog filters', () => {
     await seedCatalogLots(request);
 
     await page.goto('/catalog');
-    await expect(page.getByTestId('catalog-sort')).toHaveValue('newest');
+    await expect(page.getByTestId('catalog-sort')).toHaveAttribute(
+      'data-sort',
+      'newest',
+    );
     await expect(page.getByTestId('catalog-popular-section')).toHaveCount(0);
     await expect(page.getByTestId('catalog-grid')).toBeVisible();
 
-    await page.getByTestId('catalog-sort').selectOption('popular');
+    await page.getByTestId('catalog-sort-trigger').click();
+    await page.getByTestId('catalog-sort-option-popular').click();
+    await expect(page.getByTestId('catalog-sort')).toHaveAttribute(
+      'data-sort',
+      'popular',
+    );
     await expect(page.getByTestId('catalog-popular-section')).toBeVisible();
 
-    await page.getByTestId('catalog-sort').selectOption('price-asc');
+    await page.getByTestId('catalog-sort-trigger').click();
+    await page.getByTestId('catalog-sort-option-price-asc').click();
     await expect(page.getByTestId('catalog-popular-section')).toHaveCount(0);
     await expect(page.getByTestId('catalog-grid')).toBeVisible();
 
-    await page.getByTestId('catalog-sort').selectOption('price-desc');
+    await page.getByTestId('catalog-sort-trigger').click();
+    await page.getByTestId('catalog-sort-option-price-desc').click();
     await expect(page.getByTestId('catalog-popular-section')).toHaveCount(0);
     await expect(page.getByTestId('catalog-grid')).toBeVisible();
+
+    await page.getByTestId('catalog-sort-trigger').click();
+    await page.getByTestId('catalog-in-stock-filter').click();
+    await expect(page.getByTestId('catalog-sort')).toHaveAttribute(
+      'data-in-stock',
+      'true',
+    );
   });
 });
