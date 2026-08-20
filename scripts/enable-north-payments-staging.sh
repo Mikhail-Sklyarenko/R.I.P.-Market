@@ -58,6 +58,14 @@ if [ "${SKIP_MIGRATE:-0}" != "1" ]; then
   npx prisma migrate deploy
 fi
 
+if [ "${SKIP_BACKEND_BUILD:-0}" != "1" ]; then
+  echo "==> Backend build (Nest)"
+  cd "$APP_DIR/backend"
+  npm ci
+  npx prisma generate
+  npx nest build
+fi
+
 if [ "${SKIP_FRONTEND:-0}" != "1" ]; then
   echo "==> Frontend env + rebuild"
   write_frontend_env false
