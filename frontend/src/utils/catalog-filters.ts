@@ -649,7 +649,23 @@ export const CATALOG_CATEGORY_OPTIONS: readonly CatalogCategoryOption[] = [
     icon: 'cases',
     modelIcon: "eSports 2014 Summer Case",
   },
-  // Pistols — full CS2 set (sorted like Steam / competitors)
+  // Pistols — most-played starters first, then the rest alphabetically.
+  {
+    value: 'Glock-18',
+    label: 'Glock-18',
+    weapon: 'Glock-18',
+    tabId: 'pistols',
+    icon: 'pistol',
+    modelIcon: 'glock-18',
+  },
+  {
+    value: 'USP-S',
+    label: 'USP-S',
+    weapon: 'USP-S',
+    tabId: 'pistols',
+    icon: 'pistol',
+    modelIcon: 'usp-s',
+  },
   {
     value: 'CZ75-Auto',
     label: 'CZ75-Auto',
@@ -683,14 +699,6 @@ export const CATALOG_CATEGORY_OPTIONS: readonly CatalogCategoryOption[] = [
     modelIcon: 'five-seven',
   },
   {
-    value: 'Glock-18',
-    label: 'Glock-18',
-    weapon: 'Glock-18',
-    tabId: 'pistols',
-    icon: 'pistol',
-    modelIcon: 'glock-18',
-  },
-  {
     value: 'P2000',
     label: 'P2000',
     weapon: 'P2000',
@@ -721,14 +729,6 @@ export const CATALOG_CATEGORY_OPTIONS: readonly CatalogCategoryOption[] = [
     tabId: 'pistols',
     icon: 'pistol',
     modelIcon: 'tec-9',
-  },
-  {
-    value: 'USP-S',
-    label: 'USP-S',
-    weapon: 'USP-S',
-    tabId: 'pistols',
-    icon: 'pistol',
-    modelIcon: 'usp-s',
   },
   // Rifles
   {

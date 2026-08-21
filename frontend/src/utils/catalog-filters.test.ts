@@ -34,6 +34,8 @@ describe('catalog-filters utils', () => {
     assert.equal(pistols.weapon?.includes('Glock-18'), true);
     assert.equal(pistols.weapon?.includes('Tec-9'), true);
     assert.equal(pistols.weapon?.includes('R8 Revolver'), true);
+    const pistolOrder = getCategoryOptionsForTab('pistols').map((o) => o.value);
+    assert.deepEqual(pistolOrder.slice(0, 2), ['Glock-18', 'USP-S']);
     const smg = resolveCatalogFilter('smg', '');
     assert.equal(smg.weapon?.includes('MP5-SD'), true);
     assert.equal(smg.weapon?.includes('P90'), true);
