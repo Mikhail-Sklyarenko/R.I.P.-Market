@@ -4,7 +4,7 @@ import { createOrder } from '../api/marketplace';
 import type { AuthUser, Lot } from '../api/types';
 import { useLocale } from '../i18n';
 import { useWalletSummary } from '../hooks/useWalletSummary';
-import { formatUsdtFromMinor } from '../utils/format';
+import { formatUsdFromMinor } from '../utils/format';
 import { isCredibleSteamGuidePrice } from '../utils/steam-guide-price';
 import { formatCounterpartyDisplayName } from '../utils/steam-profile';
 import { startSteamLogin } from '../utils/start-steam-login';
@@ -208,7 +208,7 @@ export function LotPurchaseCard({
           data-testid="checkout-deposit-link"
         >
           {t('checkout.depositButton')}
-          {shortfallMinor > 0 ? ` · ${formatUsdtFromMinor(shortfallMinor)}` : ''}
+          {shortfallMinor > 0 ? ` · ${formatUsdFromMinor(shortfallMinor)}` : ''}
         </Link>
       ) : (
         <button

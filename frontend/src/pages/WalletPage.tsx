@@ -27,7 +27,7 @@ import { PageHeader } from '../components/PageHeader';
 import { QrCode } from '../components/QrCode';
 import { useWallet } from '../wallet/WalletContext';
 import {
-  formatUsdtFromMinor,
+  formatUsdFromMinor,
   parseUsdToMinor,
   canShowMockDepositPanel,
 } from '../utils/format';
@@ -183,7 +183,7 @@ export function WalletPage() {
             if (latest) {
               setDepositCreditedNotice(
                 t('wallet.depositCredited', {
-                  amount: formatUsdtFromMinor(latest.amountMinor),
+                  amount: formatUsdFromMinor(latest.amountMinor),
                 }),
               );
             }
@@ -218,7 +218,7 @@ export function WalletPage() {
       return null;
     }
     if (amountMinor < minDepositMinor) {
-      setFieldError(t('wallet.minDepositError', { amount: formatUsdtFromMinor(minDepositMinor) }));
+      setFieldError(t('wallet.minDepositError', { amount: formatUsdFromMinor(minDepositMinor) }));
       return null;
     }
     setFieldError(null);
@@ -319,7 +319,7 @@ export function WalletPage() {
       return;
     }
     if (amountMinor < minWithdrawMinor) {
-      setWithdrawError(t('wallet.minWithdrawError', { amount: formatUsdtFromMinor(minWithdrawMinor) }));
+      setWithdrawError(t('wallet.minWithdrawError', { amount: formatUsdFromMinor(minWithdrawMinor) }));
       return;
     }
     if (amountMinor <= withdrawFeeMinor) {
@@ -353,7 +353,7 @@ export function WalletPage() {
       return [
         t('wallet.warningCheckoutNetwork'),
         t('wallet.warningOtherLost'),
-        t('wallet.warningMinDeposit', { amount: formatUsdtFromMinor(minDepositMinor) }),
+        t('wallet.warningMinDeposit', { amount: formatUsdFromMinor(minDepositMinor) }),
         t('wallet.warningCreditUsd'),
       ];
     }
@@ -363,7 +363,7 @@ export function WalletPage() {
         network: paymentConfig?.usdtNetwork ?? 'TRON',
       }),
       t('wallet.warningOtherLost'),
-      t('wallet.warningMinDeposit', { amount: formatUsdtFromMinor(minDepositMinor) }),
+      t('wallet.warningMinDeposit', { amount: formatUsdFromMinor(minDepositMinor) }),
       t('wallet.warningRate'),
     ];
   }, [depositMode, minDepositMinor, paymentConfig?.usdtNetwork, paymentConfig?.usdtToken, t]);
@@ -399,7 +399,7 @@ export function WalletPage() {
           title={t('wallet.needDepositTitle')}
           data-testid="deposit-needed-banner"
         >
-          {t('wallet.depositNeeded', { amount: formatUsdtFromMinor(neededMinor) })}
+          {t('wallet.depositNeeded', { amount: formatUsdFromMinor(neededMinor) })}
         </ErrorAlert>
       ) : null}
 
@@ -569,7 +569,7 @@ export function WalletPage() {
                     <ul className="wallet-crypto-list">
                       {depositStatus!.events.slice(0, 5).map((event) => (
                         <li key={event.id} data-testid={`deposit-event-${event.id}`}>
-                          <span>{formatUsdtFromMinor(event.amountMinor)}</span>
+                          <span>{formatUsdFromMinor(event.amountMinor)}</span>
                           <span className="muted small">
                             {new Date(event.createdAt).toLocaleString(
                               locale === 'en' ? 'en-US' : 'ru-RU',
@@ -639,7 +639,7 @@ export function WalletPage() {
                     <ul className="wallet-crypto-list">
                       {depositStatus!.events.slice(0, 5).map((event) => (
                         <li key={event.id} data-testid={`deposit-event-${event.id}`}>
-                          <span>{formatUsdtFromMinor(event.amountMinor)}</span>
+                          <span>{formatUsdFromMinor(event.amountMinor)}</span>
                           <span className="muted small">
                             {new Date(event.createdAt).toLocaleString(
                               locale === 'en' ? 'en-US' : 'ru-RU',
@@ -721,19 +721,19 @@ export function WalletPage() {
               <div className="wallet-withdraw-summary" data-testid="withdraw-summary">
                 <div>
                   <span className="muted small">{t('wallet.commission')}</span>
-                  <strong>{formatUsdtFromMinor(withdrawFeeMinor)}</strong>
+                  <strong>{formatUsdFromMinor(withdrawFeeMinor)}</strong>
                 </div>
                 <div>
                   <span className="muted small">{t('wallet.toReceive')}</span>
                   <strong data-testid="withdraw-net-amount">
                     {withdrawAmountMinor > withdrawFeeMinor
-                      ? formatUsdtFromMinor(withdrawNetMinor)
+                      ? formatUsdFromMinor(withdrawNetMinor)
                       : '—'}
                   </strong>
                 </div>
                 <div>
                   <span className="muted small">{t('wallet.minimum')}</span>
-                  <strong>{formatUsdtFromMinor(minWithdrawMinor)}</strong>
+                  <strong>{formatUsdFromMinor(minWithdrawMinor)}</strong>
                 </div>
               </div>
               {withdrawError ? (
@@ -748,10 +748,10 @@ export function WalletPage() {
                     {withdrawals.slice(0, 10).map((item) => (
                       <li key={item.id} data-testid={`withdrawal-row-${item.id}`}>
                         <div className="wallet-withdrawal-row-main">
-                          <span>{formatUsdtFromMinor(item.amountMinor)}</span>
+                          <span>{formatUsdFromMinor(item.amountMinor)}</span>
                           <span className="muted small">
                             {t('wallet.receivedAmount', {
-                              amount: formatUsdtFromMinor(item.netMinor),
+                              amount: formatUsdFromMinor(item.netMinor),
                             })}
                           </span>
                         </div>

@@ -232,8 +232,8 @@ const baseRuMessages = {
     depositAddress: 'Ваш адрес для пополнения',
     copy: 'Копировать',
     copied: 'Скопировано',
-    amountUsdt: 'Сумма (USDT)',
-    withdrawSubmit: 'Вывести USDT',
+    amountUsdt: 'Сумма (USD)',
+    withdrawSubmit: 'Вывести',
     withdrawSending: 'Отправка…',
     depositSubmit: 'Пополнить баланс',
     depositSubmitting: 'Пополняем…',
@@ -251,18 +251,18 @@ const baseRuMessages = {
     commission: 'Комиссия',
     depositAddressLoading: 'Загрузка адреса…',
     depositAwaiting:
-      'Ожидаем перевод… Зачисление появится после подтверждений в сети TRON.',
+      'Ожидаем перевод… USD на балансе появится после подтверждений в сети TRON.',
     depositNeeded: 'Для покупки нужно минимум {{amount}} на балансе.',
     depositQrAlt: 'QR-код для пополнения USDT TRC-20',
-    depositUsdtTitle: 'Пополнить USDT (TRC-20)',
-    depositUsdtCheckoutTitle: 'Пополнить USDT',
+    depositUsdtTitle: 'Пополнить через USDT (TRC-20)',
+    depositUsdtCheckoutTitle: 'Пополнить баланс',
     depositAwaitingCheckout:
-      'Ожидаем оплату на странице кассы… Зачисление появится после подтверждения сети.',
+      'Ожидаем оплату на странице кассы… USD на балансе появится после подтверждения сети.',
     depositPayCta: 'Перейти к оплате',
     depositRedirecting: 'Открываем кассу…',
     checkoutReturnTitle: 'Проверяем оплату',
     checkoutReturnBody:
-      'Если перевод уже отправлен, зачисление появится здесь автоматически после подтверждений сети. Можно закрыть кассу и подождать на этой странице.',
+      'Если перевод уже отправлен, USD на балансе появится здесь автоматически после подтверждений сети. Можно закрыть кассу и подождать на этой странице.',
     paymentNetwork: 'Сеть',
     paymentMethod: {
       trc20: 'USDT · TRC-20 (TRON)',
@@ -272,7 +272,7 @@ const baseRuMessages = {
     warningCheckoutNetwork:
       'Выберите одну сеть и оплатите только USDT в этой сети на странице кассы.',
     warningCreditUsd:
-      'На баланс зачисляется сумма в USD (creditUsd), а не USDT 1:1 — курс фиксирует касса.',
+      'На баланс зачисляется сумма в USD по курсу кассы — это не фиксированный обмен 1 USDT = 1 USD.',
     evmAddress: 'Адрес (0x…)',
     invalidEvmAddress: 'Укажите корректный EVM-адрес (0x…).',
     frozen: 'Заморожено',
@@ -286,7 +286,7 @@ const baseRuMessages = {
     openOrder: 'Открыть сделку',
     receivedAmount: 'к получению {{amount}}',
     testDepositBody:
-      'Зачисляет USDT на баланс для проверки покупок на staging. Не настоящие деньги.',
+      'Зачисляет USD на баланс для проверки покупок на staging. Не настоящие деньги.',
     testDepositTitle: 'Тестовое пополнение',
     toReceive: 'К получению',
     transactionsEmpty: 'История операций пока пуста.',
@@ -294,14 +294,15 @@ const baseRuMessages = {
     trc20Address: 'TRC-20 адрес',
     warningMinDeposit: 'Минимальное пополнение: {{amount}}.',
     warningOtherLost: 'Другие токены и сети будут потеряны безвозвратно.',
-    warningRate: 'Курс зачисления: 1 USDT = 1 USD на балансе маркетплейса.',
+    warningRate:
+      'Баланс маркетплейса в USD. Для этого способа пополнения 1 USDT на адресе = $1.00 на балансе.',
     warningTokenNetwork: 'Только {{token}} в сети {{network}}.',
     whatIsHoldBody:
       'При покупке сумма сделки переводится из «Доступно» в «В hold» — деньги зарезервированы, но ещё не переданы продавцу. После подтверждения обмена в Steam hold списывается в пользу продавца. При отмене или неудачной сделке средства возвращаются в «Доступно».',
     whatIsHoldTitle: 'Что такое hold?',
     withdrawUsdtBody:
-      'Средства спишутся с доступного баланса и будут отправлены на указанный TRC-20 адрес после проверки.',
-    withdrawUsdtTitle: 'Вывод USDT (TRC-20)',
+      'Сумма в USD спишется с доступного баланса; на указанный адрес уйдёт USDT после проверки.',
+    withdrawUsdtTitle: 'Вывод на USDT (TRC-20)',
   },
   account: {
     title: 'Аккаунт',
@@ -869,7 +870,7 @@ const baseRuMessages = {
   readiness: {
     checklistTitle: 'Готовность к сделкам',
     depositButton: 'Пополнить кошелёк',
-    insufficientGeneric: 'Пополните кошелёк USDT (TRC-20), чтобы подтвердить покупку.',
+    insufficientGeneric: 'Пополните баланс (USD), чтобы подтвердить покупку.',
     insufficientNeeded: 'Для покупки нужно минимум {{amount}} на балансе.',
     insufficientTitle: 'Недостаточно средств',
     steamHint: 'Привяжите Steam, чтобы синхронизировать инвентарь и участвовать в сделках.',
@@ -1026,9 +1027,9 @@ const baseRuMessages = {
     SETTLEMENT_SELLER: 'Выплата продавцу',
     SETTLEMENT_PLATFORM_COMMISSION: 'Комиссия платформы',
     REFUND: 'Возврат средств',
-    WITHDRAWAL: 'Вывод USDT',
+    WITHDRAWAL: 'Вывод средств',
     WITHDRAWAL_REFUND: 'Возврат вывода',
-    WITHDRAW: 'Вывод USDT',
+    WITHDRAW: 'Вывод средств',
     WITHDRAW_FEE: 'Комиссия вывода',
     MANUAL_ADJUSTMENT: 'Ручная корректировка',
   },

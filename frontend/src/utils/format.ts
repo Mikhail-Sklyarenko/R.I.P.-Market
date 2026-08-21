@@ -20,7 +20,10 @@ export function formatUsdFromMinor(minor: string | number): string {
   }).format(value / 100);
 }
 
-/** Display USDT in crypto wallet UI; ledger still stores USD minor (1 USDT = 1 USD). */
+/**
+ * Format an on-chain USDT amount (minor = cents of USDT face value).
+ * Marketplace balances and prices must use {@link formatUsdFromMinor} — ledger is USD.
+ */
 export function formatUsdtFromMinor(minor: string | number): string {
   const value = typeof minor === 'string' ? Number(minor) : minor;
   const amount = new Intl.NumberFormat('en-US', {

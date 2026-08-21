@@ -35,7 +35,7 @@ test.describe('Wallet crypto withdrawal', () => {
 
     await page.getByTestId('withdraw-address-input').fill(VALID_TEST_ADDRESS);
     await page.getByTestId('withdraw-amount-input').fill('20');
-    await expect(page.getByTestId('withdraw-net-amount')).toContainText('19.00 USDT');
+    await expect(page.getByTestId('withdraw-net-amount')).toContainText('$19.00');
     await page.getByTestId('withdraw-submit').click();
 
     await expect(page.getByTestId('wallet-crypto-withdrawals')).toBeVisible();

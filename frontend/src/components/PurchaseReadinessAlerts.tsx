@@ -4,7 +4,7 @@ import { useLocale } from '../i18n';
 import { ErrorAlert } from './ErrorAlert';
 import { hasLinkedSteamId } from '../utils/steam-id';
 import { hasTradeUrl } from '../utils/trade-url';
-import { formatUsdtFromMinor } from '../utils/format';
+import { formatUsdFromMinor } from '../utils/format';
 
 type PurchaseReadinessAlertsProps = {
   user: AuthUser | null;
@@ -75,7 +75,7 @@ export function PurchaseReadinessAlerts({
         <div data-testid="purchase-insufficient-balance">
           <ErrorAlert variant="info" title={t('readiness.insufficientTitle')}>
             {neededMinor
-              ? t('readiness.insufficientNeeded', { amount: formatUsdtFromMinor(neededMinor) })
+              ? t('readiness.insufficientNeeded', { amount: formatUsdFromMinor(neededMinor) })
               : t('readiness.insufficientGeneric')}
           </ErrorAlert>
           {showDepositAction && walletDepositHref ? (

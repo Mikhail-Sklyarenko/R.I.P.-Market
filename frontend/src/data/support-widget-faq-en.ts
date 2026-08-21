@@ -14,7 +14,7 @@ export const SUPPORT_WIDGET_ARTICLES_EN: readonly SupportWidgetArticle[] = [
     title: "I deposited but the balance didn't update",
     keywords: ['deposit', 'usdt', 'balance'],
     body:
-      'Check the TRC-20 network and minimum amount. Credit appears after TRON network confirmations — sometimes it takes 5–15 minutes.',
+      'Check the selected network and minimum amount. USD is credited after network confirmations — sometimes it takes 5–15 minutes.',
   },
   {
     id: 'widget-trade-stuck',

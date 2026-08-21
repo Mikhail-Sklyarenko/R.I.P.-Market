@@ -230,8 +230,8 @@ const baseEnMessages = {
     depositAddress: 'Your deposit address',
     copy: 'Copy',
     copied: 'Copied',
-    amountUsdt: 'Amount (USDT)',
-    withdrawSubmit: 'Withdraw USDT',
+    amountUsdt: 'Amount (USD)',
+    withdrawSubmit: 'Withdraw',
     withdrawSending: 'Submitting…',
     depositSubmit: 'Add funds',
     depositSubmitting: 'Depositing…',
@@ -248,18 +248,18 @@ const baseEnMessages = {
     colType: 'Type',
     commission: 'Fee',
     depositAddressLoading: 'Loading address…',
-    depositAwaiting: 'Awaiting transfer… Funds will appear after TRON network confirmations.',
+    depositAwaiting: 'Awaiting transfer… USD appears on your balance after TRON network confirmations.',
     depositNeeded: 'You need at least {{amount}} in your balance to buy.',
     depositQrAlt: 'QR code for USDT TRC-20 deposit',
-    depositUsdtTitle: 'Deposit USDT (TRC-20)',
-    depositUsdtCheckoutTitle: 'Deposit USDT',
+    depositUsdtTitle: 'Deposit via USDT (TRC-20)',
+    depositUsdtCheckoutTitle: 'Add funds',
     depositAwaitingCheckout:
-      'Waiting for payment on the checkout page… Funds appear after network confirmation.',
+      'Waiting for payment on the checkout page… USD appears on your balance after network confirmation.',
     depositPayCta: 'Continue to payment',
     depositRedirecting: 'Opening checkout…',
     checkoutReturnTitle: 'Checking your payment',
     checkoutReturnBody:
-      'If you already sent the transfer, the credit will appear here automatically after network confirmations. You can close the checkout page and wait here.',
+      'If you already sent the transfer, USD will appear here automatically after network confirmations. You can close the checkout page and wait here.',
     paymentNetwork: 'Network',
     paymentMethod: {
       trc20: 'USDT · TRC-20 (TRON)',
@@ -269,7 +269,7 @@ const baseEnMessages = {
     warningCheckoutNetwork:
       'Choose one network and pay only USDT on that rail on the checkout page.',
     warningCreditUsd:
-      'Your balance is credited in USD (creditUsd), not USDT 1:1 — the gateway locks the rate.',
+      'Your balance is credited in USD at the checkout rate — not a fixed 1 USDT = 1 USD conversion.',
     evmAddress: 'Address (0x…)',
     invalidEvmAddress: 'Enter a valid EVM address (0x…).',
     frozen: 'Frozen',
@@ -283,7 +283,7 @@ const baseEnMessages = {
     openOrder: 'Open deal',
     receivedAmount: 'net {{amount}}',
     testDepositBody:
-      'Credits USDT to your balance for testing purchases on staging. Not real money.',
+      'Credits USD to your balance for testing purchases on staging. Not real money.',
     testDepositTitle: 'Test deposit',
     toReceive: 'You’ll receive',
     transactionsEmpty: 'Transaction history is empty.',
@@ -291,14 +291,15 @@ const baseEnMessages = {
     trc20Address: 'TRC-20 address',
     warningMinDeposit: 'Minimum deposit: {{amount}}.',
     warningOtherLost: 'Other tokens and networks will be lost permanently.',
-    warningRate: 'Conversion rate: 1 USDT = 1 USD on the marketplace balance.',
+    warningRate:
+      'Marketplace balance is in USD. On this deposit method, 1 USDT sent equals $1.00 credited.',
     warningTokenNetwork: 'Only {{token}} on the {{network}} network.',
     whatIsHoldBody:
       'When you buy, the deal amount moves from "Available" to "On hold" — the funds are reserved but not yet transferred to the seller. Once the Steam trade is confirmed, the hold is released to the seller. If the deal is canceled or fails, the funds return to "Available".',
     whatIsHoldTitle: 'What is a hold?',
     withdrawUsdtBody:
-      'Funds will be deducted from your available balance and sent to the specified TRC-20 address after review.',
-    withdrawUsdtTitle: 'Withdraw USDT (TRC-20)',
+      'USD is deducted from your available balance; USDT is sent to the address after review.',
+    withdrawUsdtTitle: 'Withdraw to USDT (TRC-20)',
   },
   account: {
     title: 'Account',

@@ -92,11 +92,11 @@ export const SUPPORT_FAQ_CATEGORIES_EN: readonly SupportFaqCategory[] = [
       {
         id: 'wallet-deposit',
         category: 'deposit',
-        title: 'How to deposit USDT',
-        keywords: ['wallet', 'usdt', 'deposit', 'balance', 'trc-20'],
+        title: 'How to add funds',
+        keywords: ['wallet', 'usdt', 'deposit', 'balance', 'trc-20', 'usd'],
         body:
-          'Open Wallet → Deposit. Copy the TRC-20 address or scan the QR code. Send USDT only on the TRON (TRC-20) network.\n\n' +
-          'Minimum amount and warnings are shown on the page. Credit usually appears in 5–15 minutes after network confirmations. Rate: 1 USDT = 1 USD on the marketplace balance.',
+          'Open Wallet → Deposit. Enter the amount in USD and choose a network (TRC-20, BEP-20, or ERC-20). On the checkout page, pay only USDT on the selected network.\n\n' +
+          'Minimum amount and warnings are shown on the page. Your balance is credited in USD at the checkout rate — not a fixed 1 USDT = 1 USD conversion. Credit usually appears in 5–15 minutes after network confirmations.',
       },
       {
         id: 'wallet-hold',
@@ -113,7 +113,7 @@ export const SUPPORT_FAQ_CATEGORIES_EN: readonly SupportFaqCategory[] = [
         title: 'I sent USDT on the wrong network',
         keywords: ['network', 'erc-20', 'bep-20', 'deposit error'],
         body:
-          'We only accept USDT TRC-20. Transfers on ERC-20, BEP-20, and other networks are not credited automatically and may be lost.\n\n' +
+          'Pay only on the network you selected when creating the payment. Transfers on a different network are not credited automatically and may be lost.\n\n' +
           'If this already happened, open a support ticket immediately with the transaction hash and sender address.',
       },
     ],
@@ -188,7 +188,7 @@ export const SUPPORT_FAQ_CATEGORIES_EN: readonly SupportFaqCategory[] = [
         keywords: ['price', 'fee', 'steam', 'market'],
         body:
           'The catalog shows Steam and marketplace prices — use them as a guide when listing. The marketplace fee is 5%; estimated payout is shown when you create a listing.\n\n' +
-          'Prices are in USD/USDT. You can change the price or remove an active listing from Inventory or My listings.',
+          'Prices are in USD. You can change the price or remove an active listing from Inventory or My listings.',
       },
     ],
   },
@@ -199,10 +199,10 @@ export const SUPPORT_FAQ_CATEGORIES_EN: readonly SupportFaqCategory[] = [
       {
         id: 'wallet-withdraw',
         category: 'withdrawal',
-        title: 'How to withdraw USDT',
-        keywords: ['withdraw', 'usdt', 'trc-20', 'wallet'],
+        title: 'How to withdraw',
+        keywords: ['withdraw', 'usdt', 'trc-20', 'wallet', 'usd'],
         body:
-          'Open Wallet → Withdraw. Enter a TRC-20 address and amount. Funds are taken from available balance.\n\n' +
+          'Open Wallet → Withdraw. Enter the amount in USD and a USDT destination address. USD is taken from available balance; USDT is sent after review.\n\n' +
           'Check the fee and minimum amount in the form. Request status is in the withdrawal history on the same tab.',
       },
       {

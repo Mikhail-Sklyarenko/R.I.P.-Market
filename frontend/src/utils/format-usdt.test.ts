@@ -1,10 +1,17 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
-import { formatUsdtFromMinor } from './format.ts';
+import { formatUsdFromMinor, formatUsdtFromMinor } from './format.ts';
 import { getTrc20AddressError, isValidTrc20Address } from './trc20-address.ts';
 
+describe('formatUsdFromMinor', () => {
+  it('formats ledger minor units as USD', () => {
+    assert.equal(formatUsdFromMinor(100), '$1.00');
+    assert.equal(formatUsdFromMinor(12_345), '$123.45');
+  });
+});
+
 describe('formatUsdtFromMinor', () => {
-  it('formats minor units as USDT with two decimals', () => {
+  it('formats on-chain USDT face amounts (not marketplace balance)', () => {
     assert.equal(formatUsdtFromMinor(100), '1.00 USDT');
     assert.equal(formatUsdtFromMinor(12_345), '123.45 USDT');
   });

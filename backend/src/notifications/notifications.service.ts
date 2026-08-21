@@ -374,7 +374,7 @@ export class NotificationsService {
         userId,
         eventType: 'DEPOSIT_CONFIRMED',
         title: 'Пополнение зачислено',
-        message: `На баланс зачислено $${(Number(amountMinor) / 100).toFixed(2)} (USDT TRC-20).`,
+        message: `На баланс зачислено $${(Number(amountMinor) / 100).toFixed(2)} USD.`,
         payload: payload ?? {},
       },
     });
