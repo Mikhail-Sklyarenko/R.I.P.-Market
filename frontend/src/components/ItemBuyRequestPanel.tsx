@@ -3,6 +3,8 @@ import { Link } from 'react-router-dom';
 import type { BuyRequest, CatalogItem } from '../api/types';
 import { ApiError } from '../api/types';
 import { useLocale, wearLabel } from '../i18n';
+import { formatBuyRequestCreatedAge } from '../utils/buy-request-display';
+import { parseWearCodeFromMarketHashName } from '../utils/catalog-lot-display';
 import { formatUsdFromMinor, parseUsdToMinor } from '../utils/format';
 import {
   CATALOG_WEAR_FILTERS,
@@ -11,6 +13,103 @@ import {
 import { ErrorAlert } from './ErrorAlert';
 import { InventoryPriceStack } from './InventoryPriceStack';
 import { MoneyDisplay } from './MoneyDisplay';
+
+type ActiveBuyRequestCardProps = {
+  request: BuyRequest;
+  showWearChip: boolean;
+  selectedWear: string;
+  submitting: boolean;
+  cancelingId: string | null;
+  onCancel: (requestId: string) => void;
+};
+
+function resolveRequestWearCode(request: BuyRequest, selectedWear: string): string | null {
+  return (
+    parseWearCodeFromMarketHashName(request.itemDefinition?.marketHashName ?? '') ||
+    selectedWear ||
+    null
+  );
+}
+
+function ActiveBuyRequestCard({
+  request,
+  showWearChip,
+  selectedWear,
+  submitting,
+  cancelingId,
+  onCancel,
+}: ActiveBuyRequestCardProps) {
+  const { locale, t } = useLocale();
+  const wearCode = resolveRequestWearCode(request, selectedWear);
+  const createdAge = formatBuyRequestCreatedAge(request.createdAt, locale);
+  const isCanceling = cancelingId === request.id;
+
+  return (
+    <article
+      className="item-buy-request-active"
+      data-testid={`item-buy-request-active-${request.id}`}
+    >
+      <div className="item-buy-request-active-head">
+        <div className="item-buy-request-active-status">
+          <span className="badge badge-active">{t('buyRequestPanel.activeBadge')}</span>
+          {createdAge ? (
+            <span className="item-buy-request-active-age muted small">{createdAge}</span>
+          ) : null}
+        </div>
+        <button
+          type="button"
+          className="button ghost sm item-buy-request-active-cancel"
+          disabled={submitting || isCanceling}
+          data-testid={`item-buy-request-cancel-${request.id}`}
+          onClick={() => onCancel(request.id)}
+        >
+          {isCanceling ? t('buyRequestPanel.canceling') : t('buyRequestPanel.cancel')}
+        </button>
+      </div>
+
+      <dl className="item-buy-request-active-metrics">
+        <div className="item-buy-request-active-metric item-buy-request-active-metric-primary">
+          <dt>{t('buyRequestPanel.maxPriceLabel')}</dt>
+          <dd>
+            {request.maxPriceMinor ? (
+              <MoneyDisplay minor={request.maxPriceMinor} strong />
+            ) : (
+              t('item.noPriceLimit')
+            )}
+          </dd>
+        </div>
+        {request.reservedAmountMinor ? (
+          <div className="item-buy-request-active-metric">
+            <dt>{t('buyRequestPanel.reservedLabel')}</dt>
+            <dd>
+              <MoneyDisplay minor={request.reservedAmountMinor} />
+            </dd>
+          </div>
+        ) : null}
+        {request.quantity > 1 ? (
+          <div className="item-buy-request-active-metric">
+            <dt>{t('buyRequestPanel.quantityLabel')}</dt>
+            <dd>
+              {t('buyRequestPanel.quantityShort', {
+                filled: request.quantityFilled,
+                total: request.quantity,
+              })}
+            </dd>
+          </div>
+        ) : null}
+      </dl>
+
+      {showWearChip && wearCode ? (
+        <span
+          className="item-buy-request-active-wear-chip"
+          data-testid={`item-buy-request-active-wear-${request.id}`}
+        >
+          {getWearDisplayLabel(wearCode, locale)}
+        </span>
+      ) : null}
+    </article>
+  );
+}
 
 type ItemBuyRequestPanelProps = {
   item: CatalogItem;
@@ -153,60 +252,15 @@ export function ItemBuyRequestPanel({
               data-testid="item-buy-request-active-list"
             >
               {openBuyRequests.map((request) => (
-                <div
+                <ActiveBuyRequestCard
                   key={request.id}
-                  className="item-buy-request-active"
-                  data-testid={`item-buy-request-active-${request.id}`}
-                >
-                  <p className="item-buy-request-active-price">
-                    {request.maxPriceMinor ? (
-                      <>
-                        {t('buyRequestPanel.upTo')}{' '}
-                        <MoneyDisplay minor={request.maxPriceMinor} strong />
-                      </>
-                    ) : (
-                      t('item.noPriceLimit')
-                    )}
-                    {request.quantity > 1 ? (
-                      <span className="muted small">
-                        {' '}
-                        · {t('buyRequestPanel.quantityShort', {
-                          filled: request.quantityFilled,
-                          total: request.quantity,
-                        })}
-                      </span>
-                    ) : null}
-                    {request.reservedAmountMinor ? (
-                      <span className="muted small">
-                        {' '}
-                        · {t('buyRequestPanel.reserved')}{' '}
-                        <MoneyDisplay minor={request.reservedAmountMinor} />
-                      </span>
-                    ) : null}
-                    {request.itemDefinition?.marketHashName ? (
-                      <span className="muted small item-buy-request-active-wear">
-                        {' '}
-                        · {request.itemDefinition.marketHashName}
-                      </span>
-                    ) : selectedWear ? (
-                      <span className="muted small item-buy-request-active-wear">
-                        {' '}
-                        · {getWearDisplayLabel(selectedWear, locale)}
-                      </span>
-                    ) : null}
-                  </p>
-                  <button
-                    type="button"
-                    className="button secondary sm"
-                    disabled={submitting || cancelingId === request.id}
-                    data-testid={`item-buy-request-cancel-${request.id}`}
-                    onClick={() => onCancel(request.id)}
-                  >
-                    {cancelingId === request.id
-                      ? t('buyRequestPanel.canceling')
-                      : t('buyRequestPanel.cancel')}
-                  </button>
-                </div>
+                  request={request}
+                  showWearChip={requiresWear}
+                  selectedWear={selectedWear}
+                  submitting={submitting}
+                  cancelingId={cancelingId}
+                  onCancel={onCancel}
+                />
               ))}
             </div>
           </details>
