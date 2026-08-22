@@ -10,6 +10,10 @@ type ItemOrderBookProps = {
   showSellHint?: boolean;
   /** When true, hide the bids column if there are no buy requests. */
   hideEmptyBids?: boolean;
+  /** When true, hide the asks column if there are no listings. */
+  hideEmptyAsks?: boolean;
+  /** Lighter layout for embedding under the item preview. */
+  variant?: 'default' | 'compact';
 };
 
 function formatFloat(value: number | null): string {
@@ -24,12 +28,18 @@ export function ItemOrderBook({
   loading = false,
   showSellHint = false,
   hideEmptyBids = false,
+  hideEmptyAsks = false,
+  variant = 'default',
 }: ItemOrderBookProps) {
   const { locale, t } = useLocale();
+  const isCompact = variant === 'compact';
+  const cardClassName = `card item-order-book-card${
+    isCompact ? ' item-order-book-compact' : ''
+  }`;
 
   if (loading) {
     return (
-      <section className="card item-order-book-card" data-testid="item-order-book">
+      <section className={cardClassName} data-testid="item-order-book">
         <LoadingState message={t('orderBook.loading')} />
       </section>
     );
@@ -46,10 +56,19 @@ export function ItemOrderBook({
   const hasBids = orderBook.bids.length > 0;
   const hasAsks = orderBook.asksSummary.count > 0;
   const showBidsColumn = hasBids || !hideEmptyBids;
+  const showAsksColumn = hasAsks || !hideEmptyAsks;
+  const singleColumn = showBidsColumn !== showAsksColumn;
 
-  if (!hasBids && !hasAsks) {
+  if (!showBidsColumn && !showAsksColumn) {
+    return null;
+  }
+
+  if (!hasBids && !hasAsks && !isCompact) {
     return (
-      <section className="card item-order-book-card item-order-book-empty" data-testid="item-order-book">
+      <section
+        className={`${cardClassName} item-order-book-empty`}
+        data-testid="item-order-book"
+      >
         <div className="item-order-book-header">
           <div>
             <h2>{t('orderBook.title')}</h2>
@@ -64,21 +83,37 @@ export function ItemOrderBook({
   }
 
   return (
-    <section className="card item-order-book-card" data-testid="item-order-book">
-      <div className="item-order-book-header">
-        <div>
-          <h2>{t('orderBook.title')}</h2>
-          <p className="muted small">{t('orderBook.subtitle')}</p>
+    <section className={cardClassName} data-testid="item-order-book">
+      {!isCompact ? (
+        <div className="item-order-book-header">
+          <div>
+            <h2>{t('orderBook.title')}</h2>
+            <p className="muted small">{t('orderBook.subtitle')}</p>
+          </div>
+          {orderBook.bestBidMinor && orderBook.bestAskMinor ? (
+            <p className="item-order-book-spread muted small" data-testid="item-order-book-spread">
+              {t('orderBook.spread')}: <MoneyDisplay minor={orderBook.spreadMinor ?? '0'} />
+            </p>
+          ) : null}
         </div>
-        {orderBook.bestBidMinor && orderBook.bestAskMinor ? (
-          <p className="item-order-book-spread muted small" data-testid="item-order-book-spread">
-            {t('orderBook.spread')}: <MoneyDisplay minor={orderBook.spreadMinor ?? '0'} />
-          </p>
-        ) : null}
-      </div>
+      ) : (
+        <div className="item-order-book-compact-header">
+          <h3 className="item-order-book-compact-title">{t('orderBook.title')}</h3>
+          {orderBook.bestBidMinor && orderBook.bestAskMinor ? (
+            <p className="item-order-book-spread muted small" data-testid="item-order-book-spread">
+              {t('orderBook.spread')}: <MoneyDisplay minor={orderBook.spreadMinor ?? '0'} />
+            </p>
+          ) : null}
+        </div>
+      )}
 
       {showSellHint && hasBids ? (
-        <p className="item-order-book-sell-hint" data-testid="item-order-book-sell-hint">
+        <p
+          className={`item-order-book-sell-hint${
+            isCompact ? ' item-order-book-sell-hint-compact' : ''
+          }`}
+          data-testid="item-order-book-sell-hint"
+        >
           {t('orderBook.sellHintPrefix', { count: totalBidQuantity })}{' '}
           <MoneyDisplay minor={orderBook.bestBidMinor ?? '0'} strong />
           {'. '}
@@ -90,8 +125,8 @@ export function ItemOrderBook({
 
       <div
         className={`item-order-book-grid${
-          showBidsColumn ? '' : ' item-order-book-grid-asks-only'
-        }`}
+          singleColumn ? ' item-order-book-grid-single' : ''
+        }${showBidsColumn ? '' : ' item-order-book-grid-asks-only'}`}
       >
         {showBidsColumn ? (
         <div className="item-order-book-side item-order-book-bids" data-testid="item-order-book-bids">
@@ -128,6 +163,7 @@ export function ItemOrderBook({
         </div>
         ) : null}
 
+        {showAsksColumn ? (
         <div className="item-order-book-side item-order-book-asks" data-testid="item-order-book-asks">
           <h3 className="item-order-book-side-title">{t('orderBook.asksTitle')}</h3>
           {!hasAsks ? (
@@ -185,6 +221,7 @@ export function ItemOrderBook({
             </>
           )}
         </div>
+        ) : null}
       </div>
     </section>
   );

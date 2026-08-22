@@ -18,6 +18,7 @@ import { useWearSteamPrice } from '../hooks/useWearSteamPrice';
 import { usePageMeta } from '../hooks/usePageMeta';
 import { DealFlowSteps } from '../components/DealFlowSteps';
 import { BUY_REQUEST_FLOW_STEP_ITEMS } from '../utils/order-flow';
+import { excludeOwnBuyRequestsFromOrderBook } from '../utils/order-book-display';
 import { ErrorAlert } from '../components/ErrorAlert';
 import { InventoryPriceStack } from '../components/InventoryPriceStack';
 import { ItemBuyRequestPanel } from '../components/ItemBuyRequestPanel';
@@ -96,6 +97,12 @@ export function ItemPage() {
       return !wearInName || wearInName === selectedWear;
     });
   }, [buyRequests, selectedWear]);
+  const buyRequestOrderBook = useMemo(() => {
+    if (!orderBook) {
+      return null;
+    }
+    return excludeOwnBuyRequestsFromOrderBook(orderBook, openBuyRequests);
+  }, [orderBook, openBuyRequests]);
   const cheapestLot = lots[0] ?? null;
   const wearOptions = item?.availableWears ?? [];
   const effectiveWear =
@@ -374,6 +381,15 @@ export function ItemPage() {
                       />
                     </div>
                   </div>
+
+                  <ItemOrderBook
+                    orderBook={buyRequestOrderBook}
+                    loading={orderBookLoading}
+                    showSellHint
+                    hideEmptyBids
+                    hideEmptyAsks
+                    variant="compact"
+                  />
                 </div>
 
                 <aside className="lot-page-sidebar">
@@ -397,12 +413,6 @@ export function ItemPage() {
                   />
                 </aside>
               </div>
-
-              <ItemOrderBook
-                orderBook={orderBook}
-                loading={orderBookLoading}
-                showSellHint
-              />
 
               <DealFlowSteps
                 title={t('item.howRequestWorks')}

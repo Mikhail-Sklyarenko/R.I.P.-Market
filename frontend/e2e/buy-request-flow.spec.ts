@@ -75,6 +75,10 @@ test.describe('Buy request balance and quantity', () => {
 
     await loginAsBuyer(page);
     await page.goto(`/catalog/items/${item.id}`);
+    const activeDetails = page.getByTestId('item-buy-request-active-details');
+    if (!(await activeDetails.evaluate((node) => (node as HTMLDetailsElement).open))) {
+      await activeDetails.locator('summary').click();
+    }
     await expect(page.getByTestId('item-buy-request-active-list')).toBeVisible();
     await expect(page.getByTestId(`item-buy-request-active-${firstBody.id}`)).toBeVisible();
 

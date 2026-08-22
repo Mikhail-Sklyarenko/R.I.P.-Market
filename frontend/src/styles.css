@@ -5254,6 +5254,44 @@ a.button.primary {
   margin-top: var(--space-4);
 }
 
+.item-order-book-compact {
+  margin-top: 0;
+  gap: var(--space-3);
+  padding: var(--space-3);
+}
+
+.item-order-book-compact-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+
+.item-order-book-compact-title {
+  margin: 0;
+  font-size: var(--font-size-md);
+  font-weight: var(--font-weight-semibold);
+}
+
+.item-order-book-compact .item-order-book-side-title {
+  margin-bottom: var(--space-2);
+  font-size: var(--font-size-sm);
+}
+
+.item-order-book-compact .item-order-book-table th,
+.item-order-book-compact .item-order-book-table td {
+  padding: 0.4rem 0.25rem;
+}
+
+.item-order-book-sell-hint-compact {
+  padding: var(--space-2);
+  font-size: var(--font-size-xs);
+}
+
+.item-order-book-grid-single {
+  grid-template-columns: minmax(0, 1fr);
+}
+
 .item-order-book-header {
   display: flex;
   align-items: flex-start;
@@ -5610,11 +5648,31 @@ a.button.primary {
 .item-buy-request-active {
   display: flex;
   flex-direction: column;
-  gap: var(--space-3);
-  padding: var(--space-4);
+  gap: var(--space-2);
+  padding: var(--space-3);
   border: 1px solid rgba(34, 197, 94, 0.22);
   border-radius: var(--radius-md);
   background: rgba(34, 197, 94, 0.06);
+}
+
+.item-buy-request-active-details {
+  margin-bottom: var(--space-1);
+}
+
+.item-buy-request-active-summary {
+  color: #86efac;
+  font-weight: var(--font-weight-semibold);
+}
+
+.item-buy-request-active-details .item-buy-request-active-list {
+  display: grid;
+  gap: var(--space-2);
+  margin: 0;
+  padding-top: var(--space-2);
+}
+
+.item-buy-request-active-details .item-buy-request-active-price {
+  font-size: var(--font-size-md);
 }
 
 .item-buy-request-active-title {

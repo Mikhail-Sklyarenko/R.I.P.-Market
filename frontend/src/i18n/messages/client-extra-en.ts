@@ -143,6 +143,7 @@ export const clientExtraEn = {
     lead:
       "No one is selling this skin right now. Leave a request — we'll notify you when a matching listing appears. Funds are reserved on your wallet.",
     activeListTitle: 'Active requests',
+    activeListSummary: 'Active requests ({{count}})',
     active: 'Request active',
     upTo: 'Up to',
     cancel: 'Cancel',

@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import type { BuyRequest, CatalogItem } from '../api/types';
 import { ApiError } from '../api/types';
@@ -91,6 +91,17 @@ export function ItemBuyRequestPanel({
 
   const insufficientBalance =
     requestError instanceof ApiError && requestError.code === 'INSUFFICIENT_BALANCE';
+  const activeRequestIds = useMemo(
+    () => openBuyRequests.map((request) => request.id).join('-'),
+    [openBuyRequests],
+  );
+  const [activeListExpanded, setActiveListExpanded] = useState(
+    () => openBuyRequests.length <= 1,
+  );
+
+  useEffect(() => {
+    setActiveListExpanded(openBuyRequests.length <= 1);
+  }, [activeRequestIds, openBuyRequests.length]);
 
   return (
     <div
@@ -128,65 +139,77 @@ export function ItemBuyRequestPanel({
         </details>
 
         {openBuyRequests.length > 0 ? (
-          <div className="item-buy-request-active-list" data-testid="item-buy-request-active-list">
-            <p className="item-buy-request-active-title">{t('buyRequestPanel.activeListTitle')}</p>
-            {openBuyRequests.map((request) => (
-              <div
-                key={request.id}
-                className="item-buy-request-active"
-                data-testid={`item-buy-request-active-${request.id}`}
-              >
-                <p className="item-buy-request-active-price">
-                  {request.maxPriceMinor ? (
-                    <>
-                      {t('buyRequestPanel.upTo')}{' '}
-                      <MoneyDisplay minor={request.maxPriceMinor} strong />
-                    </>
-                  ) : (
-                    t('item.noPriceLimit')
-                  )}
-                  {request.quantity > 1 ? (
-                    <span className="muted small">
-                      {' '}
-                      · {t('buyRequestPanel.quantityShort', {
-                        filled: request.quantityFilled,
-                        total: request.quantity,
-                      })}
-                    </span>
-                  ) : null}
-                  {request.reservedAmountMinor ? (
-                    <span className="muted small">
-                      {' '}
-                      · {t('buyRequestPanel.reserved')}{' '}
-                      <MoneyDisplay minor={request.reservedAmountMinor} />
-                    </span>
-                  ) : null}
-                  {request.itemDefinition?.marketHashName ? (
-                    <span className="muted small item-buy-request-active-wear">
-                      {' '}
-                      · {request.itemDefinition.marketHashName}
-                    </span>
-                  ) : selectedWear ? (
-                    <span className="muted small item-buy-request-active-wear">
-                      {' '}
-                      · {getWearDisplayLabel(selectedWear, locale)}
-                    </span>
-                  ) : null}
-                </p>
-                <button
-                  type="button"
-                  className="button secondary sm"
-                  disabled={submitting || cancelingId === request.id}
-                  data-testid={`item-buy-request-cancel-${request.id}`}
-                  onClick={() => onCancel(request.id)}
+          <details
+            className="item-buy-request-active-details lot-pricing-details"
+            data-testid="item-buy-request-active-details"
+            open={activeListExpanded}
+            onToggle={(event) => setActiveListExpanded(event.currentTarget.open)}
+          >
+            <summary className="lot-pricing-details-summary item-buy-request-active-summary">
+              {t('buyRequestPanel.activeListSummary', { count: openBuyRequests.length })}
+            </summary>
+            <div
+              className="item-buy-request-active-list lot-pricing-details-body"
+              data-testid="item-buy-request-active-list"
+            >
+              {openBuyRequests.map((request) => (
+                <div
+                  key={request.id}
+                  className="item-buy-request-active"
+                  data-testid={`item-buy-request-active-${request.id}`}
                 >
-                  {cancelingId === request.id
-                    ? t('buyRequestPanel.canceling')
-                    : t('buyRequestPanel.cancel')}
-                </button>
-              </div>
-            ))}
-          </div>
+                  <p className="item-buy-request-active-price">
+                    {request.maxPriceMinor ? (
+                      <>
+                        {t('buyRequestPanel.upTo')}{' '}
+                        <MoneyDisplay minor={request.maxPriceMinor} strong />
+                      </>
+                    ) : (
+                      t('item.noPriceLimit')
+                    )}
+                    {request.quantity > 1 ? (
+                      <span className="muted small">
+                        {' '}
+                        · {t('buyRequestPanel.quantityShort', {
+                          filled: request.quantityFilled,
+                          total: request.quantity,
+                        })}
+                      </span>
+                    ) : null}
+                    {request.reservedAmountMinor ? (
+                      <span className="muted small">
+                        {' '}
+                        · {t('buyRequestPanel.reserved')}{' '}
+                        <MoneyDisplay minor={request.reservedAmountMinor} />
+                      </span>
+                    ) : null}
+                    {request.itemDefinition?.marketHashName ? (
+                      <span className="muted small item-buy-request-active-wear">
+                        {' '}
+                        · {request.itemDefinition.marketHashName}
+                      </span>
+                    ) : selectedWear ? (
+                      <span className="muted small item-buy-request-active-wear">
+                        {' '}
+                        · {getWearDisplayLabel(selectedWear, locale)}
+                      </span>
+                    ) : null}
+                  </p>
+                  <button
+                    type="button"
+                    className="button secondary sm"
+                    disabled={submitting || cancelingId === request.id}
+                    data-testid={`item-buy-request-cancel-${request.id}`}
+                    onClick={() => onCancel(request.id)}
+                  >
+                    {cancelingId === request.id
+                      ? t('buyRequestPanel.canceling')
+                      : t('buyRequestPanel.cancel')}
+                  </button>
+                </div>
+              ))}
+            </div>
+          </details>
         ) : null}
 
         {requiresWear ? (
