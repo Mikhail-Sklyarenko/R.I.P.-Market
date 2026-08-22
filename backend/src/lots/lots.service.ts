@@ -29,8 +29,8 @@ import { assertBulkListingAssets } from './bulk-listing.util';
 import { buildLotListingSnapshotData } from './lot-listing-snapshot.util';
 import { ensureItemDefinitionIcon } from '../item-definitions/ensure-item-definition-icon.util';
 import {
-  buildFallbackInspectLink,
-  resolveInspectLink,
+  buildInspectLink,
+  isUsableInspectLink,
 } from './inspect-link.util';
 import {
   buildSteamMarketListingUrl,
@@ -765,21 +765,18 @@ export class LotsService {
     if (steamPriceMeta.priceMinor == null) {
       void this.steamMarketPrice.getPriceMeta(steamMarketHashName);
     }
+    const freshInspectLink = seller.steamId
+      ? buildInspectLink({
+          template: hydrated.inventoryAsset.inspectLinkTemplate,
+          ownerSteamId: seller.steamId,
+          assetExternalId: hydrated.inventoryAsset.assetExternalId,
+          inspectLinkPayload: hydrated.inventoryAsset.inspectLinkPayload,
+        })
+      : null;
+    const snapshotInspectLink = hydrated.listingSnapshot?.inspectLink ?? null;
     const inspectLink =
-      hydrated.listingSnapshot?.inspectLink ??
-      (seller.steamId
-        ? (resolveInspectLink(
-            hydrated.inventoryAsset.inspectLinkTemplate,
-            seller.steamId,
-            hydrated.inventoryAsset.assetExternalId,
-          ) ??
-          buildFallbackInspectLink({
-            ownerSteamId: seller.steamId,
-            assetExternalId: hydrated.inventoryAsset.assetExternalId,
-            classId: hydrated.inventoryAsset.classExternalId,
-            instanceId: hydrated.inventoryAsset.instanceExternalId,
-          }))
-        : null);
+      freshInspectLink ??
+      (isUsableInspectLink(snapshotInspectLink) ? snapshotInspectLink : null);
 
     return toJsonSafe({
       ...lotWithoutSeller,

@@ -304,6 +304,7 @@ model InventoryAsset {
   wear                 String?
   stickers             Json?
   inspectLinkTemplate  String?
+  inspectLinkPayload   String?
   classExternalId      String?
   instanceExternalId   String?
   createdAt        DateTime             @default(now())

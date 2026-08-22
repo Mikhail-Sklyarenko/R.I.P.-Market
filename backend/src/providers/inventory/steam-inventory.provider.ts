@@ -277,6 +277,9 @@ export class SteamInventoryProvider implements InventoryProvider {
           wear: item.wear,
           stickers: item.stickers,
           inspectLinkTemplate: item.inspectLinkTemplate,
+          ...(item.inspectLinkPayload != null
+            ? { inspectLinkPayload: item.inspectLinkPayload }
+            : {}),
           classExternalId: item.classExternalId,
           instanceExternalId: item.instanceExternalId,
         },
@@ -291,6 +294,9 @@ export class SteamInventoryProvider implements InventoryProvider {
           wear: item.wear,
           stickers: item.stickers,
           inspectLinkTemplate: item.inspectLinkTemplate,
+          ...(item.inspectLinkPayload != null
+            ? { inspectLinkPayload: item.inspectLinkPayload }
+            : {}),
           classExternalId: item.classExternalId,
           instanceExternalId: item.instanceExternalId,
           ...(preserveStatus ? {} : { status: InventoryAssetStatus.AVAILABLE }),

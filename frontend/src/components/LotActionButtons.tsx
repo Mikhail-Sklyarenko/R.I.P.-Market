@@ -1,4 +1,5 @@
 import { useLocale } from '../i18n';
+import { isUsableInspectLink } from '../utils/inspect-link';
 
 type LotActionButtonsProps = {
   inspectLink?: string | null;
@@ -57,7 +58,8 @@ export function LotActionButtons({
   steamMarketHashName,
 }: LotActionButtonsProps) {
   const { t } = useLocale();
-  if (!inspectLink && !steamMarketUrl) {
+  const usableInspectLink = isUsableInspectLink(inspectLink) ? inspectLink : null;
+  if (!usableInspectLink && !steamMarketUrl) {
     return null;
   }
 
@@ -65,9 +67,9 @@ export function LotActionButtons({
 
   return (
     <div className="lot-action-buttons" data-testid="lot-action-buttons">
-      {inspectLink ? (
+      {usableInspectLink ? (
         <a
-          href={inspectLink}
+          href={usableInspectLink}
           className="lot-action-button"
           data-testid="lot-inspect-link"
         >

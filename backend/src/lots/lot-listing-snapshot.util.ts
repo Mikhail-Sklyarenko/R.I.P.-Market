@@ -1,8 +1,5 @@
 import type { InventoryAsset, ItemDefinition } from '@prisma/client';
-import {
-  buildFallbackInspectLink,
-  resolveInspectLink,
-} from './inspect-link.util';
+import { buildInspectLink } from './inspect-link.util';
 import { resolveSteamMarketHashName } from './steam-market-link.util';
 
 type SnapshotSource = InventoryAsset & {
@@ -13,18 +10,12 @@ export function buildLotListingSnapshotData(
   asset: SnapshotSource,
   sellerSteamId: string,
 ) {
-  const inspectLink =
-    resolveInspectLink(
-      asset.inspectLinkTemplate,
-      sellerSteamId,
-      asset.assetExternalId,
-    ) ??
-    buildFallbackInspectLink({
-      ownerSteamId: sellerSteamId,
-      assetExternalId: asset.assetExternalId,
-      classId: asset.classExternalId,
-      instanceId: asset.instanceExternalId,
-    });
+  const inspectLink = buildInspectLink({
+    template: asset.inspectLinkTemplate,
+    ownerSteamId: sellerSteamId,
+    assetExternalId: asset.assetExternalId,
+    inspectLinkPayload: asset.inspectLinkPayload,
+  });
 
   const marketHashName = resolveSteamMarketHashName(
     asset.itemDefinition.marketHashName,

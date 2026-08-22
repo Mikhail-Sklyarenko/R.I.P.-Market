@@ -24,6 +24,7 @@ describe('steam-inventory.parser', () => {
       wear: 'FT',
       stickers: [],
       inspectLinkTemplate: null,
+      inspectLinkPayload: null,
       classExternalId: '310776580',
       instanceExternalId: '302028390',
     });
@@ -87,6 +88,55 @@ describe('steam-inventory.parser', () => {
     });
 
     expect(parsed[0]?.iconUrl).toBe('small-icon-only');
+  });
+
+  it('parses CS2 Item Certificate payload from asset_properties', () => {
+    const parsed = parseSteamInventoryResponse({
+      success: 1,
+      assets: [
+        {
+          appid: 730,
+          contextid: '2',
+          assetid: '50889527765',
+          classid: '7993035990',
+          instanceid: '302028390',
+        },
+      ],
+      descriptions: [
+        {
+          classid: '7993035990',
+          instanceid: '302028390',
+          market_hash_name: 'P250 | Plum Netting (Minimal Wear)',
+          icon_url: 'icon',
+          tradable: 1,
+          actions: [
+            {
+              name: 'Inspect in Game...',
+              link: 'steam://run/730//+csgo_econ_action_preview%20%propid:6%',
+            },
+          ],
+        },
+      ],
+      asset_properties: [
+        {
+          appid: 730,
+          contextid: '2',
+          assetid: '50889527765',
+          asset_properties: [
+            {
+              propertyid: 6,
+              string_value:
+                'ADBD584A390016ACB5B48D3BA485AE9DA4952F0E5A47AEED62AEE5ADFDADC52E2D2D2DA1DDA56A5E748D',
+            },
+          ],
+        },
+      ],
+    });
+
+    expect(parsed[0]?.inspectLinkTemplate).toContain('%propid:6%');
+    expect(parsed[0]?.inspectLinkPayload).toBe(
+      'ADBD584A390016ACB5B48D3BA485AE9DA4952F0E5A47AEED62AEE5ADFDADC52E2D2D2DA1DDA56A5E748D',
+    );
   });
 
   it('detects private inventory responses', () => {

@@ -33,6 +33,7 @@ export type SteamAssetProperty = {
   propertyid: number;
   float_value?: string;
   int_value?: string;
+  string_value?: string;
 };
 
 export type SteamAssetProperties = {
@@ -66,6 +67,7 @@ export type ParsedSteamAsset = {
   wear: string | null;
   stickers: ListingSticker[];
   inspectLinkTemplate: string | null;
+  inspectLinkPayload: string | null;
   classExternalId: string;
   instanceExternalId: string;
 };
@@ -153,6 +155,7 @@ export function parseSteamInventoryResponse(
     const props = propertiesByAssetId.get(asset.assetid) ?? [];
     const floatProp = props.find((prop) => prop.propertyid === 1);
     const seedProp = props.find((prop) => prop.propertyid === 2);
+    const certificateProp = props.find((prop) => prop.propertyid === 6);
 
     parsed.push({
       assetExternalId: asset.assetid,
@@ -171,6 +174,7 @@ export function parseSteamInventoryResponse(
       wear: parseWearFromMarketHashName(description.market_hash_name),
       stickers: parseStickersFromDescriptionLines(description.descriptions),
       inspectLinkTemplate: extractInspectLinkTemplate(description.actions),
+      inspectLinkPayload: certificateProp?.string_value?.trim() || null,
       classExternalId: asset.classid,
       instanceExternalId: asset.instanceid,
     });

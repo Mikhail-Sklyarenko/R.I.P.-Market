@@ -1,4 +1,7 @@
-const STEAM_RUN_GAME_PREFIX = 'steam://rungame/730/76561202255233023/';
+const STEAM_CLASSIC_INSPECT_PREFIX =
+  'steam://rungame/730/76561202255233023/+csgo_econ_action_preview%20';
+
+const UNRESOLVED_PLACEHOLDER = /%[a-z0-9_:]+%/i;
 
 export function extractInspectLinkTemplate(
   actions?: Array<{ link?: string; name?: string }> | null,
@@ -14,36 +17,50 @@ export function extractInspectLinkTemplate(
   return inspectAction?.link?.trim() || null;
 }
 
+export function isUsableInspectLink(
+  link: string | null | undefined,
+): link is string {
+  if (!link?.trim()) {
+    return false;
+  }
+  const normalized = link.trim();
+  if (!normalized.startsWith('steam://')) {
+    return false;
+  }
+  if (!normalized.includes('csgo_econ_action_preview')) {
+    return false;
+  }
+  return !UNRESOLVED_PLACEHOLDER.test(normalized);
+}
+
 export function resolveInspectLink(
   template: string | null | undefined,
   ownerSteamId: string | null | undefined,
   assetExternalId: string | null | undefined,
+  inspectLinkPayload?: string | null,
 ): string | null {
-  if (!template?.trim() || !ownerSteamId || !assetExternalId) {
+  if (!template?.trim()) {
     return null;
   }
 
-  const normalizedTemplate = template.trim();
-  const hasPlaceholders = /%owner_steamid%|%assetid%|%contextid%/i.test(
-    normalizedTemplate,
-  );
-
-  if (!hasPlaceholders) {
-    if (
-      normalizedTemplate.startsWith('steam://') &&
-      normalizedTemplate.includes('csgo_econ_action_preview')
-    ) {
-      return normalizedTemplate;
-    }
+  if (!ownerSteamId || !assetExternalId) {
     return null;
   }
 
-  const resolved = normalizedTemplate
+  const resolved = template
+    .trim()
     .replace(/%owner_steamid%/gi, ownerSteamId)
     .replace(/%assetid%/gi, assetExternalId)
-    .replace(/%contextid%/gi, '2');
+    .replace(/%contextid%/gi, '2')
+    .replace(/%propid:(\d+)%/gi, (_, rawId: string) => {
+      const propId = Number(rawId);
+      if (propId === 6 && inspectLinkPayload?.trim()) {
+        return inspectLinkPayload.trim();
+      }
+      return `%propid:${rawId}%`;
+    });
 
-  if (/%owner_steamid%|%assetid%|%contextid%/i.test(resolved)) {
+  if (UNRESOLVED_PLACEHOLDER.test(resolved)) {
     return null;
   }
 
@@ -57,18 +74,35 @@ export function resolveInspectLink(
   return resolved;
 }
 
+/** Classic S/A/D inspect link when Steam template or Item Certificate is unavailable. */
 export function buildFallbackInspectLink(params: {
   ownerSteamId: string;
   assetExternalId: string;
-  classId?: string | null;
-  instanceId?: string | null;
 }): string {
-  const descriptor =
-    params.classId && params.instanceId
-      ? `${params.classId}A${params.instanceId}`
-      : '0';
-  const encoded = encodeURIComponent(
-    `S${params.ownerSteamId}A${params.assetExternalId}D${descriptor}`,
+  const payload = `S${params.ownerSteamId}A${params.assetExternalId}D0`;
+  return `${STEAM_CLASSIC_INSPECT_PREFIX}${encodeURIComponent(payload)}`;
+}
+
+export type BuildInspectLinkParams = {
+  template?: string | null;
+  ownerSteamId: string;
+  assetExternalId: string;
+  /** CS2 Item Certificate hex from Steam asset_properties (propertyid 6). */
+  inspectLinkPayload?: string | null;
+};
+
+export function buildInspectLink(params: BuildInspectLinkParams): string {
+  const fromTemplate = resolveInspectLink(
+    params.template,
+    params.ownerSteamId,
+    params.assetExternalId,
+    params.inspectLinkPayload,
   );
-  return `${STEAM_RUN_GAME_PREFIX}${params.ownerSteamId}/+csgo_econ_action_preview%20${encoded}`;
+  if (isUsableInspectLink(fromTemplate)) {
+    return fromTemplate;
+  }
+  return buildFallbackInspectLink({
+    ownerSteamId: params.ownerSteamId,
+    assetExternalId: params.assetExternalId,
+  });
 }
