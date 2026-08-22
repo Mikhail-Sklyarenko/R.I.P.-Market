@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom';
-import type { ItemOrderBook as ItemOrderBookData } from '../api/types';
+import type { BuyRequest, ItemOrderBook as ItemOrderBookData } from '../api/types';
 import { useLocale, wearLabel } from '../i18n';
 import { LoadingState } from './LoadingState';
 import { MoneyDisplay } from './MoneyDisplay';
@@ -14,7 +14,19 @@ type ItemOrderBookProps = {
   hideEmptyAsks?: boolean;
   /** Lighter layout for embedding under the item preview. */
   variant?: 'default' | 'compact';
+  /** Highlights bid levels that include the viewer's open buy requests. */
+  ownBuyRequests?: BuyRequest[];
 };
+
+function ownQuantityAtPrice(requests: BuyRequest[], priceMinor: string): number {
+  return requests.reduce((sum, request) => {
+    if (request.maxPriceMinor !== priceMinor) {
+      return sum;
+    }
+    const remaining = request.quantity - request.quantityFilled;
+    return remaining > 0 ? sum + remaining : sum;
+  }, 0);
+}
 
 function formatFloat(value: number | null): string {
   if (value == null || !Number.isFinite(value)) {
@@ -30,6 +42,7 @@ export function ItemOrderBook({
   hideEmptyBids = false,
   hideEmptyAsks = false,
   variant = 'default',
+  ownBuyRequests = [],
 }: ItemOrderBookProps) {
   const { locale, t } = useLocale();
   const isCompact = variant === 'compact';
@@ -144,9 +157,12 @@ export function ItemOrderBook({
                 </tr>
               </thead>
               <tbody>
-                {orderBook.bids.map((level) => (
+                {orderBook.bids.map((level) => {
+                  const ownQuantity = ownQuantityAtPrice(ownBuyRequests, level.priceMinor);
+                  return (
                   <tr
                     key={level.priceMinor}
+                    className={ownQuantity > 0 ? 'item-order-book-bid-row-own' : undefined}
                     data-testid={`item-order-book-bid-${level.priceMinor}`}
                   >
                     <td className="item-order-book-price item-order-book-price-bid">
@@ -154,9 +170,16 @@ export function ItemOrderBook({
                     </td>
                     <td className="muted small">
                       {t('orderBook.quantityShort', { count: level.quantity })}
+                      {ownQuantity > 0 ? (
+                        <span className="item-order-book-own-qty">
+                          {' '}
+                          ({t('orderBook.ownQuantityShort', { count: ownQuantity })})
+                        </span>
+                      ) : null}
                     </td>
                   </tr>
-                ))}
+                  );
+                })}
               </tbody>
             </table>
           )}

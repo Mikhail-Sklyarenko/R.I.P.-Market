@@ -80,6 +80,8 @@ test.describe('Buy request balance and quantity', () => {
       await activeDetails.locator('summary').click();
     }
     await expect(page.getByTestId('item-buy-request-active-list')).toBeVisible();
+    await expect(page.getByTestId('item-order-book')).toBeVisible();
+    await expect(page.getByTestId('item-order-book-bids')).toBeVisible();
     await expect(page.getByTestId(`item-buy-request-active-${firstBody.id}`)).toBeVisible();
 
     const wearButton = page.getByTestId(`item-buy-request-wear-${wear.toLowerCase()}`);

@@ -131,6 +131,7 @@ export const clientExtraEn = {
     colQty: 'Qty',
     colFloat: 'Float',
     quantityShort: '{{count}} pcs',
+    ownQuantityShort: 'you: {{count}}',
     asksSummary: '{{count}} listings for sale',
     fromPrice: 'from',
     openLot: 'Open',

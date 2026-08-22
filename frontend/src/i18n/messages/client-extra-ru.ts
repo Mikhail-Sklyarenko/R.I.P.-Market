@@ -137,6 +137,7 @@ export const clientExtraRu = {
     colQty: 'Кол-во',
     colFloat: 'Float',
     quantityShort: '{{count}} шт.',
+    ownQuantityShort: 'вы: {{count}}',
     asksSummary: '{{count}} лотов в продаже',
     fromPrice: 'от',
     openLot: 'Открыть',

@@ -5365,6 +5365,15 @@ a.button.primary {
   color: var(--color-success, #2ecc71);
 }
 
+.item-order-book-bid-row-own {
+  background: color-mix(in srgb, var(--color-success, #22c55e) 8%, transparent);
+}
+
+.item-order-book-own-qty {
+  color: var(--color-success, #86efac);
+  white-space: nowrap;
+}
+
 .item-order-book-price-ask {
   color: var(--color-text);
 }
