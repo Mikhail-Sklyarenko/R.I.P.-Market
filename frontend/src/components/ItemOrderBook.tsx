@@ -1,12 +1,14 @@
 import { Link } from 'react-router-dom';
 import type { BuyRequest, ItemOrderBook as ItemOrderBookData } from '../api/types';
 import { useLocale, wearLabel } from '../i18n';
+import { formatBuyerSellHintPrefix } from '../utils/order-book-labels';
 import { LoadingState } from './LoadingState';
 import { MoneyDisplay } from './MoneyDisplay';
 
 type ItemOrderBookProps = {
   orderBook: ItemOrderBookData | null;
   loading?: boolean;
+  /** Seller CTA when other buyers have open demand. Never shown to the only buyer. */
   showSellHint?: boolean;
   /** When true, hide the bids column if there are no buy requests. */
   hideEmptyBids?: boolean;
@@ -28,11 +30,64 @@ function ownQuantityAtPrice(requests: BuyRequest[], priceMinor: string): number 
   }, 0);
 }
 
+function totalOwnBidQuantity(requests: BuyRequest[]): number {
+  return requests.reduce((sum, request) => {
+    const remaining = request.quantity - request.quantityFilled;
+    return remaining > 0 ? sum + remaining : sum;
+  }, 0);
+}
+
 function formatFloat(value: number | null): string {
   if (value == null || !Number.isFinite(value)) {
     return '—';
   }
   return value.toFixed(4);
+}
+
+function CompactBidLevels({
+  bids,
+  ownBuyRequests,
+}: {
+  bids: ItemOrderBookData['bids'];
+  ownBuyRequests: BuyRequest[];
+}) {
+  const { t } = useLocale();
+  const maxQuantity = Math.max(...bids.map((level) => level.quantity), 1);
+
+  return (
+    <div className="item-order-book-bid-list" data-testid="item-order-book-bid-list">
+      {bids.map((level) => {
+        const ownQuantity = ownQuantityAtPrice(ownBuyRequests, level.priceMinor);
+        const depthPercent = Math.max(12, (level.quantity / maxQuantity) * 100);
+        return (
+          <div
+            key={level.priceMinor}
+            className={`item-order-book-bid-row${
+              ownQuantity > 0 ? ' item-order-book-bid-row-own' : ''
+            }`}
+            data-testid={`item-order-book-bid-${level.priceMinor}`}
+          >
+            <div
+              className="item-order-book-bid-depth"
+              style={{ width: `${depthPercent}%` }}
+              aria-hidden="true"
+            />
+            <div className="item-order-book-bid-row-main">
+              <MoneyDisplay minor={level.priceMinor} strong />
+              <div className="item-order-book-bid-row-meta">
+                <span className="item-order-book-bid-qty">
+                  {t('orderBook.quantityShort', { count: level.quantity })}
+                </span>
+                {ownQuantity > 0 ? (
+                  <span className="item-order-book-own-badge">{t('orderBook.ownBadge')}</span>
+                ) : null}
+              </div>
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
 }
 
 export function ItemOrderBook({
@@ -66,11 +121,15 @@ export function ItemOrderBook({
     (sum, level) => sum + level.quantity,
     0,
   );
+  const ownBidQuantity = totalOwnBidQuantity(ownBuyRequests);
+  const otherBidQuantity = Math.max(0, totalBidQuantity - ownBidQuantity);
   const hasBids = orderBook.bids.length > 0;
   const hasAsks = orderBook.asksSummary.count > 0;
   const showBidsColumn = hasBids || !hideEmptyBids;
   const showAsksColumn = hasAsks || !hideEmptyAsks;
   const singleColumn = showBidsColumn !== showAsksColumn;
+  const showSellerHint = showSellHint && otherBidQuantity > 0;
+  const showOwnDemandNote = isCompact && ownBidQuantity > 0;
 
   if (!showBidsColumn && !showAsksColumn) {
     return null;
@@ -111,7 +170,12 @@ export function ItemOrderBook({
         </div>
       ) : (
         <div className="item-order-book-compact-header">
-          <h3 className="item-order-book-compact-title">{t('orderBook.title')}</h3>
+          <div>
+            <h3 className="item-order-book-compact-title">{t('orderBook.title')}</h3>
+            <p className="item-order-book-compact-subtitle muted small">
+              {t('orderBook.compactSubtitle')}
+            </p>
+          </div>
           {orderBook.bestBidMinor && orderBook.bestAskMinor ? (
             <p className="item-order-book-spread muted small" data-testid="item-order-book-spread">
               {t('orderBook.spread')}: <MoneyDisplay minor={orderBook.spreadMinor ?? '0'} />
@@ -120,14 +184,35 @@ export function ItemOrderBook({
         </div>
       )}
 
-      {showSellHint && hasBids ? (
+      {isCompact && hasBids ? (
+        <dl className="item-order-book-stats" data-testid="item-order-book-stats">
+          <div className="item-order-book-stat">
+            <dt>{t('orderBook.demandLabel')}</dt>
+            <dd>{t('orderBook.quantityShort', { count: totalBidQuantity })}</dd>
+          </div>
+          <div className="item-order-book-stat">
+            <dt>{t('orderBook.bestBidLabel')}</dt>
+            <dd>
+              <MoneyDisplay minor={orderBook.bestBidMinor ?? orderBook.bids[0]!.priceMinor} strong />
+            </dd>
+          </div>
+        </dl>
+      ) : null}
+
+      {showOwnDemandNote ? (
+        <p className="item-order-book-own-note" data-testid="item-order-book-own-note">
+          {t('orderBook.ownDemandNote')}
+        </p>
+      ) : null}
+
+      {showSellerHint ? (
         <p
           className={`item-order-book-sell-hint${
             isCompact ? ' item-order-book-sell-hint-compact' : ''
           }`}
           data-testid="item-order-book-sell-hint"
         >
-          {t('orderBook.sellHintPrefix', { count: totalBidQuantity })}{' '}
+          {formatBuyerSellHintPrefix(otherBidQuantity, locale)}{' '}
           <MoneyDisplay minor={orderBook.bestBidMinor ?? '0'} strong />
           {'. '}
           <Link to="/sell/inventory" className="text-link">
@@ -145,9 +230,11 @@ export function ItemOrderBook({
         <div className="item-order-book-side item-order-book-bids" data-testid="item-order-book-bids">
           <h3 className="item-order-book-side-title">{t('orderBook.bidsTitle')}</h3>
           {!hasBids ? (
-            <p className="muted small" data-testid="item-order-book-no-bids">
+            <p className="item-order-book-empty-side muted small" data-testid="item-order-book-no-bids">
               {t('orderBook.noBids')}
             </p>
+          ) : isCompact ? (
+            <CompactBidLevels bids={orderBook.bids} ownBuyRequests={ownBuyRequests} />
           ) : (
             <table className="item-order-book-table">
               <thead>
@@ -171,10 +258,7 @@ export function ItemOrderBook({
                     <td className="muted small">
                       {t('orderBook.quantityShort', { count: level.quantity })}
                       {ownQuantity > 0 ? (
-                        <span className="item-order-book-own-qty">
-                          {' '}
-                          ({t('orderBook.ownQuantityShort', { count: ownQuantity })})
-                        </span>
+                        <span className="item-order-book-own-badge">{t('orderBook.ownBadge')}</span>
                       ) : null}
                     </td>
                   </tr>

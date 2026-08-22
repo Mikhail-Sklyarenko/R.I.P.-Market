@@ -378,7 +378,6 @@ export function ItemPage() {
                   <ItemOrderBook
                     orderBook={orderBook}
                     loading={orderBookLoading}
-                    showSellHint
                     hideEmptyAsks
                     variant="compact"
                     ownBuyRequests={openBuyRequests}
