@@ -2464,7 +2464,21 @@ a.button.primary {
   position: sticky;
   top: var(--space-4);
   display: grid;
-  gap: var(--space-4);
+  gap: var(--space-3);
+}
+
+.lot-purchase-hero {
+  display: grid;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+.lot-purchase-hero-top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-3);
+  min-width: 0;
 }
 
 .lot-purchase-card-header {
@@ -2481,6 +2495,8 @@ a.button.primary {
 
 .lot-purchase-price {
   margin: 0;
+  flex: 1 1 auto;
+  min-width: 0;
   font-size: clamp(1.75rem, 1.6rem + 0.4vw, 2rem);
   line-height: 1.1;
   letter-spacing: -0.02em;
@@ -2528,6 +2544,106 @@ a.button.primary {
   text-overflow: ellipsis;
   white-space: nowrap;
   max-width: 100%;
+}
+
+.lot-purchase-wallet-inline {
+  display: grid;
+  gap: var(--space-1);
+  padding: 0;
+  font-size: var(--font-size-sm);
+}
+
+.lot-purchase-wallet-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  color: var(--color-text-muted);
+}
+
+.lot-purchase-wallet-row .money-display-strong {
+  color: var(--color-text);
+}
+
+.lot-purchase-wallet-shortfall {
+  color: #f87171;
+}
+
+.lot-purchase-actions {
+  display: grid;
+  gap: var(--space-2);
+}
+
+.lot-purchase-button {
+  width: 100%;
+}
+
+.lot-purchase-details {
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-bg-subtle);
+}
+
+.lot-purchase-details-summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  cursor: pointer;
+  padding: var(--space-3) var(--space-4);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text-muted);
+  list-style: none;
+}
+
+.lot-purchase-details-summary::-webkit-details-marker {
+  display: none;
+}
+
+.lot-purchase-details-summary::after {
+  content: '';
+  width: 0.4rem;
+  height: 0.4rem;
+  flex: 0 0 auto;
+  border-right: 1.5px solid currentColor;
+  border-bottom: 1.5px solid currentColor;
+  transform: rotate(45deg);
+  opacity: 0.65;
+  transition: transform 0.15s ease;
+}
+
+.lot-purchase-details[open] > .lot-purchase-details-summary::after {
+  transform: rotate(225deg);
+  translate: 0 0.15rem;
+}
+
+.lot-purchase-details-body {
+  display: grid;
+  gap: var(--space-4);
+  padding: 0 var(--space-4) var(--space-4);
+  border-top: 1px solid var(--color-border);
+}
+
+.lot-purchase-details-section {
+  display: grid;
+  gap: var(--space-3);
+  min-width: 0;
+}
+
+.lot-purchase-details-subtitle {
+  margin: var(--space-3) 0 0;
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text);
+}
+
+.lot-purchase-details-section .lot-purchase-details-subtitle:first-child {
+  margin-top: var(--space-3);
+}
+
+.lot-purchase-commission-grid {
+  margin: 0;
 }
 
 .lot-pricing-details {
@@ -2578,6 +2694,14 @@ a.button.primary {
 }
 
 .lot-purchase-card .checkout-wallet-summary {
+  margin: 0;
+}
+
+.lot-purchase-card .purchase-readiness-alerts {
+  margin-bottom: 0;
+}
+
+.lot-purchase-card .checkout-deal-flow {
   margin: 0;
 }
 
@@ -3393,10 +3517,6 @@ a.button.primary {
 .my-orders-net-hint {
   display: inline;
   white-space: nowrap;
-}
-
-.lot-purchase-card .checkout-deal-flow {
-  margin: 0.75rem 0 1rem;
 }
 
 .inventory-asset-card-bulk-highlight {

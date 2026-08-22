@@ -4,17 +4,32 @@ import { getDealFlowSteps, type DealFlowStepItem } from '../utils/order-flow';
 type DealFlowStepsProps = {
   title?: string;
   compact?: boolean;
+  /** Render only the step list — for embedding inside another panel. */
+  embedded?: boolean;
   steps?: readonly DealFlowStepItem[];
 };
 
-export function DealFlowSteps({ title, compact = false, steps }: DealFlowStepsProps) {
+export function DealFlowSteps({
+  title,
+  compact = false,
+  embedded = false,
+  steps,
+}: DealFlowStepsProps) {
   const { locale, t } = useLocale();
   const resolvedTitle = title ?? t('dealFlow.title');
   const resolvedSteps = steps ?? getDealFlowSteps(locale);
+  const listCompact = compact || embedded;
   const content = (
     <>
-      {!compact ? <h3 className="deal-flow-steps-title">{resolvedTitle}</h3> : null}
-      <ol className={`deal-flow-steps-list${compact ? ' deal-flow-steps-list-compact' : ''}`}>
+      {!compact && !embedded ? (
+        <h3 className="deal-flow-steps-title">{resolvedTitle}</h3>
+      ) : null}
+      {embedded ? (
+        <h4 className="lot-purchase-details-subtitle">{resolvedTitle}</h4>
+      ) : null}
+      <ol
+        className={`deal-flow-steps-list${listCompact ? ' deal-flow-steps-list-compact' : ''}`}
+      >
         {resolvedSteps.map((step, index) => (
           <li
             key={step.key}
@@ -33,6 +48,14 @@ export function DealFlowSteps({ title, compact = false, steps }: DealFlowStepsPr
       </ol>
     </>
   );
+
+  if (embedded) {
+    return (
+      <div className="lot-purchase-details-section" data-testid="deal-flow-steps">
+        {content}
+      </div>
+    );
+  }
 
   if (compact) {
     return (

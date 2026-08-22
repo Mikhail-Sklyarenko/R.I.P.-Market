@@ -103,18 +103,17 @@ export function LotPurchaseCard({
 
   return (
     <div className="card lot-purchase-card" data-testid="lot-purchase-card">
-      <div className="lot-purchase-card-header">
-        <StatusBadge status={lot.status} />
-      </div>
-
-      <div className="lot-purchase-price-block" data-testid="checkout-pricing">
-        <div className="lot-purchase-price" data-testid="lot-purchase-price">
-          <InventoryPriceStack
-            steamPriceMinor={steamForGuide}
-            marketplacePriceMinor={listingPriceMinor}
-            testIdPrefix="lot"
-            compact={!steamForGuide}
-          />
+      <div className="lot-purchase-hero" data-testid="checkout-pricing">
+        <div className="lot-purchase-hero-top">
+          <div className="lot-purchase-price" data-testid="lot-purchase-price">
+            <InventoryPriceStack
+              steamPriceMinor={steamForGuide}
+              marketplacePriceMinor={listingPriceMinor}
+              testIdPrefix="lot"
+              compact={!steamForGuide}
+            />
+          </div>
+          <StatusBadge status={lot.status} />
         </div>
 
         {sellerName ? (
@@ -141,35 +140,19 @@ export function LotPurchaseCard({
       ) : null}
 
       {token && summary ? (
-        <div className="checkout-wallet-summary" data-testid="checkout-wallet">
-          <div className="checkout-wallet-row">
+        <div className="lot-purchase-wallet-inline" data-testid="checkout-wallet">
+          <div className="lot-purchase-wallet-row">
             <span>{t('checkout.available')}</span>
             <MoneyDisplay minor={summary.availableMinor} strong />
           </div>
           {insufficient && shortfallMinor > 0 ? (
-            <div className="checkout-wallet-row checkout-wallet-shortfall">
+            <div className="lot-purchase-wallet-row lot-purchase-wallet-shortfall">
               <span>{t('checkout.shortfall')}</span>
               <MoneyDisplay minor={shortfallMinor} strong />
             </div>
           ) : null}
         </div>
       ) : null}
-
-      <details className="lot-pricing-details">
-        <summary className="lot-pricing-details-summary">
-          {t('lot.commissionDetails')}
-        </summary>
-        <div className="pricing-preview lot-pricing-details-body">
-          <div>
-            <span>{t('lot.commission')}</span>
-            <MoneyDisplay minor={lot.commissionMinor} strong />
-          </div>
-          <div>
-            <span>{t('lot.sellerReceives')}</span>
-            <MoneyDisplay minor={lot.sellerReceiveMinor} strong />
-          </div>
-        </div>
-      </details>
 
       <ErrorAlert error={displayError} />
 
@@ -199,32 +182,59 @@ export function LotPurchaseCard({
         </p>
       ) : null}
 
-      <DealFlowSteps compact />
+      <div className="lot-purchase-actions">
+        {insufficient && !isOwnLot && !isUnavailable ? (
+          <Link
+            to={depositHref}
+            className="button primary lot-purchase-button"
+            data-testid="checkout-deposit-link"
+          >
+            {t('checkout.depositButton')}
+            {shortfallMinor > 0 ? ` · ${formatUsdFromMinor(shortfallMinor)}` : ''}
+          </Link>
+        ) : (
+          <button
+            type="button"
+            className="button primary lot-purchase-button"
+            disabled={Boolean(token) ? !canBuy : isUnavailable || isOwnLot}
+            data-testid="buy-lot-button"
+            onClick={() => void handleBuy()}
+          >
+            {!token
+              ? t('lot.loginToBuy')
+              : confirming
+                ? t('checkout.confirming')
+                : t('lot.buyNow')}
+          </button>
+        )}
+      </div>
 
-      {insufficient && !isOwnLot && !isUnavailable ? (
-        <Link
-          to={depositHref}
-          className="button primary lot-purchase-button"
-          data-testid="checkout-deposit-link"
-        >
-          {t('checkout.depositButton')}
-          {shortfallMinor > 0 ? ` · ${formatUsdFromMinor(shortfallMinor)}` : ''}
-        </Link>
-      ) : (
-        <button
-          type="button"
-          className="button primary lot-purchase-button"
-          disabled={Boolean(token) ? !canBuy : isUnavailable || isOwnLot}
-          data-testid="buy-lot-button"
-          onClick={() => void handleBuy()}
-        >
-          {!token
-            ? t('lot.loginToBuy')
-            : confirming
-              ? t('checkout.confirming')
-              : t('lot.buyNow')}
-        </button>
-      )}
+      <details className="lot-purchase-details" data-testid="lot-purchase-details">
+        <summary className="lot-purchase-details-summary">
+          {t('lot.purchaseDetails')}
+        </summary>
+        <div className="lot-purchase-details-body">
+          <div
+            className="lot-purchase-details-section"
+            data-testid="lot-commission-details"
+          >
+            <h4 className="lot-purchase-details-subtitle">
+              {t('lot.commissionDetails')}
+            </h4>
+            <div className="pricing-preview lot-purchase-commission-grid">
+              <div>
+                <span>{t('lot.commission')}</span>
+                <MoneyDisplay minor={lot.commissionMinor} strong />
+              </div>
+              <div>
+                <span>{t('lot.sellerReceives')}</span>
+                <MoneyDisplay minor={lot.sellerReceiveMinor} strong />
+              </div>
+            </div>
+          </div>
+          <DealFlowSteps embedded />
+        </div>
+      </details>
     </div>
   );
 }

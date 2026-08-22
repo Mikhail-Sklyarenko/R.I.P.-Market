@@ -421,6 +421,7 @@ const baseRuMessages = {
     commission: 'Комиссия',
     sellerReceives: 'Продавец получит',
     sellerLabel: 'Продавец',
+    purchaseDetails: 'Подробнее о сделке',
     unavailable: 'Лот недоступен для покупки ({{status}}).',
     ownLot: 'Вы не можете купить свой лот.',
   },
