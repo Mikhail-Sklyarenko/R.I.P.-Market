@@ -29,33 +29,14 @@ function FallbackCategoryIcon({
   switch (icon) {
     case 'cases':
       return (
-        <svg className={className} viewBox="0 0 24 24" aria-hidden="true">
-          <path
-            d="M4.5 8.2c0-.5.3-.9.8-1l6.2-1.3c.3-.1.6-.1.9 0l6.2 1.3c.5.1.8.5.8 1V9H4.5V8.2z"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="1.6"
-          />
-          <rect
-            x="4.5"
-            y="9"
-            width="15"
-            height="9.5"
-            rx="1.4"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="1.6"
-          />
-          <rect
-            x="10"
-            y="12.2"
-            width="4"
-            height="2.6"
-            rx="0.5"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="1.4"
-          />
+        <svg className={className} viewBox="0 0 32 32" aria-hidden="true">
+          <g fill="currentColor">
+            <path d="M22.8 12.1 26.4 10.6V24.1l-3.6 1.5V12.1z" opacity="0.52" />
+            <path d="M5.6 10.8 16 7.3l10.4 3.5-10.4 3.3L5.6 10.8z" />
+            <path d="M5.6 10.8h18.8v1.55H5.6V10.8z" opacity="0.82" />
+            <path d="M5.6 12.35h17.2v12.25c0 .95-.77 1.72-1.72 1.72H7.32c-.95 0-1.72-.77-1.72-1.72V12.35z" />
+            <rect x="12.55" y="17.75" width="6.9" height="3.55" rx="0.85" />
+          </g>
         </svg>
       );
     case 'other':
