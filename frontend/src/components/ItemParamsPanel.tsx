@@ -77,7 +77,14 @@ export function ItemParamsPanel({
               {hasFloatGraphic ? (
                 <FloatSpectrum floatValue={item.floatValue!} variant="inline" />
               ) : (
-                <span data-testid="lot-attr-float">{floatText ?? '—'}</span>
+                <div className="item-params-float-missing" data-testid="lot-attr-float-missing">
+                  <span className="item-params-float-unavailable" aria-hidden="true">
+                    —
+                  </span>
+                  <p className="item-params-float-hint muted small">
+                    {t('item.floatUnavailableHint')}
+                  </p>
+                </div>
               )}
             </dd>
           </div>

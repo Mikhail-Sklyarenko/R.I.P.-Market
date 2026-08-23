@@ -9,6 +9,7 @@ import { isCredibleSteamGuidePrice } from '../utils/steam-guide-price';
 import { formatCounterpartyDisplayName } from '../utils/steam-profile';
 import { startSteamLogin } from '../utils/start-steam-login';
 import { DealFlowSteps } from './DealFlowSteps';
+import { EscrowNotice } from './EscrowNotice';
 import { ErrorAlert } from './ErrorAlert';
 import { InventoryPriceStack } from './InventoryPriceStack';
 import { MoneyDisplay } from './MoneyDisplay';
@@ -209,18 +210,20 @@ export function LotPurchaseCard({
         )}
       </div>
 
+      <div className="lot-purchase-trust" data-testid="lot-purchase-trust">
+        <EscrowNotice />
+        <DealFlowSteps embedded />
+      </div>
+
       <details className="lot-purchase-details" data-testid="lot-purchase-details">
         <summary className="lot-purchase-details-summary">
-          {t('lot.purchaseDetails')}
+          {t('lot.commissionDetails')}
         </summary>
         <div className="lot-purchase-details-body">
           <div
             className="lot-purchase-details-section"
             data-testid="lot-commission-details"
           >
-            <h4 className="lot-purchase-details-subtitle">
-              {t('lot.commissionDetails')}
-            </h4>
             <div className="pricing-preview lot-purchase-commission-grid">
               <div>
                 <span>{t('lot.commission')}</span>
@@ -232,7 +235,6 @@ export function LotPurchaseCard({
               </div>
             </div>
           </div>
-          <DealFlowSteps embedded />
         </div>
       </details>
     </div>

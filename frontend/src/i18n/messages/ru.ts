@@ -420,6 +420,8 @@ const baseRuMessages = {
     steamPrice: 'Цена Steam',
     copyName: 'Скопировать название предмета',
     copied: 'Скопировано',
+    floatUnavailableHint:
+      'Steam не передал float для этого предмета. Износ указан по названию лота — для точной проверки используйте осмотр в игре.',
     loading: 'Загрузка предмета…',
     openingOffer: 'Открываем предложение…',
     selectWear: 'Выберите состояние скина.',
