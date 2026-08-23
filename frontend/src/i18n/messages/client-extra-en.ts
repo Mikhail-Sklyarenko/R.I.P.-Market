@@ -299,6 +299,7 @@ export const clientExtraEn = {
     colStatus: 'Status',
     noLimit: 'No limit',
     cancel: 'Cancel',
+    colActions: 'Actions',
   },
   buyRequestStatus: {
     OPEN: 'Active',

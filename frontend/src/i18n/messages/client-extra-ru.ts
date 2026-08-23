@@ -307,6 +307,7 @@ export const clientExtraRu = {
     colStatus: 'Статус',
     noLimit: 'Без лимита',
     cancel: 'Отменить',
+    colActions: 'Действия',
   },
   buyRequestStatus: {
     OPEN: 'Активна',

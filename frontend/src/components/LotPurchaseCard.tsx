@@ -183,32 +183,50 @@ export function LotPurchaseCard({
         </p>
       ) : null}
 
-      <div className="lot-purchase-actions">
-        {insufficient && !isOwnLot && !isUnavailable ? (
-          <Link
-            to={depositHref}
-            className="button primary lot-purchase-button"
-            data-testid="checkout-deposit-link"
-          >
-            {t('checkout.depositButton')}
-            {shortfallMinor > 0 ? ` · ${formatUsdFromMinor(shortfallMinor)}` : ''}
-          </Link>
-        ) : (
+      {!isOwnLot && !isUnavailable ? (
+        <div className="lot-purchase-sticky-dock" data-testid="lot-mobile-purchase-dock">
+          <div className="lot-purchase-sticky-price">
+            <MoneyDisplay minor={listingPriceMinor} strong />
+          </div>
+          <div className="lot-purchase-actions">
+            {insufficient ? (
+              <Link
+                to={depositHref}
+                className="button primary lot-purchase-button"
+                data-testid="checkout-deposit-link"
+              >
+                {t('checkout.depositButton')}
+                {shortfallMinor > 0 ? ` · ${formatUsdFromMinor(shortfallMinor)}` : ''}
+              </Link>
+            ) : (
+              <button
+                type="button"
+                className="button primary lot-purchase-button"
+                disabled={Boolean(token) ? !canBuy : false}
+                data-testid="buy-lot-button"
+                onClick={() => void handleBuy()}
+              >
+                {!token
+                  ? t('lot.loginToBuy')
+                  : confirming
+                    ? t('checkout.confirming')
+                    : t('lot.buyNow')}
+              </button>
+            )}
+          </div>
+        </div>
+      ) : (
+        <div className="lot-purchase-actions">
           <button
             type="button"
             className="button primary lot-purchase-button"
-            disabled={Boolean(token) ? !canBuy : isUnavailable || isOwnLot}
+            disabled
             data-testid="buy-lot-button"
-            onClick={() => void handleBuy()}
           >
-            {!token
-              ? t('lot.loginToBuy')
-              : confirming
-                ? t('checkout.confirming')
-                : t('lot.buyNow')}
+            {!token ? t('lot.loginToBuy') : t('lot.buyNow')}
           </button>
-        )}
-      </div>
+        </div>
+      )}
 
       <div className="lot-purchase-trust" data-testid="lot-purchase-trust">
         <DealFlowSteps embedded />

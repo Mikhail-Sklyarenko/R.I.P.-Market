@@ -31,6 +31,7 @@ import { LotActionButtons } from '../components/LotActionButtons';
 import { LotBreadcrumbs } from '../components/LotBreadcrumbs';
 import { LotItemHero } from '../components/LotItemHero';
 import { LotListingDetail } from '../components/LotListingDetail';
+import { MoneyDisplay } from '../components/MoneyDisplay';
 import { getCatalogItemRef, isUuid } from '../utils/item-slug';
 import {
   formatSteamPriceAge,
@@ -494,13 +495,20 @@ export function ItemPage() {
                   </div>
 
                   {cheapestLot ? (
-                    <Link
-                      to={`/lots/${cheapestLot.id}`}
-                      className="button primary lot-purchase-button"
-                      data-testid="item-open-cheapest"
-                    >
-                      {t('item.openBestOffer')}
-                    </Link>
+                    <div className="lot-purchase-sticky-dock" data-testid="item-mobile-purchase-dock">
+                      <div className="lot-purchase-sticky-price">
+                        <MoneyDisplay minor={cheapestLot.priceMinor} strong />
+                      </div>
+                      <div className="lot-purchase-actions">
+                        <Link
+                          to={`/lots/${cheapestLot.id}`}
+                          className="button primary lot-purchase-button"
+                          data-testid="item-open-cheapest"
+                        >
+                          {t('item.openBestOffer')}
+                        </Link>
+                      </div>
+                    </div>
                   ) : null}
 
                   <a

@@ -218,6 +218,7 @@ const baseRuMessages = {
     youReceive: 'Вы получите',
     pendingPayout: 'Ожидается к получению',
     inCatalog: 'В каталоге',
+    actions: 'Действия',
     editPrice: 'Изменить цену',
     newPriceAria: 'Новая цена ($)',
     unlist: 'Снять с продажи',

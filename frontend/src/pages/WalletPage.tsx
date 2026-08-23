@@ -920,8 +920,8 @@ export function WalletPage() {
           {activeTab === 'transactions' && transactions.length > 0 ? (
             <div className="card wallet-transactions" data-testid="wallet-transactions">
               <h3>{t('wallet.transactionsTitle')}</h3>
-              <div className="table-wrap">
-                <table className="data-table" data-testid="wallet-transactions-table">
+              <div className="table-wrap mobile-card-table-wrap">
+                <table className="data-table mobile-card-table" data-testid="wallet-transactions-table">
                   <thead>
                     <tr>
                       <th>{t('wallet.colType')}</th>
@@ -935,18 +935,20 @@ export function WalletPage() {
                       const orderId = resolveLedgerOrderId(tx);
                       return (
                         <tr key={tx.id} data-testid={`wallet-tx-${tx.type}`}>
-                          <td>{formatLedgerEntryType(tx.type, locale)}</td>
-                          <td>
+                          <td data-label={t('wallet.colType')}>
+                            {formatLedgerEntryType(tx.type, locale)}
+                          </td>
+                          <td data-label={t('wallet.colAmount')}>
                             <span className={ledgerAmountClass(tx.amountMinor)}>
                               {formatLedgerAmount(tx.amountMinor)}
                             </span>
                           </td>
-                          <td>
+                          <td data-label={t('wallet.colDate')}>
                             {new Date(tx.createdAt).toLocaleString(
                               locale === 'en' ? 'en-US' : 'ru-RU',
                             )}
                           </td>
-                          <td>
+                          <td data-label={t('wallet.colOrder')}>
                             {orderId ? (
                               <Link
                                 to={`/orders/${orderId}`}

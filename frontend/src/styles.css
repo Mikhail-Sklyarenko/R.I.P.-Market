@@ -2821,6 +2821,16 @@ a.button.primary {
   width: 100%;
 }
 
+.lot-purchase-sticky-price {
+  display: none;
+}
+
+.lot-purchase-sticky-dock {
+  display: grid;
+  gap: var(--space-3);
+  min-width: 0;
+}
+
 .lot-purchase-details {
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
@@ -8116,5 +8126,120 @@ a.button.primary {
   .checkout-purchase-card,
   .order-action-card {
     position: static;
+  }
+
+  /* Sticky purchase dock: price + CTA always reachable on phone */
+  .page:has(.lot-purchase-sticky-dock) {
+    padding-bottom: calc(5.75rem + env(safe-area-inset-bottom, 0px));
+  }
+
+  .lot-purchase-sticky-dock {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 45;
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+    padding: var(--space-3) var(--space-4);
+    padding-bottom: calc(var(--space-3) + env(safe-area-inset-bottom, 0px));
+    border-top: 1px solid var(--color-border-strong);
+    background: color-mix(in srgb, var(--color-bg-elevated) 92%, transparent);
+    backdrop-filter: blur(12px);
+    box-shadow: 0 -8px 28px rgba(0, 0, 0, 0.28);
+  }
+
+  .lot-purchase-sticky-price {
+    display: block;
+    flex: 0 1 auto;
+    min-width: 0;
+    font-size: var(--font-size-lg);
+  }
+
+  .lot-purchase-sticky-dock .lot-purchase-actions {
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+
+  .lot-purchase-sticky-dock .lot-purchase-button {
+    min-height: 2.75rem;
+  }
+
+  .page:has(.lot-purchase-sticky-dock) .support-widget {
+    bottom: calc(5.75rem + env(safe-area-inset-bottom, 0px) + var(--space-3));
+  }
+
+  .page:has(.lot-purchase-sticky-dock) .notifications-widget {
+    bottom: calc(5.75rem + env(safe-area-inset-bottom, 0px) + var(--space-3));
+  }
+
+  /* Tables → stacked cards on narrow screens */
+  .mobile-card-table thead {
+    display: none;
+  }
+
+  .mobile-card-table,
+  .mobile-card-table tbody,
+  .mobile-card-table tr,
+  .mobile-card-table td {
+    display: block;
+    width: 100%;
+  }
+
+  .mobile-card-table tbody {
+    display: grid;
+    gap: var(--space-3);
+  }
+
+  .mobile-card-table tr {
+    padding: var(--space-3) var(--space-4);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    background: var(--color-bg-subtle);
+  }
+
+  .mobile-card-table td {
+    display: grid;
+    grid-template-columns: minmax(5.5rem, 38%) minmax(0, 1fr);
+    gap: var(--space-2);
+    align-items: center;
+    padding: var(--space-2) 0;
+    border: none;
+  }
+
+  .mobile-card-table td + td {
+    border-top: 1px solid var(--color-border);
+  }
+
+  .mobile-card-table td::before {
+    content: attr(data-label);
+    color: var(--color-text-muted);
+    font-size: var(--font-size-xs);
+    font-weight: var(--font-weight-medium);
+  }
+
+  .mobile-card-table td:not([data-label])::before,
+  .mobile-card-table td[data-label='']::before {
+    display: none;
+  }
+
+  .mobile-card-table td:not([data-label]),
+  .mobile-card-table td[data-label=''] {
+    grid-template-columns: 1fr;
+  }
+
+  .seller-activity-tab {
+    min-height: 2.5rem;
+    padding-inline: var(--space-3);
+  }
+
+  .app-header .button,
+  .catalog-reset-filters-btn {
+    min-height: 2.5rem;
+  }
+
+  .inventory-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }

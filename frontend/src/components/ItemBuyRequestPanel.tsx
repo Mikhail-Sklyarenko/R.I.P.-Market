@@ -361,15 +361,24 @@ export function ItemBuyRequestPanel({
           </p>
         ) : null}
 
-        <button
-          type="button"
-          className="button primary lot-purchase-button"
-          disabled={submitting || !canSubmit}
-          data-testid="item-buy-request-submit"
-          onClick={onSubmit}
-        >
-          {token ? t('item.leaveRequest') : `${t('nav.login')} · ${t('item.leaveRequest')}`}
-        </button>
+        <div className="lot-purchase-sticky-dock" data-testid="buy-request-mobile-purchase-dock">
+          {reservePreviewMinor != null && reservePreviewMinor > 0 ? (
+            <div className="lot-purchase-sticky-price">
+              <MoneyDisplay minor={reservePreviewMinor} strong />
+            </div>
+          ) : null}
+          <div className="lot-purchase-actions">
+            <button
+              type="button"
+              className="button primary lot-purchase-button"
+              disabled={submitting || !canSubmit}
+              data-testid="item-buy-request-submit"
+              onClick={onSubmit}
+            >
+              {token ? t('item.leaveRequest') : `${t('nav.login')} · ${t('item.leaveRequest')}`}
+            </button>
+          </div>
+        </div>
 
         <p className="muted small item-buy-request-footer">
           {t('buyRequestPanel.footerPrefix')}{' '}

@@ -217,6 +217,7 @@ const baseEnMessages = {
     youReceive: 'You receive',
     pendingPayout: 'Pending payout',
     inCatalog: 'In catalog',
+    actions: 'Actions',
     editPrice: 'Edit price',
     newPriceAria: 'New price ($)',
     unlist: 'Remove listing',

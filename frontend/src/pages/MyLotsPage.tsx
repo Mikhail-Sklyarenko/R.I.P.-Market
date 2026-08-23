@@ -300,8 +300,8 @@ export function MyLotsPage({ embedded = false }: MyLotsPageProps) {
               }
             />
           ) : (
-            <div className="table-wrap">
-              <table className="data-table" data-testid="my-lots-table">
+            <div className="table-wrap mobile-card-table-wrap">
+              <table className="data-table mobile-card-table" data-testid="my-lots-table">
                 <thead>
                   <tr>
                     <th>{t('lots.item')}</th>
@@ -318,14 +318,16 @@ export function MyLotsPage({ embedded = false }: MyLotsPageProps) {
                     const isEditing = editingLotId === lot.id;
                     return (
                       <tr key={lot.id} data-testid={`lot-row-${lot.status}`}>
-                        <td>{lot.inventoryAsset.itemDefinition.marketHashName}</td>
-                        <td>
+                        <td data-label={t('lots.item')}>
+                          {lot.inventoryAsset.itemDefinition.marketHashName}
+                        </td>
+                        <td data-label={t('lots.status')}>
                           <StatusBadge
                             status={lot.status}
                             label={formatLotStatus(lot.status, locale)}
                           />
                         </td>
-                        <td>
+                        <td data-label={t('lots.price')}>
                           {isEditing ? (
                             <label className="field my-lots-edit-price">
                               <span className="sr-only">{t('lots.newPriceAria')}</span>
@@ -342,13 +344,13 @@ export function MyLotsPage({ embedded = false }: MyLotsPageProps) {
                             <MoneyDisplay minor={lot.priceMinor} />
                           )}
                         </td>
-                        <td>
+                        <td data-label={t('lots.commission')}>
                           <MoneyDisplay minor={lot.commissionMinor} />
                         </td>
-                        <td>
+                        <td data-label={t('lots.youReceive')}>
                           <MoneyDisplay minor={lot.sellerReceiveMinor} strong />
                         </td>
-                        <td>
+                        <td data-label={t('lots.actions')}>
                           {lot.status === 'ACTIVE' ? (
                             <div className="my-lots-actions">
                               {isEditing ? (

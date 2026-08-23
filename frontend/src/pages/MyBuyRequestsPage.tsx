@@ -90,80 +90,82 @@ export function MyBuyRequestsPage({ embedded = false }: MyBuyRequestsPageProps) 
 
       {!loading && requests.length > 0 ? (
         <div className="card buy-requests-list" data-testid="buy-requests-list">
-          <table className="data-table">
-            <thead>
-              <tr>
-                <th>{t('myBuyRequests.colItem')}</th>
-                <th>{t('myBuyRequests.colMaxPrice')}</th>
-                <th>{t('myBuyRequests.colQuantity')}</th>
-                <th>{t('myBuyRequests.colReserved')}</th>
-                <th>{t('myBuyRequests.colStatus')}</th>
-                <th />
-              </tr>
-            </thead>
-            <tbody>
-              {requests.map((request) => {
-                const itemName =
-                  request.itemDefinition?.marketHashName ?? request.itemDefinitionId;
-                return (
-                  <tr key={request.id} data-testid={`buy-request-row-${request.id}`}>
-                    <td>
-                      <Link
-                        to={`/catalog/items/${
-                          request.itemDefinition
-                            ? getCatalogItemRef(request.itemDefinition)
-                            : request.itemDefinitionId
-                        }`}
-                        className="buy-request-item-link"
-                      >
-                        {itemName}
-                      </Link>
-                    </td>
-                    <td>
-                      {request.maxPriceMinor ? (
-                        <MoneyDisplay minor={request.maxPriceMinor} />
-                      ) : (
-                        <span className="muted">{t('myBuyRequests.noLimit')}</span>
-                      )}
-                    </td>
-                    <td>
-                      {request.quantity > 1 || request.quantityFilled > 0
-                        ? t('buyRequestPanel.quantityShort', {
-                            filled: request.quantityFilled,
-                            total: request.quantity,
-                          })
-                        : '1'}
-                    </td>
-                    <td>
-                      {request.reservedAmountMinor ? (
-                        <MoneyDisplay minor={request.reservedAmountMinor} />
-                      ) : (
-                        <span className="muted">—</span>
-                      )}
-                    </td>
-                    <td>
-                      <span data-testid={`buy-request-status-${request.id}`}>
-                        {formatBuyRequestStatus(request.status, locale)}
-                      </span>
-                    </td>
-                    <td>
-                      {request.status === 'OPEN' ? (
-                        <button
-                          type="button"
-                          className="button secondary"
-                          disabled={cancelingId === request.id}
-                          data-testid={`buy-request-cancel-${request.id}`}
-                          onClick={() => handleCancel(request.id)}
+          <div className="table-wrap mobile-card-table-wrap">
+            <table className="data-table mobile-card-table">
+              <thead>
+                <tr>
+                  <th>{t('myBuyRequests.colItem')}</th>
+                  <th>{t('myBuyRequests.colMaxPrice')}</th>
+                  <th>{t('myBuyRequests.colQuantity')}</th>
+                  <th>{t('myBuyRequests.colReserved')}</th>
+                  <th>{t('myBuyRequests.colStatus')}</th>
+                  <th />
+                </tr>
+              </thead>
+              <tbody>
+                {requests.map((request) => {
+                  const itemName =
+                    request.itemDefinition?.marketHashName ?? request.itemDefinitionId;
+                  return (
+                    <tr key={request.id} data-testid={`buy-request-row-${request.id}`}>
+                      <td data-label={t('myBuyRequests.colItem')}>
+                        <Link
+                          to={`/catalog/items/${
+                            request.itemDefinition
+                              ? getCatalogItemRef(request.itemDefinition)
+                              : request.itemDefinitionId
+                          }`}
+                          className="buy-request-item-link"
                         >
-                          {t('myBuyRequests.cancel')}
-                        </button>
-                      ) : null}
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
+                          {itemName}
+                        </Link>
+                      </td>
+                      <td data-label={t('myBuyRequests.colMaxPrice')}>
+                        {request.maxPriceMinor ? (
+                          <MoneyDisplay minor={request.maxPriceMinor} />
+                        ) : (
+                          <span className="muted">{t('myBuyRequests.noLimit')}</span>
+                        )}
+                      </td>
+                      <td data-label={t('myBuyRequests.colQuantity')}>
+                        {request.quantity > 1 || request.quantityFilled > 0
+                          ? t('buyRequestPanel.quantityShort', {
+                              filled: request.quantityFilled,
+                              total: request.quantity,
+                            })
+                          : '1'}
+                      </td>
+                      <td data-label={t('myBuyRequests.colReserved')}>
+                        {request.reservedAmountMinor ? (
+                          <MoneyDisplay minor={request.reservedAmountMinor} />
+                        ) : (
+                          <span className="muted">—</span>
+                        )}
+                      </td>
+                      <td data-label={t('myBuyRequests.colStatus')}>
+                        <span data-testid={`buy-request-status-${request.id}`}>
+                          {formatBuyRequestStatus(request.status, locale)}
+                        </span>
+                      </td>
+                      <td data-label={t('myBuyRequests.colActions')}>
+                        {request.status === 'OPEN' ? (
+                          <button
+                            type="button"
+                            className="button secondary"
+                            disabled={cancelingId === request.id}
+                            data-testid={`buy-request-cancel-${request.id}`}
+                            onClick={() => handleCancel(request.id)}
+                          >
+                            {t('myBuyRequests.cancel')}
+                          </button>
+                        ) : null}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
         </div>
       ) : null}
     </div>
