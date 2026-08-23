@@ -655,6 +655,17 @@ export const clientExtraRu = {
     testDepositTitle: 'Тестовое пополнение',
     testDepositBody:
       'Зачисляет USD на баланс для проверки покупок на staging. Не настоящие деньги.',
+    backToPurchase: 'Вернуться к покупке',
+    depositShortfall: 'Не хватает {{amount}}. Пополните кошелёк — и вернитесь к лоту.',
+    depositLeadPurchase:
+      'Сумма уже подставлена под нехватку. После зачисления нажмите «Вернуться к покупке».',
+    depositUnavailable: 'Пополнение временно недоступно. Попробуйте позже или напишите в поддержку.',
+    withdrawUnavailable: 'Вывод временно недоступен. Попробуйте позже или напишите в поддержку.',
+    withdrawAvailable: 'Доступно к выводу: {{amount}}',
+    toCatalog: 'В каталог',
+    subtitlePurchase: 'Пополните баланс и вернитесь к покупке.',
+    depositLead: 'Выберите способ и сумму. Средства появятся в «Доступно» после подтверждения.',
+    depositReturnHint: 'После пополнения вернитесь к покупке.',
     transactionsEmpty: 'История операций пока пуста.',
     transactionsTitle: 'История операций',
     colType: 'Тип',

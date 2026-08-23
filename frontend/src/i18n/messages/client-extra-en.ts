@@ -637,6 +637,18 @@ export const clientExtraEn = {
     receivedAmount: 'you receive {{amount}}',
     testDepositTitle: 'Test deposit',
     testDepositBody: 'Credits USD to your balance to test purchases on staging. Not real money.',
+    backToPurchase: 'Back to purchase',
+    depositShortfall: 'You need {{amount}} more. Add funds, then return to the listing.',
+    depositLeadPurchase:
+      'Amount is prefilled for the shortfall. After credit, tap Back to purchase.',
+    depositUnavailable: 'Deposits are temporarily unavailable. Try again later or contact support.',
+    withdrawUnavailable:
+      'Withdrawals are temporarily unavailable. Try again later or contact support.',
+    withdrawAvailable: 'Available to withdraw: {{amount}}',
+    toCatalog: 'To catalog',
+    subtitlePurchase: 'Add funds, then return to your purchase.',
+    depositLead: 'Choose a method and amount. Funds appear in Available after confirmation.',
+    depositReturnHint: 'After depositing, return to your purchase.',
     transactionsEmpty: 'Transaction history is empty for now.',
     transactionsTitle: 'Transaction history',
     colType: 'Type',

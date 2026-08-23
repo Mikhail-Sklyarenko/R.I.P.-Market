@@ -63,7 +63,8 @@ export function LotPurchaseCard({
     availableMinor < priceMinor;
   const shortfallMinor =
     insufficient && availableMinor !== null ? priceMinor - availableMinor : 0;
-  const depositHref = `/wallet?tab=deposit&returnUrl=${encodeURIComponent(returnPath)}&needed=${priceMinor}`;
+  const depositNeededMinor = shortfallMinor > 0 ? shortfallMinor : priceMinor;
+  const depositHref = `/wallet?tab=deposit&returnUrl=${encodeURIComponent(returnPath)}&needed=${depositNeededMinor}`;
   const showReadiness =
     Boolean(token) && !isOwnLot && !isUnavailable;
   const canBuy =

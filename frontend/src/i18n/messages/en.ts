@@ -223,7 +223,8 @@ const baseEnMessages = {
   },
   wallet: {
     title: 'Wallet',
-    subtitle: 'Deposit, withdraw, and transaction history — switch tabs below.',
+    subtitle: 'Deposit, withdraw, and history — in a calm order.',
+    subtitlePurchase: 'Add funds, then return to your purchase.',
     tabsAria: 'Wallet sections',
     loading: 'Loading wallet…',
     needDepositTitle: 'Deposit required',
@@ -242,6 +243,17 @@ const baseEnMessages = {
     available: 'Available',
     availableHint: 'Available to spend on purchases',
     back: 'Back',
+    backToPurchase: 'Back to purchase',
+    depositShortfall: 'You need {{amount}} more. Add funds, then return to the listing.',
+    depositReturnHint: 'After depositing, return to your purchase.',
+    depositLead: 'Choose a method and amount. Funds appear in Available after confirmation.',
+    depositLeadPurchase:
+      'Amount is prefilled for the shortfall. After credit, tap Back to purchase.',
+    depositUnavailable: 'Deposits are temporarily unavailable. Try again later or contact support.',
+    withdrawUnavailable:
+      'Withdrawals are temporarily unavailable. Try again later or contact support.',
+    withdrawAvailable: 'Available to withdraw: {{amount}}',
+    toCatalog: 'To catalog',
     colAmount: 'Amount',
     colDate: 'Date',
     colOrder: 'Deal',

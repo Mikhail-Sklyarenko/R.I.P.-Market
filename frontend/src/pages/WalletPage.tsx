@@ -67,8 +67,10 @@ export function WalletPage() {
     setSearchParams(next, { replace: true });
   }
 
-  const [amountInput, setAmountInput] = useState(
-    neededMinor ? String(Number(neededMinor) / 100) : '1000',
+  const [amountInput, setAmountInput] = useState(() =>
+    neededMinor && Number.isFinite(Number(neededMinor))
+      ? String(Number(neededMinor) / 100)
+      : '',
   );
   const [submitting, setSubmitting] = useState(false);
   const [depositError, setDepositError] = useState<unknown>(null);
@@ -368,39 +370,82 @@ export function WalletPage() {
     ];
   }, [depositMode, minDepositMinor, paymentConfig?.usdtNetwork, paymentConfig?.usdtToken, t]);
 
+  const neededAmountMinor = useMemo(() => {
+    if (!neededMinor) {
+      return null;
+    }
+    const parsed = Number(neededMinor);
+    return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
+  }, [neededMinor]);
+
+  const availableAmountMinor = Number(wallet?.summary.availableMinor ?? 0);
+  const frozenAmountMinor = Number(wallet?.summary.frozenMinor ?? 0);
+  const showFrozen = frozenAmountMinor > 0;
+  const purchaseShortfallMinor =
+    neededAmountMinor !== null
+      ? Math.max(neededAmountMinor - availableAmountMinor, 0)
+      : null;
+  const hasPurchaseContext = Boolean(returnUrl) || neededAmountMinor !== null;
+  const purchaseReturnHref =
+    returnUrl && returnUrl.startsWith('/') ? returnUrl : null;
+
+  useEffect(() => {
+    if (purchaseShortfallMinor === null) {
+      return;
+    }
+    const suggest =
+      purchaseShortfallMinor > 0 ? purchaseShortfallMinor : neededAmountMinor!;
+    setAmountInput(String(suggest / 100));
+  }, [purchaseShortfallMinor, neededAmountMinor]);
+
   return (
-    <div className="page">
+    <div className="page wallet-page" data-testid="wallet-page">
       <PageHeader
         title={t('wallet.title')}
-        subtitle={t('wallet.subtitle')}
-        actions={
-          wallet || loading ? (
-            <div className="wallet-header-balance" data-testid="wallet-header-available">
-              <span className="eyebrow">{t('wallet.available')}</span>
-              {loading && !wallet ? (
-                <span className="muted small">…</span>
-              ) : (
-                <MoneyDisplay minor={wallet?.summary.availableMinor ?? '0'} strong />
-              )}
-            </div>
-          ) : null
+        subtitle={
+          hasPurchaseContext ? t('wallet.subtitlePurchase') : t('wallet.subtitle')
         }
       />
 
-      {returnUrl ? (
-        <Link to={returnUrl} className="button secondary wallet-back-link">
-          {t('wallet.back')}
-        </Link>
-      ) : null}
-
-      {neededMinor ? (
-        <ErrorAlert
-          variant="info"
-          title={t('wallet.needDepositTitle')}
+      {hasPurchaseContext ? (
+        <section
+          className="card wallet-purchase-context"
           data-testid="deposit-needed-banner"
         >
-          {t('wallet.depositNeeded', { amount: formatUsdFromMinor(neededMinor) })}
-        </ErrorAlert>
+          <div className="wallet-purchase-context-copy">
+            <h2 className="wallet-purchase-context-title">{t('wallet.needDepositTitle')}</h2>
+            <p className="muted small">
+              {purchaseShortfallMinor !== null && purchaseShortfallMinor > 0
+                ? t('wallet.depositShortfall', {
+                    amount: formatUsdFromMinor(purchaseShortfallMinor),
+                  })
+                : neededAmountMinor !== null
+                  ? t('wallet.depositNeeded', {
+                      amount: formatUsdFromMinor(neededAmountMinor),
+                    })
+                  : t('wallet.depositReturnHint')}
+            </p>
+            {purchaseShortfallMinor !== null &&
+            purchaseShortfallMinor > 0 &&
+            neededAmountMinor !== null &&
+            neededAmountMinor !== purchaseShortfallMinor ? (
+              <p className="muted small" data-testid="wallet-purchase-needed-total">
+                {t('wallet.depositNeeded', {
+                  amount: formatUsdFromMinor(neededAmountMinor),
+                })}
+              </p>
+            ) : null}
+          </div>
+          {purchaseReturnHref ? (
+            <Link
+              to={purchaseReturnHref}
+              className="button secondary wallet-back-link"
+              data-testid="wallet-back-to-purchase"
+            >
+              {t('wallet.backToPurchase')}
+            </Link>
+          ) : null}
+        </section>
       ) : null}
 
       {cryptoPaymentsEnabled && !realSettlementEnabled ? (
@@ -430,13 +475,15 @@ export function WalletPage() {
           data-testid="wallet-deposit-credited-banner"
         >
           {depositCreditedNotice}
+          {purchaseReturnHref ? (
+            <p className="wallet-credited-return">
+              <Link to={purchaseReturnHref} className="button primary sm">
+                {t('wallet.backToPurchase')}
+              </Link>
+            </p>
+          ) : null}
         </ErrorAlert>
       ) : null}
-
-      <div className="card wallet-hold-info" data-testid="wallet-hold-info">
-        <h3>{t('wallet.whatIsHoldTitle')}</h3>
-        <p className="muted small">{t('wallet.whatIsHoldBody')}</p>
-      </div>
 
       {loading ? <LoadingState message={t('wallet.loading')} /> : null}
 
@@ -444,38 +491,41 @@ export function WalletPage() {
 
       {wallet ? (
         <>
-          <div className="wallet-balance-grid" data-testid="wallet-balances">
-            <div
-              className="card wallet-balance-card wallet-balance-available"
-              data-testid="wallet-available"
-            >
+          <section className="card wallet-balance-hero" data-testid="wallet-balances">
+            <div className="wallet-balance-hero-primary" data-testid="wallet-available">
               <span className="eyebrow">{t('wallet.available')}</span>
               <MoneyDisplay
                 minor={wallet.summary.availableMinor}
                 strong
-                className="wallet-balance-value"
+                className="wallet-balance-hero-value"
               />
               <p className="muted small">{t('wallet.availableHint')}</p>
             </div>
-            <div className="card wallet-balance-card" data-testid="wallet-hold">
-              <span className="eyebrow">{t('wallet.hold')}</span>
-              <MoneyDisplay
-                minor={wallet.summary.holdMinor}
-                strong
-                className="wallet-balance-value"
-              />
-              <p className="muted small">{t('wallet.holdHint')}</p>
+            <div className="wallet-balance-hero-secondary">
+              <div className="wallet-balance-metric" data-testid="wallet-hold">
+                <span className="eyebrow">{t('wallet.hold')}</span>
+                <MoneyDisplay minor={wallet.summary.holdMinor} strong />
+                <p className="muted small">{t('wallet.holdHint')}</p>
+              </div>
+              {showFrozen ? (
+                <div className="wallet-balance-metric" data-testid="wallet-frozen">
+                  <span className="eyebrow">{t('wallet.frozen')}</span>
+                  <MoneyDisplay minor={wallet.summary.frozenMinor} strong />
+                  <p className="muted small">{t('wallet.frozenHint')}</p>
+                </div>
+              ) : (
+                <div className="wallet-balance-metric wallet-balance-metric-hidden" data-testid="wallet-frozen" hidden>
+                  <span className="eyebrow">{t('wallet.frozen')}</span>
+                  <MoneyDisplay minor={wallet.summary.frozenMinor} strong />
+                </div>
+              )}
             </div>
-            <div className="card wallet-balance-card" data-testid="wallet-frozen">
-              <span className="eyebrow">{t('wallet.frozen')}</span>
-              <MoneyDisplay
-                minor={wallet.summary.frozenMinor}
-                strong
-                className="wallet-balance-value"
-              />
-              <p className="muted small">{t('wallet.frozenHint')}</p>
-            </div>
-          </div>
+          </section>
+
+          <details className="card wallet-hold-info" data-testid="wallet-hold-info">
+            <summary className="wallet-hold-info-summary">{t('wallet.whatIsHoldTitle')}</summary>
+            <p className="muted small">{t('wallet.whatIsHoldBody')}</p>
+          </details>
 
           <nav className="wallet-tabs" aria-label={t('wallet.tabsAria')} data-testid="wallet-tabs">
             {getWalletTabs(locale).map((tab) => (
@@ -492,384 +542,416 @@ export function WalletPage() {
             ))}
           </nav>
 
-          {activeTab === 'deposit' && cryptoPaymentsEnabled ? (
-            depositMode === 'checkout' ? (
-              <form
-                className="card form-card wallet-deposit-form"
-                onSubmit={(event) => void handleCheckoutDeposit(event)}
-                data-testid="wallet-usdt-deposit"
-              >
-                <h3>{t('wallet.depositUsdtCheckoutTitle')}</h3>
-                <ul className="wallet-crypto-warnings" data-testid="deposit-warnings">
-                  {depositWarnings.map((warning) => (
-                    <li key={warning} className="muted small">
-                      {warning}
-                    </li>
-                  ))}
-                </ul>
+          {activeTab === 'deposit' ? (
+            <div className="wallet-tab-panel" data-testid="wallet-deposit-panel">
+              {hasPurchaseContext ? (
+                <p className="wallet-deposit-lead muted small">{t('wallet.depositLeadPurchase')}</p>
+              ) : (
+                <p className="wallet-deposit-lead muted small">{t('wallet.depositLead')}</p>
+              )}
 
-                {awaitingDeposit ? (
-                  <p className="wallet-deposit-awaiting" data-testid="deposit-awaiting-status">
-                    {t('wallet.depositAwaitingCheckout')}
-                  </p>
-                ) : null}
-
-                <FormField label={t('wallet.amountUsdt')} htmlFor="checkout-deposit-amount">
-                  <input
-                    id="checkout-deposit-amount"
-                    type="text"
-                    inputMode="decimal"
-                    value={amountInput}
-                    onChange={(event) => {
-                      setAmountInput(event.target.value);
-                      setFieldError(null);
-                    }}
-                    data-testid="checkout-deposit-amount"
-                  />
-                </FormField>
-
-                <fieldset className="wallet-payment-methods" data-testid="deposit-payment-methods">
-                  <legend className="form-label">{t('wallet.paymentNetwork')}</legend>
-                  <div className="wallet-payment-method-row">
-                    {paymentMethods.map((method) => (
-                      <label key={method} className="wallet-payment-method-option">
-                        <input
-                          type="radio"
-                          name="deposit-payment-method"
-                          value={method}
-                          checked={checkoutPaymentMethod === method}
-                          onChange={() => setCheckoutPaymentMethod(method)}
-                          data-testid={`deposit-method-${method}`}
-                        />
-                        <span>{t(`wallet.paymentMethod.${method}`)}</span>
-                      </label>
-                    ))}
-                  </div>
-                </fieldset>
-
-                {fieldError ? (
-                  <p className="field-error" data-testid="checkout-deposit-field-error">
-                    {fieldError}
-                  </p>
-                ) : null}
-                {depositError ? <ErrorAlert error={depositError} /> : null}
-
-                <button
-                  type="submit"
-                  className="button primary"
-                  disabled={submitting}
-                  data-testid="checkout-deposit-submit"
-                >
-                  {submitting ? t('wallet.depositRedirecting') : t('wallet.depositPayCta')}
-                </button>
-
-                {(depositStatus?.events.length ?? 0) > 0 ? (
-                  <div className="wallet-crypto-history" data-testid="wallet-crypto-deposits">
-                    <h4>{t('wallet.depositHistoryTitle')}</h4>
-                    <ul className="wallet-crypto-list">
-                      {depositStatus!.events.slice(0, 5).map((event) => (
-                        <li key={event.id} data-testid={`deposit-event-${event.id}`}>
-                          <span>{formatUsdFromMinor(event.amountMinor)}</span>
-                          <span className="muted small">
-                            {new Date(event.createdAt).toLocaleString(
-                              locale === 'en' ? 'en-US' : 'ru-RU',
-                            )}
-                          </span>
+              {cryptoPaymentsEnabled ? (
+                depositMode === 'checkout' ? (
+                  <form
+                    className="card form-card wallet-deposit-form"
+                    onSubmit={(event) => void handleCheckoutDeposit(event)}
+                    data-testid="wallet-usdt-deposit"
+                  >
+                    <h3>{t('wallet.depositUsdtCheckoutTitle')}</h3>
+                    <ul className="wallet-crypto-warnings" data-testid="deposit-warnings">
+                      {depositWarnings.map((warning) => (
+                        <li key={warning} className="muted small">
+                          {warning}
                         </li>
                       ))}
                     </ul>
-                  </div>
-                ) : null}
-              </form>
-            ) : (
-              <div className="card wallet-deposit-form" data-testid="wallet-usdt-deposit">
-                <h3>{t('wallet.depositUsdtTitle')}</h3>
-                <ul className="wallet-crypto-warnings" data-testid="deposit-warnings">
-                  {depositWarnings.map((warning) => (
-                    <li key={warning} className="muted small">
-                      {warning}
-                    </li>
-                  ))}
-                </ul>
 
-                {awaitingDeposit ? (
-                  <p className="wallet-deposit-awaiting" data-testid="deposit-awaiting-status">
-                    {t('wallet.depositAwaiting')}
-                  </p>
-                ) : null}
+                    {awaitingDeposit ? (
+                      <p className="wallet-deposit-awaiting" data-testid="deposit-awaiting-status">
+                        {t('wallet.depositAwaitingCheckout')}
+                      </p>
+                    ) : null}
 
-                {depositInfo?.address && depositInfo.qrData ? (
-                  <div className="wallet-deposit-details">
-                    <div className="wallet-deposit-qr-wrap">
-                      <QrCode
-                        value={depositInfo.qrData}
-                        label={t('wallet.depositQrAlt')}
-                        size={180}
-                        className="wallet-deposit-qr"
-                        testId="deposit-qr"
+                    <FormField label={t('wallet.amountUsdt')} htmlFor="checkout-deposit-amount">
+                      <input
+                        id="checkout-deposit-amount"
+                        type="text"
+                        inputMode="decimal"
+                        value={amountInput}
+                        onChange={(event) => {
+                          setAmountInput(event.target.value);
+                          setFieldError(null);
+                        }}
+                        data-testid="checkout-deposit-amount"
                       />
-                    </div>
-                    <FormField label={t('wallet.depositAddress')} htmlFor="deposit-trc20-address">
-                      <div className="wallet-address-row">
-                        <input
-                          id="deposit-trc20-address"
-                          type="text"
-                          readOnly
-                          value={depositInfo.address}
-                          data-testid="deposit-trc20-address"
-                        />
-                        <button
-                          type="button"
-                          className="button secondary"
-                          onClick={() => void handleCopyAddress()}
-                          data-testid="deposit-address-copy"
-                        >
-                          {addressCopied ? t('wallet.copied') : t('wallet.copy')}
-                        </button>
-                      </div>
                     </FormField>
-                  </div>
-                ) : (
-                  <p className="muted small">{t('wallet.depositAddressLoading')}</p>
-                )}
 
-                {(depositStatus?.events.length ?? 0) > 0 ? (
-                  <div className="wallet-crypto-history" data-testid="wallet-crypto-deposits">
-                    <h4>{t('wallet.depositHistoryTitle')}</h4>
-                    <ul className="wallet-crypto-list">
-                      {depositStatus!.events.slice(0, 5).map((event) => (
-                        <li key={event.id} data-testid={`deposit-event-${event.id}`}>
-                          <span>{formatUsdFromMinor(event.amountMinor)}</span>
-                          <span className="muted small">
-                            {new Date(event.createdAt).toLocaleString(
-                              locale === 'en' ? 'en-US' : 'ru-RU',
-                            )}
-                          </span>
+                    <fieldset className="wallet-payment-methods" data-testid="deposit-payment-methods">
+                      <legend className="form-label">{t('wallet.paymentNetwork')}</legend>
+                      <div className="wallet-payment-method-row">
+                        {paymentMethods.map((method) => (
+                          <label key={method} className="wallet-payment-method-option">
+                            <input
+                              type="radio"
+                              name="deposit-payment-method"
+                              value={method}
+                              checked={checkoutPaymentMethod === method}
+                              onChange={() => setCheckoutPaymentMethod(method)}
+                              data-testid={`deposit-method-${method}`}
+                            />
+                            <span>{t(`wallet.paymentMethod.${method}`)}</span>
+                          </label>
+                        ))}
+                      </div>
+                    </fieldset>
+
+                    {fieldError ? (
+                      <p className="field-error" data-testid="checkout-deposit-field-error">
+                        {fieldError}
+                      </p>
+                    ) : null}
+                    {depositError ? <ErrorAlert error={depositError} /> : null}
+
+                    <button
+                      type="submit"
+                      className="button primary"
+                      disabled={submitting}
+                      data-testid="checkout-deposit-submit"
+                    >
+                      {submitting ? t('wallet.depositRedirecting') : t('wallet.depositPayCta')}
+                    </button>
+
+                    {(depositStatus?.events.length ?? 0) > 0 ? (
+                      <div className="wallet-crypto-history" data-testid="wallet-crypto-deposits">
+                        <h4>{t('wallet.depositHistoryTitle')}</h4>
+                        <ul className="wallet-crypto-list">
+                          {depositStatus!.events.slice(0, 5).map((event) => (
+                            <li key={event.id} data-testid={`deposit-event-${event.id}`}>
+                              <span>{formatUsdFromMinor(event.amountMinor)}</span>
+                              <span className="muted small">
+                                {new Date(event.createdAt).toLocaleString(
+                                  locale === 'en' ? 'en-US' : 'ru-RU',
+                                )}
+                              </span>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    ) : null}
+                  </form>
+                ) : (
+                  <div className="card wallet-deposit-form" data-testid="wallet-usdt-deposit">
+                    <h3>{t('wallet.depositUsdtTitle')}</h3>
+                    <ul className="wallet-crypto-warnings" data-testid="deposit-warnings">
+                      {depositWarnings.map((warning) => (
+                        <li key={warning} className="muted small">
+                          {warning}
                         </li>
                       ))}
                     </ul>
+
+                    {awaitingDeposit ? (
+                      <p className="wallet-deposit-awaiting" data-testid="deposit-awaiting-status">
+                        {t('wallet.depositAwaiting')}
+                      </p>
+                    ) : null}
+
+                    {depositInfo?.address && depositInfo.qrData ? (
+                      <div className="wallet-deposit-details">
+                        <div className="wallet-deposit-qr-wrap">
+                          <QrCode
+                            value={depositInfo.qrData}
+                            label={t('wallet.depositQrAlt')}
+                            size={180}
+                            className="wallet-deposit-qr"
+                            testId="deposit-qr"
+                          />
+                        </div>
+                        <FormField label={t('wallet.depositAddress')} htmlFor="deposit-trc20-address">
+                          <div className="wallet-address-row">
+                            <input
+                              id="deposit-trc20-address"
+                              type="text"
+                              readOnly
+                              value={depositInfo.address}
+                              data-testid="deposit-trc20-address"
+                            />
+                            <button
+                              type="button"
+                              className="button secondary"
+                              onClick={() => void handleCopyAddress()}
+                              data-testid="deposit-address-copy"
+                            >
+                              {addressCopied ? t('wallet.copied') : t('wallet.copy')}
+                            </button>
+                          </div>
+                        </FormField>
+                      </div>
+                    ) : (
+                      <p className="muted small">{t('wallet.depositAddressLoading')}</p>
+                    )}
+
+                    {(depositStatus?.events.length ?? 0) > 0 ? (
+                      <div className="wallet-crypto-history" data-testid="wallet-crypto-deposits">
+                        <h4>{t('wallet.depositHistoryTitle')}</h4>
+                        <ul className="wallet-crypto-list">
+                          {depositStatus!.events.slice(0, 5).map((event) => (
+                            <li key={event.id} data-testid={`deposit-event-${event.id}`}>
+                              <span>{formatUsdFromMinor(event.amountMinor)}</span>
+                              <span className="muted small">
+                                {new Date(event.createdAt).toLocaleString(
+                                  locale === 'en' ? 'en-US' : 'ru-RU',
+                                )}
+                              </span>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    ) : null}
                   </div>
-                ) : null}
-              </div>
-            )
+                )
+              ) : !showDepositForm ? (
+                <div className="card wallet-deposit-unavailable" data-testid="wallet-deposit-unavailable">
+                  <p className="muted">{t('wallet.depositUnavailable')}</p>
+                </div>
+              ) : null}
+
+              {showDepositForm ? (
+                <form
+                  className={`card form-card wallet-deposit-form${
+                    cryptoPaymentsEnabled ? ' wallet-mock-deposit' : ''
+                  }`}
+                  onSubmit={(event) => void handleDeposit(event)}
+                  data-testid="wallet-mock-deposit-form"
+                >
+                  <h3>{t('wallet.testDepositTitle')}</h3>
+                  <p className="muted small">{t('wallet.testDepositBody')}</p>
+
+                  <FormField label={t('wallet.amountUsdt')} htmlFor="deposit-amount-input">
+                    <input
+                      id="deposit-amount-input"
+                      type="text"
+                      inputMode="decimal"
+                      value={amountInput}
+                      onChange={(event) => {
+                        setAmountInput(event.target.value);
+                        setFieldError(null);
+                      }}
+                      data-testid="deposit-amount-input"
+                    />
+                  </FormField>
+
+                  {fieldError ? <p className="field-error">{fieldError}</p> : null}
+                  <ErrorAlert error={depositError} />
+
+                  <button
+                    type="submit"
+                    className={`button${cryptoPaymentsEnabled ? ' secondary' : ' primary'}`}
+                    disabled={submitting}
+                    data-testid="deposit-submit"
+                  >
+                    {submitting ? t('wallet.depositSubmitting') : t('wallet.depositSubmit')}
+                  </button>
+                </form>
+              ) : null}
+            </div>
           ) : null}
 
-          {activeTab === 'withdraw' && cryptoPaymentsEnabled ? (
-            <form
-              className="card form-card wallet-withdraw-form"
-              onSubmit={(event) => void handleWithdraw(event)}
-              data-testid="wallet-usdt-withdraw-form"
-            >
-              <h3>{t('wallet.withdrawUsdtTitle')}</h3>
-              <p className="muted small">{t('wallet.withdrawUsdtBody')}</p>
-              {paymentMethods.length > 1 ? (
-                <fieldset className="wallet-payment-methods" data-testid="withdraw-payment-methods">
-                  <legend className="form-label">{t('wallet.paymentNetwork')}</legend>
-                  <div className="wallet-payment-method-row">
-                    {paymentMethods.map((method) => (
-                      <label key={method} className="wallet-payment-method-option">
-                        <input
-                          type="radio"
-                          name="withdraw-payment-method"
-                          value={method}
-                          checked={withdrawPaymentMethod === method}
-                          onChange={() => {
-                            setWithdrawPaymentMethod(method);
-                            setWithdrawError(null);
-                          }}
-                          data-testid={`withdraw-method-${method}`}
-                        />
-                        <span>{t(`wallet.paymentMethod.${method}`)}</span>
-                      </label>
-                    ))}
+          {activeTab === 'withdraw' ? (
+            <div className="wallet-tab-panel" data-testid="wallet-withdraw-panel">
+              {cryptoPaymentsEnabled ? (
+                <form
+                  className="card form-card wallet-withdraw-form"
+                  onSubmit={(event) => void handleWithdraw(event)}
+                  data-testid="wallet-usdt-withdraw-form"
+                >
+                  <h3>{t('wallet.withdrawUsdtTitle')}</h3>
+                  <p className="muted small">{t('wallet.withdrawUsdtBody')}</p>
+                  <p className="wallet-withdraw-available muted small">
+                    {t('wallet.withdrawAvailable', {
+                      amount: formatUsdFromMinor(wallet.summary.availableMinor),
+                    })}
+                  </p>
+                  {paymentMethods.length > 1 ? (
+                    <fieldset className="wallet-payment-methods" data-testid="withdraw-payment-methods">
+                      <legend className="form-label">{t('wallet.paymentNetwork')}</legend>
+                      <div className="wallet-payment-method-row">
+                        {paymentMethods.map((method) => (
+                          <label key={method} className="wallet-payment-method-option">
+                            <input
+                              type="radio"
+                              name="withdraw-payment-method"
+                              value={method}
+                              checked={withdrawPaymentMethod === method}
+                              onChange={() => {
+                                setWithdrawPaymentMethod(method);
+                                setWithdrawError(null);
+                              }}
+                              data-testid={`withdraw-method-${method}`}
+                            />
+                            <span>{t(`wallet.paymentMethod.${method}`)}</span>
+                          </label>
+                        ))}
+                      </div>
+                    </fieldset>
+                  ) : null}
+                  <FormField
+                    label={
+                      withdrawPaymentMethod === 'trc20'
+                        ? t('wallet.trc20Address')
+                        : t('wallet.evmAddress')
+                    }
+                    htmlFor="withdraw-address-input"
+                  >
+                    <input
+                      id="withdraw-address-input"
+                      type="text"
+                      placeholder={withdrawPaymentMethod === 'trc20' ? 'T...' : '0x...'}
+                      value={withdrawAddress}
+                      onChange={(event) => {
+                        setWithdrawAddress(event.target.value);
+                        setWithdrawError(null);
+                      }}
+                      data-testid="withdraw-address-input"
+                    />
+                  </FormField>
+                  <FormField label={t('wallet.amountUsdt')} htmlFor="withdraw-amount-input">
+                    <input
+                      id="withdraw-amount-input"
+                      type="text"
+                      inputMode="decimal"
+                      value={withdrawAmountInput}
+                      onChange={(event) => {
+                        setWithdrawAmountInput(event.target.value);
+                        setWithdrawError(null);
+                      }}
+                      data-testid="withdraw-amount-input"
+                    />
+                  </FormField>
+                  <div className="wallet-withdraw-summary" data-testid="withdraw-summary">
+                    <div>
+                      <span className="muted small">{t('wallet.commission')}</span>
+                      <strong>{formatUsdFromMinor(withdrawFeeMinor)}</strong>
+                    </div>
+                    <div>
+                      <span className="muted small">{t('wallet.toReceive')}</span>
+                      <strong data-testid="withdraw-net-amount">
+                        {withdrawAmountMinor > withdrawFeeMinor
+                          ? formatUsdFromMinor(withdrawNetMinor)
+                          : '—'}
+                      </strong>
+                    </div>
+                    <div>
+                      <span className="muted small">{t('wallet.minimum')}</span>
+                      <strong>{formatUsdFromMinor(minWithdrawMinor)}</strong>
+                    </div>
                   </div>
-                </fieldset>
-              ) : null}
-              <FormField
-                label={
-                  withdrawPaymentMethod === 'trc20'
-                    ? t('wallet.trc20Address')
-                    : t('wallet.evmAddress')
-                }
-                htmlFor="withdraw-address-input"
-              >
-                <input
-                  id="withdraw-address-input"
-                  type="text"
-                  placeholder={withdrawPaymentMethod === 'trc20' ? 'T...' : '0x...'}
-                  value={withdrawAddress}
-                  onChange={(event) => {
-                    setWithdrawAddress(event.target.value);
-                    setWithdrawError(null);
-                  }}
-                  data-testid="withdraw-address-input"
-                />
-              </FormField>
-              <FormField label={t('wallet.amountUsdt')} htmlFor="withdraw-amount-input">
-                <input
-                  id="withdraw-amount-input"
-                  type="text"
-                  inputMode="decimal"
-                  value={withdrawAmountInput}
-                  onChange={(event) => {
-                    setWithdrawAmountInput(event.target.value);
-                    setWithdrawError(null);
-                  }}
-                  data-testid="withdraw-amount-input"
-                />
-              </FormField>
-              <div className="wallet-withdraw-summary" data-testid="withdraw-summary">
-                <div>
-                  <span className="muted small">{t('wallet.commission')}</span>
-                  <strong>{formatUsdFromMinor(withdrawFeeMinor)}</strong>
+                  {withdrawError ? (
+                    <p className="field-error" data-testid="withdraw-error">
+                      {withdrawError}
+                    </p>
+                  ) : null}
+                  {withdrawals.length > 0 ? (
+                    <div className="wallet-crypto-history" data-testid="wallet-crypto-withdrawals">
+                      <h4>{t('wallet.historyTitle')}</h4>
+                      <ul className="wallet-crypto-list">
+                        {withdrawals.slice(0, 10).map((item) => (
+                          <li key={item.id} data-testid={`withdrawal-row-${item.id}`}>
+                            <div className="wallet-withdrawal-row-main">
+                              <span>{formatUsdFromMinor(item.amountMinor)}</span>
+                              <span className="muted small">
+                                {t('wallet.receivedAmount', {
+                                  amount: formatUsdFromMinor(item.netMinor),
+                                })}
+                              </span>
+                            </div>
+                            <span
+                              className={`wallet-withdrawal-status ${withdrawalStatusClass(item.status)}`}
+                              data-testid={`withdrawal-status-${item.id}`}
+                            >
+                              {formatWithdrawalStatus(item.status, locale)}
+                            </span>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  ) : null}
+                  <button
+                    type="submit"
+                    className="button primary"
+                    disabled={withdrawSubmitting}
+                    data-testid="withdraw-submit"
+                  >
+                    {withdrawSubmitting ? t('wallet.withdrawSending') : t('wallet.withdrawSubmit')}
+                  </button>
+                </form>
+              ) : (
+                <div className="card wallet-withdraw-unavailable" data-testid="wallet-withdraw-unavailable">
+                  <p className="muted">{t('wallet.withdrawUnavailable')}</p>
                 </div>
-                <div>
-                  <span className="muted small">{t('wallet.toReceive')}</span>
-                  <strong data-testid="withdraw-net-amount">
-                    {withdrawAmountMinor > withdrawFeeMinor
-                      ? formatUsdFromMinor(withdrawNetMinor)
-                      : '—'}
-                  </strong>
-                </div>
-                <div>
-                  <span className="muted small">{t('wallet.minimum')}</span>
-                  <strong>{formatUsdFromMinor(minWithdrawMinor)}</strong>
-                </div>
+              )}
+            </div>
+          ) : null}
+
+          {activeTab === 'transactions' && transactions.length === 0 ? (
+            <div className="card wallet-transactions-empty" data-testid="wallet-transactions-empty">
+              <p className="muted small">{t('wallet.transactionsEmpty')}</p>
+              <Link to="/catalog" className="button secondary sm">
+                {t('wallet.toCatalog')}
+              </Link>
+            </div>
+          ) : null}
+
+          {activeTab === 'transactions' && transactions.length > 0 ? (
+            <div className="card wallet-transactions" data-testid="wallet-transactions">
+              <h3>{t('wallet.transactionsTitle')}</h3>
+              <div className="table-wrap">
+                <table className="data-table" data-testid="wallet-transactions-table">
+                  <thead>
+                    <tr>
+                      <th>{t('wallet.colType')}</th>
+                      <th>{t('wallet.colAmount')}</th>
+                      <th>{t('wallet.colDate')}</th>
+                      <th>{t('wallet.colOrder')}</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {transactions.map((tx) => {
+                      const orderId = resolveLedgerOrderId(tx);
+                      return (
+                        <tr key={tx.id} data-testid={`wallet-tx-${tx.type}`}>
+                          <td>{formatLedgerEntryType(tx.type, locale)}</td>
+                          <td>
+                            <span className={ledgerAmountClass(tx.amountMinor)}>
+                              {formatLedgerAmount(tx.amountMinor)}
+                            </span>
+                          </td>
+                          <td>
+                            {new Date(tx.createdAt).toLocaleString(
+                              locale === 'en' ? 'en-US' : 'ru-RU',
+                            )}
+                          </td>
+                          <td>
+                            {orderId ? (
+                              <Link
+                                to={`/orders/${orderId}`}
+                                data-testid={`wallet-tx-order-${orderId}`}
+                              >
+                                {t('wallet.openOrder')}
+                              </Link>
+                            ) : (
+                              <span className="muted">—</span>
+                            )}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
               </div>
-              {withdrawError ? (
-                <p className="field-error" data-testid="withdraw-error">
-                  {withdrawError}
-                </p>
-              ) : null}
-              {withdrawals.length > 0 ? (
-                <div className="wallet-crypto-history" data-testid="wallet-crypto-withdrawals">
-                  <h4>{t('wallet.historyTitle')}</h4>
-                  <ul className="wallet-crypto-list">
-                    {withdrawals.slice(0, 10).map((item) => (
-                      <li key={item.id} data-testid={`withdrawal-row-${item.id}`}>
-                        <div className="wallet-withdrawal-row-main">
-                          <span>{formatUsdFromMinor(item.amountMinor)}</span>
-                          <span className="muted small">
-                            {t('wallet.receivedAmount', {
-                              amount: formatUsdFromMinor(item.netMinor),
-                            })}
-                          </span>
-                        </div>
-                        <span
-                          className={`wallet-withdrawal-status ${withdrawalStatusClass(item.status)}`}
-                          data-testid={`withdrawal-status-${item.id}`}
-                        >
-                          {formatWithdrawalStatus(item.status, locale)}
-                        </span>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              ) : null}
-              <button
-                type="submit"
-                className="button primary"
-                disabled={withdrawSubmitting}
-                data-testid="withdraw-submit"
-              >
-                {withdrawSubmitting ? t('wallet.withdrawSending') : t('wallet.withdrawSubmit')}
-              </button>
-            </form>
+            </div>
           ) : null}
         </>
-      ) : null}
-
-      {activeTab === 'deposit' && showDepositForm ? (
-        <form
-          className="card form-card wallet-deposit-form"
-          onSubmit={(event) => void handleDeposit(event)}
-          data-testid="wallet-mock-deposit-form"
-        >
-              <h3>{t('wallet.testDepositTitle')}</h3>
-          <p className="muted small">{t('wallet.testDepositBody')}</p>
-
-          <FormField label={t('wallet.amountUsdt')} htmlFor="deposit-amount-input">
-            <input
-              id="deposit-amount-input"
-              type="text"
-              inputMode="decimal"
-              value={amountInput}
-              onChange={(event) => {
-                setAmountInput(event.target.value);
-                setFieldError(null);
-              }}
-              data-testid="deposit-amount-input"
-            />
-          </FormField>
-
-          {fieldError ? <p className="field-error">{fieldError}</p> : null}
-          <ErrorAlert error={depositError} />
-
-          <button
-            type="submit"
-            className="button primary"
-            disabled={submitting}
-            data-testid="deposit-submit"
-          >
-            {submitting ? t('wallet.depositSubmitting') : t('wallet.depositSubmit')}
-          </button>
-        </form>
-      ) : null}
-
-      {activeTab === 'transactions' && transactions.length === 0 ? (
-        <div className="card wallet-transactions-empty" data-testid="wallet-transactions-empty">
-          <p className="muted small">{t('wallet.transactionsEmpty')}</p>
-        </div>
-      ) : null}
-
-      {activeTab === 'transactions' && transactions.length > 0 ? (
-        <div className="card wallet-transactions" data-testid="wallet-transactions">
-          <h3>{t('wallet.transactionsTitle')}</h3>
-          <div className="table-wrap">
-            <table className="data-table" data-testid="wallet-transactions-table">
-              <thead>
-                <tr>
-                  <th>{t('wallet.colType')}</th>
-                  <th>{t('wallet.colAmount')}</th>
-                  <th>{t('wallet.colDate')}</th>
-                  <th>{t('wallet.colOrder')}</th>
-                </tr>
-              </thead>
-              <tbody>
-                {transactions.map((tx) => {
-                  const orderId = resolveLedgerOrderId(tx);
-                  return (
-                    <tr key={tx.id} data-testid={`wallet-tx-${tx.type}`}>
-                      <td>{formatLedgerEntryType(tx.type, locale)}</td>
-                      <td>
-                        <span className={ledgerAmountClass(tx.amountMinor)}>
-                          {formatLedgerAmount(tx.amountMinor)}
-                        </span>
-                      </td>
-                      <td>
-                        {new Date(tx.createdAt).toLocaleString(
-                          locale === 'en' ? 'en-US' : 'ru-RU',
-                        )}
-                      </td>
-                      <td>
-                        {orderId ? (
-                          <Link
-                            to={`/orders/${orderId}`}
-                            data-testid={`wallet-tx-order-${orderId}`}
-                          >
-                            {t('wallet.openOrder')}
-                          </Link>
-                        ) : (
-                          <span className="muted">—</span>
-                        )}
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        </div>
       ) : null}
     </div>
   );
