@@ -703,8 +703,6 @@ export const clientExtraEn = {
   },
   lotActionButtons: {
     inspectInGame: 'Inspect in-game',
-    inspectLimited:
-      'Basic inspect link — the exact skin may not open. Use Steam Market or buy with care.',
     inspectLimitedTitle: 'Basic inspect link — exact item may not open in CS2',
     inspectUnavailable:
       'In-game inspect is temporarily unavailable for this listing. Check wear on the card or open Steam Market.',

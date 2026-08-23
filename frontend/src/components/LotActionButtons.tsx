@@ -75,8 +75,8 @@ export function LotActionButtons({
 
   return (
     <div className="lot-action-buttons" data-testid="lot-action-buttons">
-      {inspectHref ? (
-        <div className="lot-action-inspect-group">
+      <div className="lot-action-buttons-row">
+        {inspectHref ? (
           <a
             href={inspectHref}
             className={`lot-action-button${
@@ -92,37 +92,32 @@ export function LotActionButtons({
             <InspectInGameIcon />
             <span>{t('lotActionButtons.inspectInGame')}</span>
           </a>
-          {inspectState.kind === 'limited' ? (
-            <p className="lot-action-inspect-note muted small" data-testid="lot-inspect-limited-note">
-              {t('lotActionButtons.inspectLimited')}
-            </p>
-          ) : null}
-        </div>
-      ) : null}
+        ) : null}
+
+        {steamMarketUrl ? (
+          <a
+            href={steamMarketUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="lot-action-button"
+            data-testid="lot-steam-market-link"
+            title={marketTitle}
+            aria-label={
+              marketTitle
+                ? t('lotActionButtons.openSteamMarketWithName', { name: marketTitle })
+                : t('lotActionButtons.openSteamMarket')
+            }
+          >
+            <SteamMarketIcon />
+            <span>Steam Market</span>
+          </a>
+        ) : null}
+      </div>
 
       {showInspectUnavailable ? (
         <p className="lot-action-inspect-unavailable muted small" data-testid="lot-inspect-unavailable">
           {t('lotActionButtons.inspectUnavailable')}
         </p>
-      ) : null}
-
-      {steamMarketUrl ? (
-        <a
-          href={steamMarketUrl}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="lot-action-button"
-          data-testid="lot-steam-market-link"
-          title={marketTitle}
-          aria-label={
-            marketTitle
-              ? t('lotActionButtons.openSteamMarketWithName', { name: marketTitle })
-              : t('lotActionButtons.openSteamMarket')
-          }
-        >
-          <SteamMarketIcon />
-          <span>Steam Market</span>
-        </a>
       ) : null}
     </div>
   );

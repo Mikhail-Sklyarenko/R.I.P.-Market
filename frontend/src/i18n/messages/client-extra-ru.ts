@@ -721,8 +721,6 @@ export const clientExtraRu = {
   },
   lotActionButtons: {
     inspectInGame: 'Осмотр в игре',
-    inspectLimited:
-      'Базовая ссылка — точный скин может не открыться. Сверьте на Steam Market или покупайте с осторожностью.',
     inspectLimitedTitle: 'Базовая ссылка — точный предмет может не открыться в CS2',
     inspectUnavailable:
       'Осмотр в игре для этого лота временно недоступен. Проверьте износ на карточке или откройте Steam Market.',

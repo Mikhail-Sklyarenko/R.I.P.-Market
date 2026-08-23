@@ -2083,23 +2083,6 @@ a.button.primary {
   justify-content: stretch;
 }
 
-.item-params-float-missing {
-  display: grid;
-  gap: var(--space-1);
-  min-width: 0;
-}
-
-.item-params-float-unavailable {
-  color: var(--color-text-muted);
-  font-variant-numeric: tabular-nums;
-}
-
-.item-params-float-hint {
-  margin: 0;
-  max-width: 28rem;
-  line-height: 1.35;
-}
-
 .item-params-rarity-dot {
   flex-shrink: 0;
   width: 8px;
@@ -2168,20 +2151,20 @@ a.button.primary {
 }
 
 .lot-action-buttons {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-3);
-  padding: 0;
-  margin-top: var(--space-1);
-}
-
-.lot-action-inspect-group {
   display: grid;
   gap: var(--space-2);
-  min-width: min(100%, 20rem);
+  padding-top: var(--space-3);
+  margin-top: var(--space-1);
+  border-top: 1px solid var(--color-border);
 }
 
-.lot-action-inspect-note,
+.lot-action-buttons-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3);
+}
+
 .lot-action-inspect-unavailable {
   margin: 0;
   max-width: 28rem;
@@ -2621,10 +2604,6 @@ a.button.primary {
   gap: var(--space-4);
   padding-top: var(--space-3);
   border-top: 1px solid var(--color-border);
-}
-
-.lot-purchase-trust .escrow-notice {
-  margin: 0;
 }
 
 .lot-purchase-trust .lot-purchase-details-subtitle {

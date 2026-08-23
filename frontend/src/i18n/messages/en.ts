@@ -417,8 +417,6 @@ const baseEnMessages = {
     steamPrice: 'Steam price',
     copyName: 'Copy item name',
     copied: 'Copied',
-    floatUnavailableHint:
-      'Steam did not provide a float for this item. Wear is shown from the listing name; use in-game inspect to verify.',
     loading: 'Loading item…',
     openingOffer: 'Opening offer…',
     selectWear: 'Select a wear condition.',

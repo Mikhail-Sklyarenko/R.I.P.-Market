@@ -9,7 +9,6 @@ import { isCredibleSteamGuidePrice } from '../utils/steam-guide-price';
 import { formatCounterpartyDisplayName } from '../utils/steam-profile';
 import { startSteamLogin } from '../utils/start-steam-login';
 import { DealFlowSteps } from './DealFlowSteps';
-import { EscrowNotice } from './EscrowNotice';
 import { ErrorAlert } from './ErrorAlert';
 import { InventoryPriceStack } from './InventoryPriceStack';
 import { MoneyDisplay } from './MoneyDisplay';
@@ -211,7 +210,6 @@ export function LotPurchaseCard({
       </div>
 
       <div className="lot-purchase-trust" data-testid="lot-purchase-trust">
-        <EscrowNotice />
         <DealFlowSteps embedded />
       </div>
 

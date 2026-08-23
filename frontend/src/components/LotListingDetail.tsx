@@ -57,7 +57,7 @@ export function LotListingDetail({
             <LotItemHero item={displayItem} />
 
             <div className="lot-preview-card-body">
-              <ItemParamsPanel item={displayItem} testId={specTestId} showEmptyFloat />
+              <ItemParamsPanel item={displayItem} testId={specTestId} />
 
               <LotStickers stickers={displayItem.stickers} testIdPrefix={stickersTestIdPrefix} />
 
