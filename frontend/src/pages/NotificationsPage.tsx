@@ -4,6 +4,7 @@ import type { NotificationCategory } from '../api/types';
 import { useAuth } from '../auth/AuthContext';
 import { useLocale } from '../i18n';
 import { useNotifications } from '../hooks/useNotifications';
+import { EmptyState } from '../components/EmptyState';
 import { ErrorAlert } from '../components/ErrorAlert';
 import { LoadingState } from '../components/LoadingState';
 import { NotificationItem } from '../components/NotificationItem';
@@ -44,6 +45,9 @@ export function NotificationsPage() {
       return true;
     });
   }, [notifications, eventFilter, showUnreadOnly, user?.id]);
+
+  const hasActiveNotificationFilters =
+    categoryFilter !== 'all' || eventFilter !== 'all' || showUnreadOnly;
 
   return (
     <div className="page">
@@ -121,13 +125,44 @@ export function NotificationsPage() {
       {loading ? <LoadingState message={t('common.loading')} /> : null}
 
       {!loading && filteredNotifications.length === 0 ? (
-        <div className="card empty-state" data-testid="notifications-empty">
-          <h3 className="empty-state-title">{t('notifications.emptyPageTitle')}</h3>
-          <p className="empty-state-message">{t('notifications.emptyPageMessage')}</p>
-          <Link to="/deals?tab=purchases" className="button secondary">
-            {t('notifications.myDeals')}
-          </Link>
-        </div>
+        hasActiveNotificationFilters ? (
+          <EmptyState
+            variant="filtered"
+            testId="notifications-empty-filtered"
+            title={t('notifications.emptyFilteredTitle')}
+            message={t('notifications.emptyFilteredMessage')}
+            action={
+              <button
+                type="button"
+                className="button primary"
+                data-testid="notifications-reset-filters"
+                onClick={() => {
+                  setCategoryFilter('all');
+                  setEventFilter('all');
+                  setShowUnreadOnly(false);
+                }}
+              >
+                {t('notifications.resetFilters')}
+              </button>
+            }
+          />
+        ) : (
+          <EmptyState
+            testId="notifications-empty"
+            title={t('notifications.emptyPageTitle')}
+            message={t('notifications.emptyPageMessage')}
+            action={
+              <Link to="/deals?tab=purchases" className="button primary" data-testid="notifications-empty-deals">
+                {t('notifications.myDeals')}
+              </Link>
+            }
+            secondaryAction={
+              <Link to="/catalog" className="button secondary" data-testid="notifications-empty-catalog">
+                {t('notifications.emptyBrowseCatalog')}
+              </Link>
+            }
+          />
+        )
       ) : null}
 
       <div className="notifications-list" data-testid="notifications-list">

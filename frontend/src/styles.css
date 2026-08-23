@@ -1013,6 +1013,14 @@ a.button.primary {
   justify-content: center;
 }
 
+.empty-state.is-filtered {
+  padding: var(--space-6) var(--space-5);
+}
+
+.empty-state.is-filtered .empty-state-title {
+  font-size: var(--font-size-base);
+}
+
 .inventory-seller-onboarding-header {
   display: flex;
   align-items: flex-start;
@@ -1924,6 +1932,12 @@ a.button.primary {
 .notifications-widget-list {
   display: grid;
   gap: var(--space-2);
+}
+
+.notifications-widget-empty {
+  display: grid;
+  gap: var(--space-2);
+  justify-items: start;
 }
 
 /* Dev & misc */

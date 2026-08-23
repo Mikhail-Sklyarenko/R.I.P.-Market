@@ -8,6 +8,7 @@ import {
 import type { InventoryAsset, PricingPreview } from '../api/types';
 import { useAuth } from '../auth/AuthContext';
 import { useLocale } from '../i18n';
+import { EmptyState } from '../components/EmptyState';
 import { ErrorAlert } from '../components/ErrorAlert';
 import { FormField } from '../components/FormField';
 import { ItemPreview } from '../components/ItemPreview';
@@ -174,12 +175,15 @@ export function CreateLotPage() {
 
 function EmptyStateMissingAsset({ t }: { t: (key: string) => string }) {
   return (
-    <div className="card empty-state">
-      <h3 className="empty-state-title">{t('createLot.emptyTitle')}</h3>
-      <p className="empty-state-message">{t('createLot.emptyMessage')}</p>
-      <Link to="/sell/inventory" className="button primary">
-        {t('createLot.toInventory')}
-      </Link>
-    </div>
+    <EmptyState
+      testId="create-lot-empty"
+      title={t('createLot.emptyTitle')}
+      message={t('createLot.emptyMessage')}
+      action={
+        <Link to="/sell/inventory" className="button primary">
+          {t('createLot.toInventory')}
+        </Link>
+      }
+    />
   );
 }

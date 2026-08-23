@@ -1,5 +1,5 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type Dispatch, type SetStateAction } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import { listCatalogItems, listPopularCatalogItems, getCatalogSteamPrices } from '../api/marketplace';
 import type { CatalogItem } from '../api/types';
 import { useAuth } from '../auth/AuthContext';
@@ -1064,10 +1064,40 @@ export function CatalogPage() {
           ) : null}
 
           {!isInitialLoading && !loading && items.length === 0 ? (
-            <EmptyState
-              title={t('catalog.emptyTitle')}
-              message={t('catalog.emptyMessage')}
-            />
+            filtersActive ? (
+              <EmptyState
+                variant="filtered"
+                testId="catalog-empty-filtered"
+                title={t('catalog.emptyFilteredTitle')}
+                message={t('catalog.emptyFilteredMessage')}
+                action={
+                  <button
+                    type="button"
+                    className="button primary"
+                    data-testid="catalog-empty-reset-filters"
+                    onClick={handleResetFilters}
+                  >
+                    {t('catalog.resetFilters')}
+                  </button>
+                }
+              />
+            ) : (
+              <EmptyState
+                testId="catalog-empty"
+                title={t('catalog.emptyCatalogTitle')}
+                message={t('catalog.emptyCatalogMessage')}
+                action={
+                  <Link to="/sell/inventory" className="button primary" data-testid="catalog-empty-sell">
+                    {t('catalog.emptyCatalogSell')}
+                  </Link>
+                }
+                secondaryAction={
+                  <Link to="/faq" className="button secondary" data-testid="catalog-empty-faq">
+                    {t('nav.faq')}
+                  </Link>
+                }
+              />
+            )
           ) : null}
 
           {!isInitialLoading && items.length > 0 ? (

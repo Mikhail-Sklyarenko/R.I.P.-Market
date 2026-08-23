@@ -20,6 +20,7 @@ import type {
 import { useAuth } from '../auth/AuthContext';
 import { useLocale } from '../i18n';
 import { ErrorAlert } from '../components/ErrorAlert';
+import { EmptyState } from '../components/EmptyState';
 import { FormField } from '../components/FormField';
 import { LoadingState } from '../components/LoadingState';
 import { MoneyDisplay } from '../components/MoneyDisplay';
@@ -894,12 +895,26 @@ export function WalletPage() {
           ) : null}
 
           {activeTab === 'transactions' && transactions.length === 0 ? (
-            <div className="card wallet-transactions-empty" data-testid="wallet-transactions-empty">
-              <p className="muted small">{t('wallet.transactionsEmpty')}</p>
-              <Link to="/catalog" className="button secondary sm">
-                {t('wallet.toCatalog')}
-              </Link>
-            </div>
+            <EmptyState
+              testId="wallet-transactions-empty"
+              title={t('wallet.transactionsEmptyTitle')}
+              message={t('wallet.transactionsEmptyMessage')}
+              action={
+                <button
+                  type="button"
+                  className="button primary"
+                  data-testid="wallet-transactions-empty-deposit"
+                  onClick={() => setActiveTab('deposit')}
+                >
+                  {t('wallet.transactionsEmptyDeposit')}
+                </button>
+              }
+              secondaryAction={
+                <Link to="/catalog" className="button secondary">
+                  {t('wallet.toCatalog')}
+                </Link>
+              }
+            />
           ) : null}
 
           {activeTab === 'transactions' && transactions.length > 0 ? (

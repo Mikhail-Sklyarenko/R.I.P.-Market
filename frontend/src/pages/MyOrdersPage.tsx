@@ -211,6 +211,7 @@ export function MyOrdersPage({
 
       {!loading && orders.length === 0 ? (
         <EmptyState
+          testId="orders-empty"
           title={
             emptyStateMode === 'purchases'
               ? t('orders.emptyPurchasesTitle')
@@ -226,23 +227,29 @@ export function MyOrdersPage({
                 : t('orders.emptyMessage')
           }
           action={
-            emptyStateMode === 'purchases' ? (
-              <Link to="/catalog" className="button primary">
-                {t('orders.toCatalog')}
-              </Link>
-            ) : emptyStateMode === 'sales' ? (
-              <Link to="/sell/inventory" className="button primary">
+            emptyStateMode === 'sales' ? (
+              <Link to="/sell/inventory" className="button primary" data-testid="orders-empty-inventory">
                 {t('orders.toInventory')}
               </Link>
             ) : (
-              <div className="deals-empty-actions">
-                <Link to="/catalog" className="button primary">
-                  {t('orders.toCatalog')}
-                </Link>
-                <Link to="/sell/inventory" className="button secondary">
-                  {t('orders.toInventory')}
-                </Link>
-              </div>
+              <Link to="/catalog" className="button primary" data-testid="orders-empty-catalog">
+                {t('orders.toCatalog')}
+              </Link>
+            )
+          }
+          secondaryAction={
+            emptyStateMode === 'default' ? (
+              <Link to="/sell/inventory" className="button secondary" data-testid="orders-empty-inventory">
+                {t('orders.toInventory')}
+              </Link>
+            ) : emptyStateMode === 'purchases' ? (
+              <Link to="/faq" className="button secondary">
+                {t('nav.faq')}
+              </Link>
+            ) : (
+              <Link to="/catalog" className="button secondary">
+                {t('orders.toCatalog')}
+              </Link>
             )
           }
         />
@@ -262,9 +269,27 @@ export function MyOrdersPage({
       ) : null}
 
       {!loading && orders.length > 0 && filteredOrders.length === 0 ? (
-        <div className="card">
-          <p className="muted">{t('orders.noFilterResults')}</p>
-        </div>
+        <EmptyState
+          variant="filtered"
+          testId="orders-empty-filtered"
+          title={t('orders.emptyFilteredTitle')}
+          message={t('orders.emptyFilteredMessage')}
+          action={
+            <button
+              type="button"
+              className="button primary"
+              data-testid="orders-reset-filters"
+              onClick={() => {
+                setStatusFilter('all');
+                if (!sellerOnly && !buyerOnly) {
+                  setRoleFilter('all');
+                }
+              }}
+            >
+              {t('orders.resetStatusFilter')}
+            </button>
+          }
+        />
       ) : null}
     </div>
   );

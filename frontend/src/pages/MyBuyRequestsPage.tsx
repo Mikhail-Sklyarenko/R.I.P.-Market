@@ -76,10 +76,12 @@ export function MyBuyRequestsPage({ embedded = false }: MyBuyRequestsPageProps) 
 
       {!loading && requests.length === 0 ? (
         <EmptyState
+          testId="buy-requests-empty"
           title={t('myBuyRequests.emptyTitle')}
           message={t('myBuyRequests.emptyMessage')}
+          steps={[t('myBuyRequests.emptyStep1'), t('myBuyRequests.emptyStep2')]}
           action={
-            <Link to="/catalog" className="button secondary">
+            <Link to="/catalog" className="button primary" data-testid="buy-requests-empty-catalog">
               {t('myBuyRequests.toCatalog')}
             </Link>
           }

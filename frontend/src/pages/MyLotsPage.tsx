@@ -229,11 +229,18 @@ export function MyLotsPage({ embedded = false }: MyLotsPageProps) {
 
       {!loading && lots.length === 0 ? (
         <EmptyState
+          testId="lots-empty"
           title={t('lots.emptyTitle')}
           message={t('lots.emptyMessage')}
+          steps={[t('lots.emptyStep1'), t('lots.emptyStep2')]}
           action={
-            <Link to="/sell/inventory" className="button primary">
+            <Link to="/sell/inventory" className="button primary" data-testid="lots-empty-inventory">
               {t('lots.toInventory')}
+            </Link>
+          }
+          secondaryAction={
+            <Link to="/catalog" className="button secondary">
+              {t('orders.toCatalog')}
             </Link>
           }
         />
@@ -274,8 +281,23 @@ export function MyLotsPage({ embedded = false }: MyLotsPageProps) {
 
           {filteredLots.length === 0 ? (
             <EmptyState
-              title={t('common.nothingFound')}
-              message={t('common.changeFilters')}
+              variant="filtered"
+              testId="lots-empty-filtered"
+              title={t('lots.emptyFilteredTitle')}
+              message={t('lots.emptyFilteredMessage')}
+              action={
+                <button
+                  type="button"
+                  className="button primary"
+                  data-testid="my-lots-reset-filters"
+                  onClick={() => {
+                    setSearch('');
+                    setStatusFilter('all');
+                  }}
+                >
+                  {t('common.resetFilters')}
+                </button>
+              }
             />
           ) : (
             <div className="table-wrap">

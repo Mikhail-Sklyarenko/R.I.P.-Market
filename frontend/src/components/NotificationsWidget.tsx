@@ -143,7 +143,16 @@ export function NotificationsWidget({
 
           <div className="notifications-widget-list">
             {notifications.length === 0 ? (
-              <p className="muted small">{t('notifications.empty')}</p>
+              <div className="notifications-widget-empty" data-testid="notifications-widget-empty">
+                <p className="muted small">{t('notifications.empty')}</p>
+                <Link
+                  to="/catalog"
+                  className="button ghost sm"
+                  onClick={() => setOpen(false)}
+                >
+                  {t('notifications.emptyBrowseCatalog')}
+                </Link>
+              </div>
             ) : (
               notifications.slice(0, PANEL_LIMIT).map((notification) => (
                 <NotificationItem
