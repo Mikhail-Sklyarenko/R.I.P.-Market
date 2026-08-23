@@ -996,6 +996,64 @@ a.button.primary {
   max-width: 36ch;
 }
 
+.empty-state-steps {
+  margin: 0;
+  padding-left: 1.15rem;
+  max-width: 40ch;
+  text-align: left;
+  color: var(--color-text-muted);
+  font-size: var(--font-size-sm);
+  line-height: 1.45;
+}
+
+.empty-state-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  justify-content: center;
+}
+
+.inventory-seller-onboarding-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+.inventory-seller-onboarding .account-onboarding-title {
+  margin: 0;
+}
+
+.listing-success-banner {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-4);
+  margin-bottom: var(--space-4);
+  border-color: var(--color-success-border, rgba(34, 197, 94, 0.35));
+  background: var(--color-success-bg, rgba(34, 197, 94, 0.08));
+}
+
+.listing-success-title {
+  margin: 0 0 var(--space-2);
+  font-size: var(--font-size-base);
+  font-weight: var(--font-weight-semibold);
+}
+
+.listing-success-message {
+  margin: 0;
+  max-width: 52ch;
+  line-height: 1.45;
+}
+
+.listing-success-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  align-items: center;
+}
+
 /* Alerts */
 
 .alert {

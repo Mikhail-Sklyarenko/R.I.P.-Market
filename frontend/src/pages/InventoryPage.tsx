@@ -7,6 +7,7 @@ import {
   getAuthConfig,
   getInventory,
   getInventoryPriceHintsBatched,
+  getMyLots,
   getPricingPreview,
   getUserMe,
   resetDevTrades,
@@ -26,6 +27,7 @@ import { ErrorAlert } from '../components/ErrorAlert';
 import { InventoryAssetCard } from '../components/InventoryAssetCard';
 import { InventoryGridSkeleton } from '../components/InventoryGridSkeleton';
 import { InventorySellPanel } from '../components/InventorySellPanel';
+import { InventorySellerOnboarding } from '../components/InventorySellerOnboarding';
 import { PageHeader } from '../components/PageHeader';
 import { SellerSaleInfo } from '../components/SellerSaleInfo';
 import { canShowDevPanels, parseUsdToMinor, ERROR_MESSAGES } from '../utils/format';
@@ -62,6 +64,14 @@ import {
   decideInventorySyncPoll,
   nextInventorySyncPollDelayMs,
 } from '../utils/inventory-sync-poll';
+import {
+  inventoryEmptyKindMessageKeys,
+  resolveInventoryEmptyKind,
+} from '../utils/inventory-empty-state';
+import {
+  isSellerOnboardingMarkedComplete,
+  markSellerOnboardingComplete,
+} from '../utils/seller-onboarding';
 
 export function InventoryPage() {
   const { locale, t } = useLocale();
@@ -96,6 +106,8 @@ export function InventoryPage() {
   const [pricesLoading, setPricesLoading] = useState(false);
   const [pricesRefreshing, setPricesRefreshing] = useState(false);
   const [pricesError, setPricesError] = useState<unknown>(null);
+  const [hasListedBefore, setHasListedBefore] = useState(isSellerOnboardingMarkedComplete);
+  const [onboardingDismissed, setOnboardingDismissed] = useState(false);
   const priceHintsRef = useRef<Record<string, InventoryPriceHint>>({});
   const priceHintsGenerationRef = useRef(0);
   const steamPriceMissingRef = useRef<string[]>([]);
@@ -517,7 +529,38 @@ export function InventoryPage() {
     }
   }, [assets, selectedAssetId]);
 
+  useEffect(() => {
+    if (!token) {
+      return;
+    }
+    let cancelled = false;
+    void getMyLots(token)
+      .then((lots) => {
+        if (cancelled || lots.length === 0) {
+          return;
+        }
+        setHasListedBefore(true);
+        markSellerOnboardingComplete();
+      })
+      .catch(() => undefined);
+    return () => {
+      cancelled = true;
+    };
+  }, [token]);
+
   const showStaleBadge = Boolean(sync?.stale);
+  const showSellerOnboarding = !hasListedBefore && !onboardingDismissed;
+  const inventoryEmptyKind = resolveInventoryEmptyKind(sync, {
+    syncPollTimedOut,
+    backgroundSyncing,
+  });
+  const inventoryEmptyMessages = inventoryEmptyKindMessageKeys(inventoryEmptyKind);
+
+  const resetInventoryFilters = useCallback(() => {
+    setSearch('');
+    setStatusFilter('all');
+    setShowUnavailable(false);
+  }, []);
 
   const filteredAssets = useMemo(
     () =>
@@ -685,7 +728,9 @@ export function InventoryPage() {
 
       setSelectedAssetId(null);
       setBulkListCount(1);
-      navigate('/deals?tab=listings');
+      markSellerOnboardingComplete();
+      setHasListedBefore(true);
+      navigate('/deals?tab=listings&listed=1');
     } catch (err: unknown) {
       setSellError(err);
     } finally {
@@ -747,7 +792,17 @@ export function InventoryPage() {
         }
       />
 
-      <SellerSaleInfo compact />
+      {showSellerOnboarding ? (
+        <InventorySellerOnboarding
+          steamLinked={steamLinked}
+          tradeUrlReady={tradeUrlReady}
+          itemSelected={Boolean(selectedAssetId)}
+          sellPanelOpen={sellPanelOpen}
+          onDismiss={() => setOnboardingDismissed(true)}
+        />
+      ) : (
+        <SellerSaleInfo compact={hasListedBefore} />
+      )}
 
       {!steamLinked && requiresSteamLink ? (
         <p className="muted small" data-testid="inventory-refresh-hint">
@@ -804,7 +859,7 @@ export function InventoryPage() {
 
       <ErrorAlert error={error} />
 
-      {!steamLinked && requiresSteamLink ? (
+      {!showSellerOnboarding && !steamLinked && requiresSteamLink ? (
         <div className="card inventory-readiness-banner" data-testid="steam-link-required">
           <p>{t('inventory.steamRequiredBanner')}</p>
           <Link className="button primary" to="/account">
@@ -813,7 +868,7 @@ export function InventoryPage() {
         </div>
       ) : null}
 
-      {steamLinked && !tradeUrlReady ? (
+      {!showSellerOnboarding && steamLinked && !tradeUrlReady ? (
         <div className="card inventory-readiness-banner" data-testid="inventory-trade-url-warning">
           <p>
             {t('inventory.tradeUrlRequiredPrefix')}{' '}
@@ -837,10 +892,56 @@ export function InventoryPage() {
         </div>
       ) : null}
 
-      {steamLinked && tradeUrlReady && !loading && !error && assets.length === 0 ? (
+      {steamLinked &&
+      tradeUrlReady &&
+      !loading &&
+      !error &&
+      assets.length === 0 &&
+      !backgroundSyncing ? (
         <EmptyState
-          title={t('inventory.emptyTitle')}
-          message={t('inventory.emptyMessage')}
+          title={t(inventoryEmptyMessages.titleKey)}
+          message={t(inventoryEmptyMessages.messageKey)}
+          steps={
+            inventoryEmptyKind === 'tradableEmpty'
+              ? [
+                  t('inventory.emptyTradableStep1'),
+                  t('inventory.emptyTradableStep2'),
+                  t('inventory.emptyTradableStep3'),
+                ]
+              : undefined
+          }
+          action={
+            <button
+              type="button"
+              className="button primary"
+              disabled={refreshing}
+              data-testid="inventory-empty-refresh"
+              onClick={() => void loadInventory(true)}
+            >
+              {refreshing ? t('inventory.refreshing') : t('inventory.refresh')}
+            </button>
+          }
+          secondaryAction={
+            inventoryEmptyKind === 'private' ? (
+              <a
+                href="https://steamcommunity.com/my/edit/settings"
+                className="button secondary"
+                target="_blank"
+                rel="noreferrer noopener"
+                data-testid="inventory-empty-steam-settings"
+              >
+                {t('inventory.emptyPrivateSteamAction')}
+              </a>
+            ) : inventoryEmptyKind === 'syncFailed' ? (
+              <Link to="/support" className="button secondary" data-testid="inventory-empty-support">
+                {t('support.title')}
+              </Link>
+            ) : (
+              <Link to="/catalog" className="button secondary" data-testid="inventory-empty-catalog">
+                {t('orders.toCatalog')}
+              </Link>
+            )
+          }
         />
       ) : null}
 
@@ -993,6 +1094,16 @@ export function InventoryPage() {
               <EmptyState
                 title={t('common.nothingFound')}
                 message={t('common.changeFilters')}
+                action={
+                  <button
+                    type="button"
+                    className="button secondary"
+                    data-testid="inventory-reset-filters"
+                    onClick={resetInventoryFilters}
+                  >
+                    {t('common.resetFilters')}
+                  </button>
+                }
               />
             ) : (
               <div className="inventory-grid" data-testid="inventory-grid">

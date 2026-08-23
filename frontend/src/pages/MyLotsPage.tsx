@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import { cancelLot, getMyLots, listMyOrders, updateLotPrice } from '../api/sell';
 import type { Lot, Order } from '../api/types';
 import { useAuth } from '../auth/AuthContext';
@@ -30,6 +30,8 @@ type MyLotsPageProps = {
 export function MyLotsPage({ embedded = false }: MyLotsPageProps) {
   const { locale, t } = useLocale();
   const { token } = useAuth();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const listedSuccess = searchParams.get('listed') === '1';
   const [lots, setLots] = useState<Lot[]>([]);
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
@@ -159,6 +161,12 @@ export function MyLotsPage({ embedded = false }: MyLotsPageProps) {
     }
   }
 
+  function dismissListedSuccess() {
+    const next = new URLSearchParams(searchParams);
+    next.delete('listed');
+    setSearchParams(next, { replace: true });
+  }
+
   return (
     <div className={embedded ? 'seller-activity-panel' : 'page'}>
       {!embedded ? (
@@ -174,6 +182,28 @@ export function MyLotsPage({ embedded = false }: MyLotsPageProps) {
       ) : null}
 
       <ErrorAlert error={error} />
+
+      {listedSuccess ? (
+        <section className="card listing-success-banner" data-testid="listing-success-banner">
+          <div className="listing-success-copy">
+            <h3 className="listing-success-title">{t('lots.listedSuccessTitle')}</h3>
+            <p className="muted small listing-success-message">{t('lots.listedSuccessMessage')}</p>
+          </div>
+          <div className="listing-success-actions">
+            <Link to="/catalog" className="button secondary sm" data-testid="listing-success-catalog">
+              {t('lots.listedSuccessCatalog')}
+            </Link>
+            <button
+              type="button"
+              className="button primary sm"
+              data-testid="listing-success-dismiss"
+              onClick={dismissListedSuccess}
+            >
+              {t('lots.listedSuccessDismiss')}
+            </button>
+          </div>
+        </section>
+      ) : null}
 
       {loading ? <LoadingState message={t('lots.loading')} /> : null}
 

@@ -149,6 +149,33 @@ const baseEnMessages = {
     backgroundSyncing: 'Refreshing inventory from Steam in the background…',
     syncTimedOut:
       'Could not refresh from Steam — showing the last copy. You can retry.',
+    emptyPrivateTitle: 'Steam inventory is private',
+    emptyPrivateMessage:
+      'Set inventory visibility to Public in Steam privacy settings (Community → Inventory visibility), then tap Refresh.',
+    emptyPrivateSteamAction: 'Steam privacy settings',
+    emptySyncTitle: 'Could not load inventory',
+    emptySyncMessage:
+      'Steam did not respond or is temporarily unavailable. Retry sync — contact support if it keeps failing.',
+    emptyTradableTitle: 'No items to sell',
+    emptyTradableMessage:
+      'No tradable CS2 items found, or they are already listed. Refresh from Steam or check the linked Steam account.',
+    emptyTradableStep1: 'Make sure items are tradable (no trade ban / hold).',
+    emptyTradableStep2: 'Confirm your Steam inventory is public.',
+    emptyTradableStep3: 'Tap Refresh from Steam.',
+    onboarding: {
+      title: 'First sale',
+      lead: 'Four steps — then your listing goes live in the catalog.',
+      stepSteam: 'Link Steam',
+      stepSteamHint: 'Use the same account where your skins live.',
+      stepTradeUrl: 'Add Trade URL',
+      stepTradeUrlHint: 'Required to send the trade offer to the buyer.',
+      stepPickItem: 'Pick an item',
+      stepPickItemHint: 'Click a card in the grid below.',
+      stepList: 'Set price and list',
+      stepListHint: '5% fee — payout arrives after the deal completes.',
+      goAccount: 'Open account',
+      dismiss: 'Hide',
+    },
   },
   deals: {
     title: 'Deals',
@@ -166,6 +193,11 @@ const baseEnMessages = {
     emptyTitle: 'No listings yet',
     emptyMessage: 'List an item from your inventory to show it in the catalog.',
     toInventory: 'Go to inventory',
+    listedSuccessTitle: 'Listing published',
+    listedSuccessMessage:
+      'Your item is live in the catalog. When it sells, send the Steam trade. Track status here or under Deals → Sales.',
+    listedSuccessCatalog: 'Browse catalog',
+    listedSuccessDismiss: 'Got it',
     search: 'Search',
     searchPlaceholder: 'Skin name…',
     status: 'Listing status',

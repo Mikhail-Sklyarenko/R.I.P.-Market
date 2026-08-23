@@ -150,6 +150,33 @@ const baseRuMessages = {
     backgroundSyncing: 'Обновляем инвентарь из Steam в фоне…',
     syncTimedOut:
       'Не удалось обновить из Steam — показана последняя копия. Можно повторить.',
+    emptyPrivateTitle: 'Инвентарь Steam скрыт',
+    emptyPrivateMessage:
+      'Откройте инвентарь в настройках приватности Steam (Community → Inventory visibility → Public), затем нажмите «Обновить».',
+    emptyPrivateSteamAction: 'Настройки приватности Steam',
+    emptySyncTitle: 'Не удалось загрузить инвентарь',
+    emptySyncMessage:
+      'Steam не ответил или временно недоступен. Повторите синхронизацию — если не помогло, напишите в поддержку.',
+    emptyTradableTitle: 'Нет предметов для продажи',
+    emptyTradableMessage:
+      'В CS2 не найдено tradable предметов или они уже выставлены. Обновите синхронизацию или проверьте другой аккаунт Steam.',
+    emptyTradableStep1: 'Убедитесь, что предметы tradable (без trade ban / hold).',
+    emptyTradableStep2: 'Проверьте, что инвентарь Steam открыт.',
+    emptyTradableStep3: 'Нажмите «Обновить из Steam».',
+    onboarding: {
+      title: 'Первая продажа',
+      lead: 'Четыре шага — и лот появится в каталоге.',
+      stepSteam: 'Привязать Steam',
+      stepSteamHint: 'Нужен тот же аккаунт, где лежат скины.',
+      stepTradeUrl: 'Указать Trade URL',
+      stepTradeUrlHint: 'Без него нельзя отправить обмен покупателю.',
+      stepPickItem: 'Выбрать предмет',
+      stepPickItemHint: 'Кликните по карточке в сетке ниже.',
+      stepList: 'Указать цену и выставить',
+      stepListHint: 'Комиссия 5% — выплату увидите после сделки.',
+      goAccount: 'Открыть аккаунт',
+      dismiss: 'Скрыть',
+    },
   },
   deals: {
     title: 'Сделки',
@@ -167,6 +194,11 @@ const baseRuMessages = {
     emptyTitle: 'Лотов пока нет',
     emptyMessage: 'Выставьте предмет из инвентаря, чтобы он появился в каталоге.',
     toInventory: 'К инвентарю',
+    listedSuccessTitle: 'Лот опубликован',
+    listedSuccessMessage:
+      'Предмет появился в каталоге. Когда купят — отправьте обмен в Steam. Статус смотрите здесь или в «Сделки → Продажи».',
+    listedSuccessCatalog: 'В каталог',
+    listedSuccessDismiss: 'Понятно',
     search: 'Поиск',
     searchPlaceholder: 'Название скина…',
     status: 'Статус лота',
