@@ -153,7 +153,7 @@ const baseRuMessages = {
   },
   deals: {
     title: 'Сделки',
-    subtitle: 'Покупки, продажи, заявки на покупку и ваши лоты в одном разделе.',
+    subtitle: 'Покупки, продажи, заявки и лоты — без лишнего шума.',
     listings: 'Мои лоты',
     sales: 'Продажи',
     purchases: 'Покупки',
@@ -484,6 +484,7 @@ const baseRuMessages = {
     toCatalog: 'В каталог',
     toInventory: 'В инвентарь',
     noFilteredResults: 'Нет сделок по выбранным фильтрам.',
+    nextStep: 'Дальше:',
   },
   auth: {
     steamLogin: 'Войти через Steam',

@@ -331,7 +331,10 @@ export function OrderPage() {
             : t('orderPage.subtitleBuyer')
         }
         actions={
-          <Link to="/deals?tab=sales" className="button secondary">
+          <Link
+            to={isSeller ? '/deals?tab=sales' : '/deals?tab=purchases'}
+            className="button secondary"
+          >
             {t('orderPage.myDeals')}
           </Link>
         }
@@ -478,6 +481,35 @@ export function OrderPage() {
                 </span>
               </div>
 
+              {nextAction ? (
+                <div className="order-next-hero" data-testid="order-next-action">
+                  <p className="eyebrow">{t('orderPage.whatNow')}</p>
+                  <strong className="order-next-hero-title">{nextAction.title}</strong>
+                  <p className="muted small">{nextAction.description}</p>
+                </div>
+              ) : null}
+
+              {order.status === 'COMPLETED' ? (
+                <p className="success-text" data-testid="order-completed-message">
+                  {t('orderPage.completedMessage')}
+                </p>
+              ) : null}
+              {order.status === 'CANCELED' ? (
+                <p className="muted small" data-testid="order-canceled-message">
+                  {t('orderPage.canceledMessage')}
+                </p>
+              ) : null}
+              {order.status === 'FAILED' ? (
+                <p className="muted small" data-testid="order-failed-message">
+                  {t('orderPage.failedMessage')}
+                </p>
+              ) : null}
+              {order.status === 'DISPUTE' ? (
+                <p className="muted small" data-testid="order-dispute-message">
+                  {t('orderPage.disputeMessage')}
+                </p>
+              ) : null}
+
               <CopyableDealId id={order.id} testId="order-deal-id" />
 
               <p className="muted small order-support-link">
@@ -491,13 +523,6 @@ export function OrderPage() {
                     ? t('orderPage.timeoutRemaining', { minutes: timeoutRemainingMinutes })
                     : t('orderPage.timeoutExpired')}
                 </p>
-              ) : null}
-
-              {nextAction && !showTradePanels ? (
-                <div className="next-action-card" data-testid="order-next-action">
-                  <strong>{nextAction.title}</strong>
-                  <p className="muted small">{nextAction.description}</p>
-                </div>
               ) : null}
 
               {isSeller && showTradePanels && extensionTaskPipeline && token ? (
@@ -528,8 +553,8 @@ export function OrderPage() {
                   acknowledging={acknowledging}
                   ackEnabled={extensionTradeAckEnabled}
                   extensionMode={extensionTaskPipeline && Boolean(order.tradeTask)}
-                  nextActionTitle={nextAction?.title}
-                  nextActionDescription={nextAction?.description}
+                  nextActionTitle={undefined}
+                  nextActionDescription={undefined}
                   onOfferInputChange={setOfferInput}
                   onSaveTradeReference={() => void handleSaveTradeReference()}
                   onCheckDelivery={() => void handleCheckDelivery()}
@@ -544,8 +569,8 @@ export function OrderPage() {
                   acknowledging={acknowledging}
                   ackEnabled={extensionTradeAckEnabled}
                   extensionMode={extensionTaskPipeline && Boolean(order.tradeTask)}
-                  nextActionTitle={nextAction?.title}
-                  nextActionDescription={nextAction?.description}
+                  nextActionTitle={undefined}
+                  nextActionDescription={undefined}
                   onCheckDelivery={() => void handleCheckDelivery()}
                   onAcknowledgePreAccept={() =>
                     void handleAcknowledge('BUYER_ACK_PRE_ACCEPT')
@@ -557,10 +582,17 @@ export function OrderPage() {
               ) : null}
 
               <div className="order-money-summary" data-testid="order-money-block">
-                <div className="order-money-row">
-                  <span>{t('orderPage.amount')}</span>
-                  <MoneyDisplay minor={order.amountMinor} strong />
-                </div>
+                {isSeller ? (
+                  <div className="order-money-row">
+                    <span>{t('orderPage.youReceive')}</span>
+                    <MoneyDisplay minor={order.lot.sellerReceiveMinor} strong />
+                  </div>
+                ) : (
+                  <div className="order-money-row">
+                    <span>{t('orderPage.amount')}</span>
+                    <MoneyDisplay minor={order.amountMinor} strong />
+                  </div>
+                )}
                 <div className="order-money-row">
                   <span>{t('orderPage.onHold')}</span>
                   <MoneyDisplay
@@ -593,54 +625,6 @@ export function OrderPage() {
                 ) : null}
               </div>
 
-              {showMockTradePanel ? (
-                <div className="dev-panel" data-testid="mock-trade-panel">
-                  <p className="muted small">{t('orderPage.devSimulateHint')}</p>
-                  <div className="stack">
-                    <button
-                      type="button"
-                      className="button primary"
-                      disabled={completing || failing !== null}
-                      data-testid="mock-trade-success"
-                      onClick={() => void handleMockSuccess()}
-                    >
-                      {completing ? t('orderPage.completing') : t('orderPage.completeTradeMock')}
-                    </button>
-                    <button
-                      type="button"
-                      className="button secondary"
-                      disabled={completing || failing !== null}
-                      data-testid="mock-trade-fail-safe"
-                      onClick={() => void handleMockFail('SAFE')}
-                    >
-                      {failing === 'SAFE' ? t('orderPage.failing') : t('orderPage.failTradeSafe')}
-                    </button>
-                    <button
-                      type="button"
-                      className="button secondary"
-                      disabled={completing || failing !== null}
-                      data-testid="mock-trade-fail-dispute"
-                      onClick={() => void handleMockFail('DISPUTE')}
-                    >
-                      {failing === 'DISPUTE'
-                        ? t('orderPage.failing')
-                        : t('orderPage.failTradeDispute')}
-                    </button>
-                    <button
-                      type="button"
-                      className="button secondary"
-                      disabled={completing || failing !== null}
-                      data-testid="mock-trade-timeout"
-                      onClick={() => void handleMockTimeout()}
-                    >
-                      {failing === 'TIMEOUT'
-                        ? t('orderPage.timingOut')
-                        : t('orderPage.tradeTimeoutDispute')}
-                    </button>
-                  </div>
-                </div>
-              ) : null}
-
               {canBuyerCancel ? (
                 <div className="stack" data-testid="cancel-order-panel">
                   <button
@@ -655,28 +639,53 @@ export function OrderPage() {
                 </div>
               ) : null}
 
-              {order.status === 'FAILED' ? (
-                <p className="muted small" data-testid="order-failed-message">
-                  {t('orderPage.failedMessage')}
-                </p>
-              ) : null}
-
-              {order.status === 'DISPUTE' ? (
-                <p className="muted small" data-testid="order-dispute-message">
-                  {t('orderPage.disputeMessage')}
-                </p>
-              ) : null}
-
-              {order.status === 'COMPLETED' ? (
-                <p className="success-text" data-testid="order-completed-message">
-                  {t('orderPage.completedMessage')}
-                </p>
-              ) : null}
-
-              {order.status === 'CANCELED' ? (
-                <p className="muted small" data-testid="order-canceled-message">
-                  {t('orderPage.canceledMessage')}
-                </p>
+              {showMockTradePanel ? (
+                <div className="order-dev-panel" data-testid="mock-trade-panel">
+                  <p className="eyebrow">{t('orderPage.devPanelTitle')}</p>
+                  <p className="muted small">{t('orderPage.devSimulateHint')}</p>
+                  <div className="stack">
+                    <button
+                      type="button"
+                      className="button secondary"
+                      disabled={completing || failing !== null}
+                      data-testid="mock-trade-success"
+                      onClick={() => void handleMockSuccess()}
+                    >
+                      {completing ? t('orderPage.completing') : t('orderPage.completeTradeMock')}
+                    </button>
+                    <button
+                      type="button"
+                      className="button ghost"
+                      disabled={completing || failing !== null}
+                      data-testid="mock-trade-fail-safe"
+                      onClick={() => void handleMockFail('SAFE')}
+                    >
+                      {failing === 'SAFE' ? t('orderPage.failing') : t('orderPage.failTradeSafe')}
+                    </button>
+                    <button
+                      type="button"
+                      className="button ghost"
+                      disabled={completing || failing !== null}
+                      data-testid="mock-trade-fail-dispute"
+                      onClick={() => void handleMockFail('DISPUTE')}
+                    >
+                      {failing === 'DISPUTE'
+                        ? t('orderPage.failing')
+                        : t('orderPage.failTradeDispute')}
+                    </button>
+                    <button
+                      type="button"
+                      className="button ghost"
+                      disabled={completing || failing !== null}
+                      data-testid="mock-trade-timeout"
+                      onClick={() => void handleMockTimeout()}
+                    >
+                      {failing === 'TIMEOUT'
+                        ? t('orderPage.timingOut')
+                        : t('orderPage.tradeTimeoutDispute')}
+                    </button>
+                  </div>
+                </div>
               ) : null}
 
               <ErrorAlert error={error} />

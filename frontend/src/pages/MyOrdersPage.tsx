@@ -1,30 +1,24 @@
-import { useEffect, useMemo, useState, type MouseEvent } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { useEffect, useMemo, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { listMyOrders } from '../api/marketplace';
 import type { Order } from '../api/types';
 import { useAuth } from '../auth/AuthContext';
 import { useLocale } from '../i18n';
-import { CopyableDealId } from '../components/CopyableDealId';
+import { DealOrderCard } from '../components/DealOrderCard';
 import { EmptyState } from '../components/EmptyState';
 import { ErrorAlert } from '../components/ErrorAlert';
 import { LoadingState } from '../components/LoadingState';
 import { MoneyDisplay } from '../components/MoneyDisplay';
-import { OrderItemLink } from '../components/OrderItemLink';
 import { PageHeader } from '../components/PageHeader';
-import { StatusBadge } from '../components/StatusBadge';
 import { useWalletSummary } from '../hooks/useWalletSummary';
-import { formatOrderStatusCompact } from '../utils/order-flow';
 import {
   computeSellerPendingReceiveMinor,
   filterOrders,
-  formatOrderRoleLabel,
-  getOrderRole,
   getOrderSummaryCounts,
   isActiveOrderStatus,
   type OrderRoleFilter,
   type OrderStatusFilter,
 } from '../utils/my-orders';
-import { resolveDisplayIconUrl } from '../utils/item-image';
 
 type MyOrdersPageProps = {
   embedded?: boolean;
@@ -33,14 +27,24 @@ type MyOrdersPageProps = {
   emptyStateMode?: 'purchases' | 'sales' | 'default';
 };
 
+function sortDealsForProduct(orders: Order[]): Order[] {
+  return [...orders].sort((a, b) => {
+    const aActive = isActiveOrderStatus(a.status) ? 0 : 1;
+    const bActive = isActiveOrderStatus(b.status) ? 0 : 1;
+    if (aActive !== bActive) {
+      return aActive - bActive;
+    }
+    return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+  });
+}
+
 export function MyOrdersPage({
   embedded = false,
   sellerOnly = false,
   buyerOnly = false,
   emptyStateMode = 'default',
 }: MyOrdersPageProps) {
-  const { t, locale } = useLocale();
-  const navigate = useNavigate();
+  const { t } = useLocale();
   const { token, user } = useAuth();
   const { summary: walletSummary } = useWalletSummary();
   const [summaryOrders, setSummaryOrders] = useState<Order[]>([]);
@@ -102,17 +106,16 @@ export function MyOrdersPage({
   );
 
   const filteredOrders = useMemo(
-    () => filterOrders(orders, user?.id, 'all', 'all'),
+    () => sortDealsForProduct(filterOrders(orders, user?.id, 'all', 'all')),
     [orders, user?.id],
   );
+
+  const showRole = !sellerOnly && !buyerOnly;
 
   return (
     <div className={embedded ? 'seller-activity-panel' : 'page'}>
       {!embedded ? (
-        <PageHeader
-          title={t('orders.title')}
-          subtitle={t('orders.subtitle')}
-        />
+        <PageHeader title={t('orders.title')} subtitle={t('orders.subtitle')} />
       ) : null}
 
       <ErrorAlert error={error} />
@@ -145,30 +148,32 @@ export function MyOrdersPage({
       {loading ? <LoadingState message={t('orders.loading')} /> : null}
 
       {!loading && summaryOrders.length > 0 ? (
-        <div className="deals-summary-grid" data-testid="my-orders-summary">
-          <div className="card seller-summary-card">
+        <div className="deals-summary-strip" data-testid="my-orders-summary">
+          <div className="deals-summary-chip">
             <span className="eyebrow">{t('orders.active')}</span>
-            <strong className="seller-summary-count">{summary.active}</strong>
+            <strong>{summary.active}</strong>
           </div>
-          <div className="card seller-summary-card">
+          <div className="deals-summary-chip">
             <span className="eyebrow">{t('orders.awaitingTransfer')}</span>
-            <strong className="seller-summary-count">{summary.waitingTrade}</strong>
+            <strong>{summary.waitingTrade}</strong>
           </div>
-          <div className="card seller-summary-card">
+          <div className="deals-summary-chip">
             <span className="eyebrow">{t('orders.completed')}</span>
-            <strong className="seller-summary-count">{summary.completed}</strong>
+            <strong>{summary.completed}</strong>
           </div>
-          <div className="card seller-summary-card">
-            <span className="eyebrow">{t('orders.underReview')}</span>
-            <strong className="seller-summary-count">{summary.review}</strong>
-          </div>
+          {summary.review > 0 ? (
+            <div className="deals-summary-chip deals-summary-chip-alert">
+              <span className="eyebrow">{t('orders.underReview')}</span>
+              <strong>{summary.review}</strong>
+            </div>
+          ) : null}
         </div>
       ) : null}
 
       {!loading && orders.length > 0 ? (
         <div className="card deals-filters" data-testid="my-orders-filters">
           <div className="catalog-filters-row">
-            {!sellerOnly && !buyerOnly ? (
+            {showRole ? (
               <label className="field catalog-filter-field">
                 <span className="field-label">{t('orders.role')}</span>
                 <select
@@ -230,128 +235,29 @@ export function MyOrdersPage({
                 {t('orders.toInventory')}
               </Link>
             ) : (
-              <Link to="/catalog" className="button primary">
-                {t('orders.toCatalog')}
-              </Link>
+              <div className="deals-empty-actions">
+                <Link to="/catalog" className="button primary">
+                  {t('orders.toCatalog')}
+                </Link>
+                <Link to="/sell/inventory" className="button secondary">
+                  {t('orders.toInventory')}
+                </Link>
+              </div>
             )
           }
         />
       ) : null}
 
       {filteredOrders.length > 0 ? (
-        <div className="table-wrap deals-orders-table-wrap">
-          <table className="data-table deals-orders-table" data-testid="my-orders-table">
-            <thead>
-              <tr>
-                <th>{t('orders.colItem')}</th>
-                {!sellerOnly && !buyerOnly ? <th>{t('orders.colRole')}</th> : null}
-                <th>{t('orders.colAmount')}</th>
-                <th>{t('orders.colStatus')}</th>
-                <th>{t('orders.colDate')}</th>
-                <th>{t('orders.colId')}</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filteredOrders.map((order) => {
-                const role = getOrderRole(order, user?.id);
-                const itemName =
-                  order.lot.inventoryAsset.itemDefinition.marketHashName;
-                const orderHref = `/orders/${order.id}`;
-
-                function openOrder(event?: MouseEvent) {
-                  // Let real links (item) / middle-click work without double navigation.
-                  if (
-                    event &&
-                    (event.defaultPrevented ||
-                      event.button !== 0 ||
-                      event.metaKey ||
-                      event.ctrlKey ||
-                      event.shiftKey ||
-                      event.altKey)
-                  ) {
-                    return;
-                  }
-                  const target = event?.target as HTMLElement | undefined;
-                  if (target?.closest('a, button')) {
-                    return;
-                  }
-                  navigate(orderHref);
-                }
-
-                return (
-                  <tr
-                    key={order.id}
-                    className="deals-order-row"
-                    data-testid={`order-row-${order.status}`}
-                    tabIndex={0}
-                    onClick={openOrder}
-                    onKeyDown={(event) => {
-                      if (event.key === 'Enter' || event.key === ' ') {
-                        event.preventDefault();
-                        navigate(orderHref);
-                      }
-                    }}
-                  >
-                    <td>
-                      <OrderItemLink
-                        href={orderHref}
-                        name={itemName}
-                        iconUrl={resolveDisplayIconUrl(
-                          order.lot.listingSnapshot?.iconUrl,
-                          order.lot.inventoryAsset.itemDefinition.iconUrl,
-                        )}
-                        compact
-                        testId={`open-order-${order.id}`}
-                      />
-                    </td>
-                    {!sellerOnly && !buyerOnly ? (
-                      <td>
-                        <span className="deals-role-label">
-                          {formatOrderRoleLabel(role, locale)}
-                        </span>
-                      </td>
-                    ) : null}
-                    <td className="deals-amount-cell">
-                      <MoneyDisplay
-                        minor={
-                          role === 'seller'
-                            ? order.lot.sellerReceiveMinor
-                            : order.amountMinor
-                        }
-                      />
-                    </td>
-                    <td>
-                      <StatusBadge
-                        status={order.status}
-                        label={formatOrderStatusCompact(order.status, locale)}
-                        compact
-                      />
-                      <span className="sr-only">{order.status}</span>
-                    </td>
-                    <td className="deals-date-cell">
-                      {new Date(order.createdAt).toLocaleString(
-                        locale === 'en' ? 'en-US' : 'ru-RU',
-                        {
-                          day: '2-digit',
-                          month: '2-digit',
-                          year: 'numeric',
-                          hour: '2-digit',
-                          minute: '2-digit',
-                        },
-                      )}
-                    </td>
-                    <td className="deals-id-cell">
-                      <CopyableDealId
-                        id={order.id}
-                        compact
-                        testId={`order-deal-id-${order.id}`}
-                      />
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
+        <div className="deal-order-cards" data-testid="my-orders-table">
+          {filteredOrders.map((order) => (
+            <DealOrderCard
+              key={order.id}
+              order={order}
+              userId={user?.id}
+              showRole={showRole}
+            />
+          ))}
         </div>
       ) : null}
 

@@ -152,7 +152,7 @@ const baseEnMessages = {
   },
   deals: {
     title: 'Deals',
-    subtitle: 'Purchases, sales, buy orders, and your listings in one place.',
+    subtitle: 'Purchases, sales, buy orders, and listings — without the noise.',
     listings: 'My listings',
     sales: 'Sales',
     purchases: 'Purchases',
@@ -482,6 +482,7 @@ const baseEnMessages = {
     toCatalog: 'To catalog',
     toInventory: 'To inventory',
     noFilteredResults: 'No deals match the selected filters.',
+    nextStep: 'Next:',
   },
   auth: {
     steamLogin: 'Sign in with Steam',
