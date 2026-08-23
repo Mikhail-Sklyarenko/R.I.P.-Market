@@ -2872,14 +2872,150 @@ a.button.primary {
   color: var(--color-text-muted);
 }
 
+/* Account / personal cabinet */
+
 .account-page {
   display: grid;
   gap: var(--space-5);
 }
 
+.account-identity {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: var(--space-5);
+  padding: var(--space-5);
+  overflow: hidden;
+  border: 1px solid rgba(148, 163, 184, 0.14);
+  border-radius: var(--radius-lg);
+  background:
+    linear-gradient(135deg, rgba(17, 24, 39, 0.96), rgba(11, 13, 18, 0.98));
+}
+
+.account-identity-glow {
+  position: absolute;
+  inset: -40% auto auto -10%;
+  width: 55%;
+  height: 140%;
+  background: radial-gradient(
+    ellipse at center,
+    rgba(56, 189, 248, 0.16),
+    transparent 68%
+  );
+  pointer-events: none;
+}
+
+.account-avatar {
+  position: relative;
+  z-index: 1;
+  flex: 0 0 auto;
+  width: 72px;
+  height: 72px;
+  border-radius: 18px;
+  overflow: hidden;
+  border: 1px solid rgba(148, 163, 184, 0.22);
+  background: rgba(15, 23, 42, 0.85);
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.28);
+}
+
+.account-avatar-image {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.account-avatar-fallback {
+  display: grid;
+  place-items: center;
+  width: 100%;
+  height: 100%;
+  font-size: 1.6rem;
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text);
+  background: linear-gradient(160deg, rgba(37, 99, 235, 0.35), rgba(15, 23, 42, 0.9));
+}
+
+.account-identity-copy {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+.account-identity-title-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.account-identity-name {
+  margin: 0;
+  font-size: clamp(1.25rem, 1.1rem + 0.5vw, 1.55rem);
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: -0.02em;
+  line-height: 1.2;
+}
+
+.account-admin-chip {
+  display: inline-flex;
+  align-items: center;
+  min-height: 1.5rem;
+  padding: 0 0.55rem;
+  border-radius: 999px;
+  border: 1px solid rgba(125, 211, 252, 0.35);
+  background: rgba(37, 99, 235, 0.18);
+  color: #93c5fd;
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  text-decoration: none;
+}
+
+.account-admin-chip:hover {
+  border-color: rgba(125, 211, 252, 0.55);
+  color: #bfdbfe;
+}
+
+.account-identity-status {
+  margin: 0;
+  color: var(--color-text-muted);
+  font-size: var(--font-size-sm);
+}
+
+.account-readiness {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin-top: var(--space-1);
+}
+
+.account-readiness-chip,
+.account-status-pill {
+  display: inline-flex;
+  align-items: center;
+  min-height: 1.55rem;
+  padding: 0 0.65rem;
+  border-radius: 999px;
+  border: 1px solid rgba(148, 163, 184, 0.22);
+  background: rgba(15, 23, 42, 0.65);
+  color: var(--color-text-muted);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  white-space: nowrap;
+}
+
+.account-readiness-chip.is-ready,
+.account-status-pill.is-ready {
+  border-color: color-mix(in srgb, var(--color-success, #22c55e) 35%, rgba(148, 163, 184, 0.18));
+  background: color-mix(in srgb, var(--color-success, #22c55e) 12%, rgba(15, 23, 42, 0.72));
+  color: #86efac;
+}
+
 .account-page-grid {
   display: grid;
-  grid-template-columns: minmax(0, 1.15fr) minmax(0, 0.85fr);
+  grid-template-columns: minmax(0, 1.2fr) minmax(0, 0.8fr);
   gap: var(--space-5);
   align-items: start;
 }
@@ -2894,16 +3030,73 @@ a.button.primary {
 }
 
 .account-profile-card,
-.account-settings-card {
+.account-settings-card,
+.account-extension-card,
+.account-quick-links {
   display: grid;
   gap: var(--space-4);
+  border-color: rgba(148, 163, 184, 0.14);
+  background:
+    linear-gradient(180deg, rgba(17, 24, 39, 0.92), rgba(11, 13, 18, 0.98));
 }
 
-.account-profile-grid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+.account-card-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
   gap: var(--space-3);
+}
+
+.account-section-title {
+  margin: 0 0 var(--space-1);
+  font-size: var(--font-size-base);
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: -0.01em;
+}
+
+.account-section-lead {
   margin: 0;
+  max-width: 42ch;
+  line-height: 1.45;
+}
+
+.account-trade-url-section {
+  display: grid;
+  gap: var(--space-3);
+}
+
+.account-trade-url-field input {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: var(--font-size-sm);
+}
+
+.account-trade-url-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  align-items: center;
+}
+
+.account-trade-url-help {
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-bg-subtle);
+}
+
+.account-trade-url-help summary {
+  cursor: pointer;
+  padding: var(--space-3) var(--space-4);
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+}
+
+.account-trade-url-steps {
+  margin: 0;
+  padding: 0 var(--space-4) var(--space-4) calc(var(--space-4) + 1rem);
+  color: var(--color-text-muted);
+  font-size: var(--font-size-sm);
+  display: grid;
+  gap: var(--space-2);
 }
 
 .account-steam-actions {
@@ -2911,18 +3104,53 @@ a.button.primary {
   gap: var(--space-3);
 }
 
+.account-steam-meta {
+  display: grid;
+  gap: var(--space-3);
+  margin: 0;
+  padding: var(--space-3);
+  border: 1px solid rgba(148, 163, 184, 0.12);
+  border-radius: var(--radius-md);
+  background: rgba(15, 23, 42, 0.45);
+}
+
+.account-steam-meta dt {
+  margin: 0 0 0.15rem;
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  color: var(--color-text-muted);
+}
+
+.account-steam-meta dd {
+  margin: 0;
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  font-variant-numeric: tabular-nums;
+  word-break: break-all;
+}
+
+.account-steam-footer {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  align-items: center;
+}
+
+.account-quick-links-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
 .account-dev-hint {
   margin: 0;
   word-break: break-all;
 }
 
-.account-extension-section {
-  margin-top: var(--space-1);
-  padding-top: var(--space-4);
-  border-top: 1px solid var(--color-border);
-}
-
 .account-settings-card .extension-panel,
+.account-extension-card .extension-panel,
 .account-extension-section .extension-panel {
   margin: 0;
   padding: 0;
@@ -2963,57 +3191,56 @@ a.button.primary {
   gap: var(--space-4);
 }
 
-.account-section-title {
-  margin: 0 0 var(--space-2);
-  font-size: var(--font-size-base);
-}
-
-.account-trade-url-section {
-  display: grid;
-  gap: var(--space-3);
-}
-
-.account-trade-url-actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-3);
-  align-items: center;
-}
-
-.account-trade-url-help {
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
-  background: var(--color-bg-subtle);
-}
-
-.account-trade-url-help summary {
-  cursor: pointer;
-  padding: var(--space-3) var(--space-4);
-  font-size: var(--font-size-sm);
-  color: var(--color-text-muted);
-}
-
-.account-trade-url-steps {
-  margin: 0;
-  padding: 0 var(--space-4) var(--space-4) calc(var(--space-4) + 1rem);
-  color: var(--color-text-muted);
-  font-size: var(--font-size-sm);
-  display: grid;
-  gap: var(--space-2);
-}
-
 .account-onboarding {
   display: grid;
   gap: var(--space-3);
 }
 
 .account-onboarding-ready {
-  padding: var(--space-3) var(--space-4);
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-3);
+  padding: var(--space-4);
+  border-color: color-mix(in srgb, var(--color-success, #22c55e) 28%, rgba(148, 163, 184, 0.14));
+  background:
+    linear-gradient(
+      180deg,
+      color-mix(in srgb, var(--color-success, #22c55e) 10%, rgba(15, 23, 42, 0.78)),
+      rgba(15, 23, 42, 0.88)
+    );
+}
+
+.account-onboarding-ready-mark {
+  flex: 0 0 auto;
+  width: 1.75rem;
+  height: 1.75rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--color-success, #22c55e) 18%, transparent);
+  color: #86efac;
+  font-weight: 700;
+}
+
+.account-onboarding-ready-copy {
+  display: grid;
+  gap: var(--space-2);
+  min-width: 0;
 }
 
 .account-onboarding-ready-text {
   margin: 0;
   font-size: var(--font-size-sm);
+  line-height: 1.45;
+}
+
+.account-onboarding-ready-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
 }
 
 .account-onboarding-title {
@@ -7393,13 +7620,14 @@ a.button.primary {
     grid-template-columns: 1fr;
   }
 
+  .account-identity {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
   .lot-purchase-card,
   .checkout-purchase-card,
   .order-action-card {
     position: static;
-  }
-
-  .account-profile-grid {
-    grid-template-columns: 1fr;
   }
 }

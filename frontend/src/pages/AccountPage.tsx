@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { Link } from 'react-router-dom';
 import {
   getAuthConfig,
   getSteamLinkUrl,
@@ -7,23 +8,39 @@ import {
   updateTradeUrl,
 } from '../api/marketplace';
 import type { AuthConfig } from '../api/types';
+import { ApiError } from '../api/types';
 import { useAuth } from '../auth/AuthContext';
 import { useLocale } from '../i18n';
+import { AccountTradingOnboarding } from '../components/AccountTradingOnboarding';
 import { ErrorAlert } from '../components/ErrorAlert';
 import { ExtensionConnectPanel } from '../components/ExtensionConnectPanel';
-import { AccountTradingOnboarding } from '../components/AccountTradingOnboarding';
 import { PageHeader } from '../components/PageHeader';
-import { hasLinkedSteamId } from '../utils/steam-id';
-import { disconnectExtension } from '../utils/extension';
 import { SteamTradeUrlButton } from '../components/SteamTradeUrlButton';
-import { isValidSteamTradeUrl } from '../utils/trade-url';
+import { disconnectExtension } from '../utils/extension';
+import { formatApiErrorMessage } from '../utils/format';
+import { hasLinkedSteamId } from '../utils/steam-id';
+import { hasTradeUrl, isValidSteamTradeUrl } from '../utils/trade-url';
 import { profileToAuthUser } from '../utils/user-profile';
-import { formatUserRole, formatUserStatus, formatApiErrorMessage } from '../utils/format';
-import { ApiError } from '../api/types';
 
-const API_BASE_URL =
-  import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:3000/api/v1';
 const STEAM_LOGOUT_URL = 'https://steamcommunity.com/login/logout/';
+
+function SteamAvatar({
+  url,
+  name,
+}: {
+  url?: string | null;
+  name: string;
+}) {
+  const initial = name.trim().charAt(0).toUpperCase() || 'S';
+  if (url) {
+    return <img src={url} alt="" className="account-avatar-image" width={72} height={72} />;
+  }
+  return (
+    <span className="account-avatar-fallback" aria-hidden="true">
+      {initial}
+    </span>
+  );
+}
 
 export function AccountPage() {
   const { locale, t } = useLocale();
@@ -143,10 +160,21 @@ export function AccountPage() {
   }
 
   const steamLinked = hasLinkedSteamId(user?.steamId);
+  const tradeUrlReady = hasTradeUrl(user?.tradeUrl);
   const canLinkSteam = Boolean(config?.steamLoginAvailable) && Boolean(user) && !steamLinked;
   const canChangeSteam =
     Boolean(config?.steamLoginAvailable) && Boolean(user) && steamLinked;
   const showDevAuthHint = import.meta.env.DEV;
+  const displayName =
+    user?.steamPersonaName?.trim() ||
+    user?.username?.trim() ||
+    t('account.guestName');
+  const steamProfileUrl = steamLinked
+    ? `https://steamcommunity.com/profiles/${user?.steamId}`
+    : null;
+  const isAdmin = user?.role === 'ADMIN';
+  const tradeUrlStatusReady =
+    tradeUrlReady && tradeUrlInput.trim() === (user?.tradeUrl ?? '').trim();
 
   return (
     <div className="page account-page" data-testid="account-page">
@@ -160,14 +188,66 @@ export function AccountPage() {
 
       <ErrorAlert error={error} />
 
-      <div className="account-page-grid">
-        <section className="account-page-primary" aria-label={t('account.tradeUrlTitle')}>
-          <div className="card account-settings-card">
-            <div className="account-trade-url-section" id="account-trade-url-section">
-              <h3 className="account-section-title">{t('account.tradeUrlTitle')}</h3>
-              <p className="muted small">{t('account.tradeUrlNeeded')}</p>
+      <section className="account-identity" aria-label={t('account.identityAria')}>
+        <div className="account-identity-glow" aria-hidden="true" />
+        <div className="account-avatar" data-testid="account-avatar">
+          <SteamAvatar url={user?.steamAvatarUrl} name={displayName} />
+        </div>
+        <div className="account-identity-copy">
+          <div className="account-identity-title-row">
+            <h2 className="account-identity-name" data-testid="account-username">
+              {displayName}
+            </h2>
+            {isAdmin ? (
+              <Link to="/admin" className="account-admin-chip" data-testid="account-role">
+                {t('account.adminChip')}
+              </Link>
+            ) : (
+              <span className="sr-only" data-testid="account-role">
+                {user?.role ?? ''}
+              </span>
+            )}
+          </div>
+          <p className="account-identity-status" data-testid="account-status">
+            {steamLinked
+              ? t('account.steamLinkedMessage')
+              : t('account.steamNotLinked')}
+          </p>
+          <div className="account-readiness" aria-label={t('account.readinessAria')}>
+            <span
+              className={`account-readiness-chip${steamLinked ? ' is-ready' : ''}`}
+              data-testid="account-readiness-steam"
+            >
+              {steamLinked ? t('account.readinessSteamOk') : t('account.readinessSteamNeed')}
+            </span>
+            <span
+              className={`account-readiness-chip${tradeUrlReady ? ' is-ready' : ''}`}
+              data-testid="account-readiness-trade-url"
+            >
+              {tradeUrlReady ? t('account.readinessTradeUrlOk') : t('account.readinessTradeUrlNeed')}
+            </span>
+          </div>
+        </div>
+      </section>
 
-              <label className="field">
+      <div className="account-page-grid">
+        <section className="account-page-primary" aria-label={t('account.setupAria')}>
+          <div className="card account-settings-card" id="account-trade-url-section">
+            <div className="account-card-head">
+              <div>
+                <h3 className="account-section-title">{t('account.tradeUrlTitle')}</h3>
+                <p className="muted small account-section-lead">{t('account.tradeUrlNeeded')}</p>
+              </div>
+              <span
+                className={`account-status-pill${tradeUrlStatusReady ? ' is-ready' : ''}`}
+                data-testid="account-trade-url-status"
+              >
+                {tradeUrlStatusReady ? t('account.tradeUrlStatusReady') : t('account.tradeUrlStatusNeed')}
+              </span>
+            </div>
+
+            <div className="account-trade-url-section">
+              <label className="field account-trade-url-field">
                 <span className="field-label">{t('account.tradeUrlLabel')}</span>
                 <input
                   type="url"
@@ -180,6 +260,8 @@ export function AccountPage() {
                   }}
                   placeholder={t('account.tradeUrlPlaceholder')}
                   data-testid="account-trade-url-input"
+                  spellCheck={false}
+                  autoComplete="off"
                 />
               </label>
 
@@ -208,18 +290,32 @@ export function AccountPage() {
                 <SteamTradeUrlButton label={t('account.getTradeUrl')} />
               </div>
             </div>
-
-            {token && config?.extension?.extensionChannelEnabled ? (
-              <div id="account-extension-section" className="account-extension-section">
-                <ExtensionConnectPanel token={token} compact />
-              </div>
-            ) : null}
           </div>
+
+          {token && config?.extension?.extensionChannelEnabled ? (
+            <div
+              id="account-extension-section"
+              className="card account-extension-card"
+            >
+              <ExtensionConnectPanel token={token} compact />
+            </div>
+          ) : null}
         </section>
 
         <aside className="account-page-secondary" aria-label={t('account.steamSectionTitle')}>
           <div className="card account-profile-card">
-            <h3 className="account-section-title">{t('account.steamSectionTitle')}</h3>
+            <div className="account-card-head">
+              <div>
+                <h3 className="account-section-title">{t('account.steamSectionTitle')}</h3>
+                <p className="muted small account-section-lead">{t('account.steamCardLead')}</p>
+              </div>
+              <span
+                className={`account-status-pill${steamLinked ? ' is-ready' : ''}`}
+                data-testid="account-steam-status"
+              >
+                {steamLinked ? t('account.steamStatusLinked') : t('account.steamStatusNeed')}
+              </span>
+            </div>
 
             {canLinkSteam ? (
               <div
@@ -251,17 +347,46 @@ export function AccountPage() {
                     ? t('account.steamLinkedWithName', { name: user.steamPersonaName })
                     : t('account.steamLinkedMessage')}
                 </p>
-                {canChangeSteam ? (
-                  <button
-                    type="button"
-                    className="button secondary"
-                    disabled={changeSteamLoading || linkLoading}
-                    data-testid="change-steam-button"
-                    onClick={() => void handleChangeSteam()}
-                  >
-                    {changeSteamLoading ? t('account.changeSteamLoading') : t('account.changeSteamButton')}
-                  </button>
-                ) : null}
+
+                <dl className="account-steam-meta">
+                  <div>
+                    <dt>{t('account.steamNick')}</dt>
+                    <dd data-testid="account-steam-persona">
+                      {user?.steamPersonaName ?? t('account.steamPersonaLoading')}
+                    </dd>
+                  </div>
+                  <div>
+                    <dt>{t('account.steamId')}</dt>
+                    <dd data-testid="account-steam-id">{user?.steamId}</dd>
+                  </div>
+                </dl>
+
+                <div className="account-steam-footer">
+                  {steamProfileUrl ? (
+                    <a
+                      href={steamProfileUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="button secondary sm"
+                      data-testid="account-steam-profile-link"
+                    >
+                      {t('account.openSteamProfile')}
+                    </a>
+                  ) : null}
+                  {canChangeSteam ? (
+                    <button
+                      type="button"
+                      className="button ghost sm"
+                      disabled={changeSteamLoading || linkLoading}
+                      data-testid="change-steam-button"
+                      onClick={() => void handleChangeSteam()}
+                    >
+                      {changeSteamLoading
+                        ? t('account.changeSteamLoading')
+                        : t('account.changeSteamButton')}
+                    </button>
+                  ) : null}
+                </div>
               </div>
             ) : null}
 
@@ -271,46 +396,33 @@ export function AccountPage() {
               </p>
             ) : null}
 
-            <dl className="account-profile-grid meta-list">
-              <div>
-                <dt>{t('account.name')}</dt>
-                <dd data-testid="account-username">{user?.username ?? '—'}</dd>
-              </div>
-              <div>
-                <dt>{t('account.role')}</dt>
-                <dd data-testid="account-role">{formatUserRole(user?.role, locale)}</dd>
-              </div>
-              <div>
-                <dt>{t('account.status')}</dt>
-                <dd data-testid="account-status">{formatUserStatus(user?.status, locale)}</dd>
-              </div>
-              <div>
-                <dt>{t('account.steamId')}</dt>
-                <dd data-testid="account-steam-id">
-                  {steamLinked ? user?.steamId : t('account.steamNotLinkedValue')}
-                </dd>
-              </div>
-              {steamLinked ? (
-                <div>
-                  <dt>{t('account.steamNick')}</dt>
-                  <dd data-testid="account-steam-persona">
-                    {user?.steamPersonaName ?? t('account.steamPersonaLoading')}
-                  </dd>
-                </div>
-              ) : null}
-            </dl>
+            {!steamLinked ? (
+              <span className="sr-only" data-testid="account-steam-id">
+                {t('account.steamNotLinkedValue')}
+              </span>
+            ) : null}
 
             {showDevAuthHint && config ? (
               <p className="muted small account-dev-hint">
                 {t('account.devHint', { provider: config.authProvider })}
-                {config.authProvider === 'steam' ? (
-                  <>
-                    {' '}
-                    · <code>{API_BASE_URL}/auth/steam/callback</code>
-                  </>
-                ) : null}
               </p>
             ) : null}
+          </div>
+
+          <div className="account-quick-links card">
+            <h3 className="account-section-title">{t('account.quickLinksTitle')}</h3>
+            <p className="muted small account-section-lead">{t('account.quickLinksLead')}</p>
+            <div className="account-quick-links-actions">
+              <Link to="/catalog" className="button secondary sm">
+                {t('account.quickCatalog')}
+              </Link>
+              <Link to="/sell/inventory" className="button secondary sm">
+                {t('account.quickInventory')}
+              </Link>
+              <Link to="/wallet" className="button secondary sm">
+                {t('account.quickWallet')}
+              </Link>
+            </div>
           </div>
         </aside>
       </div>

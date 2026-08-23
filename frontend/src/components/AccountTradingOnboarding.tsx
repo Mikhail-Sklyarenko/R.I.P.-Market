@@ -114,17 +114,26 @@ export function AccountTradingOnboarding({
 
   if (requiredReady) {
     return (
-      <div className="card account-onboarding account-onboarding-ready" data-testid="account-trading-onboarding">
-        <p className="account-onboarding-ready-text">
-          {t('onboarding.readyText')}
-          {extensionChannelEnabled && !extensionConnected
-            ? ` ${t('onboarding.readyExtensionOptional')}`
-            : ''}
-          .{' '}
-          <Link to="/catalog">{t('onboarding.catalogLink')}</Link>
-          {' · '}
-          <Link to="/sell/inventory">{t('onboarding.inventoryLink')}</Link>
-        </p>
+      <div
+        className="card account-onboarding account-onboarding-ready"
+        data-testid="account-trading-onboarding"
+      >
+        <div className="account-onboarding-ready-mark" aria-hidden="true">
+          ✓
+        </div>
+        <div className="account-onboarding-ready-copy">
+          <p className="account-onboarding-ready-text">
+            {t('onboarding.readyText')}
+            {extensionChannelEnabled && !extensionConnected
+              ? ` ${t('onboarding.readyExtensionOptional')}`
+              : ''}
+            .
+          </p>
+          <div className="account-onboarding-ready-links">
+            <Link to="/catalog">{t('onboarding.catalogLink')}</Link>
+            <Link to="/sell/inventory">{t('onboarding.inventoryLink')}</Link>
+          </div>
+        </div>
       </div>
     );
   }
