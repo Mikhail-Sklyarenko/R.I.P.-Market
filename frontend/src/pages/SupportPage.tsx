@@ -1,24 +1,39 @@
 import { type FormEvent, useEffect, useMemo, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import { createSupportTicket, listMySupportTickets } from '../api/marketplace';
 import type { SupportTicket } from '../api/types';
 import { useAuth } from '../auth/AuthContext';
 import { useLocale } from '../i18n';
 import { ErrorAlert } from '../components/ErrorAlert';
 import { PageHeader } from '../components/PageHeader';
+import { SteamLoginButton } from '../components/SteamLoginButton';
 import { ThemeSelect } from '../components/ThemeSelect';
 import {
   SUPPORT_TICKET_TOPIC_IDS,
+  supportTicketTopicHint,
   supportTicketTopicLabel,
   type SupportTicketTopicId,
 } from '../data/support-ticket-topics';
 import { SUPPORT_EMAIL } from '../utils/format';
 
+function buildTicketBody(dealId: string, body: string): string {
+  const trimmedDeal = dealId.trim();
+  const trimmedBody = body.trim();
+  if (!trimmedDeal) {
+    return trimmedBody;
+  }
+  return `Deal ID: ${trimmedDeal}\n\n${trimmedBody}`;
+}
+
 export function SupportPage() {
   const { locale, t } = useLocale();
   const { token } = useAuth();
+  const [searchParams] = useSearchParams();
   const [tickets, setTickets] = useState<SupportTicket[]>([]);
   const [topicId, setTopicId] = useState<SupportTicketTopicId | ''>('');
+  const [dealId, setDealId] = useState(
+    () => searchParams.get('dealId')?.trim() || searchParams.get('orderId')?.trim() || '',
+  );
   const [body, setBody] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<unknown>(null);
@@ -37,6 +52,16 @@ export function SupportPage() {
     () => (topicId ? supportTicketTopicLabel(topicId, locale) : ''),
     [topicId, locale],
   );
+
+  const topicHint = topicId ? supportTicketTopicHint(topicId, locale) : null;
+
+  useEffect(() => {
+    const fromQuery =
+      searchParams.get('dealId')?.trim() || searchParams.get('orderId')?.trim() || '';
+    if (fromQuery) {
+      setDealId(fromQuery);
+    }
+  }, [searchParams]);
 
   useEffect(() => {
     if (!token) {
@@ -58,10 +83,11 @@ export function SupportPage() {
     try {
       const ticket = await createSupportTicket(token, {
         subject,
-        body: body.trim(),
+        body: buildTicketBody(dealId, body),
       });
       setTickets((current) => [ticket, ...current]);
       setTopicId('');
+      setDealId('');
       setBody('');
       setSuccess(t('support.success'));
     } catch (err: unknown) {
@@ -73,16 +99,26 @@ export function SupportPage() {
 
   return (
     <div className="page support-page">
-      <PageHeader
-        title={t('support.title')}
-        subtitle={t('support.subtitle')}
-      />
+      <PageHeader title={t('support.title')} subtitle={t('support.subtitle')} />
 
-      <p className="muted small support-page-faq-link">
-        <Link to="/faq" data-testid="support-faq-link">
-          {t('support.openFaq')}
-        </Link>
-      </p>
+      <section className="card support-trust-strip" data-testid="support-trust-strip">
+        <div className="support-trust-copy">
+          <h2 className="support-trust-title">{t('support.trustTitle')}</h2>
+          <p className="muted small">{t('support.trustBody')}</p>
+        </div>
+        <div className="support-trust-actions">
+          <Link to="/faq" className="button secondary sm" data-testid="support-faq-link">
+            {t('support.openFaq')}
+          </Link>
+          <a
+            href={`mailto:${SUPPORT_EMAIL}`}
+            className="button ghost sm"
+            data-testid="support-email-link"
+          >
+            {SUPPORT_EMAIL}
+          </a>
+        </div>
+      </section>
 
       <section
         id="support-tickets"
@@ -90,15 +126,19 @@ export function SupportPage() {
         data-testid="support-page"
       >
         <h2 className="support-section-title">{t('support.createTicket')}</h2>
-        <p className="muted small">
-          {t('support.formHint')}{' '}
-          <a href={`mailto:${SUPPORT_EMAIL}`} data-testid="support-email-link">
-            {SUPPORT_EMAIL}
-          </a>
-        </p>
+        <p className="muted small support-form-lead">{t('support.formHint')}</p>
 
         {!token ? (
-          <p className="muted">{t('support.loginRequired')}</p>
+          <div className="support-login-gate" data-testid="support-login-gate">
+            <p className="support-login-gate-title">{t('support.loginRequiredTitle')}</p>
+            <p className="muted small">{t('support.loginRequired')}</p>
+            <SteamLoginButton
+              returnPath="/support"
+              size="md"
+              testId="support-steam-login"
+              label={t('auth.steamLogin')}
+            />
+          </div>
         ) : (
           <form className="support-ticket-form" onSubmit={(event) => void handleSubmit(event)}>
             <label className="field">
@@ -112,6 +152,27 @@ export function SupportPage() {
                 onChange={(value) => setTopicId(value as SupportTicketTopicId | '')}
               />
             </label>
+
+            {topicHint ? (
+              <p className="support-topic-hint muted small" data-testid="support-topic-hint">
+                {topicHint}
+              </p>
+            ) : null}
+
+            <label className="field">
+              <span className="field-label">{t('support.dealIdLabel')}</span>
+              <input
+                type="text"
+                value={dealId}
+                onChange={(event) => setDealId(event.target.value)}
+                placeholder={t('support.dealIdPlaceholder')}
+                autoComplete="off"
+                spellCheck={false}
+                data-testid="support-ticket-deal-id"
+              />
+              <span className="field-hint muted small">{t('support.dealIdHint')}</span>
+            </label>
+
             <label className="field">
               <span className="field-label">{t('support.bodyLabel')}</span>
               <textarea
@@ -124,8 +185,17 @@ export function SupportPage() {
                 minLength={10}
               />
             </label>
+
+            <p className="muted small support-attachment-hint" data-testid="support-attachment-hint">
+              {t('support.attachmentHint')}
+            </p>
+
             <ErrorAlert error={error} />
-            {success ? <p className="success-text">{success}</p> : null}
+            {success ? (
+              <p className="success-text" data-testid="support-ticket-success">
+                {success}
+              </p>
+            ) : null}
             <button
               type="submit"
               className="button primary"
@@ -148,13 +218,17 @@ export function SupportPage() {
               >
                 <div className="support-ticket-card-header">
                   <strong>{ticket.subject}</strong>
-                  <span className="muted small">
+                  <span
+                    className={`support-ticket-status${
+                      ticket.status === 'OPEN' ? ' is-open' : ' is-resolved'
+                    }`}
+                  >
                     {ticket.status === 'OPEN'
                       ? t('support.statusOpen')
                       : t('support.statusResolved')}
                   </span>
                 </div>
-                <p className="muted small">{ticket.body}</p>
+                <p className="muted small support-ticket-body-preview">{ticket.body}</p>
                 {ticket.adminReply ? (
                   <p className="support-ticket-reply" data-testid="support-ticket-reply">
                     <strong>{t('support.adminReply')}</strong> {ticket.adminReply}

@@ -391,16 +391,24 @@ const baseEnMessages = {
     title: 'Support',
     subtitle:
       'Describe the issue — the team will reply here or by email. Common answers are in FAQ.',
+    trustTitle: 'We’re here for money and Steam trade issues',
+    trustBody:
+      'Pick a topic and add a deal ID when you have one — that speeds things up. You can paste a screenshot link.',
     openFaq: 'Open FAQ',
     createTicket: 'Create a ticket',
     formHint:
-      'Describe the issue. For a purchase or sale, include the deal ID (Deals → click the ID in the list or Copy on the deal page). Email:',
-    loginRequired: 'Sign in with Steam in the site header to create a ticket.',
+      'Briefly say what happened and what you already tried. For deals, include the ID.',
+    loginRequiredTitle: 'Sign in to create a ticket',
+    loginRequired: 'Steam sign-in is required — you’ll return to this page afterward.',
     topicLabel: 'Topic',
     topicPlaceholder: 'Select a topic',
+    dealIdLabel: 'Deal ID (optional)',
+    dealIdPlaceholder: 'From Deals or the order page',
+    dealIdHint: 'Deals → copy the ID on the card or on the deal page.',
     bodyLabel: 'Description',
-    bodyPlaceholder:
-      'Deal ID (from the deal page), what happened, and what you already tried…',
+    bodyPlaceholder: 'What happened, what you expected, what you already tried…',
+    attachmentHint:
+      'File uploads aren’t available yet — paste a screenshot link (Imgur, etc.) in the description.',
     submit: 'Submit ticket',
     submitting: 'Sending…',
     success: 'Ticket created. Support will reply in this section.',
@@ -416,6 +424,15 @@ const baseEnMessages = {
       extension: 'Browser extension',
       account: 'Account / Steam / Trade URL',
       other: 'Other',
+    },
+    topicHint: {
+      deal: 'Include the deal ID and status (awaiting trade / dispute / canceled).',
+      deposit: 'Amount, network/method, and transfer time help us find the payment.',
+      withdrawal: 'Address, amount, and withdrawal request status are the key details.',
+      listing: 'Item name and what’s blocking listing (Trade URL, lock, error).',
+      extension: 'Chrome version and what fails during auto-trade.',
+      account: 'Steam, Trade URL, or sign-in issue — describe the step where you got stuck.',
+      other: 'Any other issue — the more specific, the faster the reply.',
     },
   },
   item: {

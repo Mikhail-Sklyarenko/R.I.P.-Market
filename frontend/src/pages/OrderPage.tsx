@@ -513,7 +513,9 @@ export function OrderPage() {
               <CopyableDealId id={order.id} testId="order-deal-id" />
 
               <p className="muted small order-support-link">
-                <Link to="/support">{t('orderPage.supportLink')}</Link>
+                <Link to={`/support?dealId=${encodeURIComponent(order.id)}`}>
+                  {t('orderPage.supportLink')}
+                </Link>
                 {t('orderPage.supportLinkSuffix')}
               </p>
 

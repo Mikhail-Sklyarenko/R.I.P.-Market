@@ -435,6 +435,10 @@ export const clientExtraEn = {
     createTicketButton: 'Create a ticket',
     openFaqButton: 'Open FAQ',
     fabAria: 'Quick help',
+    navAria: 'Quick links',
+    navDeals: 'Deals',
+    navWallet: 'Wallet',
+    navFaq: 'FAQ',
   },
   trustBanner: {
     step1: 'You choose an item',

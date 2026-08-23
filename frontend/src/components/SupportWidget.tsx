@@ -2,9 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../auth/AuthContext';
 import { useLocale } from '../i18n';
-import {
-  filterSupportWidgetFaq,
-} from '../data/support-widget-faq';
+import { filterSupportWidgetFaq } from '../data/support-widget-faq';
 import { SUPPORT_EMAIL } from '../utils/format';
 
 type SupportWidgetProps = {
@@ -64,6 +62,33 @@ export function SupportWidget({ open, onOpenChange }: SupportWidgetProps) {
             {t('supportWidget.greeting', { name: greetingName })}
           </p>
 
+          <nav className="support-widget-nav" aria-label={t('supportWidget.navAria')}>
+            <Link
+              to="/deals"
+              className="support-widget-nav-link"
+              data-testid="support-widget-nav-deals"
+              onClick={() => onOpenChange(false)}
+            >
+              {t('supportWidget.navDeals')}
+            </Link>
+            <Link
+              to="/wallet"
+              className="support-widget-nav-link"
+              data-testid="support-widget-nav-wallet"
+              onClick={() => onOpenChange(false)}
+            >
+              {t('supportWidget.navWallet')}
+            </Link>
+            <Link
+              to="/faq"
+              className="support-widget-nav-link"
+              data-testid="support-widget-nav-faq"
+              onClick={() => onOpenChange(false)}
+            >
+              {t('supportWidget.navFaq')}
+            </Link>
+          </nav>
+
           <label className="field support-widget-search">
             <span className="sr-only">{t('supportWidget.searchLabel')}</span>
             <input
@@ -117,51 +142,42 @@ export function SupportWidget({ open, onOpenChange }: SupportWidgetProps) {
           </p>
 
           <div className="support-widget-actions">
-            <a
-              href={`mailto:${SUPPORT_EMAIL}`}
-              className="button primary sm"
-              data-testid="support-widget-write"
-            >
-              {t('supportWidget.emailButton')}
-            </a>
             {onSupportPage ? (
               <a
                 href="#support-tickets"
-                className="button secondary sm"
+                className="button primary sm"
                 data-testid="support-widget-ticket-link"
                 onClick={() => onOpenChange(false)}
               >
                 {t('supportWidget.ticketFormButton')}
               </a>
-            ) : onFaqPage ? (
+            ) : (
               <Link
                 to="/support"
-                className="button secondary sm"
+                className="button primary sm"
                 data-testid="support-widget-ticket-link"
                 onClick={() => onOpenChange(false)}
               >
                 {t('supportWidget.createTicketButton')}
               </Link>
-            ) : (
-              <>
-                <Link
-                  to="/faq"
-                  className="button secondary sm"
-                  data-testid="support-widget-page-link"
-                  onClick={() => onOpenChange(false)}
-                >
-                  {t('supportWidget.openFaqButton')}
-                </Link>
-                <Link
-                  to="/support"
-                  className="button secondary sm"
-                  data-testid="support-widget-ticket-link"
-                  onClick={() => onOpenChange(false)}
-                >
-                  {t('supportWidget.createTicketButton')}
-                </Link>
-              </>
             )}
+            {!onFaqPage && !onSupportPage ? (
+              <Link
+                to="/faq"
+                className="button secondary sm"
+                data-testid="support-widget-page-link"
+                onClick={() => onOpenChange(false)}
+              >
+                {t('supportWidget.openFaqButton')}
+              </Link>
+            ) : null}
+            <a
+              href={`mailto:${SUPPORT_EMAIL}`}
+              className="button ghost sm"
+              data-testid="support-widget-write"
+            >
+              {t('supportWidget.emailButton')}
+            </a>
           </div>
         </div>
       ) : null}

@@ -444,6 +444,10 @@ export const clientExtraRu = {
     createTicketButton: 'Создать тикет',
     openFaqButton: 'Открыть FAQ',
     fabAria: 'Быстрая помощь',
+    navAria: 'Быстрые ссылки',
+    navDeals: 'Сделки',
+    navWallet: 'Кошелёк',
+    navFaq: 'FAQ',
   },
   trustBanner: {
     step1: 'Выбираете предмет',

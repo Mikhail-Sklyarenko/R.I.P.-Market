@@ -39,6 +39,13 @@ export function supportTicketTopicLabel(
   return translate(messagesByLocale[locale], `support.topic.${id}`);
 }
 
+export function supportTicketTopicHint(
+  id: SupportTicketTopicId,
+  locale: Locale = 'ru',
+): string {
+  return translate(messagesByLocale[locale], `support.topicHint.${id}`);
+}
+
 /** @deprecated Prefer SUPPORT_TICKET_TOPIC_IDS + supportTicketTopicLabel(locale) */
 export const SUPPORT_TICKET_TOPICS: readonly SupportTicketTopic[] =
   SUPPORT_TICKET_TOPIC_IDS.map((id) => ({
