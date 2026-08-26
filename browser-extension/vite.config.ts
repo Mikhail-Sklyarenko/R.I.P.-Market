@@ -7,6 +7,8 @@ const root = __dirname;
 const isolatedScriptEntries = [
   'content/steam-bridge',
   'content/trade-verification-bridge',
+  'content/trade-offers-list-bridge',
+  'content/inventory-bridge',
   'page-scripts/trade-offer-ui',
 ] as const;
 

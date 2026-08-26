@@ -1,0 +1,2412 @@
+/**
+ * D1–D9: CS2 inventory content script.
+ * Host bar, enrichment, sell/manage/bulk, pre-list safety, seller onboarding.
+ * Never rewrites Steam item markup; only appends overlay nodes.
+ */
+import {
+  fetchCs2InventoryEnrichmentFacts,
+} from '../shared/inventory-enrichment-data.js';
+import {
+  buildInventoryItemEnrichmentView,
+  parseAssetIdFromItemElementId,
+  readSteamIdFromDocumentHtml,
+  type InventoryItemPlatformFacts,
+  type InventoryItemSteamFacts,
+} from '../shared/inventory-item-enrichment.js';
+import type { InventoryPriceHintLike } from '../shared/inventory-price-intel.js';
+import {
+  buildManagePricePreview,
+  formatListedPriceInput,
+  formatManageCurrentPriceLine,
+  hasPriceChanged,
+  resolveManageListingAction,
+} from '../shared/inventory-manage-listing.js';
+import {
+  buildBulkProgress,
+  buildBulkSellItem,
+  canSelectForBulkSell,
+  planBulkSellOperations,
+  toggleBulkSelection,
+  validateBulkSelectionForSubmit,
+  type BulkSellItem,
+} from '../shared/inventory-bulk-sell.js';
+import {
+  buildInventorySellPreview,
+  formatUsdInputFromMinor,
+  parseUsdInputToMinor,
+  resolveBidListOffer,
+  resolveDefaultListPriceMinor,
+  resolveInventorySellAction,
+  validateCreateLotPriceMinor,
+  type InventorySellAction,
+} from '../shared/inventory-one-click-sell.js';
+import { resolveInventoryLayerView } from '../shared/inventory-layer.js';
+import { getStoredSiteLinkSnapshot } from '../shared/offline-safe-mode.js';
+import {
+  getTwoMinuteOnboardingState,
+  persistDismissTrialListHint,
+  recordTwoMinuteFirstList,
+  recordTwoMinuteInventoryVisit,
+  resolveTrialListHintView,
+} from '../shared/two-minute-onboarding.js';
+import {
+  COACH_AUTO_DISMISS_MS,
+  dismissCoachMark,
+  INVENTORY_SELLER_ONBOARDING_KEY,
+  markCoachSeen,
+  parseOnboardingState,
+  resolveCoachMarkView,
+  resolveSellerChecklistView,
+  type InventorySellerOnboardingState,
+} from '../shared/inventory-seller-onboarding.js';
+import {
+  createExtensionT,
+  getStoredExtensionLocale,
+} from '../shared/extension-i18n.js';
+import { getSessionState } from '../shared/storage.js';
+import {
+  LAZY_ENRICH_BATCH_SIZE,
+  LAZY_ENRICH_VIEWPORT_MARGIN_PX,
+  partitionHoldersForEnrich,
+} from '../shared/inventory-lazy-enrich.js';
+import {
+  canProceedPastRateLimit,
+  noteRateLimitHit,
+} from '../shared/rate-limit-backoff-runtime.js';
+import { isExtensionInventoryLayerEnabled } from '../shared/extension-flags.js';
+import {
+  countInventoryItemHolders,
+  isCs2InventoryActive,
+  isSteamInventoryPath,
+  listVisibleInventoryItemHolders,
+  siteAccountUrl,
+  siteSellInventoryUrl,
+} from '../shared/steam-inventory-page.js';
+import { TRADE_VERIFICATION_RUNTIME } from '../shared/trade-verification-runtime.js';
+
+const HOST_ID = 'rip-market-inventory-layer';
+const STYLE_ID = 'rip-market-inventory-layer-style';
+const ATTR_READY = 'data-rip-inventory-ready';
+const ENRICH_ATTR = 'data-rip-enriched';
+const OVERLAY_CLASS = 'rip-item-enrich';
+const SELL_PANEL_ID = 'rip-market-sell-panel';
+const TOAST_ID = 'rip-market-sell-toast';
+const BULK_BAR_ID = 'rip-market-bulk-bar';
+
+const STEAM_FACTS_TTL_MS = 90_000;
+const PLATFORM_FACTS_TTL_MS = 60_000;
+const PRICE_HINTS_TTL_MS = 120_000;
+
+type CachedSteamFacts = {
+  fetchedAt: number;
+  byAssetId: Map<string, InventoryItemSteamFacts>;
+};
+
+type CachedPlatformFacts = {
+  fetchedAt: number;
+  byAssetId: Record<string, InventoryItemPlatformFacts>;
+};
+
+type CachedPriceHints = {
+  fetchedAt: number;
+  byName: Record<string, InventoryPriceHintLike>;
+};
+
+let steamFactsCache: CachedSteamFacts | null = null;
+let platformFactsCache: CachedPlatformFacts | null = null;
+let priceHintsCache: CachedPriceHints | null = null;
+let steamFactsInflight: Promise<Map<string, InventoryItemSteamFacts>> | null =
+  null;
+let enrichTimer: number | null = null;
+let renderTimer: number | null = null;
+let mounted = false;
+let bulkMode = false;
+let bulkSelected = new Set<string>();
+let lastConnected = false;
+let lastSiteSafeMode = false;
+let coachAutoDismissTimer: number | null = null;
+let coachMarkedSeenThisSession = false;
+let enrichObserver: IntersectionObserver | null = null;
+let deferredEnrichContext: {
+  steamFacts: Map<string, InventoryItemSteamFacts>;
+  platformFacts: Record<string, InventoryItemPlatformFacts>;
+  priceHints: Record<string, InventoryPriceHintLike>;
+  connected: boolean;
+} | null = null;
+let deferredEnrichQueue: Element[] = [];
+let deferredEnrichRaf: number | null = null;
+
+function escapeHtml(value: string): string {
+  return value
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;')
+    .replaceAll('"', '&quot;');
+}
+
+function ensureStyles(): void {
+  if (document.getElementById(STYLE_ID)) {
+    return;
+  }
+  const style = document.createElement('style');
+  style.id = STYLE_ID;
+  style.textContent = `
+    #${HOST_ID} {
+      display: block;
+      margin: 10px 0 14px;
+      padding: 0;
+      font-family: "Segoe UI", system-ui, sans-serif;
+      z-index: 20;
+      position: relative;
+    }
+    #${HOST_ID} .rip-inv-bar {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px 14px;
+      align-items: center;
+      padding: 12px 14px;
+      border-radius: 10px;
+      background: #12161e;
+      border: 1px solid #2f3542;
+      color: #e8e8e8;
+      font-size: 13px;
+      line-height: 1.35;
+      box-shadow: 0 6px 18px rgba(0, 0, 0, 0.28);
+    }
+    #${HOST_ID} .rip-inv-bar[data-connection="disconnected"] {
+      border-color: #8f6b3d;
+      background: #1c1810;
+    }
+
+    #${HOST_ID} .rip-inv-bar[data-connection="safe_mode"] {
+      border-color: rgba(143, 107, 61, 0.65);
+      background: rgba(143, 107, 61, 0.16);
+    }
+
+    #${HOST_ID} .rip-inv-brand {
+      color: #8eb7ff;
+      font-weight: 700;
+      white-space: nowrap;
+    }
+    #${HOST_ID} .rip-inv-body {
+      flex: 1 1 220px;
+      color: #a8adb8;
+      margin: 0;
+    }
+    #${HOST_ID} .rip-inv-meta {
+      color: #7d8494;
+      font-size: 12px;
+      white-space: nowrap;
+    }
+    #${HOST_ID} .rip-inv-cta {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      padding: 8px 12px;
+      border-radius: 8px;
+      background: #5b8def;
+      color: #fff !important;
+      text-decoration: none !important;
+      font-weight: 600;
+      font-size: 12px;
+      white-space: nowrap;
+    }
+    #${HOST_ID} .rip-inv-cta:hover { filter: brightness(1.06); }
+
+    .itemHolder {
+      position: relative;
+    }
+    .itemHolder .${OVERLAY_CLASS} {
+      position: absolute;
+      left: 2px;
+      right: 2px;
+      bottom: 2px;
+      top: 2px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      pointer-events: none;
+      z-index: 5;
+      font-family: "Segoe UI", system-ui, sans-serif;
+    }
+    .itemHolder .rip-item-badges {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 3px;
+      pointer-events: auto;
+    }
+    .itemHolder .rip-item-badge {
+      display: inline-flex;
+      align-items: center;
+      padding: 1px 5px;
+      border-radius: 4px;
+      font-size: 9px;
+      font-weight: 700;
+      line-height: 1.35;
+      border: 1px solid transparent;
+      text-decoration: none !important;
+      max-width: 100%;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .itemHolder .rip-item-badge--accent {
+      background: rgba(91, 141, 239, 0.92); color: #fff; border-color: #5b8def;
+    }
+    .itemHolder .rip-item-badge--ok {
+      background: rgba(47, 111, 70, 0.9); color: #b8f0c6; border-color: #2f6f46;
+    }
+    .itemHolder .rip-item-badge--warn {
+      background: rgba(143, 107, 61, 0.92); color: #ffe2b0; border-color: #8f6b3d;
+    }
+    .itemHolder .rip-item-badge--info {
+      background: rgba(61, 95, 143, 0.9); color: #c9dcff; border-color: #3d5f8f;
+    }
+    .itemHolder .rip-item-badge--muted {
+      background: rgba(60, 64, 74, 0.92); color: #c7ccd6; border-color: #4a4f5a;
+    }
+    .itemHolder .rip-item-footer {
+      display: grid;
+      gap: 2px;
+      padding: 3px;
+      border-radius: 4px;
+      background: rgba(10, 12, 16, 0.82);
+    }
+    .itemHolder .rip-item-wear-track {
+      position: relative;
+      height: 3px;
+      border-radius: 999px;
+      background: linear-gradient(90deg, #6ecf6e 0%, #7fd67f 7%, #5fd0d5 15%, #ffb454 38%, #ff6b57 45%, #ff6b57 100%);
+      overflow: hidden;
+    }
+    .itemHolder .rip-item-wear-pointer {
+      position: absolute;
+      top: -1px;
+      width: 2px;
+      height: 5px;
+      background: #fff;
+      box-shadow: 0 0 2px #000;
+      transform: translateX(-50%);
+    }
+    .itemHolder .rip-item-meta {
+      color: #e8e8e8;
+      font-size: 9px;
+      line-height: 1.2;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .itemHolder .rip-item-price {
+      color: #b7d0ff;
+      font-size: 9px;
+      font-weight: 700;
+      line-height: 1.2;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .itemHolder .rip-item-price-sub {
+      color: #a8adb8;
+      font-size: 8px;
+      line-height: 1.15;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .itemHolder .rip-item-price-net {
+      color: #8fe6a4;
+      font-size: 8px;
+      font-weight: 600;
+      line-height: 1.15;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .itemHolder .rip-item-price-bid {
+      color: #ffd28a;
+      font-size: 8px;
+      font-weight: 700;
+      line-height: 1.15;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .itemHolder .rip-item-sell {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      margin-top: 3px;
+      padding: 3px 6px;
+      border-radius: 5px;
+      border: 1px solid #5b8def;
+      background: rgba(91, 141, 239, 0.95);
+      color: #fff;
+      font-size: 9px;
+      font-weight: 700;
+      line-height: 1.2;
+      cursor: pointer;
+      pointer-events: auto;
+      width: 100%;
+      box-sizing: border-box;
+    }
+    .itemHolder .rip-item-sell:hover { filter: brightness(1.06); }
+    .itemHolder .rip-item-sell--muted {
+      background: rgba(60, 64, 74, 0.95);
+      border-color: #4a4f5a;
+      color: #d0d4dc;
+    }
+    .itemHolder .rip-item-sell--link {
+      text-decoration: none !important;
+    }
+    .itemHolder .rip-item-select {
+      position: absolute;
+      top: 4px;
+      right: 4px;
+      z-index: 6;
+      pointer-events: auto;
+      width: 18px;
+      height: 18px;
+      accent-color: #5b8def;
+      cursor: pointer;
+    }
+    .itemHolder[data-rip-bulk-selected="1"] {
+      outline: 2px solid #5b8def;
+      outline-offset: -2px;
+    }
+    .itemHolder[data-rip-bulk-selected="1"] .${OVERLAY_CLASS} {
+      box-shadow: inset 0 0 0 1px rgba(91, 141, 239, 0.55);
+    }
+
+    #${HOST_ID} .rip-inv-bulk-toggle {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      padding: 8px 12px;
+      border-radius: 8px;
+      border: 1px solid #3a4250;
+      background: #1a2030;
+      color: #e8e8e8;
+      font-weight: 600;
+      font-size: 12px;
+      cursor: pointer;
+      white-space: nowrap;
+    }
+    #${HOST_ID} .rip-inv-bulk-toggle[data-active="1"] {
+      background: #5b8def;
+      border-color: #5b8def;
+      color: #fff;
+    }
+
+    #${HOST_ID} .rip-inv-coach {
+      margin-bottom: 8px;
+      padding: 12px 14px;
+      border-radius: 10px;
+      background: linear-gradient(135deg, #1a2438 0%, #12161e 100%);
+      border: 1px solid #3d5f8f;
+      color: #e8e8e8;
+      box-shadow: 0 6px 18px rgba(0, 0, 0, 0.28);
+    }
+    #${HOST_ID} .rip-inv-coach-title {
+      margin: 0 0 4px;
+      font-size: 14px;
+      font-weight: 700;
+      color: #8eb7ff;
+    }
+    #${HOST_ID} .rip-inv-coach-body {
+      margin: 0 0 10px;
+      color: #a8adb8;
+      font-size: 12px;
+      line-height: 1.4;
+    }
+    #${HOST_ID} .rip-inv-coach-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      align-items: center;
+    }
+    #${HOST_ID} .rip-inv-coach-dismiss {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      padding: 7px 12px;
+      border-radius: 8px;
+      border: none;
+      background: #5b8def;
+      color: #fff;
+      font-weight: 600;
+      font-size: 12px;
+      cursor: pointer;
+    }
+    #${HOST_ID} .rip-inv-coach-hint {
+      color: #7d8494;
+      font-size: 11px;
+    }
+
+    #${HOST_ID} .rip-inv-trial {
+      margin: 0 0 10px;
+      padding: 10px 12px;
+      border-radius: 10px;
+      border: 1px solid rgba(91, 141, 239, 0.45);
+      background: rgba(91, 141, 239, 0.12);
+    }
+    #${HOST_ID} .rip-inv-trial-title {
+      margin: 0 0 4px;
+      font-size: 12px;
+      font-weight: 700;
+      color: #b7d0ff;
+    }
+    #${HOST_ID} .rip-inv-trial-body {
+      margin: 0 0 8px;
+      font-size: 11px;
+      color: #c7ccd6;
+      line-height: 1.35;
+    }
+    #${HOST_ID} .rip-inv-trial-dismiss {
+      border: none;
+      border-radius: 8px;
+      padding: 6px 10px;
+      font-size: 11px;
+      cursor: pointer;
+      background: #2a2f3a;
+      color: #e8e8e8;
+    }
+
+    #${HOST_ID} .rip-inv-checklist {
+      margin-top: 8px;
+      padding: 10px 12px;
+      border-radius: 10px;
+      background: #161b24;
+      border: 1px solid #2f3542;
+    }
+    #${HOST_ID} .rip-inv-checklist[data-ready="1"] {
+      border-color: #2f6f46;
+      background: #121a16;
+    }
+    #${HOST_ID} .rip-inv-checklist-head {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px 12px;
+      align-items: baseline;
+      margin-bottom: 8px;
+    }
+    #${HOST_ID} .rip-inv-checklist-title {
+      margin: 0;
+      font-size: 12px;
+      font-weight: 700;
+      color: #c9dcff;
+    }
+    #${HOST_ID} .rip-inv-checklist-summary {
+      margin: 0;
+      font-size: 11px;
+      color: #7d8494;
+    }
+    #${HOST_ID} .rip-inv-checklist-list {
+      list-style: none;
+      margin: 0;
+      padding: 0;
+      display: grid;
+      gap: 8px;
+    }
+    #${HOST_ID} .rip-inv-checklist-item {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px 12px;
+      align-items: flex-start;
+      justify-content: space-between;
+    }
+    #${HOST_ID} .rip-inv-checklist-mark {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      font-size: 11px;
+      font-weight: 700;
+      flex: 0 0 auto;
+      margin-top: 1px;
+    }
+    #${HOST_ID} .rip-inv-checklist-item[data-ready="1"] .rip-inv-checklist-mark {
+      background: #2f6f46;
+      color: #b8f0c6;
+    }
+    #${HOST_ID} .rip-inv-checklist-item[data-ready="0"] .rip-inv-checklist-mark {
+      background: #3a4250;
+      color: #a8adb8;
+    }
+    #${HOST_ID} .rip-inv-checklist-copy {
+      flex: 1 1 180px;
+      min-width: 0;
+    }
+    #${HOST_ID} .rip-inv-checklist-label {
+      display: block;
+      font-size: 12px;
+      font-weight: 600;
+      color: #e8e8e8;
+    }
+    #${HOST_ID} .rip-inv-checklist-hint {
+      margin: 2px 0 0;
+      font-size: 11px;
+      color: #7d8494;
+      line-height: 1.35;
+    }
+    #${HOST_ID} .rip-inv-checklist-action {
+      display: inline-flex;
+      align-items: center;
+      padding: 6px 10px;
+      border-radius: 7px;
+      background: #2a303c;
+      color: #8eb7ff !important;
+      text-decoration: none !important;
+      font-size: 11px;
+      font-weight: 600;
+      white-space: nowrap;
+    }
+
+    #${BULK_BAR_ID} {
+      position: fixed;
+      left: 50%;
+      bottom: 18px;
+      transform: translateX(-50%);
+      z-index: 99990;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px 10px;
+      align-items: center;
+      padding: 10px 12px;
+      border-radius: 12px;
+      background: #12161e;
+      border: 1px solid #2f3542;
+      color: #e8e8e8;
+      font-family: "Segoe UI", system-ui, sans-serif;
+      font-size: 13px;
+      box-shadow: 0 12px 32px rgba(0, 0, 0, 0.45);
+      max-width: min(640px, calc(100vw - 24px));
+    }
+    #${BULK_BAR_ID} .rip-bulk-count {
+      font-weight: 700;
+      color: #8eb7ff;
+    }
+    #${BULK_BAR_ID} .rip-bulk-meta {
+      color: #a8adb8;
+      font-size: 12px;
+    }
+    #${BULK_BAR_ID} .rip-bulk-btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      padding: 8px 12px;
+      border-radius: 8px;
+      border: none;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    #${BULK_BAR_ID} .rip-bulk-btn--primary {
+      background: #5b8def;
+      color: #fff;
+    }
+    #${BULK_BAR_ID} .rip-bulk-btn--secondary {
+      background: #2a303c;
+      color: #e8e8e8;
+    }
+    #${BULK_BAR_ID} .rip-bulk-btn:disabled {
+      opacity: 0.55;
+      cursor: not-allowed;
+    }
+
+    #${SELL_PANEL_ID} {
+      position: fixed;
+      inset: 0;
+      z-index: 99999;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: rgba(0, 0, 0, 0.55);
+      font-family: "Segoe UI", system-ui, sans-serif;
+    }
+    #${SELL_PANEL_ID} .rip-sell-card {
+      width: min(360px, calc(100vw - 24px));
+      background: #12161e;
+      border: 1px solid #2f3542;
+      border-radius: 12px;
+      padding: 16px;
+      color: #e8e8e8;
+      box-shadow: 0 16px 40px rgba(0, 0, 0, 0.45);
+    }
+    #${SELL_PANEL_ID} .rip-sell-title {
+      margin: 0 0 4px;
+      font-size: 16px;
+      font-weight: 700;
+      color: #8eb7ff;
+    }
+    #${SELL_PANEL_ID} .rip-sell-item {
+      margin: 0 0 12px;
+      color: #a8adb8;
+      font-size: 13px;
+      line-height: 1.35;
+      word-break: break-word;
+    }
+    #${SELL_PANEL_ID} .rip-sell-label {
+      display: block;
+      margin-bottom: 4px;
+      font-size: 12px;
+      color: #7d8494;
+    }
+    #${SELL_PANEL_ID} .rip-sell-input {
+      width: 100%;
+      box-sizing: border-box;
+      padding: 10px 12px;
+      border-radius: 8px;
+      border: 1px solid #3a4250;
+      background: #0d1016;
+      color: #fff;
+      font-size: 15px;
+      margin-bottom: 8px;
+    }
+    #${SELL_PANEL_ID} .rip-sell-preview {
+      margin: 0 0 12px;
+      font-size: 12px;
+      color: #a8adb8;
+      line-height: 1.4;
+    }
+    #${SELL_PANEL_ID} .rip-sell-preview strong {
+      color: #8fe6a4;
+      font-weight: 700;
+    }
+    #${SELL_PANEL_ID} .rip-sell-error {
+      margin: 0 0 10px;
+      color: #ffb4a8;
+      font-size: 12px;
+    }
+    #${SELL_PANEL_ID} .rip-sell-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+    #${SELL_PANEL_ID} .rip-sell-btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      padding: 9px 12px;
+      border-radius: 8px;
+      border: none;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      text-decoration: none !important;
+    }
+    #${SELL_PANEL_ID} .rip-sell-btn:disabled {
+      opacity: 0.6;
+      cursor: wait;
+    }
+    #${SELL_PANEL_ID} .rip-sell-btn--primary {
+      background: #5b8def;
+      color: #fff;
+    }
+    #${SELL_PANEL_ID} .rip-sell-btn--secondary {
+      background: #2a303c;
+      color: #e8e8e8;
+    }
+    #${SELL_PANEL_ID} .rip-sell-success {
+      margin: 0 0 12px;
+      color: #8fe6a4;
+      font-size: 14px;
+      font-weight: 600;
+    }
+
+    #${TOAST_ID} {
+      position: fixed;
+      right: 16px;
+      bottom: 16px;
+      z-index: 100000;
+      max-width: min(360px, calc(100vw - 24px));
+      padding: 12px 14px;
+      border-radius: 10px;
+      background: #12161e;
+      border: 1px solid #2f6f46;
+      color: #e8e8e8;
+      font-family: "Segoe UI", system-ui, sans-serif;
+      font-size: 13px;
+      box-shadow: 0 10px 28px rgba(0, 0, 0, 0.4);
+    }
+    #${TOAST_ID} a {
+      color: #8eb7ff;
+      font-weight: 600;
+    }
+  `;
+  document.documentElement.appendChild(style);
+}
+
+function findMountParent(): Element {
+  return (
+    document.querySelector('#inventory_pagecontrols')?.parentElement ??
+    document.querySelector('#tabcontent_inventory') ??
+    document.querySelector('.inventory_links')?.parentElement ??
+    document.querySelector('#mainContents') ??
+    document.querySelector('.responsive_page_template_content') ??
+    document.body
+  );
+}
+
+function ensureHost(): HTMLElement {
+  let host = document.getElementById(HOST_ID);
+  if (host) {
+    return host;
+  }
+  host = document.createElement('section');
+  host.id = HOST_ID;
+  host.setAttribute('data-rip-inventory-layer', '1');
+  host.setAttribute(ATTR_READY, '0');
+  host.setAttribute('aria-label', 'R.I.P Market inventory layer');
+
+  const parent = findMountParent();
+  const controls = document.querySelector('#inventory_pagecontrols');
+  if (controls?.parentElement === parent) {
+    parent.insertBefore(host, controls);
+  } else {
+    parent.prepend(host);
+  }
+  return host;
+}
+
+function removeHost(): void {
+  if (coachAutoDismissTimer != null) {
+    window.clearTimeout(coachAutoDismissTimer);
+    coachAutoDismissTimer = null;
+  }
+  disconnectEnrichObserver();
+  document.getElementById(HOST_ID)?.remove();
+  clearItemOverlays();
+  removeBulkBar();
+}
+
+async function loadOnboardingState(): Promise<InventorySellerOnboardingState> {
+  try {
+    const stored = await chrome.storage.local.get(INVENTORY_SELLER_ONBOARDING_KEY);
+    return parseOnboardingState(stored[INVENTORY_SELLER_ONBOARDING_KEY]);
+  } catch {
+    return parseOnboardingState(null);
+  }
+}
+
+async function saveOnboardingState(
+  state: InventorySellerOnboardingState,
+): Promise<void> {
+  try {
+    await chrome.storage.local.set({
+      [INVENTORY_SELLER_ONBOARDING_KEY]: state,
+    });
+  } catch {
+    // Best-effort local coach preference.
+  }
+}
+
+async function loadSellerOnboardingFromRuntime(): Promise<{
+  connected: boolean;
+  tradeUrl: string | null;
+  accountUrl: string;
+}> {
+  try {
+    const response = (await chrome.runtime.sendMessage({
+      type: TRADE_VERIFICATION_RUNTIME.GET_SELLER_ONBOARDING_STATUS,
+    })) as
+      | {
+          ok?: boolean;
+          connected?: boolean;
+          tradeUrl?: string | null;
+          accountUrl?: string;
+        }
+      | undefined;
+    if (response?.ok) {
+      return {
+        connected: Boolean(response.connected),
+        tradeUrl: response.tradeUrl ?? null,
+        accountUrl:
+          response.accountUrl?.trim() || siteAccountUrl(undefined),
+      };
+    }
+  } catch {
+    // Fall through to session-only.
+  }
+  const session = await getSessionState();
+  return {
+    connected: Boolean(session?.accessToken && session.apiBaseUrl),
+    tradeUrl: null,
+    accountUrl: siteAccountUrl(session?.apiBaseUrl),
+  };
+}
+
+async function persistCoachDismiss(): Promise<void> {
+  if (coachAutoDismissTimer != null) {
+    window.clearTimeout(coachAutoDismissTimer);
+    coachAutoDismissTimer = null;
+  }
+  const current = await loadOnboardingState();
+  await saveOnboardingState(dismissCoachMark(current));
+  void renderHostBar();
+}
+
+function scheduleCoachAutoDismiss(): void {
+  if (coachAutoDismissTimer != null) {
+    return;
+  }
+  coachAutoDismissTimer = window.setTimeout(() => {
+    coachAutoDismissTimer = null;
+    void persistCoachDismiss();
+  }, COACH_AUTO_DISMISS_MS);
+}
+
+function clearItemOverlays(): void {
+  disconnectEnrichObserver();
+  document.querySelectorAll(`.${OVERLAY_CLASS}`).forEach((node) => node.remove());
+  document.querySelectorAll(`[${ENRICH_ATTR}]`).forEach((node) => {
+    node.removeAttribute(ENRICH_ATTR);
+  });
+}
+
+function resolveSteamId(): string | null {
+  const fromPath = window.location.pathname.match(/\/profiles\/(\d{17})/);
+  if (fromPath?.[1]) {
+    return fromPath[1];
+  }
+  return readSteamIdFromDocumentHtml(document.documentElement.innerHTML);
+}
+
+async function loadSteamFacts(
+  force = false,
+): Promise<Map<string, InventoryItemSteamFacts>> {
+  const now = Date.now();
+  if (
+    !force &&
+    steamFactsCache &&
+    now - steamFactsCache.fetchedAt < STEAM_FACTS_TTL_MS
+  ) {
+    return steamFactsCache.byAssetId;
+  }
+  if (steamFactsInflight) {
+    return steamFactsInflight;
+  }
+
+  if (!(await canProceedPastRateLimit())) {
+    return steamFactsCache?.byAssetId ?? new Map();
+  }
+
+  const steamId = resolveSteamId();
+  if (!steamId) {
+    return steamFactsCache?.byAssetId ?? new Map();
+  }
+
+  steamFactsInflight = fetchCs2InventoryEnrichmentFacts(steamId)
+    .then((byAssetId) => {
+      steamFactsCache = { fetchedAt: Date.now(), byAssetId };
+      return byAssetId;
+    })
+    .catch((error: unknown) => {
+      console.warn('[rip-market] inventory enrichment fetch failed', error);
+      const message = error instanceof Error ? error.message : String(error);
+      if (/HTTP 429|rate.?limit/i.test(message)) {
+        void noteRateLimitHit();
+      }
+      return steamFactsCache?.byAssetId ?? new Map();
+    })
+    .finally(() => {
+      steamFactsInflight = null;
+    });
+
+  return steamFactsInflight;
+}
+
+async function loadPlatformFacts(
+  force = false,
+): Promise<Record<string, InventoryItemPlatformFacts>> {
+  const now = Date.now();
+  if (
+    !force &&
+    platformFactsCache &&
+    now - platformFactsCache.fetchedAt < PLATFORM_FACTS_TTL_MS
+  ) {
+    return platformFactsCache.byAssetId;
+  }
+
+  try {
+    const response = (await chrome.runtime.sendMessage({
+      type: TRADE_VERIFICATION_RUNTIME.GET_INVENTORY_PLATFORM_STATUS,
+    })) as {
+      ok?: boolean;
+      byAssetId?: Record<string, InventoryItemPlatformFacts>;
+    };
+    const byAssetId = response?.ok ? (response.byAssetId ?? {}) : {};
+    platformFactsCache = { fetchedAt: Date.now(), byAssetId };
+    return byAssetId;
+  } catch {
+    return platformFactsCache?.byAssetId ?? {};
+  }
+}
+
+async function loadPriceHints(
+  marketHashNames: string[],
+  force = false,
+): Promise<Record<string, InventoryPriceHintLike>> {
+  const now = Date.now();
+  if (
+    !force &&
+    priceHintsCache &&
+    now - priceHintsCache.fetchedAt < PRICE_HINTS_TTL_MS
+  ) {
+    const missing = marketHashNames.filter((name) => !priceHintsCache!.byName[name]);
+    if (missing.length === 0) {
+      return priceHintsCache.byName;
+    }
+  }
+
+  if (marketHashNames.length === 0) {
+    return priceHintsCache?.byName ?? {};
+  }
+
+  try {
+    const response = (await chrome.runtime.sendMessage({
+      type: TRADE_VERIFICATION_RUNTIME.GET_INVENTORY_PRICE_HINTS,
+      marketHashNames,
+      cacheOnly: true,
+    })) as {
+      ok?: boolean;
+      hints?: Record<string, InventoryPriceHintLike>;
+    };
+    const next = {
+      ...(priceHintsCache?.byName ?? {}),
+      ...(response?.ok ? (response.hints ?? {}) : {}),
+    };
+    priceHintsCache = { fetchedAt: Date.now(), byName: next };
+    return next;
+  } catch {
+    return priceHintsCache?.byName ?? {};
+  }
+}
+
+function renderOverlayHtml(
+  view: ReturnType<typeof buildInventoryItemEnrichmentView>,
+  platform: InventoryItemPlatformFacts | null | undefined,
+  sellAction: InventorySellAction,
+  assetId: string,
+  options: {
+    bulkMode: boolean;
+    selected: boolean;
+    selectable: boolean;
+  },
+): string {
+  const badges = view.badges
+    .slice(0, 3)
+    .map((badge) => {
+      const href =
+        badge.kind === 'listed'
+          ? platform?.lotUrl
+          : badge.kind === 'in_deal'
+            ? platform?.orderUrl
+            : null;
+      const className = `rip-item-badge rip-item-badge--${badge.tone}`;
+      if (href) {
+        return `<a class="${className}" href="${escapeHtml(href)}" target="_blank" rel="noreferrer">${escapeHtml(badge.label)}</a>`;
+      }
+      return `<span class="${className}">${escapeHtml(badge.label)}</span>`;
+    })
+    .join('');
+
+  const wear =
+    view.wearPointerPercent != null
+      ? `<div class="rip-item-wear-track" aria-hidden="true"><i class="rip-item-wear-pointer" style="left:${view.wearPointerPercent.toFixed(2)}%"></i></div>`
+      : '';
+  const meta = view.metaLine
+    ? `<div class="rip-item-meta">${escapeHtml(view.metaLine)}</div>`
+    : '';
+  const pricePrimary = view.pricePrimary
+    ? `<div class="rip-item-price">${escapeHtml(view.pricePrimary)}</div>`
+    : '';
+  const priceSecondary = view.priceSecondary
+    ? `<div class="rip-item-price-sub">${escapeHtml(view.priceSecondary)}</div>`
+    : '';
+  const priceNet = view.priceNet
+    ? `<div class="rip-item-price-net">${escapeHtml(view.priceNet)}</div>`
+    : '';
+  const priceBid =
+    view.priceBid && view.pricePrimary !== view.priceBid
+      ? `<div class="rip-item-price-bid">${escapeHtml(view.priceBid)}</div>`
+      : '';
+
+  const selectBox =
+    options.bulkMode && options.selectable
+      ? `<input class="rip-item-select" type="checkbox" data-rip-bulk-asset="${escapeHtml(assetId)}" ${options.selected ? 'checked' : ''} aria-label="Выбрать для продажи" />`
+      : '';
+
+  let sellCta = '';
+  if (!options.bulkMode) {
+    if (sellAction.kind === 'open_lot' && sellAction.lotUrl) {
+      sellCta = `<a class="rip-item-sell rip-item-sell--link" href="${escapeHtml(sellAction.lotUrl)}" target="_blank" rel="noreferrer" data-rip-sell-kind="open_lot">${escapeHtml(sellAction.label)}</a>`;
+    } else if (sellAction.kind === 'manage') {
+      sellCta = `<button type="button" class="rip-item-sell" data-rip-sell-kind="manage" data-rip-sell-asset="${escapeHtml(assetId)}" data-rip-lot-id="${escapeHtml(sellAction.lotId ?? '')}">${escapeHtml(sellAction.label)}</button>`;
+    } else {
+      const muted =
+        sellAction.kind === 'blocked' ? ' rip-item-sell--muted' : '';
+      sellCta = `<button type="button" class="rip-item-sell${muted}" data-rip-sell-kind="${escapeHtml(sellAction.kind)}" data-rip-sell-asset="${escapeHtml(assetId)}">${escapeHtml(sellAction.label)}</button>`;
+    }
+  }
+
+  return `
+    ${selectBox}
+    <div class="rip-item-badges">${badges}</div>
+    <div class="rip-item-footer">${wear}${meta}${pricePrimary}${priceBid}${priceSecondary}${priceNet}${sellCta}</div>
+  `;
+}
+
+type SellPanelContext = {
+  assetId: string;
+  marketHashName: string;
+  inventoryAssetId: string | null;
+  defaultPriceMinor: number | null;
+  priceHint: InventoryPriceHintLike | null;
+  action: InventorySellAction;
+  accountUrl: string;
+  sellUrl: string;
+};
+
+function closeSellPanel(): void {
+  document.getElementById(SELL_PANEL_ID)?.remove();
+}
+
+function showSellToast(params: {
+  message: string;
+  lotUrl?: string | null;
+  listingsUrl?: string | null;
+}): void {
+  document.getElementById(TOAST_ID)?.remove();
+  const toast = document.createElement('div');
+  toast.id = TOAST_ID;
+  const links: string[] = [];
+  if (params.lotUrl) {
+    links.push(
+      `<a href="${escapeHtml(params.lotUrl)}" target="_blank" rel="noreferrer">Открыть лот</a>`,
+    );
+  }
+  if (params.listingsUrl) {
+    links.push(
+      `<a href="${escapeHtml(params.listingsUrl)}" target="_blank" rel="noreferrer">Мои объявления</a>`,
+    );
+  }
+  toast.innerHTML = `<div>${escapeHtml(params.message)}</div>${
+    links.length
+      ? `<div style="margin-top:8px;display:flex;gap:10px;flex-wrap:wrap">${links.join('')}</div>`
+      : ''
+  }`;
+  document.documentElement.appendChild(toast);
+  window.setTimeout(() => toast.remove(), 8_000);
+}
+
+function updateSellPreview(panel: HTMLElement): void {
+  const input = panel.querySelector<HTMLInputElement>('.rip-sell-input');
+  const previewEl = panel.querySelector<HTMLElement>('[data-rip-sell-commission]');
+  const errorEl = panel.querySelector<HTMLElement>('.rip-sell-error');
+  if (!input || !previewEl) {
+    return;
+  }
+  const priceMinor = parseUsdInputToMinor(input.value);
+  const preview = priceMinor != null ? buildInventorySellPreview(priceMinor) : null;
+  if (!preview) {
+    previewEl.textContent = 'Введите цену — покажем комиссию и «вам».';
+    if (errorEl && input.value.trim()) {
+      errorEl.textContent = validateCreateLotPriceMinor(null) ?? '';
+    } else if (errorEl) {
+      errorEl.textContent = '';
+    }
+    return;
+  }
+  previewEl.innerHTML = `${escapeHtml(preview.commissionLine)} · <strong>${escapeHtml(preview.receiveLine)}</strong>`;
+  if (errorEl) {
+    errorEl.textContent = '';
+  }
+}
+
+function openSellPanel(ctx: SellPanelContext): void {
+  ensureStyles();
+  closeSellPanel();
+
+  const panel = document.createElement('div');
+  panel.id = SELL_PANEL_ID;
+  panel.setAttribute('role', 'dialog');
+  panel.setAttribute('aria-modal', 'true');
+  panel.setAttribute('aria-label', 'Продать на R.I.P');
+
+  if (ctx.action.kind === 'pair') {
+    panel.innerHTML = `
+      <div class="rip-sell-card">
+        <p class="rip-sell-title">Продать на R.I.P</p>
+        <p class="rip-sell-item">${escapeHtml(ctx.marketHashName)}</p>
+        <p class="rip-sell-preview">${escapeHtml(ctx.action.blockMessage ?? 'Сначала подключите расширение на сайте.')}</p>
+        <div class="rip-sell-actions">
+          <a class="rip-sell-btn rip-sell-btn--primary" href="${escapeHtml(ctx.accountUrl)}" target="_blank" rel="noreferrer">Подключить на сайте</a>
+          <button type="button" class="rip-sell-btn rip-sell-btn--secondary" data-rip-sell-close>Отмена</button>
+        </div>
+      </div>
+    `;
+  } else if (ctx.action.kind === 'blocked') {
+    panel.innerHTML = `
+      <div class="rip-sell-card">
+        <p class="rip-sell-title">Пока нельзя выставить</p>
+        <p class="rip-sell-item">${escapeHtml(ctx.marketHashName)}</p>
+        <p class="rip-sell-preview">${escapeHtml(ctx.action.blockMessage ?? 'Предмет нельзя выставить сейчас.')}</p>
+        <div class="rip-sell-actions">
+          ${
+            ctx.action.lotUrl
+              ? `<a class="rip-sell-btn rip-sell-btn--primary" href="${escapeHtml(ctx.action.lotUrl)}" target="_blank" rel="noreferrer">${
+                  ctx.action.blockReason === 'active_trade_task' ||
+                  ctx.action.blockReason === 'in_deal'
+                    ? 'Открыть заказ'
+                    : 'Открыть'
+                }</a>`
+              : `<a class="rip-sell-btn rip-sell-btn--primary" href="${escapeHtml(ctx.sellUrl)}" target="_blank" rel="noreferrer">Мои продажи</a>`
+          }
+          <button type="button" class="rip-sell-btn rip-sell-btn--secondary" data-rip-sell-close>Закрыть</button>
+        </div>
+      </div>
+    `;
+  } else {
+    const bidOffer = resolveBidListOffer(ctx.priceHint);
+    const defaultValue =
+      ctx.defaultPriceMinor != null
+        ? formatUsdInputFromMinor(ctx.defaultPriceMinor)
+        : '';
+    const bidBlock = bidOffer.available
+      ? `
+        <p class="rip-sell-preview" data-rip-bid-hint>${escapeHtml(bidOffer.hintLine ?? '')}</p>
+        <p class="rip-sell-preview" style="color:#7d8494;font-size:11px">${escapeHtml(bidOffer.honestyLine)}</p>
+        <div class="rip-sell-actions" style="margin-bottom:10px">
+          <button type="button" class="rip-sell-btn rip-sell-btn--primary" data-rip-sell-bid>${escapeHtml(bidOffer.buttonLabel ?? 'По bid')}</button>
+        </div>
+      `
+      : '';
+    panel.innerHTML = `
+      <div class="rip-sell-card">
+        <p class="rip-sell-title">Продать на R.I.P</p>
+        <p class="rip-sell-item">${escapeHtml(ctx.marketHashName)}</p>
+        ${bidBlock}
+        <label class="rip-sell-label" for="rip-sell-price">Цена ($)</label>
+        <input id="rip-sell-price" class="rip-sell-input" type="text" inputmode="decimal" autocomplete="off" value="${escapeHtml(defaultValue)}" placeholder="0.00" />
+        <p class="rip-sell-preview" data-rip-sell-commission></p>
+        <p class="rip-sell-error" data-testid="rip-sell-error"></p>
+        <div class="rip-sell-actions">
+          <button type="button" class="rip-sell-btn rip-sell-btn--primary" data-rip-sell-confirm>Выставить</button>
+          <button type="button" class="rip-sell-btn rip-sell-btn--secondary" data-rip-sell-close>Отмена</button>
+        </div>
+      </div>
+    `;
+  }
+
+  document.documentElement.appendChild(panel);
+  updateSellPreview(panel);
+
+  panel.addEventListener('click', (event) => {
+    const target = event.target as Element | null;
+    if (target === panel || target?.closest?.('[data-rip-sell-close]')) {
+      closeSellPanel();
+    }
+  });
+
+  panel
+    .querySelector('.rip-sell-input')
+    ?.addEventListener('input', () => updateSellPreview(panel));
+
+  panel
+    .querySelector('[data-rip-sell-confirm]')
+    ?.addEventListener('click', () => {
+      void submitSellFromPanel(panel, ctx);
+    });
+
+  panel
+    .querySelector('[data-rip-sell-bid]')
+    ?.addEventListener('click', () => {
+      const bidOffer = resolveBidListOffer(ctx.priceHint);
+      const input = panel.querySelector<HTMLInputElement>('.rip-sell-input');
+      if (!bidOffer.available || bidOffer.priceMinor == null || !input) {
+        return;
+      }
+      input.value = formatUsdInputFromMinor(bidOffer.priceMinor);
+      updateSellPreview(panel);
+      void submitSellFromPanel(panel, ctx);
+    });
+
+  panel.querySelector<HTMLInputElement>('.rip-sell-input')?.focus();
+}
+
+async function submitSellFromPanel(
+  panel: HTMLElement,
+  ctx: SellPanelContext,
+): Promise<void> {
+  const input = panel.querySelector<HTMLInputElement>('.rip-sell-input');
+  const errorEl = panel.querySelector<HTMLElement>('.rip-sell-error');
+  const confirmBtn = panel.querySelector<HTMLButtonElement>(
+    '[data-rip-sell-confirm]',
+  );
+  const priceMinor = parseUsdInputToMinor(input?.value ?? '');
+  const priceError = validateCreateLotPriceMinor(priceMinor);
+  if (priceError || priceMinor == null) {
+    if (errorEl) {
+      errorEl.textContent = priceError ?? 'Введите цену';
+    }
+    return;
+  }
+
+  if (confirmBtn) {
+    confirmBtn.disabled = true;
+    confirmBtn.textContent = 'Выставляем…';
+  }
+  if (errorEl) {
+    errorEl.textContent = '';
+  }
+
+  try {
+    const response = (await chrome.runtime.sendMessage({
+      type: TRADE_VERIFICATION_RUNTIME.CREATE_INVENTORY_LOT,
+      steamAssetId: ctx.assetId,
+      inventoryAssetId: ctx.inventoryAssetId,
+      priceMinor,
+    })) as {
+      ok?: boolean;
+      lotId?: string;
+      lotUrl?: string;
+      listingsUrl?: string;
+      error?: string;
+    };
+
+    if (!response?.ok) {
+      if (errorEl) {
+        errorEl.textContent =
+          response?.error ?? 'Не удалось выставить лот. Попробуйте ещё раз.';
+      }
+      if (confirmBtn) {
+        confirmBtn.disabled = false;
+        confirmBtn.textContent = 'Выставить';
+      }
+      return;
+    }
+
+    void recordTwoMinuteFirstList();
+
+    const card = panel.querySelector('.rip-sell-card');
+    if (card) {
+      card.innerHTML = `
+        <p class="rip-sell-title">Выставлено</p>
+        <p class="rip-sell-success">Лот на R.I.P создан.</p>
+        <p class="rip-sell-item">${escapeHtml(ctx.marketHashName)}</p>
+        <div class="rip-sell-actions">
+          ${
+            response.lotUrl
+              ? `<a class="rip-sell-btn rip-sell-btn--primary" href="${escapeHtml(response.lotUrl)}" target="_blank" rel="noreferrer">Открыть лот</a>`
+              : ''
+          }
+          ${
+            response.listingsUrl
+              ? `<a class="rip-sell-btn rip-sell-btn--secondary" href="${escapeHtml(response.listingsUrl)}" target="_blank" rel="noreferrer">Мои объявления</a>`
+              : ''
+          }
+          <button type="button" class="rip-sell-btn rip-sell-btn--secondary" data-rip-sell-close>Закрыть</button>
+        </div>
+      `;
+      card
+        .querySelector('[data-rip-sell-close]')
+        ?.addEventListener('click', () => closeSellPanel());
+    }
+
+    showSellToast({
+      message: 'Лот выставлен на R.I.P',
+      lotUrl: response.lotUrl,
+      listingsUrl: response.listingsUrl,
+    });
+
+    platformFactsCache = null;
+    scheduleEnrichment(false);
+  } catch (error) {
+    if (errorEl) {
+      errorEl.textContent =
+        error instanceof Error ? error.message : 'Не удалось выставить лот';
+    }
+    if (confirmBtn) {
+      confirmBtn.disabled = false;
+      confirmBtn.textContent = 'Выставить';
+    }
+  }
+}
+
+function applyEnrichmentToHolder(
+  holder: Element,
+  steamFacts: Map<string, InventoryItemSteamFacts>,
+  platformFacts: Record<string, InventoryItemPlatformFacts>,
+  priceHints: Record<string, InventoryPriceHintLike>,
+  connected: boolean,
+): void {
+  const item = holder.querySelector<HTMLElement>('.item[id^="item730_2_"]');
+  const assetId = parseAssetIdFromItemElementId(item?.id);
+  if (!assetId) {
+    return;
+  }
+  const steam = steamFacts.get(assetId);
+  if (!steam) {
+    return;
+  }
+  const platform = platformFacts[assetId] ?? null;
+  const priceHint = steam.marketHashName
+    ? (priceHints[steam.marketHashName] ?? null)
+    : null;
+  const view = buildInventoryItemEnrichmentView({ steam, platform, priceHint });
+  const sellAction = resolveInventorySellAction({
+    connected,
+    siteSafeMode: lastSiteSafeMode,
+    steam,
+    platform,
+  });
+
+  let overlay = holder.querySelector<HTMLElement>(`.${OVERLAY_CLASS}`);
+  if (!overlay) {
+    overlay = document.createElement('div');
+    overlay.className = OVERLAY_CLASS;
+    overlay.setAttribute('data-rip-asset-id', assetId);
+    holder.appendChild(overlay);
+  }
+  overlay.setAttribute(
+    'data-rip-inventory-asset-id',
+    platform?.inventoryAssetId ?? '',
+  );
+  overlay.setAttribute('data-rip-lot-id', platform?.lotId ?? '');
+  overlay.setAttribute(
+    'data-rip-listed-price-minor',
+    platform?.listedPriceMinor ?? '',
+  );
+  overlay.setAttribute(
+    'data-rip-market-hash-name',
+    steam.marketHashName ?? '',
+  );
+  const defaultMinor = resolveDefaultListPriceMinor(priceHint);
+  if (defaultMinor != null) {
+    overlay.setAttribute('data-rip-default-price-minor', String(defaultMinor));
+  } else {
+    overlay.removeAttribute('data-rip-default-price-minor');
+  }
+  overlay.innerHTML = renderOverlayHtml(view, platform, sellAction, assetId, {
+    bulkMode,
+    selected: bulkSelected.has(assetId),
+    selectable: canSelectForBulkSell({
+      connected,
+      steam,
+      platform,
+    }),
+  });
+  holder.setAttribute(ENRICH_ATTR, '1');
+  holder.setAttribute(
+    'data-rip-bulk-selected',
+    bulkMode && bulkSelected.has(assetId) ? '1' : '0',
+  );
+}
+
+function disconnectEnrichObserver(): void {
+  enrichObserver?.disconnect();
+  enrichObserver = null;
+  deferredEnrichQueue = [];
+  deferredEnrichContext = null;
+  if (deferredEnrichRaf != null) {
+    cancelAnimationFrame(deferredEnrichRaf);
+    deferredEnrichRaf = null;
+  }
+}
+
+function flushDeferredEnrichBatch(): void {
+  deferredEnrichRaf = null;
+  const ctx = deferredEnrichContext;
+  if (!ctx || deferredEnrichQueue.length === 0) {
+    return;
+  }
+  const batch = deferredEnrichQueue.splice(0, LAZY_ENRICH_BATCH_SIZE);
+  for (const holder of batch) {
+    if (!(holder as HTMLElement).isConnected) {
+      continue;
+    }
+    if (holder.getAttribute(ENRICH_ATTR) === '1') {
+      continue;
+    }
+    applyEnrichmentToHolder(
+      holder,
+      ctx.steamFacts,
+      ctx.platformFacts,
+      ctx.priceHints,
+      ctx.connected,
+    );
+  }
+  if (deferredEnrichQueue.length > 0) {
+    deferredEnrichRaf = window.requestAnimationFrame(() => {
+      flushDeferredEnrichBatch();
+    });
+  }
+}
+
+function enqueueDeferredEnrich(holders: Element[]): void {
+  for (const holder of holders) {
+    deferredEnrichQueue.push(holder);
+  }
+  if (deferredEnrichRaf == null && deferredEnrichQueue.length > 0) {
+    deferredEnrichRaf = window.requestAnimationFrame(() => {
+      flushDeferredEnrichBatch();
+    });
+  }
+}
+
+function ensureEnrichObserver(): IntersectionObserver {
+  if (enrichObserver) {
+    return enrichObserver;
+  }
+  enrichObserver = new IntersectionObserver(
+    (entries) => {
+      const due: Element[] = [];
+      for (const entry of entries) {
+        if (!entry.isIntersecting) {
+          continue;
+        }
+        const holder = entry.target;
+        enrichObserver?.unobserve(holder);
+        if (holder.getAttribute(ENRICH_ATTR) === '1') {
+          continue;
+        }
+        due.push(holder);
+      }
+      if (due.length > 0) {
+        enqueueDeferredEnrich(due);
+      }
+    },
+    {
+      root: null,
+      rootMargin: `${LAZY_ENRICH_VIEWPORT_MARGIN_PX}px`,
+      threshold: 0.01,
+    },
+  );
+  return enrichObserver;
+}
+
+async function enrichItemCards(forceSteam = false): Promise<void> {
+  if (
+    !isCs2InventoryActive({
+      pathname: window.location.pathname,
+      hash: window.location.hash,
+      document,
+    })
+  ) {
+    clearItemOverlays();
+    removeBulkBar();
+    disconnectEnrichObserver();
+    return;
+  }
+
+  ensureStyles();
+  const session = await getSessionState();
+  const connected = Boolean(session?.accessToken && session.apiBaseUrl);
+  lastConnected = connected;
+  if (!connected && bulkMode) {
+    bulkMode = false;
+    bulkSelected = new Set();
+  }
+  const [steamFacts, platformFacts] = await Promise.all([
+    loadSteamFacts(forceSteam),
+    connected ? loadPlatformFacts(false) : Promise.resolve({}),
+  ]);
+
+  const holders = listVisibleInventoryItemHolders(document);
+  const { immediate, deferred } = partitionHoldersForEnrich(holders);
+
+  const visibleNames: string[] = [];
+  for (const holder of immediate) {
+    const item = holder.querySelector<HTMLElement>('.item[id^="item730_2_"]');
+    const assetId = parseAssetIdFromItemElementId(item?.id);
+    const name = assetId
+      ? steamFacts.get(assetId)?.marketHashName?.trim()
+      : null;
+    if (name) {
+      visibleNames.push(name);
+    }
+  }
+
+  const priceHints = connected
+    ? await loadPriceHints(visibleNames, false)
+    : {};
+
+  deferredEnrichContext = {
+    steamFacts,
+    platformFacts,
+    priceHints,
+    connected,
+  };
+
+  for (const holder of immediate) {
+    applyEnrichmentToHolder(
+      holder,
+      steamFacts,
+      platformFacts,
+      priceHints,
+      connected,
+    );
+  }
+
+  const observer = ensureEnrichObserver();
+  for (const holder of deferred) {
+    if (holder.getAttribute(ENRICH_ATTR) === '1') {
+      continue;
+    }
+    observer.observe(holder);
+  }
+
+  renderBulkBar();
+}
+
+async function renderHostBar(): Promise<void> {
+  if (!isSteamInventoryPath(window.location.pathname)) {
+    removeHost();
+    removeBulkBar();
+    return;
+  }
+
+  const cs2Active = isCs2InventoryActive({
+    pathname: window.location.pathname,
+    hash: window.location.hash,
+    document,
+  });
+
+  if (!cs2Active) {
+    removeHost();
+    removeBulkBar();
+    return;
+  }
+
+  ensureStyles();
+  const host = ensureHost();
+  const session = await getSessionState();
+  const connected = Boolean(session?.accessToken && session.apiBaseUrl);
+  lastConnected = connected;
+  if (!connected && bulkMode) {
+    bulkMode = false;
+    bulkSelected = new Set();
+  }
+  const itemHolderCount = countInventoryItemHolders(document);
+  const siteLink = await getStoredSiteLinkSnapshot();
+  lastSiteSafeMode = Boolean(siteLink.safeMode);
+  if (connected) {
+    void recordTwoMinuteInventoryVisit();
+  }
+  const view = resolveInventoryLayerView({
+    connected,
+    siteSafeMode: lastSiteSafeMode,
+    sellUrl: siteSellInventoryUrl(session?.apiBaseUrl),
+    accountUrl: siteAccountUrl(session?.apiBaseUrl),
+    itemHolderCount,
+  });
+
+  const [onboardingState, sellerStatus, locale] = await Promise.all([
+    loadOnboardingState(),
+    loadSellerOnboardingFromRuntime(),
+    getStoredExtensionLocale(),
+  ]);
+  const t = createExtensionT(locale);
+  const checklist = resolveSellerChecklistView({
+    extensionConnected: sellerStatus.connected || connected,
+    tradeUrl: sellerStatus.tradeUrl,
+    accountUrl: sellerStatus.accountUrl || siteAccountUrl(session?.apiBaseUrl),
+    locale,
+  });
+  const coach = resolveCoachMarkView({ state: onboardingState, locale });
+  const twoMinState = await getTwoMinuteOnboardingState();
+  const trial = resolveTrialListHintView({
+    connected,
+    checklistReady: checklist.allReady,
+    state: twoMinState,
+    locale,
+  });
+
+  if (coach.visible && !coachMarkedSeenThisSession) {
+    coachMarkedSeenThisSession = true;
+    void saveOnboardingState(markCoachSeen(onboardingState));
+  }
+  if (coach.visible) {
+    scheduleCoachAutoDismiss();
+  } else if (coachAutoDismissTimer != null) {
+    window.clearTimeout(coachAutoDismissTimer);
+    coachAutoDismissTimer = null;
+  }
+
+  host.setAttribute('data-connection', view.connection);
+  host.setAttribute('data-item-holders', String(view.itemHolderCount));
+  host.setAttribute(ATTR_READY, '1');
+  host.setAttribute('data-appid', '730');
+  host.setAttribute('data-bulk-mode', bulkMode ? '1' : '0');
+  host.setAttribute('data-onboarding-ready', checklist.allReady ? '1' : '0');
+  host.setAttribute('data-coach', coach.visible ? '1' : '0');
+
+  const bulkToggle = connected && !lastSiteSafeMode
+    ? `<button type="button" class="rip-inv-bulk-toggle" data-rip-bulk-toggle data-active="${bulkMode ? '1' : '0'}">${
+        bulkMode ? 'Мульти: вкл' : 'Множественная продажа'
+      }</button>`
+    : '';
+
+  const coachHtml = coach.visible
+    ? `<div class="rip-inv-coach" data-rip-coach role="status">
+        <p class="rip-inv-coach-title">${escapeHtml(coach.title)}</p>
+        <p class="rip-inv-coach-body">${escapeHtml(coach.body)}</p>
+        <div class="rip-inv-coach-actions">
+          <button type="button" class="rip-inv-coach-dismiss" data-rip-coach-dismiss>${escapeHtml(coach.dismissLabel)}</button>
+          <span class="rip-inv-coach-hint">${escapeHtml(t('onboarding.autoHideHint'))}</span>
+        </div>
+      </div>`
+    : '';
+
+  const trialHtml = trial.visible
+    ? `<div class="rip-inv-trial" data-rip-trial role="status">
+        <p class="rip-inv-trial-title">${escapeHtml(trial.title)}</p>
+        <p class="rip-inv-trial-body">${escapeHtml(trial.body)}</p>
+        <button type="button" class="rip-inv-trial-dismiss" data-rip-trial-dismiss>${escapeHtml(trial.dismissLabel)}</button>
+      </div>`
+    : '';
+
+  const checklistItemsHtml = checklist.allReady
+    ? ''
+    : `<ul class="rip-inv-checklist-list">
+        ${checklist.items
+          .map(
+            (item) => `<li class="rip-inv-checklist-item" data-ready="${item.ready ? '1' : '0'}" data-key="${escapeHtml(item.key)}">
+              <span class="rip-inv-checklist-mark" aria-hidden="true">${item.ready ? '✓' : '·'}</span>
+              <div class="rip-inv-checklist-copy">
+                <span class="rip-inv-checklist-label">${escapeHtml(item.label)}</span>
+                <p class="rip-inv-checklist-hint">${escapeHtml(item.hint)}</p>
+              </div>
+              ${
+                item.actionHref && item.actionLabel
+                  ? `<a class="rip-inv-checklist-action" href="${escapeHtml(item.actionHref)}" target="_blank" rel="noreferrer">${escapeHtml(item.actionLabel)}</a>`
+                  : ''
+              }
+            </li>`,
+          )
+          .join('')}
+      </ul>`;
+
+  const checklistHtml =
+    !checklist.allReady || coach.visible
+      ? `<div class="rip-inv-checklist" data-ready="${checklist.allReady ? '1' : '0'}" data-rip-checklist>
+      <div class="rip-inv-checklist-head">
+        <p class="rip-inv-checklist-title">${escapeHtml(checklist.title)}</p>
+        <p class="rip-inv-checklist-summary">${escapeHtml(checklist.summaryLine)}</p>
+      </div>
+      ${checklistItemsHtml}
+    </div>`
+      : '';
+
+  host.innerHTML = `
+    ${coachHtml}
+    ${trialHtml}
+    <div class="rip-inv-bar" data-connection="${view.connection}">
+      <span class="rip-inv-brand">${escapeHtml(view.title)}</span>
+      <p class="rip-inv-body">${escapeHtml(view.body)}</p>
+      <span class="rip-inv-meta">ячеек: ${view.itemHolderCount}</span>
+      ${bulkToggle}
+      <a class="rip-inv-cta" href="${escapeHtml(view.ctaHref)}" target="_blank" rel="noreferrer">${escapeHtml(view.ctaLabel)}</a>
+    </div>
+    ${checklistHtml}
+  `;
+
+  host
+    .querySelector('[data-rip-bulk-toggle]')
+    ?.addEventListener('click', () => {
+      bulkMode = !bulkMode;
+      if (!bulkMode) {
+        bulkSelected = new Set();
+      }
+      scheduleHostRender();
+    });
+
+  host
+    .querySelector('[data-rip-coach-dismiss]')
+    ?.addEventListener('click', () => {
+      void persistCoachDismiss();
+    });
+
+  host
+    .querySelector('[data-rip-trial-dismiss]')
+    ?.addEventListener('click', () => {
+      void persistDismissTrialListHint().then(() => scheduleHostRender());
+    });
+
+  renderBulkBar();
+}
+
+function removeBulkBar(): void {
+  document.getElementById(BULK_BAR_ID)?.remove();
+}
+
+function collectBulkItemsFromSelection(): BulkSellItem[] {
+  const items: BulkSellItem[] = [];
+  for (const assetId of bulkSelected) {
+    const steam = steamFactsCache?.byAssetId.get(assetId);
+    if (!steam) {
+      continue;
+    }
+    const platform = platformFactsCache?.byAssetId[assetId] ?? null;
+    const item = buildBulkSellItem({ steam, platform });
+    if (item) {
+      items.push(item);
+    }
+  }
+  return items;
+}
+
+function renderBulkBar(): void {
+  if (!bulkMode || !lastConnected) {
+    removeBulkBar();
+    return;
+  }
+  ensureStyles();
+  const plan = planBulkSellOperations(collectBulkItemsFromSelection());
+  const count = plan.selectedCount;
+  const submitError = validateBulkSelectionForSubmit(plan.plannedCount);
+  let bar = document.getElementById(BULK_BAR_ID);
+  if (!bar) {
+    bar = document.createElement('div');
+    bar.id = BULK_BAR_ID;
+    document.documentElement.appendChild(bar);
+  }
+  bar.innerHTML = `
+    <span class="rip-bulk-count">Выбрано: ${count}</span>
+    <span class="rip-bulk-meta">${escapeHtml(plan.summaryLine || plan.modeLabel)}</span>
+    <button type="button" class="rip-bulk-btn rip-bulk-btn--primary" data-rip-bulk-sell ${submitError ? 'disabled' : ''}>Выставить</button>
+    <button type="button" class="rip-bulk-btn rip-bulk-btn--secondary" data-rip-bulk-clear>Очистить</button>
+    <button type="button" class="rip-bulk-btn rip-bulk-btn--secondary" data-rip-bulk-exit>Выйти</button>
+  `;
+  bar
+    .querySelector('[data-rip-bulk-clear]')
+    ?.addEventListener('click', () => {
+      bulkSelected = new Set();
+      scheduleEnrichment(false);
+    });
+  bar.querySelector('[data-rip-bulk-exit]')?.addEventListener('click', () => {
+    bulkMode = false;
+    bulkSelected = new Set();
+    scheduleHostRender();
+  });
+  bar.querySelector('[data-rip-bulk-sell]')?.addEventListener('click', () => {
+    if (submitError) {
+      showSellToast({ message: submitError });
+      return;
+    }
+    openBulkSellPanel();
+  });
+}
+
+function openBulkSellPanel(): void {
+  const items = collectBulkItemsFromSelection();
+  const plan = planBulkSellOperations(items);
+  const submitError = validateBulkSelectionForSubmit(plan.plannedCount);
+  if (submitError) {
+    showSellToast({ message: submitError });
+    return;
+  }
+
+  ensureStyles();
+  closeSellPanel();
+
+  const names = [
+    ...new Set(
+      plan.operations.flatMap((op) => op.items.map((entry) => entry.marketHashName)),
+    ),
+  ];
+  const primaryName = names[0] ?? 'предметы';
+  const hint =
+    (primaryName && priceHintsCache?.byName[primaryName]) || null;
+  const defaultMinor = resolveDefaultListPriceMinor(hint);
+  const defaultValue =
+    defaultMinor != null ? formatUsdInputFromMinor(defaultMinor) : '';
+
+  const panel = document.createElement('div');
+  panel.id = SELL_PANEL_ID;
+  panel.setAttribute('role', 'dialog');
+  panel.setAttribute('aria-modal', 'true');
+  panel.innerHTML = `
+    <div class="rip-sell-card">
+      <p class="rip-sell-title">Множественная продажа</p>
+      <p class="rip-sell-item">${escapeHtml(String(plan.plannedCount))} шт · ${escapeHtml(plan.modeLabel)}</p>
+      <p class="rip-sell-preview">${escapeHtml(plan.summaryLine)}</p>
+      <label class="rip-sell-label" for="rip-sell-price">Цена за штуку ($)</label>
+      <input id="rip-sell-price" class="rip-sell-input" type="text" inputmode="decimal" autocomplete="off" value="${escapeHtml(defaultValue)}" placeholder="0.00" />
+      <p class="rip-sell-preview" data-rip-sell-commission></p>
+      <p class="rip-sell-error"></p>
+      <div class="rip-sell-actions">
+        <button type="button" class="rip-sell-btn rip-sell-btn--primary" data-rip-bulk-confirm>Выставить всё</button>
+        <button type="button" class="rip-sell-btn rip-sell-btn--secondary" data-rip-sell-close>Отмена</button>
+      </div>
+    </div>
+  `;
+  document.documentElement.appendChild(panel);
+  updateSellPreview(panel);
+
+  panel.addEventListener('click', (event) => {
+    const target = event.target as Element | null;
+    if (target === panel || target?.closest?.('[data-rip-sell-close]')) {
+      closeSellPanel();
+    }
+  });
+  panel
+    .querySelector('.rip-sell-input')
+    ?.addEventListener('input', () => updateSellPreview(panel));
+  panel
+    .querySelector('[data-rip-bulk-confirm]')
+    ?.addEventListener('click', () => {
+      void submitBulkSellFromPanel(panel, plan.operations);
+    });
+  panel.querySelector<HTMLInputElement>('.rip-sell-input')?.focus();
+}
+
+async function submitBulkSellFromPanel(
+  panel: HTMLElement,
+  operations: ReturnType<typeof planBulkSellOperations>['operations'],
+): Promise<void> {
+  const input = panel.querySelector<HTMLInputElement>('.rip-sell-input');
+  const errorEl = panel.querySelector<HTMLElement>('.rip-sell-error');
+  const confirmBtn = panel.querySelector<HTMLButtonElement>(
+    '[data-rip-bulk-confirm]',
+  );
+  const priceMinor = parseUsdInputToMinor(input?.value ?? '');
+  const priceError = validateCreateLotPriceMinor(priceMinor);
+  if (priceError || priceMinor == null) {
+    if (errorEl) {
+      errorEl.textContent = priceError ?? 'Введите цену';
+    }
+    return;
+  }
+
+  const total = operations.reduce((sum, op) => sum + op.items.length, 0);
+  if (confirmBtn) {
+    confirmBtn.disabled = true;
+    confirmBtn.textContent = 'Выставляем…';
+  }
+  if (errorEl) {
+    errorEl.textContent = '';
+  }
+  const progressEl = panel.querySelector<HTMLElement>('[data-rip-sell-commission]');
+  if (progressEl) {
+    progressEl.textContent = buildBulkProgress({
+      total,
+      done: 0,
+      created: 0,
+      failed: 0,
+    }).label;
+  }
+
+  try {
+    const response = (await chrome.runtime.sendMessage({
+      type: TRADE_VERIFICATION_RUNTIME.CREATE_INVENTORY_LOTS_BATCH,
+      priceMinor,
+      operations,
+    })) as {
+      ok?: boolean;
+      created?: Array<{ steamAssetId: string; lotId: string; lotUrl: string }>;
+      failed?: Array<{ steamAssetId: string; error: string }>;
+      listingsUrl?: string;
+      error?: string;
+    };
+
+    const created = response?.created ?? [];
+    const failed = response?.failed ?? [];
+    if (created.length > 0) {
+      void recordTwoMinuteFirstList();
+    }
+    const progress = buildBulkProgress({
+      total,
+      done: created.length + failed.length,
+      created: created.length,
+      failed: failed.length,
+    });
+
+    const card = panel.querySelector('.rip-sell-card');
+    if (card) {
+      const failHint =
+        failed.length > 0
+          ? `<p class="rip-sell-error">${escapeHtml(
+              failed[0]?.error ?? 'Часть предметов не выставилась',
+            )}${failed.length > 1 ? ` (+${failed.length - 1})` : ''}</p>`
+          : '';
+      card.innerHTML = `
+        <p class="rip-sell-title">${created.length > 0 ? 'Готово' : 'Не выставлено'}</p>
+        <p class="rip-sell-success">${escapeHtml(progress.label)}</p>
+        ${failHint}
+        <div class="rip-sell-actions">
+          ${
+            response?.listingsUrl
+              ? `<a class="rip-sell-btn rip-sell-btn--primary" href="${escapeHtml(response.listingsUrl)}" target="_blank" rel="noreferrer">Мои объявления</a>`
+              : ''
+          }
+          ${
+            failed.length > 0
+              ? `<button type="button" class="rip-sell-btn rip-sell-btn--secondary" data-rip-bulk-retry>Повторить ошибки</button>`
+              : ''
+          }
+          <button type="button" class="rip-sell-btn rip-sell-btn--secondary" data-rip-sell-close>Закрыть</button>
+        </div>
+      `;
+      card
+        .querySelector('[data-rip-sell-close]')
+        ?.addEventListener('click', () => closeSellPanel());
+      card
+        .querySelector('[data-rip-bulk-retry]')
+        ?.addEventListener('click', () => {
+          const failedIds = new Set(failed.map((entry) => entry.steamAssetId));
+          bulkSelected = new Set(
+            [...bulkSelected].filter((id) => failedIds.has(id)),
+          );
+          closeSellPanel();
+          openBulkSellPanel();
+          scheduleEnrichment(false);
+        });
+    }
+
+    showSellToast({
+      message: progress.label,
+      listingsUrl: response?.listingsUrl,
+      lotUrl: created[0]?.lotUrl,
+    });
+
+    for (const entry of created) {
+      bulkSelected.delete(entry.steamAssetId);
+    }
+    platformFactsCache = null;
+    scheduleEnrichment(false);
+  } catch (error) {
+    if (errorEl) {
+      errorEl.textContent =
+        error instanceof Error ? error.message : 'Не удалось выставить лоты';
+    }
+    if (confirmBtn) {
+      confirmBtn.disabled = false;
+      confirmBtn.textContent = 'Выставить всё';
+    }
+  }
+}
+
+function scheduleHostRender(): void {
+  if (renderTimer !== null) {
+    window.clearTimeout(renderTimer);
+  }
+  renderTimer = window.setTimeout(() => {
+    renderTimer = null;
+    void renderHostBar();
+    scheduleEnrichment();
+  }, 120);
+}
+
+function scheduleEnrichment(forceSteam = false): void {
+  if (enrichTimer !== null) {
+    window.clearTimeout(enrichTimer);
+  }
+  enrichTimer = window.setTimeout(() => {
+    enrichTimer = null;
+    void enrichItemCards(forceSteam);
+  }, 180);
+}
+
+function watchInventoryDom(): void {
+  const root =
+    document.querySelector('#inventories') ??
+    document.querySelector('#mainContents') ??
+    document.body;
+  const observer = new MutationObserver((mutations) => {
+    const onlyOverlay =
+      mutations.length > 0 &&
+      mutations.every((mutation) => {
+        const nodes = [
+          ...Array.from(mutation.addedNodes),
+          ...Array.from(mutation.removedNodes),
+        ];
+        return (
+          nodes.length > 0 &&
+          nodes.every(
+            (node) =>
+              node instanceof Element &&
+              (node.classList?.contains(OVERLAY_CLASS) ||
+                node.id === SELL_PANEL_ID ||
+                node.id === TOAST_ID ||
+                node.id === BULK_BAR_ID ||
+                node.closest?.(`.${OVERLAY_CLASS}`) ||
+                node.closest?.(`#${SELL_PANEL_ID}`) ||
+                node.closest?.(`#${TOAST_ID}`) ||
+                node.closest?.(`#${BULK_BAR_ID}`)),
+          )
+        );
+      });
+    if (onlyOverlay) {
+      return;
+    }
+    scheduleHostRender();
+  });
+  observer.observe(root, {
+    childList: true,
+    subtree: true,
+    attributes: true,
+    attributeFilter: ['class', 'style', 'id'],
+  });
+}
+
+function watchNavigation(): void {
+  window.addEventListener('hashchange', () => {
+    scheduleHostRender();
+  });
+  window.addEventListener('popstate', () => {
+    scheduleHostRender();
+  });
+
+  document.addEventListener(
+    'click',
+    (event) => {
+      const target = event.target as Element | null;
+      const selectBox = target?.closest?.(
+        '.rip-item-select[data-rip-bulk-asset]',
+      ) as HTMLInputElement | null;
+      if (selectBox) {
+        event.stopPropagation();
+        const assetId = selectBox.getAttribute('data-rip-bulk-asset')?.trim();
+        if (assetId) {
+          bulkSelected = toggleBulkSelection(
+            bulkSelected,
+            assetId,
+            selectBox.checked,
+          );
+          renderBulkBar();
+          const holder = selectBox.closest('.itemHolder');
+          holder?.setAttribute(
+            'data-rip-bulk-selected',
+            selectBox.checked ? '1' : '0',
+          );
+        }
+        return;
+      }
+      const sellBtn = target?.closest?.(
+        '.rip-item-sell[data-rip-sell-asset]',
+      ) as HTMLElement | null;
+      if (sellBtn) {
+        event.preventDefault();
+        event.stopPropagation();
+        void openSellFromButton(sellBtn);
+        return;
+      }
+      if (
+        target?.closest?.(
+          '.games_list_tab, #inventory_applogo, a[href*="inventory"], .inventory_page_right, .inventory_page_left',
+        )
+      ) {
+        scheduleHostRender();
+        window.setTimeout(() => scheduleEnrichment(false), 400);
+      }
+    },
+    true,
+  );
+}
+
+async function openSellFromButton(button: HTMLElement): Promise<void> {
+  const assetId = button.getAttribute('data-rip-sell-asset')?.trim();
+  if (!assetId) {
+    return;
+  }
+  const overlay = button.closest(`.${OVERLAY_CLASS}`) as HTMLElement | null;
+  const session = await getSessionState();
+  const connected = Boolean(session?.accessToken && session.apiBaseUrl);
+  const platform = platformFactsCache?.byAssetId[assetId] ?? null;
+  const steam = steamFactsCache?.byAssetId.get(assetId);
+  const action = resolveInventorySellAction({
+    connected,
+    siteSafeMode: lastSiteSafeMode,
+    steam: steam ?? {
+      tradable: true,
+      marketable: true,
+      tradeLockUntil: null,
+    },
+    platform,
+  });
+
+  const defaultAttr = overlay?.getAttribute('data-rip-default-price-minor');
+  const defaultPriceMinor = defaultAttr ? Number(defaultAttr) : null;
+  const marketHashName =
+    overlay?.getAttribute('data-rip-market-hash-name')?.trim() ||
+    steam?.marketHashName ||
+    `Asset ${assetId}`;
+  const priceHint =
+    (marketHashName && priceHintsCache?.byName[marketHashName]) || null;
+  const sellUrl = siteSellInventoryUrl(session?.apiBaseUrl);
+  const accountUrl = siteAccountUrl(session?.apiBaseUrl);
+
+  if (action.kind === 'manage') {
+    const manage = resolveManageListingAction({ connected, platform });
+    openManagePanel({
+      assetId,
+      marketHashName,
+      lotId:
+        manage.lotId ||
+        overlay?.getAttribute('data-rip-lot-id')?.trim() ||
+        action.lotId ||
+        '',
+      lotUrl: manage.lotUrl || action.lotUrl,
+      listedPriceMinor:
+        manage.listedPriceMinor ??
+        (overlay?.getAttribute('data-rip-listed-price-minor')
+          ? Number(overlay.getAttribute('data-rip-listed-price-minor'))
+          : null),
+      sellUrl,
+    });
+    return;
+  }
+
+  openSellPanel({
+    assetId,
+    marketHashName,
+    inventoryAssetId:
+      overlay?.getAttribute('data-rip-inventory-asset-id')?.trim() ||
+      platform?.inventoryAssetId ||
+      null,
+    defaultPriceMinor:
+      defaultPriceMinor != null && Number.isFinite(defaultPriceMinor)
+        ? defaultPriceMinor
+        : null,
+    priceHint,
+    action,
+    accountUrl,
+    sellUrl,
+  });
+}
+
+type ManagePanelContext = {
+  assetId: string;
+  marketHashName: string;
+  lotId: string;
+  lotUrl: string | null;
+  listedPriceMinor: number | null;
+  sellUrl: string;
+};
+
+function openManagePanel(ctx: ManagePanelContext): void {
+  ensureStyles();
+  closeSellPanel();
+
+  if (!ctx.lotId) {
+    showSellToast({
+      message: 'Лот не найден. Откройте продажи на сайте.',
+      listingsUrl: ctx.sellUrl,
+    });
+    return;
+  }
+
+  const priceValue = formatListedPriceInput(ctx.listedPriceMinor);
+  const panel = document.createElement('div');
+  panel.id = SELL_PANEL_ID;
+  panel.setAttribute('role', 'dialog');
+  panel.setAttribute('aria-modal', 'true');
+  panel.setAttribute('aria-label', 'Управление лотом');
+  panel.innerHTML = `
+    <div class="rip-sell-card">
+      <p class="rip-sell-title">Управление лотом</p>
+      <p class="rip-sell-item">${escapeHtml(ctx.marketHashName)}</p>
+      <p class="rip-sell-preview">${escapeHtml(formatManageCurrentPriceLine(ctx.listedPriceMinor))}</p>
+      <label class="rip-sell-label" for="rip-sell-price">Новая цена ($)</label>
+      <input id="rip-sell-price" class="rip-sell-input" type="text" inputmode="decimal" autocomplete="off" value="${escapeHtml(priceValue)}" placeholder="0.00" />
+      <p class="rip-sell-preview" data-rip-sell-commission></p>
+      <p class="rip-sell-error"></p>
+      <div class="rip-sell-actions">
+        <button type="button" class="rip-sell-btn rip-sell-btn--primary" data-rip-manage-save>Сохранить цену</button>
+        <button type="button" class="rip-sell-btn rip-sell-btn--secondary" data-rip-manage-cancel>Снять с продажи</button>
+        ${
+          ctx.lotUrl
+            ? `<a class="rip-sell-btn rip-sell-btn--secondary" href="${escapeHtml(ctx.lotUrl)}" target="_blank" rel="noreferrer">Открыть лот</a>`
+            : ''
+        }
+        <button type="button" class="rip-sell-btn rip-sell-btn--secondary" data-rip-sell-close>Закрыть</button>
+      </div>
+    </div>
+  `;
+  document.documentElement.appendChild(panel);
+  updateSellPreview(panel);
+
+  panel.addEventListener('click', (event) => {
+    const target = event.target as Element | null;
+    if (target === panel || target?.closest?.('[data-rip-sell-close]')) {
+      closeSellPanel();
+    }
+  });
+  panel
+    .querySelector('.rip-sell-input')
+    ?.addEventListener('input', () => updateSellPreview(panel));
+  panel
+    .querySelector('[data-rip-manage-save]')
+    ?.addEventListener('click', () => {
+      void submitManagePrice(panel, ctx);
+    });
+  panel
+    .querySelector('[data-rip-manage-cancel]')
+    ?.addEventListener('click', () => {
+      void submitManageCancel(panel, ctx);
+    });
+  panel.querySelector<HTMLInputElement>('.rip-sell-input')?.focus();
+}
+
+async function submitManagePrice(
+  panel: HTMLElement,
+  ctx: ManagePanelContext,
+): Promise<void> {
+  const input = panel.querySelector<HTMLInputElement>('.rip-sell-input');
+  const errorEl = panel.querySelector<HTMLElement>('.rip-sell-error');
+  const saveBtn = panel.querySelector<HTMLButtonElement>('[data-rip-manage-save]');
+  const parsed = buildManagePricePreview(input?.value ?? '');
+  if (parsed.error || parsed.priceMinor == null) {
+    if (errorEl) {
+      errorEl.textContent = parsed.error ?? 'Введите цену';
+    }
+    return;
+  }
+  if (!hasPriceChanged(ctx.listedPriceMinor, parsed.priceMinor)) {
+    if (errorEl) {
+      errorEl.textContent = 'Цена не изменилась';
+    }
+    return;
+  }
+
+  if (saveBtn) {
+    saveBtn.disabled = true;
+    saveBtn.textContent = 'Сохраняем…';
+  }
+  if (errorEl) {
+    errorEl.textContent = '';
+  }
+
+  try {
+    const response = (await chrome.runtime.sendMessage({
+      type: TRADE_VERIFICATION_RUNTIME.UPDATE_INVENTORY_LOT_PRICE,
+      lotId: ctx.lotId,
+      priceMinor: parsed.priceMinor,
+    })) as {
+      ok?: boolean;
+      lotUrl?: string;
+      listingsUrl?: string;
+      priceMinor?: string;
+      error?: string;
+    };
+
+    if (!response?.ok) {
+      if (errorEl) {
+        errorEl.textContent = response?.error ?? 'Не удалось обновить цену';
+      }
+      if (saveBtn) {
+        saveBtn.disabled = false;
+        saveBtn.textContent = 'Сохранить цену';
+      }
+      return;
+    }
+
+    showSellToast({
+      message: 'Цена обновлена',
+      lotUrl: response.lotUrl ?? ctx.lotUrl,
+      listingsUrl: response.listingsUrl,
+    });
+    closeSellPanel();
+    platformFactsCache = null;
+    scheduleEnrichment(false);
+  } catch (error) {
+    if (errorEl) {
+      errorEl.textContent =
+        error instanceof Error ? error.message : 'Не удалось обновить цену';
+    }
+    if (saveBtn) {
+      saveBtn.disabled = false;
+      saveBtn.textContent = 'Сохранить цену';
+    }
+  }
+}
+
+async function submitManageCancel(
+  panel: HTMLElement,
+  ctx: ManagePanelContext,
+): Promise<void> {
+  const errorEl = panel.querySelector<HTMLElement>('.rip-sell-error');
+  const cancelBtn = panel.querySelector<HTMLButtonElement>(
+    '[data-rip-manage-cancel]',
+  );
+  const confirmed = window.confirm(
+    `Снять «${ctx.marketHashName}» с продажи на R.I.P?`,
+  );
+  if (!confirmed) {
+    return;
+  }
+
+  if (cancelBtn) {
+    cancelBtn.disabled = true;
+    cancelBtn.textContent = 'Снимаем…';
+  }
+  if (errorEl) {
+    errorEl.textContent = '';
+  }
+
+  try {
+    const response = (await chrome.runtime.sendMessage({
+      type: TRADE_VERIFICATION_RUNTIME.CANCEL_INVENTORY_LOT,
+      lotId: ctx.lotId,
+    })) as {
+      ok?: boolean;
+      listingsUrl?: string;
+      error?: string;
+    };
+
+    if (!response?.ok) {
+      if (errorEl) {
+        errorEl.textContent =
+          response?.error ?? 'Не удалось снять с продажи';
+      }
+      if (cancelBtn) {
+        cancelBtn.disabled = false;
+        cancelBtn.textContent = 'Снять с продажи';
+      }
+      return;
+    }
+
+    showSellToast({
+      message: 'Лот снят с продажи',
+      listingsUrl: response.listingsUrl,
+    });
+    closeSellPanel();
+    platformFactsCache = null;
+    scheduleEnrichment(false);
+  } catch (error) {
+    if (errorEl) {
+      errorEl.textContent =
+        error instanceof Error
+          ? error.message
+          : 'Не удалось снять с продажи';
+    }
+    if (cancelBtn) {
+      cancelBtn.disabled = false;
+      cancelBtn.textContent = 'Снять с продажи';
+    }
+  }
+}
+
+async function mount(): Promise<void> {
+  if (!isSteamInventoryPath(window.location.pathname) || mounted) {
+    return;
+  }
+  // I5: remote kill for inventory overlays (unset storage = on).
+  if (!(await isExtensionInventoryLayerEnabled())) {
+    return;
+  }
+  mounted = true;
+  await renderHostBar();
+  await enrichItemCards(true);
+  watchInventoryDom();
+  watchNavigation();
+  window.setInterval(() => {
+    void renderHostBar();
+    void enrichItemCards(false);
+  }, 12_000);
+}
+
+void mount();

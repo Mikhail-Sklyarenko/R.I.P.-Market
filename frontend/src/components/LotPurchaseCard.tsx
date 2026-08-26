@@ -5,8 +5,8 @@ import { useLotPurchase } from '../hooks/useLotPurchase';
 import { formatUsdFromMinor } from '../utils/format';
 import { isCredibleSteamGuidePrice } from '../utils/steam-guide-price';
 import { formatCounterpartyDisplayName } from '../utils/steam-profile';
-import { DealFlowSteps } from './DealFlowSteps';
 import { ErrorAlert } from './ErrorAlert';
+import { ExtensionAwarePurchaseTrust } from './ExtensionAwarePurchaseTrust';
 import { InventoryPriceStack } from './InventoryPriceStack';
 import { MoneyDisplay } from './MoneyDisplay';
 import { PurchaseReadinessAlerts } from './PurchaseReadinessAlerts';
@@ -181,9 +181,10 @@ export function LotPurchaseCard({
         </div>
       )}
 
-      <div className="lot-purchase-trust" data-testid="lot-purchase-trust">
-        <DealFlowSteps embedded />
-      </div>
+      <ExtensionAwarePurchaseTrust
+        token={token}
+        testId="lot-purchase-trust"
+      />
 
       <details className="lot-purchase-details" data-testid="lot-purchase-details">
         <summary className="lot-purchase-details-summary">

@@ -30,6 +30,7 @@ import { InventorySellPanel } from '../components/InventorySellPanel';
 import { InventorySellerOnboarding } from '../components/InventorySellerOnboarding';
 import { PageHeader } from '../components/PageHeader';
 import { SellerSaleInfo } from '../components/SellerSaleInfo';
+import { ExtensionAwareCommerceHint } from '../components/ExtensionAwareCommerceHint';
 import { canShowDevPanels, parseUsdToMinor, ERROR_MESSAGES } from '../utils/format';
 import { formatDataTimestamp } from '../utils/lot-display';
 import { getRecommendedPriceMinor, minorToPriceInput, shouldAutofillListingPrice } from '../utils/inventory-pricing';
@@ -791,6 +792,10 @@ export function InventoryPage() {
           </button>
         }
       />
+
+      {token ? (
+        <ExtensionAwareCommerceHint surface="sell" token={token} />
+      ) : null}
 
       {showSellerOnboarding ? (
         <InventorySellerOnboarding

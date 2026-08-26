@@ -43,16 +43,22 @@ describe('SteamCommunityClient.loadInventory web API fallback', () => {
     vi.mocked(loadInventoryViaPageScript).mockResolvedValue({
       items: [],
       rateLimited: true,
+      failReason: 'rate_limited',
     });
     vi.mocked(loadCs2InventoryFromCookies).mockResolvedValue({
       items: [],
       rateLimited: true,
+      failReason: 'rate_limited',
     });
 
     const client = new SteamCommunityClient();
-    const items = await client.loadInventory('76561198000000000');
+    const result = await client.loadInventory('76561198000000000');
 
-    expect(items).toEqual([]);
+    expect(result).toMatchObject({
+      items: [],
+      rateLimited: true,
+      failReason: 'rate_limited',
+    });
     expect(fetch).not.toHaveBeenCalled();
   });
 
@@ -62,10 +68,12 @@ describe('SteamCommunityClient.loadInventory web API fallback', () => {
     vi.mocked(loadInventoryViaPageScript).mockResolvedValue({
       items: [],
       rateLimited: true,
+      failReason: 'rate_limited',
     });
     vi.mocked(loadCs2InventoryFromCookies).mockResolvedValue({
       items: [],
       rateLimited: true,
+      failReason: 'rate_limited',
     });
     vi.mocked(chrome.storage.local.get).mockImplementation(async () => ({
       [STEAM_WEB_API_KEY_STORAGE_KEY]: 'test-api-key',
@@ -94,19 +102,23 @@ describe('SteamCommunityClient.loadInventory web API fallback', () => {
     } as Response);
 
     const client = new SteamCommunityClient();
-    const items = await client.loadInventory('76561198000000000');
+    const result = await client.loadInventory('76561198000000000');
 
     expect(fetch).toHaveBeenCalledWith(
       expect.stringContaining('GetInventoryItemsWithDescriptions'),
     );
-    expect(items).toEqual([
-      {
-        assetId: 'asset-429',
-        classId: 'class-1',
-        instanceId: 'instance-1',
-        marketHashName: 'Desert Eagle | Blaze (Factory New)',
-        floatValue: null,
-      },
-    ]);
+    expect(result).toEqual({
+      items: [
+        {
+          assetId: 'asset-429',
+          classId: 'class-1',
+          instanceId: 'instance-1',
+          marketHashName: 'Desert Eagle | Blaze (Factory New)',
+          floatValue: null,
+        },
+      ],
+      rateLimited: false,
+      failReason: null,
+    });
   });
 });

@@ -4,7 +4,11 @@ import {
   ExtensionFlowLogCode,
   type ExtensionFlowLogCodeType,
 } from './extension-flow-log-codes';
-import { isExtensionFlowObservabilityEnabled } from './extension-flow-observability.config';
+import {
+  extensionFlowAlertThresholds,
+  isExtensionFlowObservabilityEnabled,
+  type ExtensionFlowAlertThresholds,
+} from './extension-flow-observability.config';
 
 type OrderSource = 'extension' | 'manual';
 
@@ -214,11 +218,35 @@ export class ExtensionFlowMetricsService {
     return events.filter((event) => event.at >= cutoff).length;
   }
 
+  /**
+   * Top fail reason codes from the rolling window (task_failed labels).
+   */
+  topFailReasons(
+    windowMs: number,
+    limit = 10,
+  ): Array<{ reasonCode: string; count: number }> {
+    const cutoff = Date.now() - windowMs;
+    const events = this.rolling.get('task_failed') ?? [];
+    const counts = new Map<string, number>();
+    for (const event of events) {
+      if (event.at < cutoff) {
+        continue;
+      }
+      const code = event.labels.reasonCode?.trim() || 'unknown';
+      counts.set(code, (counts.get(code) ?? 0) + 1);
+    }
+    return [...counts.entries()]
+      .map(([reasonCode, count]) => ({ reasonCode, count }))
+      .sort((a, b) => b.count - a.count)
+      .slice(0, limit);
+  }
+
   snapshotKpis() {
     const ordersStartedTotal =
       this.ordersStarted.extension + this.ordersStarted.manual;
     const tasksTotal = this.tasksSucceeded + this.tasksFailed;
     const durations = [...this.completionDurationsMs].sort((a, b) => a - b);
+    const thresholds = extensionFlowAlertThresholds();
 
     return {
       counters: {
@@ -258,7 +286,16 @@ export class ExtensionFlowMetricsService {
         verify_mismatches: this.countRolling('verify_mismatch', 5 * 60 * 1000),
         orders_completed: this.countRolling('order_completed', 5 * 60 * 1000),
         orders_disputed: this.countRolling('order_disputed', 5 * 60 * 1000),
+        top_fail_reasons: this.topFailReasons(5 * 60 * 1000),
       },
+      gates: buildGateStatus({
+        ordersStarted: ordersStartedTotal,
+        tasksTotal,
+        completionRatePct: pct(this.ordersCompleted, ordersStartedTotal),
+        disputeRatePct: pct(this.ordersDisputed, ordersStartedTotal),
+        taskSuccessRatePct: pct(this.tasksSucceeded, tasksTotal),
+        thresholds,
+      }),
     };
   }
 
@@ -323,4 +360,85 @@ function percentile(sorted: number[], p: number): number {
     Math.max(0, Math.ceil(sorted.length * p) - 1),
   );
   return sorted[index];
+}
+
+export type GateTone = 'pass' | 'fail' | 'insufficient_sample';
+
+export type ExtensionFlowGateStatus = {
+  completion: {
+    valuePct: number;
+    thresholdPct: number;
+    sample: number;
+    tone: GateTone;
+  };
+  taskSuccess: {
+    valuePct: number;
+    thresholdPct: number;
+    sample: number;
+    tone: GateTone;
+  };
+  dispute: {
+    valuePct: number;
+    thresholdPct: number;
+    sample: number;
+    tone: GateTone;
+  };
+  overall: GateTone;
+};
+
+function buildGateStatus(params: {
+  ordersStarted: number;
+  tasksTotal: number;
+  completionRatePct: number;
+  disputeRatePct: number;
+  taskSuccessRatePct: number;
+  thresholds: ExtensionFlowAlertThresholds;
+}): ExtensionFlowGateStatus {
+  const completionTone: GateTone =
+    params.ordersStarted < params.thresholds.completionRateMinSample
+      ? 'insufficient_sample'
+      : params.completionRatePct >= params.thresholds.completionRateMinPct
+        ? 'pass'
+        : 'fail';
+  const taskTone: GateTone =
+    params.tasksTotal < params.thresholds.taskSuccessRateMinSample
+      ? 'insufficient_sample'
+      : params.taskSuccessRatePct >= params.thresholds.taskSuccessRateMinPct
+        ? 'pass'
+        : 'fail';
+  const disputeTone: GateTone =
+    params.ordersStarted < params.thresholds.disputeRateMinSample
+      ? 'insufficient_sample'
+      : params.disputeRatePct <= params.thresholds.disputeRateMaxPct
+        ? 'pass'
+        : 'fail';
+
+  const tones = [completionTone, taskTone, disputeTone];
+  const overall: GateTone = tones.includes('fail')
+    ? 'fail'
+    : tones.every((tone) => tone === 'insufficient_sample')
+      ? 'insufficient_sample'
+      : 'pass';
+
+  return {
+    completion: {
+      valuePct: params.completionRatePct,
+      thresholdPct: params.thresholds.completionRateMinPct,
+      sample: params.ordersStarted,
+      tone: completionTone,
+    },
+    taskSuccess: {
+      valuePct: params.taskSuccessRatePct,
+      thresholdPct: params.thresholds.taskSuccessRateMinPct,
+      sample: params.tasksTotal,
+      tone: taskTone,
+    },
+    dispute: {
+      valuePct: params.disputeRatePct,
+      thresholdPct: params.thresholds.disputeRateMaxPct,
+      sample: params.ordersStarted,
+      tone: disputeTone,
+    },
+    overall,
+  };
 }

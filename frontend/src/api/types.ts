@@ -62,6 +62,12 @@ export type ExtensionPublicConfig = {
   extensionFirstTradeFlowEnabled: boolean;
   extensionUiTradeFlowEnabled: boolean;
   extensionTradeAcknowledgmentEnabled: boolean;
+  /** I5: Steam inventory overlays / sell. Unset server = on. */
+  extensionInventoryLayerEnabled?: boolean;
+  /** I5: guided buyer accept (site wizard + Steam assists). */
+  extensionGuidedBuyerEnabled?: boolean;
+  /** I5: quiet Chrome notifications. */
+  extensionQuietNotificationsEnabled?: boolean;
   settlementHoldWindowEnabled: boolean;
   extensionRolloutEnabled: boolean;
   extensionRolloutStage: string;
@@ -223,6 +229,13 @@ export type InventoryPriceHint = {
   buffPriceMinor: number | null;
   csfloatPriceMinor: number | null;
   minMarketplacePriceMinor: string | null;
+  bestBidMinor?: string | null;
+  bestBidQuantity?: number | null;
+  /** I2: suggested list (bid ?? Steam −5%). */
+  suggestedListMinor?: number | null;
+  suggestedListSource?: 'bid' | 'steam_discount' | null;
+  commissionMinor?: number | null;
+  sellerReceiveMinor?: number | null;
 };
 
 export type InventoryPriceHintsResponse = {
@@ -421,6 +434,10 @@ export type TradeTaskSummary = {
   lastErrorCode?: string | null;
   lastErrorMessage?: string | null;
   selectedMarketHashName?: string | null;
+  /** True when Steam Guard confirmation is still required after OFFER_SENT. */
+  confirmPending?: boolean;
+  /** ISO timestamp when Guard wait started (for elapsed timer). */
+  confirmPendingSince?: string | null;
   expiresAt: string;
   attemptCount: number;
   maxAttempts: number;
@@ -432,6 +449,23 @@ export type TradeAcknowledgmentSummary = {
   sellerAckSent: boolean;
   buyerPreAccept: boolean;
   buyerReceived: boolean;
+};
+
+export type OrderTradeVerification = {
+  status: 'verified' | 'partial' | 'mismatch' | 'pending';
+  match: boolean;
+  updatedAt: string;
+  offerId: string | null;
+  failedChecks: Array<{
+    key: string;
+    label: string;
+    severity: 'ok' | 'warn' | 'error';
+  }>;
+  nextAction: {
+    kind: string;
+    title: string;
+    description: string;
+  } | null;
 };
 
 export type DeliveryProbe = {
@@ -456,6 +490,8 @@ export type Order = {
   tradeOperation?: TradeOperation | null;
   tradeTask?: TradeTaskSummary | null;
   tradeAcknowledgments?: TradeAcknowledgmentSummary | null;
+  /** Latest extension overlay verify (B4) — same mismatch/nextAction as Steam overlay. */
+  tradeVerification?: OrderTradeVerification | null;
   deliveryProbe?: DeliveryProbe | null;
   hold?: { id: string; amountMinor: string } | null;
   buyer?: OrderParty;
@@ -710,3 +746,74 @@ export type SettlementEligibility = {
 };
 
 export type DisputeResolution = 'BUYER' | 'SELLER';
+
+export type ExtensionFlowGateTone = 'pass' | 'fail' | 'insufficient_sample';
+
+export type ExtensionFlowMetricsResponse =
+  | {
+      enabled: false;
+      message: string;
+    }
+  | {
+      enabled: true;
+      timestamp: string;
+      inMemory: {
+        counters: Record<string, number>;
+        rates: Record<string, number>;
+        latency: Record<string, number>;
+        rolling_5m: {
+          task_failures: number;
+          auth_errors: number;
+          verify_mismatches: number;
+          orders_completed: number;
+          orders_disputed: number;
+          top_fail_reasons: Array<{ reasonCode: string; count: number }>;
+        };
+        gates: {
+          overall: ExtensionFlowGateTone;
+          completion: {
+            valuePct: number;
+            thresholdPct: number;
+            sample: number;
+            tone: ExtensionFlowGateTone;
+          };
+          taskSuccess: {
+            valuePct: number;
+            thresholdPct: number;
+            sample: number;
+            tone: ExtensionFlowGateTone;
+          };
+          dispute: {
+            valuePct: number;
+            thresholdPct: number;
+            sample: number;
+            tone: ExtensionFlowGateTone;
+          };
+        };
+      };
+      activeAlerts: Array<{
+        alertId: string;
+        firedAt: string;
+        detail: Record<string, unknown>;
+      }>;
+      thresholds: Record<string, number>;
+      failReasonsTop24h: Array<{ reasonCode: string; count: number }>;
+      rollout: {
+        enabled: boolean;
+        killSwitch: boolean;
+        inflightGrace: boolean;
+        stage: string;
+        percent: number;
+        allowlistCount: number;
+        featureFlags: Record<string, boolean | string | number | null>;
+        rollback: { targetMinutes: number; layers: string[] };
+      };
+      db24h: {
+        orders_started: number;
+        orders_completed: number;
+        orders_disputed: number;
+        tasks_failed: number;
+        completion_rate_pct: number;
+        dispute_rate_pct: number;
+      };
+    };

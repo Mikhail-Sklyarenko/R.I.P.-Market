@@ -6,11 +6,11 @@ import { formatUsdFromMinor } from '../utils/format';
 import { isCredibleSteamGuidePrice } from '../utils/steam-guide-price';
 import { formatCounterpartyDisplayName } from '../utils/steam-profile';
 import type { ItemMarketKind } from '../utils/item-market-taxonomy';
-import { DealFlowSteps } from './DealFlowSteps';
 import { ErrorAlert } from './ErrorAlert';
 import { InventoryPriceStack } from './InventoryPriceStack';
 import { MoneyDisplay } from './MoneyDisplay';
 import { PurchaseReadinessAlerts } from './PurchaseReadinessAlerts';
+import { ExtensionAwarePurchaseTrust } from './ExtensionAwarePurchaseTrust';
 
 type ItemMarketPurchaseCardProps = {
   lot: Lot | null;
@@ -229,9 +229,10 @@ export function ItemMarketPurchaseCard({
         {isFungible ? t('item.fungibleOfferHint') : t('item.selectOfferHint')}
       </p>
 
-      <div className="lot-purchase-trust" data-testid="item-purchase-trust">
-        <DealFlowSteps embedded />
-      </div>
+      <ExtensionAwarePurchaseTrust
+        token={token}
+        testId="item-purchase-trust"
+      />
     </div>
   );
 }

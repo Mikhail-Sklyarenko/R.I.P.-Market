@@ -127,8 +127,13 @@ export class ExtensionApiClient {
     return this.session;
   }
 
-  async heartbeat(): Promise<void> {
-    await this.signedPost('/extension/heartbeat', { ping: true });
+  async heartbeat(): Promise<{
+    ok: boolean;
+    hasPendingTask?: boolean;
+    hasActiveDeal?: boolean;
+    suggestedPollMode?: 'idle' | 'active';
+  }> {
+    return this.signedPost('/extension/heartbeat', { ping: true });
   }
 
   async pollTasks(limit = 10): Promise<PolledTradeTask[]> {
@@ -171,7 +176,7 @@ export class ExtensionApiClient {
     await this.signedPost('/extension/session/revoke', {});
   }
 
-  async listActiveTrades(limit = 10): Promise<TradeVerificationResult[]> {
+  async listActiveTrades(limit = 25): Promise<TradeVerificationResult[]> {
     const body = await this.signedPost<{ trades: TradeVerificationResult[] }>(
       '/extension/trades/active',
       { limit },

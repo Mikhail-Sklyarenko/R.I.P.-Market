@@ -6,6 +6,9 @@ describe('InventoryService', () => {
     lot: {
       findMany: jest.fn(),
     },
+    buyRequest: {
+      findMany: jest.fn(),
+    },
     user: {
       findUnique: jest.fn(),
     },
@@ -224,6 +227,20 @@ describe('InventoryService', () => {
         },
       },
     ]);
+    prisma.buyRequest.findMany.mockResolvedValue([
+      {
+        maxPriceMinor: 800n,
+        quantity: 2,
+        quantityFilled: 0,
+        itemDefinition: { marketHashName: 'AK-47 | Redline (Field-Tested)' },
+      },
+      {
+        maxPriceMinor: 850n,
+        quantity: 1,
+        quantityFilled: 0,
+        itemDefinition: { marketHashName: 'AK-47 | Redline (Field-Tested)' },
+      },
+    ]);
 
     const result = await service.getPriceHints([
       'AK-47 | Redline (Field-Tested)',
@@ -246,12 +263,24 @@ describe('InventoryService', () => {
       buffPriceMinor: null,
       csfloatPriceMinor: null,
       minMarketplacePriceMinor: '900',
+      bestBidMinor: '850',
+      bestBidQuantity: 1,
+      suggestedListMinor: 850,
+      suggestedListSource: 'bid',
+      commissionMinor: 42,
+      sellerReceiveMinor: 808,
     });
     expect(result.hints['Fever Case']).toEqual({
       steamPriceMinor: 980,
       buffPriceMinor: null,
       csfloatPriceMinor: null,
       minMarketplacePriceMinor: null,
+      bestBidMinor: null,
+      bestBidQuantity: null,
+      suggestedListMinor: 931,
+      suggestedListSource: 'steam_discount',
+      commissionMinor: 46,
+      sellerReceiveMinor: 885,
     });
     expect(result.steamPriceFetchedAt).toBe('2026-07-11T12:00:00.000Z');
   });
@@ -266,6 +295,7 @@ describe('InventoryService', () => {
         'Fever Case': { priceMinor: null, fetchedAt: null },
       });
     prisma.lot.findMany.mockResolvedValue([]);
+    prisma.buyRequest.findMany.mockResolvedValue([]);
 
     const result = await service.getPriceHints(['Fever Case']);
 
@@ -274,6 +304,12 @@ describe('InventoryService', () => {
       buffPriceMinor: null,
       csfloatPriceMinor: null,
       minMarketplacePriceMinor: null,
+      bestBidMinor: null,
+      bestBidQuantity: null,
+      suggestedListMinor: null,
+      suggestedListSource: null,
+      commissionMinor: null,
+      sellerReceiveMinor: null,
     });
     expect(result.steamPriceMissing).toEqual(['Fever Case']);
   });
@@ -283,6 +319,7 @@ describe('InventoryService', () => {
       'Fever Case': { priceMinor: 500, fetchedAt: '2026-07-11T12:00:00.000Z' },
     });
     prisma.lot.findMany.mockResolvedValue([]);
+    prisma.buyRequest.findMany.mockResolvedValue([]);
 
     await service.getPriceHints(['Fever Case'], { cacheOnly: true });
 
@@ -290,5 +327,55 @@ describe('InventoryService', () => {
       ['Fever Case'],
       expect.objectContaining({ cacheOnly: true }),
     );
+  });
+
+  it('resolves extension suggested prices by name and steamAssetId', async () => {
+    steamMarketPrice.getPricesWithMeta.mockResolvedValue({
+      'Fever Case': {
+        priceMinor: 1000,
+        fetchedAt: '2026-07-11T12:00:00.000Z',
+      },
+    });
+    prisma.lot.findMany.mockResolvedValue([]);
+    prisma.buyRequest.findMany.mockResolvedValue([]);
+    prisma.inventoryAsset.findMany.mockResolvedValue([
+      {
+        id: 'asset-uuid-1',
+        assetExternalId: 'steam-asset-9',
+        itemDefinition: { marketHashName: 'Fever Case' },
+        lot: { status: LotStatus.ACTIVE, priceMinor: 1200n },
+      },
+    ]);
+
+    const result = await service.getExtensionSuggestedPrices(
+      'user-1',
+      [
+        { marketHashName: 'Fever Case' },
+        { steamAssetId: 'steam-asset-9' },
+        { steamAssetId: 'missing' },
+      ],
+      { cacheOnly: true },
+    );
+
+    expect(result.results).toHaveLength(3);
+    expect(result.results[0]).toMatchObject({
+      marketHashName: 'Fever Case',
+      steamAssetId: null,
+      suggestedListMinor: 950,
+      suggestedListSource: 'steam_discount',
+      listedPriceMinor: null,
+    });
+    expect(result.results[1]).toMatchObject({
+      marketHashName: 'Fever Case',
+      steamAssetId: 'steam-asset-9',
+      inventoryAssetId: 'asset-uuid-1',
+      listedPriceMinor: '1200',
+      suggestedListMinor: 950,
+    });
+    expect(result.results[2]).toMatchObject({
+      marketHashName: null,
+      steamAssetId: 'missing',
+      suggestedListMinor: null,
+    });
   });
 });

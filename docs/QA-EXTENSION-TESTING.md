@@ -3,8 +3,11 @@
 Подробное руководство по ручному тестированию **автоотправки trade offer** на staging **p2pcs.ru**.
 
 **Сайт:** https://p2pcs.ru  
-**Версия расширения:** [browser-extension-v0.5.0](https://github.com/Mikhail-Sklyarenko/R.I.P.-Market/releases/tag/browser-extension-v0.5.0)  
-**Дата:** июль 2026
+**Версия расширения:** **0.6.26** (актуальный пакет I1–I5 — см. [QA-EXTENSION-I1-I5-2026-08.md](./QA-EXTENSION-I1-I5-2026-08.md))  
+**Дата:** август 2026
+
+> Этот документ — базовый happy path автоотправки оффера.  
+> Полный чеклист (inventory, guided buyer, quiet notify, feature flags): **[QA-EXTENSION-I1-I5-2026-08.md](./QA-EXTENSION-I1-I5-2026-08.md)**.
 
 Общие сценарии staging (каталог, кошелёк, споры): [QA-STAGING-p2pcs.md](./QA-STAGING-p2pcs.md).
 

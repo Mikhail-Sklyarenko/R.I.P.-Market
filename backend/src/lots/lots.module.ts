@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { BuyRequestsModule } from '../buy-requests/buy-requests.module';
 import { CatalogModule } from '../catalog/catalog.module';
+import { ExtensionSecurityModule } from '../extension/extension-security.module';
 import { InventoryModule } from '../inventory/inventory.module';
 import { UsersModule } from '../users/users.module';
 import { LotsController } from './lots.controller';
@@ -9,9 +10,16 @@ import { LotStateService } from './lot-state.service';
 import { MyLotsController } from './my-lots.controller';
 
 @Module({
-  imports: [InventoryModule, UsersModule, CatalogModule, BuyRequestsModule],
+  imports: [
+    InventoryModule,
+    UsersModule,
+    CatalogModule,
+    BuyRequestsModule,
+    ExtensionSecurityModule,
+  ],
   controllers: [LotsController, MyLotsController],
   providers: [LotsService, LotStateService],
   exports: [LotsService, LotStateService],
 })
 export class LotsModule {}
+

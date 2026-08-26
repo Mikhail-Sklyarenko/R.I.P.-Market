@@ -4,6 +4,7 @@ import { ruMessages } from '../i18n/messages/ru.ts';
 import { translate } from '../i18n/translate.ts';
 import type { Locale } from '../i18n/types.ts';
 import { isOrderTradeDeliveryCheck } from './order-trade.ts';
+import { isSellerManualFallbackNeeded } from './manual-fallback.ts';
 
 const messagesByLocale = {
   ru: ruMessages,
@@ -141,12 +142,37 @@ export function getOrderSteps(status: string, locale: Locale = 'ru'): OrderStep[
   }));
 }
 
+export type OrderNextActionOptions = {
+  /** I1: when set, buyer/seller WAITING_TRADE copy adapts to extension session. */
+  extensionConnected?: boolean | null;
+  extensionTradeAckEnabled?: boolean;
+  extensionTaskPipeline?: boolean;
+};
+
 export function getOrderNextAction(
   order: Order,
   role: 'buyer' | 'seller' | 'other',
   locale: Locale = 'ru',
-): { title: string; description: string } | null {
+  options?: OrderNextActionOptions,
+): { title: string; description: string; kind?: string } | null {
   const tr = (key: string, params?: Record<string, string | number>) => t(key, locale, params);
+
+  // B4: same mismatch gate as extension overlay / popup nextAction.
+  if (order.tradeVerification?.status === 'mismatch') {
+    const synced = order.tradeVerification.nextAction;
+    if (synced?.title && synced.description) {
+      return {
+        title: synced.title,
+        description: synced.description,
+        kind: synced.kind,
+      };
+    }
+    return {
+      title: tr('orderNextAction.mismatchTitle'),
+      description: tr('orderNextAction.mismatchBody'),
+      kind: 'report_issue',
+    };
+  }
 
   if (order.status === 'COMPLETED') {
     if (role === 'seller') {
@@ -164,12 +190,14 @@ export function getOrderNextAction(
     if (role === 'seller') {
       return {
         title: tr('orderNextAction.settlementHoldSellerTitle'),
-        description: tr('orderNextAction.settlementHoldSellerBody'),
+        description: tr('orderNextAction.settlementHoldSellerProtectBody'),
+        kind: 'platform_verifying',
       };
     }
     return {
       title: tr('orderNextAction.settlementHoldBuyerTitle'),
-      description: tr('orderNextAction.settlementHoldBuyerBody'),
+      description: tr('orderNextAction.settlementHoldBuyerProtectBody'),
+      kind: 'platform_verifying',
     };
   }
   if (order.status === 'CANCELED') {
@@ -205,6 +233,22 @@ export function getOrderNextAction(
           description: tr('orderNextAction.buyerAwaitingOfferBody'),
         };
       }
+      if (options?.extensionTradeAckEnabled) {
+        if (options.extensionConnected === true) {
+          return {
+            title: tr('orderNextAction.buyerAcceptShieldTitle'),
+            description: tr('orderNextAction.buyerAcceptShieldBody'),
+            kind: 'accept_in_steam',
+          };
+        }
+        if (options.extensionConnected === false) {
+          return {
+            title: tr('orderNextAction.buyerAcceptPairTitle'),
+            description: tr('orderNextAction.buyerAcceptPairBody'),
+            kind: 'pair_extension',
+          };
+        }
+      }
       return {
         title: tr('orderNextAction.buyerAcceptTitle'),
         description: tr('orderNextAction.buyerAcceptBody'),
@@ -213,13 +257,15 @@ export function getOrderNextAction(
     if (order.status === 'TRADE_CONFIRMED') {
       return {
         title: tr('orderNextAction.tradeConfirmedTitle'),
-        description: tr('orderNextAction.tradeConfirmedBuyerBody'),
+        description: tr('orderNextAction.tradeConfirmedBuyerDeliveryBody'),
+        kind: 'platform_verifying',
       };
     }
     if (order.status === 'SETTLEMENT_HOLD') {
       return {
         title: tr('orderNextAction.settlementHoldBuyerTitle'),
-        description: tr('orderNextAction.settlementHoldBuyerBody2'),
+        description: tr('orderNextAction.settlementHoldBuyerProtectBody'),
+        kind: 'platform_verifying',
       };
     }
     return {
@@ -237,12 +283,28 @@ export function getOrderNextAction(
         };
       }
       if (!order.tradeOperation?.externalOfferId) {
+        if (isSellerManualFallbackNeeded(order)) {
+          return {
+            title: tr('orderNextAction.sellerManualSendTitle'),
+            description: tr('orderNextAction.sellerManualSendBody'),
+          };
+        }
+        if (
+          options?.extensionTaskPipeline &&
+          options.extensionConnected === false
+        ) {
+          return {
+            title: tr('orderNextAction.sellerConnectExtensionTitle'),
+            description: tr('orderNextAction.sellerConnectExtensionBody'),
+            kind: 'pair_extension',
+          };
+        }
         return {
           title: tr('orderNextAction.sellerAwaitingAutoSendTitle'),
           description: tr('orderNextAction.sellerAwaitingAutoSendBody'),
         };
       }
-      if (!order.tradeAcknowledgments?.sellerAckSent) {
+      if (order.tradeTask?.confirmPending) {
         return {
           title: tr('orderNextAction.sellerConfirmGuardTitle'),
           description: tr('orderNextAction.sellerConfirmGuardBody'),
@@ -256,13 +318,15 @@ export function getOrderNextAction(
     if (order.status === 'TRADE_CONFIRMED') {
       return {
         title: tr('orderNextAction.tradeConfirmedTitle'),
-        description: tr('orderNextAction.tradeConfirmedSellerBody'),
+        description: tr('orderNextAction.tradeConfirmedSellerDeliveryBody'),
+        kind: 'platform_verifying',
       };
     }
     if (order.status === 'SETTLEMENT_HOLD') {
       return {
         title: tr('orderNextAction.settlementHoldSellerTitle'),
-        description: tr('orderNextAction.settlementHoldSellerBody2'),
+        description: tr('orderNextAction.settlementHoldSellerProtectBody'),
+        kind: 'platform_verifying',
       };
     }
     return {
@@ -338,17 +402,49 @@ function buildSteps(keys: readonly string[], namespace: string, locale: Locale):
   }));
 }
 
-export function getDealFlowSteps(locale: Locale = 'ru'): DealFlowStepItem[] {
+export type DealFlowStepsOptions = {
+  /** I1: when extension channel is on, trade/accept steps mention auto-send + shield. */
+  extensionAware?: boolean;
+};
+
+export function getDealFlowSteps(
+  locale: Locale = 'ru',
+  options?: DealFlowStepsOptions,
+): DealFlowStepItem[] {
   const keys = DEAL_FLOW_STEP_ITEMS.map((step) => step.key);
-  const steps = buildSteps(keys, 'dealFlowStep', locale);
-  return steps.map((step, index) => ({
-    ...step,
-    title: step.title !== `dealFlowStep.${step.key}.title` ? step.title : DEAL_FLOW_STEP_ITEMS[index].title,
-    description:
-      step.description !== `dealFlowStep.${step.key}.description`
-        ? step.description
-        : DEAL_FLOW_STEP_ITEMS[index].description,
-  }));
+  const baseSteps = buildSteps(keys, 'dealFlowStep', locale).map(
+    (step, index) => ({
+      ...step,
+      title:
+        step.title !== `dealFlowStep.${step.key}.title`
+          ? step.title
+          : DEAL_FLOW_STEP_ITEMS[index].title,
+      description:
+        step.description !== `dealFlowStep.${step.key}.description`
+          ? step.description
+          : DEAL_FLOW_STEP_ITEMS[index].description,
+    }),
+  );
+
+  if (!options?.extensionAware) {
+    return baseSteps;
+  }
+
+  const extensionSteps = buildSteps(keys, 'dealFlowStepExtension', locale);
+  return baseSteps.map((step, index) => {
+    const ext = extensionSteps[index];
+    if (!ext) {
+      return step;
+    }
+    const hasTitle = ext.title !== `dealFlowStepExtension.${step.key}.title`;
+    const hasDescription =
+      ext.description !== `dealFlowStepExtension.${step.key}.description`;
+    return {
+      ...step,
+      title: hasTitle ? ext.title : step.title,
+      description: hasDescription ? ext.description : step.description,
+    };
+  });
 }
 
 export function getBuyRequestFlowSteps(locale: Locale = 'ru'): DealFlowStepItem[] {

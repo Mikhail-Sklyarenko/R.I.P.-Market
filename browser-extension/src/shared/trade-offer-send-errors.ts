@@ -7,8 +7,8 @@ export function mapSteamSendError(
 ): { code: string; message: string } {
   const combined = [error, strError].filter(Boolean).join(' — ');
 
-  if (/session|login|not logged/i.test(combined)) {
-    return { code: OfferErrorCode.INVENTORY_NOT_LOADED, message: combined };
+  if (/session|login|not logged|cookie/i.test(combined)) {
+    return { code: OfferErrorCode.STEAM_COOKIE_EXPIRED, message: combined };
   }
   if (/confirm|mobile|guard/i.test(combined)) {
     return { code: OfferErrorCode.STEAM_GUARD_REQUIRED, message: combined };
@@ -16,11 +16,15 @@ export function mapSteamSendError(
   if (/escrow|hold|trade hold|cannot trade/i.test(combined)) {
     return { code: OfferErrorCode.TRADE_HOLD_BLOCKED, message: combined };
   }
+  // Private must win over generic "inventory" matching.
+  if (/private|inventory is private/i.test(combined)) {
+    return { code: OfferErrorCode.INVENTORY_PRIVATE, message: combined };
+  }
+  if (/HTTP 429|rate.?limit/i.test(combined)) {
+    return { code: OfferErrorCode.INVENTORY_RATE_LIMITED, message: combined };
+  }
   if (/item|asset|inventory|not found|missing/i.test(combined)) {
     return { code: OfferErrorCode.ITEM_MISSING, message: combined };
-  }
-  if (/private|inventory is private/i.test(combined)) {
-    return { code: OfferErrorCode.INVENTORY_NOT_LOADED, message: combined };
   }
   if (/empty response|null response|invalid json|HTTP 400/i.test(combined)) {
     return {

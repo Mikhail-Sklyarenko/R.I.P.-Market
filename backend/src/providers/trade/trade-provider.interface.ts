@@ -12,7 +12,13 @@ export type TradeCompletionResult = {
 };
 
 export type TradeVerificationResult = {
-  status: 'pending' | 'accepted' | 'declined' | 'expired' | 'unknown';
+  status:
+    | 'needs_confirmation'
+    | 'pending'
+    | 'accepted'
+    | 'declined'
+    | 'expired'
+    | 'unknown';
   tradable: boolean | null;
   tradeLockUntil: Date | null;
 };

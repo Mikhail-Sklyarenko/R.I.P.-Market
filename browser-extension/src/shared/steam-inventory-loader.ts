@@ -17,6 +17,8 @@ export type InventoryResponseBody = {
     asset_properties?: Array<{
       propertyid: number;
       float_value?: string;
+      int_value?: string;
+      string_value?: string;
     }>;
   }>;
   more_items?: number;

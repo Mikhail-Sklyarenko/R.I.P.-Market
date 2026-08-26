@@ -7,6 +7,8 @@ type DealFlowStepsProps = {
   /** Render only the step list — for embedding inside another panel. */
   embedded?: boolean;
   steps?: readonly DealFlowStepItem[];
+  /** I1: extension-aware trade/accept copy when channel is enabled. */
+  extensionAware?: boolean;
 };
 
 export function DealFlowSteps({
@@ -14,10 +16,12 @@ export function DealFlowSteps({
   compact = false,
   embedded = false,
   steps,
+  extensionAware = false,
 }: DealFlowStepsProps) {
   const { locale, t } = useLocale();
   const resolvedTitle = title ?? t('dealFlow.title');
-  const resolvedSteps = steps ?? getDealFlowSteps(locale);
+  const resolvedSteps =
+    steps ?? getDealFlowSteps(locale, { extensionAware });
   const listCompact = compact || embedded;
   const content = (
     <>

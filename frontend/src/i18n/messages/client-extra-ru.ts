@@ -95,6 +95,8 @@ export const clientExtraRu = {
     installBodyFull:
       'Установите расширение R.I.P Market (папка browser-extension/dist в Chrome → Расширения → Режим разработчика) и укажите VITE_EXTENSION_ID во frontend .env.',
     connectSuccess: 'Расширение подключено. Сделки будут обрабатываться автоматически.',
+    nextInventory: 'Дальше (~1 мин): откройте',
+    nextInventoryLink: 'инвентарь CS2 в Steam',
     connected: 'Подключено',
     connectedUntil: 'Подключено до {{time}}',
     notConnected: 'Не подключено — автоотправка trade offer недоступна',
@@ -191,6 +193,10 @@ export const clientExtraRu = {
     preparing: 'Готовим обмен',
     itemLabel: 'Предмет:',
     confirmPending: 'Откройте Steam Mobile и подтвердите отправку.',
+    confirmPendingHint:
+      'Мы не подтверждаем Guard из расширения — только официальное приложение Steam. Страница обновится сама после подтверждения.',
+    confirmPendingWaiting: 'Ждём подтверждения в Steam Guard…',
+    confirmPendingTimer: 'Ждём подтверждения · {{elapsed}}',
     offerSent: 'Обмен отправлен. Дальше ждём покупателя в Steam.',
     deliveryCheckBody:
       'Предмет уже ушёл из инвентаря. Не создавайте новый offer — проверяем доставку.',
@@ -199,6 +205,166 @@ export const clientExtraRu = {
     manualFallbackHint:
       'Если автоотправка не сработала — откройте блок ниже и укажите offer вручную.',
     attemptCount: 'Попытка {{current}} из {{max}}',
+  },
+  dealHealth: {
+    supportCodeLabel: 'Код для поддержки',
+    copyDebugPack: 'Скопировать отчёт для поддержки',
+    debugCopied: 'Скопировано',
+    settlementTitle: 'Сделка на проверке',
+    settlementBody: 'Средства защищены. Выплата станет доступна после окна проверки.',
+    tradeConfirmedTitle: 'Обмен подтверждён',
+    tradeConfirmedBody: 'Платформа сверяет доставку — статус обновится сам.',
+    deliveryCheckTitle: 'Проверяем доставку',
+    deliveryCheckBody:
+      'Предмет уже ушёл из инвентаря. Не отправляйте новый offer — ждём сигнал Steam.',
+    guardTitle: 'Нужно подтвердить в Steam Guard',
+    guardBody: 'Откройте Steam Mobile и подтвердите отправку. Расширение Guard не подтверждает.',
+    manualTitle: 'Нужна ручная отправка',
+    manualBody:
+      'Автоотправка не завершилась. Откройте Trade URL покупателя, отправьте скин и сохраните ссылку на offer.',
+    extensionOfflineTitle: 'Расширение не подключено',
+    extensionOfflineBody: 'Подключите расширение ниже — иначе автоотправка не запустится.',
+    retryTitle: 'Есть проблема с автоотправкой',
+    retryBody: 'Смотрите подсказку и код ниже. Можно повторить или отправить вручную.',
+    autoSendTitle: 'Всё ок — отправляем обмен',
+    autoSendBody: 'Расширение само отправит trade offer. Оставьте Steam открытым.',
+    waitingBuyerTitle: 'Всё ок — ждём покупателя',
+    waitingBuyerBody: 'Обмен ушёл. Покупатель должен принять его в Steam.',
+    buyerWaitingOfferTitle: 'Всё ок — ждём обмен',
+    buyerWaitingOfferBody: 'Продавец отправляет offer. Страница обновится сама.',
+    buyerAcceptTitle: 'Ваш шаг — принять в Steam',
+    buyerAcceptBody: 'Откройте входящие предложения, проверьте скин и примите обмен.',
+    mismatchTitle: 'Не совпадает — не принимайте',
+    mismatchBody:
+      'Расширение зафиксировало mismatch с заказом. Не принимайте offer в Steam. Ниже — те же проверки, что в overlay.',
+    tradeConfirmedSellerTitle: 'Платформа проверяет доставку',
+    tradeConfirmedSellerBody:
+      'Сверяем Steam offer и инвентарь. Выплату откроем после подтверждения.',
+    tradeConfirmedBuyerTitle: 'Платформа проверяет доставку',
+    tradeConfirmedBuyerBody:
+      'Предмет должен быть у вас. Ничего нажимать не нужно — статус обновится сам.',
+    settlementSellerTitle: 'Средства на проверке (до 8 дней)',
+    settlementSellerBody:
+      'Защита от chargeback и возврата скина в Steam. Выплата на баланс после окна.',
+    settlementBuyerTitle: 'Сделка на проверке',
+    settlementBuyerBody:
+      'Предмет у вас. Средства продавцу — после проверки площадки / hold.',
+    buyerPairTitle: 'Подключите расширение для безопасного accept',
+    buyerPairBody:
+      'Offer уже у вас. Расширение покажет щит и сверку скина на странице Steam — до Accept.',
+  },
+  buyerExtensionPair: {
+    eyebrow: 'Безопасный accept',
+    promptTitle: 'Подключите расширение для безопасного accept',
+    promptBody:
+      'Проверим название, assetId, float и SteamID продавца на странице offer. Расширение не нажимает Accept за вас.',
+    readyTitle: 'Расширение готово к безопасному accept',
+    readyBody:
+      'Откройте проверенный offer — на странице Steam будет щит R.I.P Market. Примите обмен кнопкой Steam.',
+    openVerifiedOffer: 'Открыть проверенный offer в Steam',
+    connectCta: 'Подключить расширение для безопасного accept',
+    connectSuccess: 'Расширение подключено. Можно открывать offer со щитом R.I.P.',
+    panelTitle: 'Расширение для accept',
+    notConnected: 'Не подключено — безопасная сверка offer недоступна',
+    installTitle: 'Установите расширение для безопасного accept',
+    installBody:
+      'Без расширения accept всё ещё возможен в Steam, но без щита и сверки с заказом на странице offer.',
+  },
+  buyerAcceptWizard: {
+    eyebrow: '3 шага до accept',
+    title: 'Примите обмен безопасно',
+    subtitle:
+      'Откройте именно этот offer, сверьте щит R.I.P на странице Steam и нажмите Accept — статус на сайте обновится сам.',
+    step1Title: 'Откройте нужный offer',
+    step1Body: 'Перейдите по ссылке на конкретный trade offer — не в общий список входящих.',
+    step2Title: 'Проверьте щит и скин',
+    step2BodyConnected:
+      'На странице Steam смотрите overlay: «Скин совпал», float, SteamID. Не принимайте при mismatch.',
+    step2BodyManual:
+      'Сверьте название, float и SteamID продавца с заказом. Подключите расширение — появится щит сверки.',
+    step3Title: 'Accept в Steam и вернитесь',
+    step3Body:
+      'Нажмите Accept кнопкой Steam. Расширение не принимает за вас. Вернитесь сюда — статус обновится сам.',
+    stateDone: 'Готово',
+    stateCurrent: 'Сейчас',
+    stateUpcoming: 'Далее',
+    ctaOpenOffer: 'Открыть этот offer в Steam',
+    ctaReopenOffer: 'Снова открыть offer для сверки',
+    ctaAcceptInSteam: 'Открыть offer и принять в Steam',
+    returnHint: 'После Accept обновите эту вкладку при необходимости — обычно статус меняется сам.',
+    mismatchTitle: 'Не принимайте — mismatch',
+    mismatchBody:
+      'Offer не совпал с заказом. Не жмите Accept. Откройте поддержку, если нужно разобрать сделку.',
+    preAcceptTitle: 'Вижу верное предложение',
+    preAcceptBody:
+      'Подтвердите, что на странице Steam тот же скин и продавец, что в заказе. Это не заменяет Accept.',
+    preAcceptCta: 'Вижу верное предложение',
+    preAcceptDone: 'Отметили: предложение верное. Дальше — Accept кнопкой Steam.',
+    receivedTitle: 'Предмет в инвентаре',
+    receivedBody:
+      'Если скин уже у вас в Steam — отметьте. Это помогает проверке доставки, но не заменяет dual-signal платформы.',
+    receivedCta: 'Предмет в инвентаре',
+    receivedDone: 'Отметили получение. Платформа продолжит сверку доставки сама.',
+  },
+  postAcceptTrust: {
+    eyebrow: 'После обмена',
+    deliverySellerTitle: 'Платформа проверяет доставку',
+    deliverySellerBody:
+      'Ждём два сигнала: статус offer в Steam и что скин ушёл из вашего инвентаря.',
+    deliverySellerReason: 'Пока идёт проверка — новый offer по этой сделке не нужен.',
+    deliveryBuyerTitle: 'Платформа проверяет доставку',
+    deliveryBuyerBody:
+      'Скин должен уже быть у вас. Мы сверяем Steam offer и инвентарь — страница обновится сама.',
+    deliveryBuyerReason: 'Ничего не оплачивайте в чат и не принимайте другие обмены «вместо» этой сделки.',
+    holdSellerTitle: 'Выплата после окна проверки',
+    holdSellerBody:
+      'Обмен подтверждён. Средства на hold до конца защитного периода.',
+    holdSellerReason:
+      '8 дней — защита от chargeback и отмены обмена в Steam (trade reversal).',
+    holdBuyerTitle: 'Предмет у вас — расчёт у площадки',
+    holdBuyerBody:
+      'Скин в вашем инвентаре. Продавцу средства станут доступны после проверки / hold.',
+    holdBuyerReason: 'Оплата уже на площадке. Не переводите деньги продавцу в Steam-чат.',
+    signalOffer: 'Сигнал Steam offer',
+    signalInventory: 'Сигнал инвентаря',
+    toneOk: 'Ок',
+    tonePending: 'Ждём',
+    toneWarn: 'Внимание',
+    toneUnknown: 'Уточняем',
+    holdUntilLabel: 'Выплата ориентировочно с',
+  },
+  postTradeReceipt: {
+    eyebrow: 'Квитанция',
+    bought: 'Купили',
+    sold: 'Продали',
+    deal: 'Сделка',
+    completedHint: 'Сделка успешно завершена.',
+    price: 'Цена сделки',
+    commission: 'Комиссия площадки (5%)',
+    paid: 'Оплатили',
+    credited: 'К зачислению',
+    amount: 'Сумма',
+    offerId: 'Steam offer',
+    walletCta: 'Кошелёк',
+    dealsCta: 'Мои сделки',
+  },
+  tradeEscalation: {
+    eyebrow: 'Окно обмена',
+    timeLeftMinutes: 'Осталось ~{{minutes}} мин',
+    timeLeftHours: 'Осталось ~{{hours}} ч {{minutes}} мин',
+    timeExpiredLabel: 'Время на обмен истекло',
+    timeoutOk:
+      'Если обмен не завершится за это время, откроется автоматический спор — деньги останутся под защитой площадки.',
+    timeoutSoon:
+      'Меньше 15 минут до автоматического спора. Если оффер не тот или продавец молчит — откройте проблему сейчас.',
+    timeoutCritical:
+      'Осталось меньше 5 минут. Если что-то пошло не так — нажмите «Проблема с обменом», пока спор не открылся сам.',
+    timeoutExpired:
+      'Окно обмена закончилось — скоро может открыться автоматический спор. Опишите проблему, если сделка ещё не закрыта.',
+    problemCta: 'Проблема с обменом',
+    openDisputeCta: 'Открыть спор',
+    prefillHint:
+      'Мы уже подставили ID сделки, offer и статус проверки — дополните, что случилось.',
   },
   extensionTaskPhase: {
     ACKED: 'Расширение взяло задачу',
@@ -221,6 +387,12 @@ export const clientExtraRu = {
       'В инвентаре несколько одинаковых скинов — укажите offer вручную или пересоздайте лот.',
     INVENTORY_NOT_LOADED:
       'Не удалось загрузить инвентарь Steam. Откройте steamcommunity.com в этом Chrome и обновите страницу сделки.',
+    INVENTORY_PRIVATE:
+      'Инвентарь Steam скрыт. Сделайте Inventory: Public в настройках приватности Steam и повторите.',
+    INVENTORY_RATE_LIMITED:
+      'Steam временно ограничил запросы (429). Подождите 1–2 минуты и нажмите «Повторить».',
+    STEAM_COOKIE_EXPIRED:
+      'Нет входа в Steam в этом Chrome. Войдите на steamcommunity.com под аккаунтом продавца.',
     STEAM_ACCOUNT_MISMATCH:
       'В Chrome залогинен другой Steam-аккаунт. Войдите под продавцом или подключите расширение в нужном профиле.',
     STEAM_UNAVAILABLE: 'Steam временно недоступен.',
@@ -238,6 +410,13 @@ export const clientExtraRu = {
       'Автоотправка исчерпала попытки. Отправьте offer вручную по ссылке ниже.',
     TASK_TTL_EXPIRED:
       'Время автоотправки истекло. Обновите страницу — задача возобновится автоматически.',
+  },
+  extensionTaskCta: {
+    openSteamLogin: 'Войти в нужный Steam',
+    openSteamPrivacy: 'Открыть настройки приватности',
+    openSteamInventory: 'Открыть инвентарь Steam',
+    openAccountRepair: 'Подключить расширение',
+    supportCode: 'Код для поддержки',
   },
   extensionUiFlow: {
     uiTrade: 'UI trade (Steam-страница, автозаполнение)',
@@ -507,6 +686,7 @@ export const clientExtraRu = {
       'Продавец отправляет обмен через расширение. Обычно 1–2 минуты — страница обновится сама.',
     awaitingSeller: 'Ждём, пока продавец отправит обмен в Steam.',
     openIncomingOffers: 'Открыть входящие предложения Steam',
+    openVerifiedOffer: 'Открыть проверенный offer в Steam',
     checklistSummary: 'Перед принятием проверьте скин',
     ackNotUpdatedSummary: 'Если статус на сайте не обновился',
     ackHint:
@@ -524,6 +704,8 @@ export const clientExtraRu = {
     confirmGuardTitle: 'Подтвердите в Steam Guard',
     confirmGuardBody:
       'Обмен уже создан. Откройте Steam Mobile и подтвердите отправку — это ваш главный шаг.',
+    confirmGuardAutoHint:
+      'После подтверждения статус сменится сам — обновлять страницу не нужно.',
     checkingDeliveryTitle: 'Проверяем доставку',
     checkingDeliveryBody:
       'Предмет уже ушёл из вашего инвентаря. Не отправляйте новый обмен — платформа сверяет покупателя.',
@@ -531,8 +713,12 @@ export const clientExtraRu = {
     waitingMessage: 'Отправьте trade offer покупателю и сохраните ссылку на предложение ниже.',
     detailsExtraSummary: 'Дополнительно / если автоотправка не сработала',
     detailsManualSummary: 'Куда отправить и как указать обмен',
-    guardConfirmedHint:
-      'Если Guard уже подтверждён, а статус на сайте не обновился — отметьте отправку.',
+    manualFallbackTitle: 'Отправьте обмен вручную — это нормально',
+    manualFallbackBody:
+      'Откройте Trade URL покупателя одним нажатием, добавьте скин из сделки, отправьте offer и вставьте ссылку сюда. Без FAQ.',
+    manualFallbackItemLabel: 'Предмет сделки:',
+    openTradeUrlPrimary: 'Открыть Trade URL покупателя',
+    guardConfirmedHint: 'Если Guard уже подтверждён, а статус на сайте не обновился — отметьте отправку.',
     iSentTrade: 'Я отправил обмен',
     buyerTradeUrlTitle: 'Trade URL покупателя',
     copied: 'Скопировано',

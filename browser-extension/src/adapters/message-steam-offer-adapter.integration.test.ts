@@ -27,6 +27,7 @@ function baseTask(overrides: Partial<PolledTradeTask> = {}): PolledTradeTask {
       buyerTradeUrl:
         'https://steamcommunity.com/tradeoffer/new/?partner=123&token=abc',
       inventoryAssetId: 'inv-1',
+      expectedFloatValue: null,
       idempotencyKey: 'trade-task:create_offer:trade-1',
     },
     ...overrides,
@@ -36,12 +37,15 @@ function baseTask(overrides: Partial<PolledTradeTask> = {}): PolledTradeTask {
 function createAdapterWithInventory(): MessageSteamOfferAdapter {
   const steam = {
     resolveSessionSteamId: vi.fn().mockResolvedValue('76561198000000000'),
-    loadInventory: vi.fn().mockResolvedValue([
-      {
-        assetId: 'asset-123',
-        marketHashName: 'AK-47 | Redline (Field-Tested)',
-      },
-    ]),
+    loadInventory: vi.fn().mockResolvedValue({
+      items: [
+        {
+          assetId: 'asset-123',
+          marketHashName: 'AK-47 | Redline (Field-Tested)',
+        },
+      ],
+      rateLimited: false,
+    }),
     navigateToTradePage: vi.fn().mockResolvedValue(42),
     sendTradeOffer: vi.fn().mockResolvedValue({
       ok: true,
@@ -70,6 +74,11 @@ describe('CreateOfferOrchestrator with MessageSteamOfferAdapter', () => {
             }
             return {};
           }),
+          set: vi.fn().mockResolvedValue(undefined),
+          remove: vi.fn().mockResolvedValue(undefined),
+        },
+        local: {
+          get: vi.fn().mockResolvedValue({}),
           set: vi.fn().mockResolvedValue(undefined),
           remove: vi.fn().mockResolvedValue(undefined),
         },

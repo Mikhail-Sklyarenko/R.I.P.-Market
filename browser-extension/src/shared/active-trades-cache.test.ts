@@ -1,5 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import { countActionableTrades } from './active-trades-cache.js';
+import {
+  countActionableTrades,
+  isActiveTradesCacheFresh,
+} from './active-trades-cache.js';
 import type { TradeVerificationResult } from '@rip-market/extension-orchestrator';
 
 function trade(partial: Partial<TradeVerificationResult>): TradeVerificationResult {
@@ -43,12 +46,33 @@ function trade(partial: Partial<TradeVerificationResult>): TradeVerificationResu
 }
 
 describe('active-trades-cache', () => {
-  it('counts actionable trades', () => {
+  it('counts actionable next steps', () => {
     expect(
       countActionableTrades([
-        trade({ nextAction: { title: 'a', description: 'b', kind: 'accept_in_steam' } }),
-        trade({ nextAction: { title: 'a', description: 'b', kind: 'completed' } }),
+        trade({ nextAction: { kind: 'wait', title: 'x', description: 'y' } }),
+        trade({
+          nextAction: { kind: 'accept_in_steam', title: 'x', description: 'y' },
+        }),
       ]),
     ).toBe(1);
+  });
+
+  it('detects fresh vs stale cache by TTL', () => {
+    const now = Date.parse('2026-08-27T12:00:00.000Z');
+    expect(
+      isActiveTradesCacheFresh(
+        { updatedAt: new Date(now - 5_000).toISOString(), trades: [] },
+        now,
+        20_000,
+      ),
+    ).toBe(true);
+    expect(
+      isActiveTradesCacheFresh(
+        { updatedAt: new Date(now - 30_000).toISOString(), trades: [] },
+        now,
+        20_000,
+      ),
+    ).toBe(false);
+    expect(isActiveTradesCacheFresh(null, now)).toBe(false);
   });
 });

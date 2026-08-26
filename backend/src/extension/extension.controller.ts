@@ -35,6 +35,8 @@ import { AntiFraudRuleService } from '../common/observability/anti-fraud.service
 import { ExtensionRateLimitService } from '../common/observability/extension-rate-limit.service';
 import { ExtensionTradeAckService } from './extension-trade-ack.service';
 import { isExtensionTradeAcknowledgmentEnabled } from './extension-trade-ack.config';
+import { InventoryService } from '../inventory/inventory.service';
+import { ExtensionSuggestedPricesDto } from './dto/extension-suggested-prices.dto';
 
 @ApiTags('extension')
 @Controller('extension')
@@ -47,6 +49,7 @@ export class ExtensionController {
     private readonly rateLimit: ExtensionRateLimitService,
     private readonly antiFraud: AntiFraudRuleService,
     private readonly extensionTradeAckService: ExtensionTradeAckService,
+    private readonly inventoryService: InventoryService,
   ) {}
 
   @ApiBearerAuth()
@@ -71,10 +74,22 @@ export class ExtensionController {
   @UseGuards(ExtensionSessionGuard, ExtensionSignatureGuard)
   @Post('heartbeat')
   @HttpCode(HttpStatus.OK)
-  async heartbeat(@CurrentExtensionAuth() auth: { sessionId: string }) {
+  async heartbeat(
+    @CurrentExtensionAuth() auth: { sessionId: string; userId: string },
+  ) {
     this.assertSignedRateLimit(auth.sessionId);
     await this.extensionSecurity.touchHeartbeat(auth.sessionId);
-    return { ok: true };
+    const hint = await this.extensionTaskService.getPendingWorkHint(
+      auth.userId,
+    );
+    const suggestedPollMode =
+      hint.hasPendingTask || hint.hasActiveDeal ? 'active' : 'idle';
+    return {
+      ok: true,
+      hasPendingTask: hint.hasPendingTask,
+      hasActiveDeal: hint.hasActiveDeal,
+      suggestedPollMode,
+    };
   }
 
   @ApiBearerAuth()
@@ -310,6 +325,38 @@ export class ExtensionController {
       offerId: readOptionalJsonString(payload.offerId),
       idempotencyKey,
     });
+  }
+
+  @ApiBearerAuth()
+  @ApiHeader({ name: 'Authorization', required: true })
+  @UseGuards(ExtensionSessionGuard)
+  @Post('inventory/suggested-prices')
+  @HttpCode(HttpStatus.OK)
+  async suggestedPrices(
+    @CurrentExtensionAuth() auth: { sessionId: string; userId: string },
+    @Body() dto: ExtensionSuggestedPricesDto,
+  ) {
+    this.ensureEnabled();
+    this.rateLimit.assertSignedRequestAllowed(auth.sessionId);
+    const items = dto.items.filter(
+      (item) =>
+        Boolean(item.marketHashName?.trim()) ||
+        Boolean(item.steamAssetId?.trim()),
+    );
+    if (items.length === 0) {
+      throw new AppException(
+        ErrorCode.VALIDATION_ERROR,
+        'items require marketHashName or steamAssetId',
+      );
+    }
+    return this.inventoryService.getExtensionSuggestedPrices(
+      auth.userId,
+      items,
+      {
+        forceRefresh: dto.forceRefresh === true,
+        cacheOnly: dto.cacheOnly === true,
+      },
+    );
   }
 
   @ApiBearerAuth()

@@ -30,11 +30,13 @@ export class CreateOfferOrchestrator {
     const resumeAtSend = task.executionPhase === 'OFFER_DRAFTED';
     const buyerTradeUrl = task.payload.buyerTradeUrl?.trim() ?? '';
     let matchedItem: SteamInventoryItem | null = null;
-    let selectedObserved: {
-      assetId: string;
-      floatValue: string | null;
-      marketHashName: string | null;
-    } | null = null;
+    const observedRef: {
+      current: {
+        assetId: string;
+        floatValue: string | null;
+        marketHashName: string | null;
+      } | null;
+    } = { current: null };
 
     if (!resumeAtSend) {
       if (task.executionPhase !== 'ACKED') {
@@ -79,7 +81,7 @@ export class CreateOfferOrchestrator {
         await this.failTask(
           task.id,
           `${baseKey}:OFFER_FAILED:inventory`,
-          OfferErrorCode.INVENTORY_NOT_LOADED,
+          OfferErrorCode.STEAM_COOKIE_EXPIRED,
           'Seller is not logged into Steam in this browser',
           { sellerSteamId },
         );
@@ -97,10 +99,21 @@ export class CreateOfferOrchestrator {
         return;
       }
 
-      const [, inventory] = await Promise.all([
+      const [, inventoryResult] = await Promise.all([
         warmPagePromise,
         this.steam.loadSellerInventory(sellerSteamId),
       ]);
+      if (inventoryResult.errorCode) {
+        await this.failTask(
+          task.id,
+          `${baseKey}:OFFER_FAILED:inventory`,
+          inventoryResult.errorCode,
+          inventoryResult.errorMessage ?? 'Seller inventory is not loaded',
+          { sellerSteamId, sessionSteamId, inventoryCount: inventoryResult.items.length },
+        );
+        return;
+      }
+      const inventory = inventoryResult.items;
       if (!inventory || inventory.length === 0) {
         await this.failTask(
           task.id,
@@ -180,13 +193,13 @@ export class CreateOfferOrchestrator {
       matchedItem = {
         assetId: String(task.payload.expectedAssetId),
         floatValue: task.payload.expectedFloatValue ?? null,
-        marketHashName: task.payload.marketHashName ?? null,
+        marketHashName: task.payload.marketHashName ?? undefined,
       };
     }
 
     const sent = await this.steam.sendOffer(draftId, {
       onItemSelected: async (details) => {
-        selectedObserved = {
+        observedRef.current = {
           assetId: details.assetId,
           floatValue: details.floatValue ?? null,
           marketHashName: details.marketHashName ?? null,
@@ -222,6 +235,7 @@ export class CreateOfferOrchestrator {
     }
 
     const offerId = normalizeSteamOfferId(sent.offerId);
+    const selectedObserved = observedRef.current;
     const observedAssetId =
       selectedObserved?.assetId ?? matchedItem?.assetId ?? null;
     const observedFloatValue =

@@ -1,3 +1,7 @@
+import {
+  resolveFetchRetryDelayMs,
+} from './rate-limit-backoff.js';
+
 const RETRYABLE_STATUSES = new Set([429, 500, 502, 503, 504]);
 const DEFAULT_ATTEMPTS = 3;
 const BASE_DELAY_MS = 800;
@@ -13,10 +17,12 @@ export async function fetchWithRetry(
   const attempts = options?.attempts ?? DEFAULT_ATTEMPTS;
   const baseDelayMs = options?.baseDelayMs ?? BASE_DELAY_MS;
   let lastError: Error | null = null;
+  let lastResponse: Response | null = null;
 
   for (let attempt = 1; attempt <= attempts; attempt += 1) {
     try {
       const response = await fetchFn();
+      lastResponse = response;
       if (response.ok || !RETRYABLE_STATUSES.has(response.status)) {
         return response;
       }
@@ -24,10 +30,17 @@ export async function fetchWithRetry(
     } catch (error) {
       lastError =
         error instanceof Error ? error : new Error('Inventory fetch failed');
+      lastResponse = null;
     }
 
     if (attempt < attempts) {
-      await delay(baseDelayMs * attempt);
+      await delay(
+        resolveFetchRetryDelayMs({
+          attempt,
+          baseDelayMs,
+          response: lastResponse ?? undefined,
+        }),
+      );
     }
   }
 

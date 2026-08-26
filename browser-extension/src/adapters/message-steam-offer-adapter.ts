@@ -3,22 +3,50 @@ import type {
   DraftOfferResult,
   SendOfferHooks,
   SendOfferResult,
-  SteamInventoryItem,
+  SellerInventoryLoadResult,
 } from '@rip-market/extension-orchestrator';
 import type { SteamOfferAdapter } from '@rip-market/extension-orchestrator';
 import { OfferErrorCode } from '@rip-market/extension-orchestrator';
 import {
   SteamCommunityClient,
   type TradeOfferDraft,
+  type TradeOfferProgressHooks,
 } from '../shared/steam-community-client.js';
+import { inventoryFailToOfferError } from '../shared/inventory-load-result.js';
 import { mapSteamSendError } from '../shared/trade-offer-send-errors.js';
 import {
   cacheSentOffer,
-  getCachedSentOffer,
+  clearSendInflight,
+  getSendInflight,
+  markSendInflight,
+  resolvePriorSuccessfulSend,
 } from '../shared/trade-offer-sent-cache.js';
 
 function draftStorageKey(draftId: string): string {
   return `rip:draft:${draftId}`;
+}
+
+async function replayCachedSuccess(
+  cached: {
+    offerId: string;
+    confirmPending: boolean;
+    assetId?: string;
+    marketHashName?: string | null;
+    floatValue?: string | null;
+  },
+  hooks?: SendOfferHooks,
+): Promise<SendOfferResult> {
+  await hooks?.onItemSelected?.({
+    assetId: cached.assetId ?? cached.offerId,
+    marketHashName: cached.marketHashName ?? null,
+    floatValue: cached.floatValue ?? null,
+  });
+  await hooks?.onOfferSubmitted?.();
+  return {
+    ok: true,
+    offerId: cached.offerId,
+    confirmPending: cached.confirmPending,
+  };
 }
 
 export class MessageSteamOfferAdapter implements SteamOfferAdapter {
@@ -30,13 +58,32 @@ export class MessageSteamOfferAdapter implements SteamOfferAdapter {
 
   async loadSellerInventory(
     sellerSteamId?: string | null,
-  ): Promise<SteamInventoryItem[] | null> {
+  ): Promise<SellerInventoryLoadResult> {
     const steamId = sellerSteamId ?? (await this.steam.resolveSessionSteamId());
     if (!steamId) {
-      return null;
+      return {
+        items: [],
+        errorCode: OfferErrorCode.STEAM_COOKIE_EXPIRED,
+        errorMessage: 'Seller is not logged into Steam in this browser',
+      };
     }
-    const items = await this.steam.loadInventory(steamId);
-    return items.length > 0 ? items : null;
+    const loaded = await this.steam.loadInventory(steamId);
+    if (loaded.items.length > 0) {
+      return { items: loaded.items };
+    }
+    const mapped = inventoryFailToOfferError(loaded);
+    if (mapped) {
+      return {
+        items: [],
+        errorCode: mapped.code,
+        errorMessage: mapped.message,
+      };
+    }
+    return {
+      items: [],
+      errorCode: OfferErrorCode.INVENTORY_NOT_LOADED,
+      errorMessage: loaded.errorMessage ?? 'Seller inventory is not loaded',
+    };
   }
 
   async warmTradePage(buyerTradeUrl: string): Promise<boolean> {
@@ -51,6 +98,7 @@ export class MessageSteamOfferAdapter implements SteamOfferAdapter {
     const draft: TradeOfferDraft = {
       buyerTradeUrl: input.buyerTradeUrl,
       item: input.item,
+      ...(input.note?.trim() ? { note: input.note.trim() } : {}),
     };
 
     const tabId = await this.steam.navigateToTradePage(input.buyerTradeUrl);
@@ -67,23 +115,15 @@ export class MessageSteamOfferAdapter implements SteamOfferAdapter {
   }
 
   async sendOffer(draftId: string, hooks?: SendOfferHooks): Promise<SendOfferResult> {
-    const cached = await getCachedSentOffer(draftId);
-    if (cached?.ok) {
-    await hooks?.onItemSelected?.({
-      assetId: cached.assetId ?? cached.offerId,
-      marketHashName: cached.marketHashName ?? null,
-      floatValue: cached.floatValue ?? null,
-    });
-      await hooks?.onOfferSubmitted?.();
-      return {
-        ok: true,
-        offerId: cached.offerId,
-        confirmPending: cached.confirmPending,
-      };
-    }
-
     const stored = await chrome.storage.session.get(draftStorageKey(draftId));
     const draft = stored[draftStorageKey(draftId)] as TradeOfferDraft | undefined;
+    const assetId = draft?.item.assetId;
+
+    const prior = await resolvePriorSuccessfulSend({ draftId, assetId });
+    if (prior) {
+      return replayCachedSuccess(prior, hooks);
+    }
+
     if (!draft) {
       return {
         ok: false,
@@ -92,19 +132,84 @@ export class MessageSteamOfferAdapter implements SteamOfferAdapter {
       };
     }
 
-    const result = await this.steam.sendTradeOffer(draft);
+    const inflight = await getSendInflight(draftId);
+    if (inflight) {
+      const recoveredDuringInflight = await resolvePriorSuccessfulSend({
+        draftId,
+        assetId: draft.item.assetId,
+      });
+      if (recoveredDuringInflight) {
+        return replayCachedSuccess(recoveredDuringInflight, hooks);
+      }
+      return {
+        ok: false,
+        code: OfferErrorCode.STEAM_UNAVAILABLE,
+        message:
+          'Trade offer send already in progress — wait for Steam / Guard, then retry',
+      };
+    }
+
+    await markSendInflight({
+      draftId,
+      assetId: draft.item.assetId,
+    });
+
+    let midFlowHooksFired = false;
+    const progressHooks: TradeOfferProgressHooks = {
+      onItemSelected: async () => {
+        midFlowHooksFired = true;
+        await hooks?.onItemSelected?.({
+          assetId: draft.item.assetId,
+          marketHashName: draft.item.marketHashName ?? null,
+          floatValue: draft.item.floatValue ?? null,
+        });
+      },
+      onOfferSubmitted: async () => {
+        midFlowHooksFired = true;
+        await hooks?.onOfferSubmitted?.();
+      },
+    };
+
+    let result: Awaited<ReturnType<SteamCommunityClient['sendTradeOffer']>>;
+    try {
+      result = await this.steam.sendTradeOffer(draft, progressHooks);
+    } catch (error) {
+      const recovered = await resolvePriorSuccessfulSend({
+        draftId,
+        assetId: draft.item.assetId,
+      });
+      if (recovered) {
+        return replayCachedSuccess(recovered, hooks);
+      }
+      await clearSendInflight(draftId);
+      return {
+        ok: false,
+        code: OfferErrorCode.OFFER_SEND_FAILED,
+        message: error instanceof Error ? error.message : 'Trade offer send failed',
+      };
+    }
 
     if (!result.ok) {
+      const recovered = await resolvePriorSuccessfulSend({
+        draftId,
+        assetId: draft.item.assetId,
+      });
+      if (recovered) {
+        return replayCachedSuccess(recovered, hooks);
+      }
+      await clearSendInflight(draftId);
       const mapped = mapSteamSendError(result.error, result.strError);
       return { ok: false, code: mapped.code, message: mapped.message };
     }
 
-    await hooks?.onItemSelected?.({
-      assetId: draft.item.assetId,
-      marketHashName: draft.item.marketHashName ?? null,
-      floatValue: draft.item.floatValue ?? null,
-    });
-    await hooks?.onOfferSubmitted?.();
+    if (!midFlowHooksFired) {
+      await hooks?.onItemSelected?.({
+        assetId: draft.item.assetId,
+        marketHashName: draft.item.marketHashName ?? null,
+        floatValue: draft.item.floatValue ?? null,
+      });
+      await hooks?.onOfferSubmitted?.();
+    }
 
     await cacheSentOffer(
       draftId,
@@ -116,6 +221,7 @@ export class MessageSteamOfferAdapter implements SteamOfferAdapter {
       {
         assetId: draft.item.assetId,
         marketHashName: draft.item.marketHashName ?? null,
+        floatValue: draft.item.floatValue ?? null,
       },
     );
     await chrome.storage.session.remove(draftStorageKey(draftId));

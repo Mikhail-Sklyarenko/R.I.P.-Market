@@ -84,6 +84,15 @@ function decideLegacy(
         signals.failMode === 'SAFE' ? 'FAILED_SAFE' : 'FAILED_DISPUTE',
       );
     }
+    if (signals.offerStatus === 'needs_confirmation') {
+      return decision(
+        'WAIT',
+        'OFFER_NEEDS_CONFIRMATION',
+        'AWAITING_SELLER_STEAM_GUARD',
+        signals.offerStatus,
+        signals.inventoryDelta,
+      );
+    }
     if (signals.offerStatus === 'unknown') {
       if (signals.inventoryDelta === 'confirmed') {
         return decision(
@@ -162,6 +171,15 @@ function decideDualSignal(
       offer,
       inventory,
       signals.failMode === 'SAFE' ? 'FAILED_SAFE' : 'FAILED_DISPUTE',
+    );
+  }
+  if (offer === 'needs_confirmation') {
+    return decision(
+      'WAIT',
+      'OFFER_NEEDS_CONFIRMATION',
+      'AWAITING_SELLER_STEAM_GUARD',
+      offer,
+      inventory,
     );
   }
   if (offer === 'expired') {

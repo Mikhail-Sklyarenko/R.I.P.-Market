@@ -1,10 +1,10 @@
 {
   "manifest_version": 3,
   "name": "R.I.P Market Trade Assistant",
-  "description": "Безопасные P2P-сделки R.I.P Market с подтверждением внутри платформы",
-  "version": "0.5.0",
+  "description": "Безопасные P2P-сделки R.I.P Market: минимум прав, без авто-Guard/Accept, Steam Web API key только по запросу поддержки",
+  "version": "0.6.26",
   "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAuBKYHMwPyBUIPxpxbAqUxfPTxXtftmy2Wr9XDBOUkPL98+gLNo4eIEbA+oh4tNGPwCRGJjxSBax3gybj/EfuHfaK6Rg0JD+YgOc7zg5DmnXBGexuTYrBJ78/GnTMzeYxnyk6hRUgxDHlVWMj8fPN22B5nMa+gA3RRFWc71+P2NWNbHC/q9qiLF0a8CKMlsdrZRY0hRzaZRhcQhbips1dc0ds1FrxVEAKairL5LLMl1HD3kMjKxqfiINBhEB/Oc0XXvKNQBBn8/KQvjcF0h8u3az4Er8zJdCoCmPJ/h1YtImImDum9cCaMBIfSlp8BNbZnpR3h1DQ6EzIojWws+6zCwIDAQAB",
-  "permissions": ["storage", "alarms", "tabs", "scripting", "cookies"],
+  "permissions": ["storage", "alarms", "tabs", "scripting", "cookies", "notifications"],
   "host_permissions": [
     "https://steamcommunity.com/*",
     "http://localhost:3000/*",
@@ -13,6 +13,7 @@
     "https://p2pcs.ru/*",
     "https://www.p2pcs.ru/*"
   ],
+  "optional_host_permissions": ["https://api.steampowered.com/*"],
   "background": {
     "service_worker": "background/service-worker.js",
     "type": "module"
@@ -24,8 +25,21 @@
       "run_at": "document_idle"
     },
     {
-      "matches": ["*://steamcommunity.com/my/tradeoffers/*"],
-      "js": ["content/trade-verification-bridge.js"],
+      "matches": [
+        "*://steamcommunity.com/my/tradeoffers/*",
+        "*://steamcommunity.com/profiles/*/tradeoffers/*",
+        "*://steamcommunity.com/id/*/tradeoffers/*"
+      ],
+      "js": ["content/trade-offers-list-bridge.js"],
+      "run_at": "document_idle"
+    },
+    {
+      "matches": [
+        "*://steamcommunity.com/my/inventory*",
+        "*://steamcommunity.com/profiles/*/inventory*",
+        "*://steamcommunity.com/id/*/inventory*"
+      ],
+      "js": ["content/inventory-bridge.js"],
       "run_at": "document_idle"
     }
   ],

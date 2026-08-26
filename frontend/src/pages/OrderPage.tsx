@@ -14,7 +14,12 @@ import { OrderStepper } from '../components/OrderStepper';
 import { OrderTradeBuyerPanel } from '../components/OrderTradeBuyerPanel';
 import { OrderTradeSellerPanel } from '../components/OrderTradeSellerPanel';
 import { CopyableDealId } from '../components/CopyableDealId';
+import { DealHealthBanner } from '../components/DealHealthBanner';
+import { PostAcceptTrustPanel } from '../components/PostAcceptTrustPanel';
+import { PostTradeReceiptPanel } from '../components/PostTradeReceiptPanel';
+import { TradeTimeoutEscalationPanel } from '../components/TradeTimeoutEscalationPanel';
 import { ExtensionConnectPanel } from '../components/ExtensionConnectPanel';
+import { BuyerExtensionPairCard } from '../components/BuyerExtensionPairCard';
 import { PageHeader } from '../components/PageHeader';
 import { StatusBadge } from '../components/StatusBadge';
 import { WearBar } from '../components/WearBar';
@@ -29,9 +34,17 @@ import {
   getTradeTimeoutRemainingMinutes,
 } from '../utils/order-trade';
 import { formatOrderStatus, getOrderNextAction } from '../utils/order-flow';
+import { resolveDealHealth } from '../utils/deal-health';
+import {
+  buildSupportDebugPack,
+  formatSupportDebugPack,
+} from '../utils/support-debug-pack';
+import { buildTradeProblemSupportPath } from '../utils/trade-timeout-escalation';
 import {
   formatExtensionUiTradeFlowLabel,
+  getExtensionRuntimeStatus,
   requestExtensionPoll,
+  type ExtensionRuntimeStatus,
 } from '../utils/extension';
 import {
   formatFloatValue,
@@ -40,7 +53,13 @@ import {
 } from '../utils/item-image';
 import { getCatalogItemRef } from '../utils/item-slug';
 
-const POLL_STATUSES = new Set(['WAITING_TRADE', 'TRADE_CONFIRMED', 'PAYMENT_RESERVED', 'CREATED']);
+const POLL_STATUSES = new Set([
+  'WAITING_TRADE',
+  'TRADE_CONFIRMED',
+  'SETTLEMENT_HOLD',
+  'PAYMENT_RESERVED',
+  'CREATED',
+]);
 
 export function OrderPage() {
   const { id } = useParams();
@@ -56,6 +75,8 @@ export function OrderPage() {
   const [extensionTaskPipeline, setExtensionTaskPipeline] = useState(false);
   const [extensionUiTradeFlow, setExtensionUiTradeFlow] = useState(false);
   const [extensionTradeAckEnabled, setExtensionTradeAckEnabled] = useState(false);
+  const [extensionGuidedBuyerEnabled, setExtensionGuidedBuyerEnabled] =
+    useState(true);
   const [settlementBanner, setSettlementBanner] = useState(false);
   const [offerInput, setOfferInput] = useState('');
   const [savingOffer, setSavingOffer] = useState(false);
@@ -68,6 +89,9 @@ export function OrderPage() {
   const [canceling, setCanceling] = useState(false);
   const [error, setError] = useState<unknown>(null);
   const [timeoutRemainingMinutes, setTimeoutRemainingMinutes] = useState<number | null>(null);
+  const [extensionStatus, setExtensionStatus] = useState<ExtensionRuntimeStatus>({
+    connected: false,
+  });
 
   const isBuyer = user?.id === order?.buyerId;
   const isSeller = user?.id === order?.sellerId;
@@ -82,7 +106,13 @@ export function OrderPage() {
     !mockBlockedByLiveSettlement &&
     canShowDevPanels(user?.role) &&
     (user?.role === 'ADMIN' || (MOCK_TRADE_ENABLED && isBuyer && tradeProvider === 'mock'));
-  const nextAction = order ? getOrderNextAction(order, role, locale) : null;
+  const nextAction = order
+    ? getOrderNextAction(order, role, locale, {
+        extensionConnected: extensionStatus.connected,
+        extensionTradeAckEnabled,
+        extensionTaskPipeline,
+      })
+    : null;
   const showTradePanels = order?.status === 'WAITING_TRADE';
   const isShadowVerification = tradeVerificationMode === 'shadow';
   const showShadowTradeBanner =
@@ -119,6 +149,9 @@ export function OrderPage() {
         setExtensionTradeAckEnabled(
           Boolean(config.extension?.extensionTradeAcknowledgmentEnabled),
         );
+        setExtensionGuidedBuyerEnabled(
+          config.extension?.extensionGuidedBuyerEnabled !== false,
+        );
         setTradeTimeoutMinutes(config.tradeTimeoutMinutes);
       })
       .catch(() => undefined);
@@ -132,6 +165,53 @@ export function OrderPage() {
       .then((eligibility) => setSettlementBanner(eligibility.bannerVisible))
       .catch(() => undefined);
   }, [token]);
+
+  const dealHealth =
+    order && showTradePanels
+      ? resolveDealHealth({
+          order,
+          role,
+          extensionConnected: extensionStatus.connected,
+          extensionMode:
+            (extensionTaskPipeline && Boolean(order.tradeTask)) ||
+            (isBuyer && extensionTradeAckEnabled),
+        })
+      : null;
+
+  useEffect(() => {
+    const watchBuyerPair =
+      isBuyer &&
+      extensionTradeAckEnabled &&
+      Boolean(order?.tradeOperation?.externalOfferId);
+    if (!showTradePanels || (!extensionTaskPipeline && !watchBuyerPair)) {
+      return;
+    }
+    void getExtensionRuntimeStatus().then(setExtensionStatus);
+    const timer = window.setInterval(() => {
+      void getExtensionRuntimeStatus().then(setExtensionStatus);
+    }, 10_000);
+    return () => window.clearInterval(timer);
+  }, [
+    showTradePanels,
+    extensionTaskPipeline,
+    extensionTradeAckEnabled,
+    isBuyer,
+    order?.id,
+    order?.tradeOperation?.externalOfferId,
+  ]);
+
+  async function handleCopyDebugPack() {
+    if (!order) {
+      return;
+    }
+    const pack = buildSupportDebugPack({
+      order,
+      role,
+      extensionStatus,
+      locale,
+    });
+    await navigator.clipboard.writeText(formatSupportDebugPack(pack));
+  }
 
   useEffect(() => {
     if (!token || !id) {
@@ -482,17 +562,57 @@ export function OrderPage() {
               </div>
 
               {nextAction ? (
-                <div className="order-next-hero" data-testid="order-next-action">
+                <div
+                  className={`order-next-hero${
+                    order.tradeVerification?.status === 'mismatch'
+                      ? ' order-next-hero--mismatch'
+                      : ''
+                  }`}
+                  data-testid="order-next-action"
+                  data-kind={nextAction.kind ?? undefined}
+                >
                   <p className="eyebrow">{t('orderPage.whatNow')}</p>
                   <strong className="order-next-hero-title">{nextAction.title}</strong>
                   <p className="muted small">{nextAction.description}</p>
                 </div>
               ) : null}
 
+              {order.tradeVerification?.status === 'mismatch' ? (
+                <div
+                  className="alert alert-error order-trade-mismatch"
+                  data-testid="order-trade-mismatch"
+                >
+                  <strong>{t('dealHealth.mismatchTitle')}</strong>
+                  <p className="muted small">{t('dealHealth.mismatchBody')}</p>
+                  {order.tradeVerification.failedChecks.length > 0 ? (
+                    <ul className="order-trade-mismatch-checks">
+                      {order.tradeVerification.failedChecks.map((check) => (
+                        <li key={check.key}>{check.label}</li>
+                      ))}
+                    </ul>
+                  ) : null}
+                  <p>
+                    <Link
+                      className="btn primary"
+                      to={buildTradeProblemSupportPath(
+                        {
+                          order,
+                          role,
+                          reason: 'mismatch',
+                          remainingMinutes: timeoutRemainingMinutes,
+                        },
+                        { persist: true },
+                      )}
+                      data-testid="order-mismatch-problem"
+                    >
+                      {t('tradeEscalation.openDisputeCta')}
+                    </Link>
+                  </p>
+                </div>
+              ) : null}
+
               {order.status === 'COMPLETED' ? (
-                <p className="success-text" data-testid="order-completed-message">
-                  {t('orderPage.completedMessage')}
-                </p>
+                <PostTradeReceiptPanel order={order} role={role} />
               ) : null}
               {order.status === 'CANCELED' ? (
                 <p className="muted small" data-testid="order-canceled-message">
@@ -505,12 +625,49 @@ export function OrderPage() {
                 </p>
               ) : null}
               {order.status === 'DISPUTE' ? (
-                <p className="muted small" data-testid="order-dispute-message">
-                  {t('orderPage.disputeMessage')}
-                </p>
+                <div className="order-dispute-panel" data-testid="order-dispute-message">
+                  <p className="muted small">{t('orderPage.disputeMessage')}</p>
+                  <p>
+                    <Link
+                      className="btn primary"
+                      to={buildTradeProblemSupportPath(
+                        {
+                          order,
+                          role,
+                          reason: 'timeout',
+                        },
+                        { persist: true },
+                      )}
+                      data-testid="order-open-dispute-cta"
+                    >
+                      {t('tradeEscalation.openDisputeCta')}
+                    </Link>
+                  </p>
+                </div>
+              ) : null}
+
+              {dealHealth ? (
+                <DealHealthBanner
+                  health={dealHealth}
+                  onCopyDebugPack={() => void handleCopyDebugPack()}
+                />
+              ) : null}
+
+              {order.status === 'TRADE_CONFIRMED' ||
+              order.status === 'SETTLEMENT_HOLD' ? (
+                <PostAcceptTrustPanel order={order} role={role} />
               ) : null}
 
               <CopyableDealId id={order.id} testId="order-deal-id" />
+
+              {showTradePanels ? (
+                <TradeTimeoutEscalationPanel
+                  order={order}
+                  role={role}
+                  timeoutMinutes={tradeTimeoutMinutes}
+                  remainingMinutes={timeoutRemainingMinutes}
+                />
+              ) : null}
 
               <p className="muted small order-support-link">
                 <Link to={`/support?dealId=${encodeURIComponent(order.id)}`}>
@@ -519,16 +676,20 @@ export function OrderPage() {
                 {t('orderPage.supportLinkSuffix')}
               </p>
 
-              {showTradePanels && timeoutRemainingMinutes !== null ? (
-                <p className="order-trade-timeout" data-testid="order-trade-timeout">
-                  {timeoutRemainingMinutes > 0
-                    ? t('orderPage.timeoutRemaining', { minutes: timeoutRemainingMinutes })
-                    : t('orderPage.timeoutExpired')}
-                </p>
-              ) : null}
-
               {isSeller && showTradePanels && extensionTaskPipeline && token ? (
                 <ExtensionConnectPanel token={token} compact />
+              ) : null}
+
+              {isBuyer && showTradePanels && extensionTradeAckEnabled && token ? (
+                <BuyerExtensionPairCard
+                  order={order}
+                  token={token}
+                  extensionTradeAckEnabled={extensionTradeAckEnabled}
+                  extensionConnected={extensionStatus.connected}
+                  onConnectedChange={(connected) =>
+                    setExtensionStatus((prev) => ({ ...prev, connected }))
+                  }
+                />
               ) : null}
 
               {showTradePanels &&
@@ -570,7 +731,10 @@ export function OrderPage() {
                   checkingDelivery={checkingDelivery}
                   acknowledging={acknowledging}
                   ackEnabled={extensionTradeAckEnabled}
+                  guidedBuyerEnabled={extensionGuidedBuyerEnabled}
                   extensionMode={extensionTaskPipeline && Boolean(order.tradeTask)}
+                  extensionConnected={extensionStatus.connected}
+                  remainingMinutes={timeoutRemainingMinutes}
                   nextActionTitle={undefined}
                   nextActionDescription={undefined}
                   onCheckDelivery={() => void handleCheckDelivery()}

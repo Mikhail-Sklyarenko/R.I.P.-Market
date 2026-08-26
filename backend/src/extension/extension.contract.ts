@@ -16,6 +16,12 @@ export const EXTENSION_API_CONTRACT = {
     method: 'POST',
     path: '/api/v1/extension/heartbeat',
     auth: 'extension_token + request_signature',
+    response: {
+      ok: true,
+      hasPendingTask: 'boolean',
+      hasActiveDeal: 'boolean',
+      suggestedPollMode: 'idle | active',
+    },
   },
   ackCommand: {
     method: 'POST',

@@ -20,6 +20,7 @@ import {
   type Locale,
   type TranslateParams,
 } from './types';
+import { syncExtensionLocale } from '../utils/extension';
 
 const messagesByLocale = {
   ru: ruMessages,
@@ -41,10 +42,15 @@ export function LocaleProvider({ children }: { children: ReactNode }) {
     setLocaleState(next);
     writeStoredLocale(next);
     applyDocumentLocale(next);
+    void syncExtensionLocale(next);
   }, []);
 
   useEffect(() => {
     applyDocumentLocale(locale);
+  }, [locale]);
+
+  useEffect(() => {
+    void syncExtensionLocale(locale);
   }, [locale]);
 
   const t = useCallback(

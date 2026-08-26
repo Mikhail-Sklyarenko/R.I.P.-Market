@@ -8,33 +8,352 @@
       body {
         font-family: system-ui, sans-serif;
         margin: 0;
-        padding: 16px;
-        width: 320px;
+        padding: 14px 14px 16px;
+        width: 360px;
+        max-height: 580px;
+        overflow-y: auto;
         color: #e8e8e8;
         background: #12141a;
       }
-      h1 { font-size: 16px; margin: 0 0 8px; }
-      p { font-size: 13px; color: #a8adb8; margin: 0 0 12px; }
-      .status {
-        padding: 8px 10px;
-        border-radius: 8px;
-        font-size: 13px;
+      h1 { font-size: 16px; margin: 0 0 4px; }
+      .lead { font-size: 12px; color: #7d8494; margin: 0 0 12px; }
+      .section { margin: 0 0 12px; }
+      .section-head {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 4px 10px;
+        align-items: baseline;
+        margin: 0 0 8px;
+      }
+      .section-title { font-size: 13px; margin: 0; color: #e8e8e8; }
+      .section-sub { font-size: 11px; color: #7d8494; margin: 0; }
+      .section-count {
+        margin-left: auto;
+        font-size: 11px;
+        color: #7d8494;
+        font-variant-numeric: tabular-nums;
+      }
+
+      .connection {
+        border: 1px solid #2f3542;
+        border-radius: 10px;
+        padding: 10px 12px;
+        background: #161a22;
         margin-bottom: 12px;
       }
-      .status.ok { background: #16351f; color: #8fe6a4; }
-      .status.off { background: #2a1d1d; color: #f0a8a8; }
-      .trades { margin: 12px 0; display: grid; gap: 8px; }
-      .trade-card {
+      .connection.ok { border-color: #2f6f46; background: #142018; }
+      .connection.warn { border-color: #8f6b3d; background: #1c1810; }
+      .connection.error { border-color: #8f3d3d; background: #1c1212; }
+      .connection.off { border-color: #4a3030; background: #1a1414; }
+      .connection-title {
+        margin: 0 0 2px;
+        font-size: 13px;
+        font-weight: 700;
+        color: #e8e8e8;
+      }
+      .connection.ok .connection-title { color: #8fe6a4; }
+      .connection.warn .connection-title { color: #f0d29a; }
+      .connection.error .connection-title,
+      .connection.off .connection-title { color: #f0a8a8; }
+      .connection-detail {
+        margin: 0 0 4px;
+        font-size: 12px;
+        color: #a8adb8;
+        line-height: 1.35;
+      }
+      .connection-steam {
+        margin: 0;
+        font-size: 11px;
+        color: #7d8494;
+      }
+
+      .ops-health {
+        border: 1px solid #2f3542;
+        border-radius: 10px;
+        padding: 10px 12px;
+        background: #141820;
+        margin-bottom: 12px;
+      }
+      .ops-health-row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 4px 10px;
+        align-items: baseline;
+        margin: 0 0 6px;
+        font-size: 12px;
+      }
+      .ops-health-row:last-child { margin-bottom: 0; }
+      .ops-health-label {
+        color: #7d8494;
+        min-width: 64px;
+      }
+      .ops-health-value { color: #c7ccd6; flex: 1 1 160px; }
+      .ops-health-value.ok { color: #8fe6a4; }
+      .ops-health-value.warn { color: #f0d29a; }
+      .ops-health-value.error { color: #f0a8a8; }
+      .ops-health-value.muted { color: #7d8494; }
+      .ops-health-update {
+        display: inline-flex;
+        margin: 0;
+        width: auto;
+        padding: 6px 10px;
+        font-size: 11px;
+      }
+
+      .empty-home {
+        border: 1px dashed #2f3542;
+        border-radius: 10px;
+        padding: 14px 12px;
+        background: #141820;
+        margin-bottom: 12px;
+        text-align: center;
+      }
+      .empty-home p {
+        margin: 0;
+        font-size: 12px;
+        color: #a8adb8;
+        line-height: 1.4;
+      }
+      .empty-home strong { color: #8fe6a4; }
+
+      .action-list,
+      .trades,
+      .buyer-inbox-list,
+      .seller-trades-list {
+        display: grid;
+        gap: 8px;
+      }
+      .action-list,
+      .buyer-inbox-list,
+      .seller-trades-list {
+        max-height: 280px;
+        overflow-y: auto;
+        padding-right: 2px;
+      }
+
+      .phase-row { margin: 0 0 6px; display: flex; flex-wrap: wrap; gap: 6px; }
+      .phase-badge {
+        display: inline-block;
+        font-size: 11px;
+        font-weight: 600;
+        letter-spacing: 0.02em;
+        padding: 2px 8px;
+        border-radius: 999px;
+        background: #2a2f3a;
+        color: #c7ccd6;
+      }
+      .trade-card.phase-accept .phase-badge,
+      .trade-card.tone-warn .phase-badge,
+      .action-card.tone-warn .phase-badge {
+        background: #3a2f1a;
+        color: #f0d29a;
+      }
+      .trade-card.phase-dispute .phase-badge,
+      .trade-card.tone-error .phase-badge,
+      .action-card.tone-error .phase-badge {
+        background: #3a1a1a;
+        color: #f0a8a8;
+      }
+      .trade-card.phase-verifying .phase-badge,
+      .trade-card.tone-info .phase-badge,
+      .action-card.tone-info .phase-badge {
+        background: #1a243a;
+        color: #b7d0ff;
+      }
+      .trade-card.phase-wait_offer .phase-badge {
+        background: #1f2430;
+        color: #a8adb8;
+      }
+      .trade-card.phase-accept { border-color: #8f6b3d; }
+      .trade-card.phase-dispute { border-color: #8f3d3d; }
+      .trade-card.phase-verifying { border-color: #3d5f8f; background: #121820; }
+      .trade-card.phase-wait_offer { border-color: #2f3542; }
+
+      .trade-card,
+      .action-card {
         border: 1px solid #2f3542;
         border-radius: 10px;
         padding: 10px 12px;
         background: #161a22;
       }
-      .trade-card h2 { font-size: 13px; margin: 0 0 4px; }
-      .trade-card .meta { font-size: 12px; color: #a8adb8; margin: 0 0 6px; }
-      .trade-card .next { font-size: 12px; color: #c7ccd6; margin: 0; }
+      .action-card.tone-warn { border-color: #8f6b3d; background: #1c1810; }
+      .action-card.tone-error { border-color: #8f3d3d; background: #1c1212; }
+      .action-card.tone-info { border-color: #3d5f8f; background: #121820; }
+      .trade-card h2,
+      .action-card h2 {
+        font-size: 13px;
+        margin: 0 0 4px;
+      }
+      .trade-card .meta,
+      .action-card .meta {
+        font-size: 12px;
+        color: #a8adb8;
+        margin: 0 0 6px;
+      }
+      .trade-card .next,
+      .action-card .next {
+        font-size: 12px;
+        color: #c7ccd6;
+        margin: 0 0 8px;
+      }
       .trade-card.verified { border-color: #2f6f46; }
       .trade-card.mismatch { border-color: #8f3d3d; }
+      .trade-card.guard { border-color: #2f6f46; background: #142018; }
+      .trade-card.manual { border-color: #8f6b3d; background: #1c1810; }
+      .trade-card.verifying { border-color: #3d5f8f; background: #121820; }
+      .trade-card .guard-hint,
+      .action-card .guard-hint {
+        font-size: 12px;
+        color: #8fe6a4;
+        margin: 0 0 8px;
+      }
+      .trade-card .manual-hint {
+        font-size: 12px;
+        color: #f0d29a;
+        margin: 0 0 8px;
+      }
+      .trade-card .verifying-hint {
+        font-size: 12px;
+        color: #b7d0ff;
+        margin: 0 0 8px;
+      }
+      .trade-card .timeout-hint {
+        font-size: 12px;
+        color: #f0d29a;
+        margin: 0 0 8px;
+      }
+
+      .settlement-block {
+        margin: 0 0 8px;
+        padding: 8px 10px;
+        border-radius: 8px;
+        border: 1px solid #2a3140;
+        background: #121820;
+      }
+      .settlement-block.tone-ok {
+        border-color: rgba(47,111,70,.45);
+        background: rgba(47,111,70,.12);
+      }
+      .settlement-block.tone-info {
+        border-color: rgba(91,141,239,.35);
+        background: rgba(91,141,239,.1);
+      }
+      .settlement-block.tone-warn {
+        border-color: rgba(143,107,61,.5);
+        background: rgba(143,107,61,.12);
+      }
+      .settlement-title {
+        margin: 0 0 4px;
+        font-size: 12px;
+        font-weight: 700;
+        color: #e8e8e8;
+      }
+      .settlement-funds {
+        margin: 0 0 4px;
+        font-size: 12px;
+        font-weight: 700;
+        color: #8fe6a4;
+        line-height: 1.35;
+      }
+      .settlement-body {
+        margin: 0;
+        font-size: 11px;
+        color: #a8adb8;
+        line-height: 1.35;
+      }
+      .settlement-signals {
+        list-style: none;
+        margin: 6px 0 0;
+        padding: 0;
+        display: grid;
+        gap: 4px;
+      }
+      .settlement-signal {
+        font-size: 11px;
+        color: #c7ccd6;
+        padding: 3px 0;
+      }
+      .settlement-signal.tone-ok { color: #8fe6a4; }
+      .settlement-signal.tone-pending { color: #b7d0ff; }
+      .settlement-signal.tone-warn { color: #f0d29a; }
+      .settlement-signal.tone-unknown { color: #a8adb8; }
+
+      .dispute-block {
+        margin: 0 0 8px;
+        padding: 8px 10px;
+        border-radius: 8px;
+        border: 1px solid rgba(143,61,61,.55);
+        background: rgba(143,61,61,.14);
+      }
+      .dispute-block.tone-warn {
+        border-color: rgba(143,107,61,.55);
+        background: rgba(143,107,61,.14);
+      }
+      .dispute-title {
+        margin: 0 0 4px;
+        font-size: 12px;
+        font-weight: 700;
+        color: #f0a8a8;
+      }
+      .dispute-block.tone-warn .dispute-title { color: #f0d29a; }
+      .dispute-body {
+        margin: 0;
+        font-size: 11px;
+        color: #c7ccd6;
+        line-height: 1.35;
+      }
+
+      .receipts-list {
+        display: grid;
+        gap: 8px;
+      }
+      .receipt-card {
+        border: 1px solid rgba(47, 111, 70, 0.55);
+        border-radius: 10px;
+        padding: 10px 12px;
+        background: rgba(47, 111, 70, 0.12);
+      }
+      .receipt-eyebrow {
+        margin: 0 0 2px;
+        font-size: 10px;
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
+        color: #8fe6a4;
+      }
+      .receipt-title {
+        margin: 0 0 2px;
+        font-size: 13px;
+        font-weight: 700;
+        color: #e8e8e8;
+        line-height: 1.3;
+      }
+      .receipt-meta {
+        margin: 0 0 8px;
+        font-size: 11px;
+        color: #7d8494;
+      }
+      .receipt-rows {
+        display: grid;
+        gap: 4px;
+        margin: 0 0 10px;
+      }
+      .receipt-row {
+        display: flex;
+        justify-content: space-between;
+        gap: 10px;
+        font-size: 11px;
+        color: #a8adb8;
+      }
+      .receipt-row strong {
+        color: #e8e8e8;
+        font-variant-numeric: tabular-nums;
+      }
+      .receipt-row-net {
+        padding-top: 4px;
+        border-top: 1px solid rgba(47, 111, 70, 0.35);
+        color: #c7ccd6;
+      }
+
       button, a.btn {
         width: 100%;
         box-sizing: border-box;
@@ -51,6 +370,136 @@
       .primary { background: #5b8def; color: #fff; }
       .secondary { background: #2a2f3a; color: #e8e8e8; }
       .hint { font-size: 12px; color: #7d8494; margin: 0 0 12px; }
+      .toolbar { display: grid; gap: 8px; margin-bottom: 8px; }
+      .privacy {
+        border: 1px solid #2a3140;
+        border-radius: 10px;
+        padding: 10px 12px;
+        background: #141820;
+        margin: 0 0 12px;
+      }
+      .privacy-title,
+      .privacy-subtitle {
+        margin: 0 0 6px;
+        font-size: 12px;
+        font-weight: 700;
+        color: #c7ccd6;
+      }
+      .privacy-subtitle { margin-top: 8px; color: #a8adb8; }
+      .privacy-list {
+        margin: 0;
+        padding: 0 0 0 16px;
+        display: grid;
+        gap: 4px;
+      }
+      .privacy-list li {
+        font-size: 11px;
+        color: #a8adb8;
+        line-height: 1.35;
+      }
+      .privacy-dont li { color: #9aa3b5; }
+
+      .safe-mode {
+        border: 1px solid #8f6b3d;
+        border-radius: 10px;
+        padding: 10px 12px;
+        background: #1c1810;
+        margin: 0 0 12px;
+      }
+      .safe-mode.tone-error {
+        border-color: #8f3d3d;
+        background: #1c1212;
+      }
+      .safe-mode-title {
+        margin: 0 0 4px;
+        font-size: 12px;
+        font-weight: 700;
+        color: #f0d29a;
+      }
+      .safe-mode.tone-error .safe-mode-title { color: #f0a8a8; }
+      .safe-mode-body,
+      .safe-mode-cache {
+        margin: 0;
+        font-size: 11px;
+        color: #c7ccd6;
+        line-height: 1.35;
+      }
+      .safe-mode-cache {
+        margin-top: 6px;
+        color: #a8adb8;
+      }
+
+      .two-min {
+        border: 1px solid #3d5f8f;
+        border-radius: 10px;
+        padding: 10px 12px;
+        background: #121820;
+        margin: 0 0 12px;
+      }
+      .two-min-head {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 4px 10px;
+        align-items: baseline;
+        margin: 0 0 6px;
+      }
+      .two-min-title {
+        margin: 0;
+        font-size: 13px;
+        font-weight: 700;
+        color: #e8e8e8;
+      }
+      .two-min-progress {
+        margin: 0 0 0 auto;
+        font-size: 11px;
+        color: #7d8494;
+      }
+      .two-min-lead {
+        margin: 0 0 8px;
+        font-size: 11px;
+        color: #a8adb8;
+        line-height: 1.35;
+      }
+      .two-min-list {
+        list-style: none;
+        margin: 0 0 10px;
+        padding: 0;
+        display: grid;
+        gap: 6px;
+      }
+      .two-min-step {
+        display: flex;
+        gap: 8px;
+        align-items: flex-start;
+      }
+      .two-min-mark {
+        width: 16px;
+        text-align: center;
+        font-size: 12px;
+        color: #7d8494;
+        line-height: 1.4;
+      }
+      .two-min-step[data-ready="1"] .two-min-mark { color: #8fe6a4; }
+      .two-min-step[data-current="1"] .two-min-mark { color: #b7d0ff; }
+      .two-min-label {
+        display: block;
+        font-size: 12px;
+        color: #e8e8e8;
+        font-weight: 600;
+      }
+      .two-min-step[data-ready="1"] .two-min-label { color: #8fe6a4; }
+      .two-min-hint {
+        margin: 2px 0 0;
+        font-size: 11px;
+        color: #7d8494;
+        line-height: 1.3;
+      }
+      .two-min-actions {
+        display: grid;
+        gap: 8px;
+      }
+      .two-min-actions button { margin-bottom: 0; }
+
       .advanced {
         margin-top: 4px;
         border-top: 1px solid #2a3140;
@@ -76,6 +525,38 @@
         margin: 0 0 10px;
         line-height: 1.4;
       }
+      .support-emergency {
+        margin-top: 4px;
+        border: 1px solid #2a3140;
+        border-radius: 8px;
+        padding: 8px 10px;
+        background: #12161e;
+      }
+      .support-emergency > summary {
+        cursor: pointer;
+        font-size: 12px;
+        color: #8a93a6;
+        user-select: none;
+        list-style: none;
+      }
+      .support-emergency > summary::-webkit-details-marker { display: none; }
+      .support-emergency > summary::before {
+        content: '▸ ';
+        color: #7d8494;
+      }
+      .support-emergency[open] > summary::before { content: '▾ '; }
+      .support-emergency-body { margin-top: 8px; }
+      .permissions-list {
+        margin: 0 0 10px;
+        padding: 0 0 0 16px;
+        display: grid;
+        gap: 4px;
+      }
+      .permissions-list li {
+        font-size: 11px;
+        color: #7d8494;
+        line-height: 1.35;
+      }
       .field { margin-bottom: 10px; }
       label { display: block; font-size: 12px; color: #a8adb8; margin-bottom: 6px; }
       input[type='password'], input[type='text'] {
@@ -85,40 +566,147 @@
       }
       .field-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
       .field-actions button { margin-bottom: 0; }
+      .notify-toggle {
+        display: flex;
+        gap: 8px;
+        align-items: flex-start;
+        font-size: 12px;
+        color: #e8e8e8;
+        cursor: pointer;
+      }
+      .notify-toggle input {
+        margin-top: 2px;
+        accent-color: #5b8def;
+      }
+      .muted-list {
+        display: grid;
+        gap: 6px;
+        margin-top: 8px;
+      }
+      .muted-row {
+        display: flex;
+        gap: 8px;
+        align-items: center;
+        justify-content: space-between;
+        font-size: 11px;
+        color: #a8adb8;
+      }
+      .muted-row button {
+        width: auto;
+        margin: 0;
+        padding: 6px 8px;
+        font-size: 11px;
+      }
       a { color: #8eb7ff; }
+
+      .cta-hint {
+        font-size: 12px;
+        color: #a8adb8;
+        margin: 0 0 8px;
+        line-height: 1.35;
+      }
+      .card-more {
+        margin-top: 2px;
+        border-top: 1px solid #2a3140;
+        padding-top: 8px;
+      }
+      .card-more summary {
+        cursor: pointer;
+        font-size: 12px;
+        color: #7d8494;
+        user-select: none;
+        list-style: none;
+        margin-bottom: 8px;
+      }
+      .card-more summary::-webkit-details-marker { display: none; }
+      .card-more summary::before {
+        content: '▸ ';
+        color: #7d8494;
+      }
+      .card-more[open] summary::before { content: '▾ '; }
+      .card-more .btn,
+      .card-more button {
+        margin-bottom: 6px;
+      }
     </style>
   </head>
   <body>
     <h1>R.I.P Market</h1>
-    <p>Безопасные P2P-сделки с подтверждением внутри платформы.</p>
-    <div id="status" class="status off">Не подключено</div>
-    <div id="trades" class="trades" hidden></div>
-    <button id="open-site" class="primary" type="button">Открыть сайт</button>
-    <button id="refresh-trades" class="secondary" type="button" hidden>Обновить сделки</button>
-    <button id="disconnect" class="secondary" type="button" hidden>Отключить</button>
+    <p class="lead">Ежедневный пульт сделок</p>
+
+    <section id="connection" class="connection off" aria-live="polite">
+      <p class="connection-title">Загрузка…</p>
+    </section>
+    <section id="two-minute-onboarding" class="two-min" hidden aria-live="polite"></section>
+    <section id="safe-mode-banner" class="safe-mode" hidden aria-live="polite"></section>
+    <section id="ops-health" class="ops-health" hidden></section>
+
+    <section id="empty-home" class="empty-home" hidden></section>
+    <section id="action-required" class="section" hidden></section>
+    <section id="buyer-inbox" class="section" hidden></section>
+    <section id="seller-trades" class="section" hidden></section>
+    <section id="recent-receipts" class="section" hidden></section>
+
+    <div class="toolbar">
+      <button id="open-site" class="primary" type="button">Открыть сайт</button>
+      <button id="refresh-health" class="secondary" type="button">Обновить статус</button>
+      <button id="refresh-trades" class="secondary" type="button" hidden>Обновить сделки</button>
+      <button id="copy-debug" class="secondary" type="button">Скопировать отчёт для поддержки</button>
+      <button id="disconnect" class="secondary" type="button" hidden>Отключить</button>
+    </div>
     <p class="hint">Подключите расширение на странице аккаунта на сайте.</p>
+
+    <section id="privacy-transparency" class="privacy" aria-label="Privacy"></section>
 
     <details id="advanced-settings" class="advanced">
       <summary>Дополнительно</summary>
       <div class="advanced-body">
-        <p class="advanced-note">
-          Обычно ничего здесь настраивать не нужно. Этот запасной ключ помогает только если
-          Steam временно ограничивает загрузку инвентаря.
-        </p>
         <div class="field">
-          <label for="steam-api-key">Запасной ключ Steam</label>
-          <input
-            id="steam-api-key"
-            type="password"
-            autocomplete="off"
-            placeholder="Вставьте ключ только по рекомендации поддержки"
-          />
-          <div class="field-actions">
-            <button id="save-api-key" class="primary" type="button">Сохранить</button>
-            <button id="clear-api-key" class="secondary" type="button">Очистить</button>
-          </div>
-          <p id="api-key-status" class="hint"></p>
+          <label for="extension-locale">Язык интерфейса</label>
+          <select id="extension-locale">
+            <option value="ru">Русский</option>
+            <option value="en">English</option>
+          </select>
+          <p class="advanced-note" id="extension-locale-hint" style="margin-top: 6px">
+            Синхронизируется с сайтом при подключении; можно сменить здесь.
+          </p>
         </div>
+          <div class="field" id="quiet-notify-field">
+          <label class="notify-toggle" for="quiet-notify-enabled">
+            <input id="quiet-notify-enabled" type="checkbox" checked />
+            Тихие уведомления (Guard / Accept / Mismatch)
+          </label>
+          <p class="advanced-note" id="quiet-notify-note" style="margin-top: 6px">
+            Только при смене статуса сделки, без спама. Несколько событий → одно
+            групповое. «Скрыть на сделку» в уведомлении глушит эту сделку.
+          </p>
+          <div id="quiet-notify-muted" class="hint"></div>
+        </div>
+        <p class="advanced-note" id="permissions-title">Зачем нужны права</p>
+        <ul id="permissions-rationale" class="permissions-list"></ul>
+        <details id="support-emergency" class="support-emergency">
+          <summary id="support-emergency-summary">Поддержка · аварийный доступ</summary>
+          <div class="support-emergency-body">
+            <p class="advanced-note" id="api-key-note">
+              Не для обычной работы. Вставьте ключ только если поддержка R.I.P Market явно
+              попросила — и только на время сбоя Steam.
+            </p>
+            <div class="field">
+              <label for="steam-api-key">Запасной Steam Web API key</label>
+              <input
+                id="steam-api-key"
+                type="password"
+                autocomplete="off"
+                placeholder="Только по рекомендации поддержки"
+              />
+              <div class="field-actions">
+                <button id="save-api-key" class="primary" type="button">Сохранить</button>
+                <button id="clear-api-key" class="secondary" type="button">Очистить</button>
+              </div>
+              <p id="api-key-status" class="hint"></p>
+            </div>
+          </div>
+        </details>
       </div>
     </details>
 

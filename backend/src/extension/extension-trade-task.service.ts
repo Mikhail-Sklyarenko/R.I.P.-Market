@@ -195,6 +195,51 @@ export class ExtensionTradeTaskService {
     }));
   }
 
+  /**
+   * I4: cheap hint for extension adaptive polling (heartbeat).
+   * Does not dispatch tasks — only signals that work may be waiting.
+   */
+  async getPendingWorkHint(userId: string): Promise<{
+    hasPendingTask: boolean;
+    hasActiveDeal: boolean;
+  }> {
+    const now = new Date();
+    const [pendingTask, activeDeal] = await Promise.all([
+      this.prisma.tradeTask.findFirst({
+        where: {
+          order: {
+            sellerId: userId,
+            status: OrderStatus.WAITING_TRADE,
+          },
+          status: {
+            in: [TradeTaskStatus.CREATED, TradeTaskStatus.DISPATCHED],
+          },
+          expiresAt: { gt: now },
+        },
+        select: { id: true },
+      }),
+      this.prisma.order.findFirst({
+        where: {
+          OR: [{ sellerId: userId }, { buyerId: userId }],
+          status: {
+            in: [
+              OrderStatus.WAITING_TRADE,
+              OrderStatus.TRADE_CONFIRMED,
+              OrderStatus.SETTLEMENT_HOLD,
+              OrderStatus.DISPUTE,
+            ],
+          },
+        },
+        select: { id: true },
+      }),
+    ]);
+
+    return {
+      hasPendingTask: Boolean(pendingTask),
+      hasActiveDeal: Boolean(activeDeal),
+    };
+  }
+
   async reportTaskProgress(params: {
     taskId: string;
     phase: TradeTaskExecutionPhase;
@@ -376,12 +421,20 @@ export class ExtensionTradeTaskService {
               tradeOperationId: task.tradeOperationId,
               reasonCode: reason,
               deliveryCheck:
-                !canRetry && shouldTriggerDeliveryCheckAfterOfferFailure(reason),
+                !canRetry &&
+                (shouldTriggerDeliveryCheckAfterOfferFailure(reason) ||
+                  task.executionPhase ===
+                    TradeTaskExecutionPhase.OFFER_SUBMITTED ||
+                  task.executionPhase ===
+                    TradeTaskExecutionPhase.CONFIRM_PENDING),
               previousPhase: task.executionPhase,
             },
           },
         });
-        return { deliveryCheckOrderId: !canRetry ? task.orderId : null, reason };
+        return {
+          deliveryCheckOrderId: !canRetry ? task.orderId : null,
+          reason,
+        };
       }
 
       await tx.tradeTask.update({
@@ -603,6 +656,9 @@ export class ExtensionTradeTaskService {
           in: [
             'OFFER_SEND_FAILED',
             'INVENTORY_NOT_LOADED',
+            'INVENTORY_PRIVATE',
+            'INVENTORY_RATE_LIMITED',
+            'STEAM_COOKIE_EXPIRED',
             'STEAM_UNAVAILABLE',
             'STALE_ORDER_SUPERSEDED',
           ],
@@ -640,6 +696,14 @@ export class ExtensionTradeTaskService {
     let reopened = 0;
     for (const task of expired) {
       if (task.attemptCount >= task.maxAttempts) {
+        continue;
+      }
+      // Never blind-resend after Steam may already have created the offer.
+      if (
+        task.executionPhase === TradeTaskExecutionPhase.OFFER_SUBMITTED ||
+        task.executionPhase === TradeTaskExecutionPhase.CONFIRM_PENDING ||
+        task.executionPhase === TradeTaskExecutionPhase.OFFER_SENT
+      ) {
         continue;
       }
       await this.prisma.tradeTask.update({

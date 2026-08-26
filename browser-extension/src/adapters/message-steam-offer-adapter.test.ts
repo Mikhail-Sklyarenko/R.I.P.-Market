@@ -8,7 +8,7 @@ function createMockSteamClient(
 ): SteamCommunityClient {
   return {
     resolveSessionSteamId: vi.fn().mockResolvedValue('76561198000000000'),
-    loadInventory: vi.fn().mockResolvedValue([]),
+    loadInventory: vi.fn().mockResolvedValue({ items: [], rateLimited: false }),
     navigateToTradePage: vi.fn().mockResolvedValue(42),
     sendTradeOffer: vi.fn().mockResolvedValue({
       ok: true,
@@ -21,9 +21,17 @@ function createMockSteamClient(
 
 describe('MessageSteamOfferAdapter', () => {
   beforeEach(() => {
+    const emptyGet = vi.fn().mockResolvedValue({});
+    const emptySet = vi.fn().mockResolvedValue(undefined);
+    const emptyRemove = vi.fn().mockResolvedValue(undefined);
     vi.stubGlobal('chrome', {
       storage: {
         session: {
+          get: emptyGet,
+          set: emptySet,
+          remove: emptyRemove,
+        },
+        local: {
           get: vi.fn().mockResolvedValue({}),
           set: vi.fn().mockResolvedValue(undefined),
           remove: vi.fn().mockResolvedValue(undefined),
@@ -106,7 +114,7 @@ describe('MessageSteamOfferAdapter', () => {
     const result = await adapter.sendOffer('draft-task-1');
 
     expect(result.ok).toBe(false);
-    expect(result.ok === false && result.code).toBe(OfferErrorCode.OFFER_SEND_FAILED);
+    expect(result.ok === false && result.code).toBe(OfferErrorCode.STEAM_UNAVAILABLE);
   });
 
   it('draftOffer navigates to trade page and stores draft for resume', async () => {
@@ -146,11 +154,17 @@ describe('MessageSteamOfferAdapter', () => {
 
     const result = await adapter.sendOffer('draft-task-1');
 
-    expect(steam.sendTradeOffer).toHaveBeenCalledWith({
-      buyerTradeUrl:
-        'https://steamcommunity.com/tradeoffer/new/?partner=123&token=abc',
-      item: { assetId: 'asset-1' },
-    });
+    expect(steam.sendTradeOffer).toHaveBeenCalledWith(
+      {
+        buyerTradeUrl:
+          'https://steamcommunity.com/tradeoffer/new/?partner=123&token=abc',
+        item: { assetId: 'asset-1' },
+      },
+      expect.objectContaining({
+        onItemSelected: expect.any(Function),
+        onOfferSubmitted: expect.any(Function),
+      }),
+    );
     expect(result).toEqual({
       ok: true,
       offerId: '99887766',
@@ -183,6 +197,12 @@ describe('MessageSteamOfferAdapter', () => {
       code: OfferErrorCode.ITEM_MISSING,
       message: 'Item missing from inventory — The item is no longer in your inventory',
     });
-    expect(chrome.storage.session.remove).not.toHaveBeenCalled();
+    // Inflight marker is cleared on failure; draft stays for a safe retry.
+    expect(chrome.storage.session.remove).toHaveBeenCalledWith([
+      'rip:send-inflight:draft-task-1',
+    ]);
+    expect(chrome.storage.session.remove).not.toHaveBeenCalledWith(
+      'rip:draft:draft-task-1',
+    );
   });
 });

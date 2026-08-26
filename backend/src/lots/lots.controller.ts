@@ -10,7 +10,6 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiQuery, ApiTags } from '@nestjs/swagger';
-import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { CurrentUser } from '../common/current-user.decorator';
 import type { AuthUser } from '../common/auth-user.interface';
 import { CreateLotDto } from './dto/create-lot.dto';
@@ -19,6 +18,7 @@ import { UpdateLotPriceDto } from './dto/update-lot-price.dto';
 import { ListLotsQueryDto } from './dto/list-lots-query.dto';
 import { hasLotsListFilters } from './lots-list.util';
 import { LotsService } from './lots.service';
+import { UserOrExtensionAuthGuard } from '../extension/guards/user-or-extension-auth.guard';
 
 @ApiTags('lots')
 @Controller('lots')
@@ -26,14 +26,14 @@ export class LotsController {
   constructor(private readonly lotsService: LotsService) {}
 
   @ApiBearerAuth()
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(UserOrExtensionAuthGuard)
   @Post()
   async create(@CurrentUser() user: AuthUser, @Body() body: CreateLotDto) {
     return this.lotsService.create(user.sub, body);
   }
 
   @ApiBearerAuth()
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(UserOrExtensionAuthGuard)
   @Post('bulk')
   async createBulk(
     @CurrentUser() user: AuthUser,
@@ -64,7 +64,7 @@ export class LotsController {
   }
 
   @ApiBearerAuth()
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(UserOrExtensionAuthGuard)
   @Patch(':id/price')
   async updatePrice(
     @CurrentUser() user: AuthUser,
@@ -75,7 +75,7 @@ export class LotsController {
   }
 
   @ApiBearerAuth()
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(UserOrExtensionAuthGuard)
   @Post(':id/cancel')
   async cancel(@CurrentUser() user: AuthUser, @Param('id') lotId: string) {
     return this.lotsService.cancel(user.sub, lotId);

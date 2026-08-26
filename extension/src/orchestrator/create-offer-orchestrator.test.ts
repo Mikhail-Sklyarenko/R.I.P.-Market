@@ -110,21 +110,68 @@ describe('CreateOfferOrchestrator', () => {
     });
   });
 
+  it('fails with INVENTORY_PRIVATE when Steam inventory is hidden', async () => {
+    const reporter = new InMemoryTaskProgressReporter();
+    const orchestrator = new CreateOfferOrchestrator(
+      new MockSteamOfferAdapter('inventory_private'),
+      reporter,
+    );
+
+    await orchestrator.processTask(baseTask());
+
+    expect(reporter.reports.at(-1)).toMatchObject({
+      phase: 'OFFER_FAILED',
+      reasonCode: OfferErrorCode.INVENTORY_PRIVATE,
+    });
+  });
+
+  it('fails with INVENTORY_RATE_LIMITED on Steam 429', async () => {
+    const reporter = new InMemoryTaskProgressReporter();
+    const orchestrator = new CreateOfferOrchestrator(
+      new MockSteamOfferAdapter('inventory_rate_limited'),
+      reporter,
+    );
+
+    await orchestrator.processTask(baseTask());
+
+    expect(reporter.reports.at(-1)).toMatchObject({
+      phase: 'OFFER_FAILED',
+      reasonCode: OfferErrorCode.INVENTORY_RATE_LIMITED,
+    });
+  });
+
+  it('fails with STEAM_COOKIE_EXPIRED when seller is not logged into Steam', async () => {
+    const reporter = new InMemoryTaskProgressReporter();
+    const orchestrator = new CreateOfferOrchestrator(
+      new MockSteamOfferAdapter('steam_cookie_expired'),
+      reporter,
+    );
+
+    await orchestrator.processTask(baseTask());
+
+    expect(reporter.reports.at(-1)).toMatchObject({
+      phase: 'OFFER_FAILED',
+      reasonCode: OfferErrorCode.STEAM_COOKIE_EXPIRED,
+    });
+  });
+
   it('selects duplicate-name item by expected float', async () => {
     const reporter = new InMemoryTaskProgressReporter();
     const adapter = new MockSteamOfferAdapter('happy_path');
-    vi.spyOn(adapter, 'loadSellerInventory').mockResolvedValue([
-      {
-        assetId: 'dup-1',
-        marketHashName: 'AK-47 | Redline (Field-Tested)',
-        floatValue: '0.100000',
-      },
-      {
-        assetId: 'asset-123',
-        marketHashName: 'AK-47 | Redline (Field-Tested)',
-        floatValue: '0.254319',
-      },
-    ]);
+    vi.spyOn(adapter, 'loadSellerInventory').mockResolvedValue({
+      items: [
+        {
+          assetId: 'dup-1',
+          marketHashName: 'AK-47 | Redline (Field-Tested)',
+          floatValue: '0.100000',
+        },
+        {
+          assetId: 'asset-123',
+          marketHashName: 'AK-47 | Redline (Field-Tested)',
+          floatValue: '0.254319',
+        },
+      ],
+    });
     const orchestrator = new CreateOfferOrchestrator(adapter, reporter);
 
     await orchestrator.processTask(
@@ -144,16 +191,18 @@ describe('CreateOfferOrchestrator', () => {
   it('fails with ITEM_MISMATCH when multiple inventory items share the name', async () => {
     const reporter = new InMemoryTaskProgressReporter();
     const adapter = new MockSteamOfferAdapter('happy_path');
-    vi.spyOn(adapter, 'loadSellerInventory').mockResolvedValue([
-      {
-        assetId: 'dup-1',
-        marketHashName: 'AK-47 | Redline (Field-Tested)',
-      },
-      {
-        assetId: 'dup-2',
-        marketHashName: 'AK-47 | Redline (Field-Tested)',
-      },
-    ]);
+    vi.spyOn(adapter, 'loadSellerInventory').mockResolvedValue({
+      items: [
+        {
+          assetId: 'dup-1',
+          marketHashName: 'AK-47 | Redline (Field-Tested)',
+        },
+        {
+          assetId: 'dup-2',
+          marketHashName: 'AK-47 | Redline (Field-Tested)',
+        },
+      ],
+    });
     const orchestrator = new CreateOfferOrchestrator(adapter, reporter);
 
     await orchestrator.processTask(baseTask());

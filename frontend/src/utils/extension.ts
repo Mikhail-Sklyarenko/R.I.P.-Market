@@ -18,6 +18,9 @@ export type ExtensionPublicConfig = {
   extensionFirstTradeFlowEnabled: boolean;
   extensionUiTradeFlowEnabled: boolean;
   extensionTradeAcknowledgmentEnabled: boolean;
+  extensionInventoryLayerEnabled?: boolean;
+  extensionGuidedBuyerEnabled?: boolean;
+  extensionQuietNotificationsEnabled?: boolean;
   settlementHoldWindowEnabled: boolean;
   extensionRolloutEnabled: boolean;
   extensionRolloutStage: string;
@@ -110,6 +113,7 @@ export async function pairExtension(
       type: 'RIP_MARKET_PAIR',
       userJwt,
       apiBaseUrl,
+      locale,
     });
     if (response?.ok) {
       return { ok: true, sessionId: response.sessionId };
@@ -139,6 +143,18 @@ export async function disconnectExtension(): Promise<void> {
   await sendExtensionMessage({ type: 'RIP_MARKET_DISCONNECT' });
 }
 
+/** H1: keep extension UI language in sync with the website. */
+export async function syncExtensionLocale(locale: Locale): Promise<void> {
+  if (!isExtensionRuntimeAvailable()) {
+    return;
+  }
+  try {
+    await sendExtensionMessage({ type: 'RIP_MARKET_SET_LOCALE', locale });
+  } catch {
+    // Extension may be missing or disconnected.
+  }
+}
+
 export async function requestExtensionPoll(): Promise<void> {
   if (!isExtensionRuntimeAvailable()) {
     return;
@@ -165,6 +181,37 @@ export function formatExtensionTaskPhaseLabel(phase: string, locale: Locale = 'r
 export function formatOfferErrorHint(code: string, locale: Locale = 'ru'): string {
   const label = t(`offerErrorHint.${code}`, locale);
   return label === `offerErrorHint.${code}` ? code : label;
+}
+
+export function getOfferErrorAction(
+  code: string,
+): { href: string; labelKey: string } | null {
+  switch (code) {
+    case 'STEAM_ACCOUNT_MISMATCH':
+    case 'STEAM_COOKIE_EXPIRED':
+      return {
+        href: 'https://steamcommunity.com/login/home/',
+        labelKey: 'extensionTaskCta.openSteamLogin',
+      };
+    case 'INVENTORY_PRIVATE':
+      return {
+        href: 'https://steamcommunity.com/my/edit/settings',
+        labelKey: 'extensionTaskCta.openSteamPrivacy',
+      };
+    case 'INVENTORY_RATE_LIMITED':
+    case 'INVENTORY_NOT_LOADED':
+      return {
+        href: 'https://steamcommunity.com/my/inventory/#730_2',
+        labelKey: 'extensionTaskCta.openSteamInventory',
+      };
+    case 'SESSION_REVOKED':
+      return {
+        href: '/account',
+        labelKey: 'extensionTaskCta.openAccountRepair',
+      };
+    default:
+      return null;
+  }
 }
 
 /** @deprecated Prefer formatExtensionTaskPhaseLabel(phase, locale) */

@@ -447,6 +447,8 @@ const baseRuMessages = {
     createTicket: 'Создать тикет',
     formHint:
       'Кратко опишите, что произошло и что уже пробовали. Для сделок обязательно укажите ID.',
+    bridgePrefillHint:
+      'Отчёт расширения уже вставлен (версия, orderId, phase, error, steamMatch). Допишите, что видите на экране, и отправьте тикет.',
     loginRequiredTitle: 'Войдите, чтобы создать тикет',
     loginRequired: 'Нужен Steam-аккаунт — после входа вы вернётесь на эту страницу.',
     topicLabel: 'Тема',
@@ -454,6 +456,8 @@ const baseRuMessages = {
     dealIdLabel: 'ID сделки (необязательно)',
     dealIdPlaceholder: 'Например из «Сделки» или страницы заказа',
     dealIdHint: 'Сделки → скопировать ID на карточке или на странице сделки.',
+    offerIdLabel: 'Steam Offer ID (если есть)',
+    offerIdPlaceholder: 'Например 8301234567',
     bodyLabel: 'Описание',
     bodyPlaceholder: 'Что произошло, что ожидали, что уже пробовали…',
     attachmentHint:
@@ -815,6 +819,8 @@ const baseRuMessages = {
     compactSubtitle: 'Опционально — ускоряет отправку trade offer при продаже.',
     connect: 'Подключить расширение',
     connectSuccess: 'Расширение подключено. Сделки будут обрабатываться автоматически.',
+    nextInventory: 'Дальше (~1 мин): откройте',
+    nextInventoryLink: 'инвентарь CS2 в Steam',
     connected: 'Подключено',
     connectedUntil: 'Подключено до {{time}}',
     connecting: 'Подключаем…',
@@ -915,6 +921,11 @@ const baseRuMessages = {
     copy: 'Копировать',
     detailsExtraSummary: 'Дополнительно / если автоотправка не сработала',
     detailsManualSummary: 'Куда отправить и как указать обмен',
+    manualFallbackTitle: 'Отправьте обмен вручную — это нормально',
+    manualFallbackBody:
+      'Откройте Trade URL покупателя одним нажатием, добавьте скин из сделки, отправьте offer и вставьте ссылку сюда. Без FAQ.',
+    manualFallbackItemLabel: 'Предмет сделки:',
+    openTradeUrlPrimary: 'Открыть Trade URL покупателя',
     extensionAck: 'Ок. Осталось принять обмен в Steam.',
     extensionHintNoAck:
       'С расширением R.I.P Market на странице обмена в Steam будет проверка сделки.',
@@ -1220,16 +1231,23 @@ const baseRuMessages = {
       'Обмен подтверждён. Выплата на баланс после окна проверки (до 8 дней).',
     settlementHoldSellerBody2:
       'Сделка подтверждена. Средства будут зачислены после окончания 8-дневной проверки.',
+    settlementHoldSellerProtectBody:
+      'Защита от chargeback и возврата скина в Steam. Выплата на баланс после окна проверки (до 8 дней).',
     settlementHoldBuyerTitle: 'Проверка сделки',
     settlementHoldBuyerBody: 'Обмен прошёл. Финальный расчёт — после окна проверки.',
     settlementHoldBuyerBody2:
       'Обмен подтверждён. Выплата продавцу будет доступна после 8-дневного периода проверки.',
+    settlementHoldBuyerProtectBody:
+      'Предмет у вас. Средства продавцу станут доступны после проверки площадки / hold.',
     canceledTitle: 'Сделка отменена',
     canceledBody: 'Зарезервированные средства возвращены на кошелёк.',
     failedTitle: 'Сделка не состоялась',
     failedBody: 'Средства возвращены покупателю, лот снова в каталоге.',
     disputeTitle: 'Открыт спор',
     disputeBody: 'Команда поддержки рассмотрит ситуацию и примет решение.',
+    mismatchTitle: 'Обмен не совпадает с заказом',
+    mismatchBody:
+      'Не принимайте этот trade offer. Скин в Steam не совпал с заказом R.I.P Market — откройте поддержку, если нужно.',
     buyerCheckItemTitle: 'Проверьте предмет в Steam',
     buyerCheckItemBody:
       'Обмен мог уже пройти. Откройте инвентарь Steam — платформа сверит доставку сама.',
@@ -1239,9 +1257,19 @@ const baseRuMessages = {
     buyerAcceptTitle: 'Примите обмен в Steam',
     buyerAcceptBody:
       'Откройте входящие предложения, проверьте скин и примите обмен. Сайт обновится сам.',
+    buyerAcceptShieldTitle: 'Откройте проверенный offer — смотрите щит',
+    buyerAcceptShieldBody:
+      'Расширение подключено. Откройте этот offer в Steam, сверьте щит R.I.P и проверки скина, затем Accept кнопкой Steam.',
+    buyerAcceptPairTitle: 'Подключите расширение и примите безопасно',
+    buyerAcceptPairBody:
+      'Подключите расширение ниже — на странице Steam будет щит и сверка с заказом. Можно принять и вручную: расширение не нажимает Accept за вас.',
     tradeConfirmedTitle: 'Обмен подтверждён',
     tradeConfirmedBuyerBody: 'Платформа завершает проверку. Страница обновится автоматически.',
+    tradeConfirmedBuyerDeliveryBody:
+      'Платформа проверяет доставку (Steam offer + инвентарь). Предмет должен быть у вас — ничего делать не нужно.',
     tradeConfirmedSellerBody: 'Ожидаем выплату на ваш кошелёк.',
+    tradeConfirmedSellerDeliveryBody:
+      'Платформа проверяет доставку (Steam offer + инвентарь). Выплату откроем после подтверждения.',
     waitTitle: 'Ожидайте',
     waitBody: 'Сделка обрабатывается. Статус обновится автоматически.',
     sellerWaitBody: 'Сделка обрабатывается.',
@@ -1251,9 +1279,15 @@ const baseRuMessages = {
     sellerAwaitingAutoSendTitle: 'Ждём автоотправку',
     sellerAwaitingAutoSendBody:
       'Расширение само отправит обмен. Если Steam попросит — подтвердите в приложении на телефоне.',
+    sellerConnectExtensionTitle: 'Подключите расширение для автоотправки',
+    sellerConnectExtensionBody:
+      'Подключите расширение ниже — оно само отправит trade offer. Ручная отправка остаётся запасным путём.',
+    sellerManualSendTitle: 'Отправьте обмен вручную',
+    sellerManualSendBody:
+      'Автоотправка не сработала. Откройте Trade URL покупателя, отправьте скин и вставьте ссылку на offer ниже.',
     sellerConfirmGuardTitle: 'Подтвердите в Steam Guard',
     sellerConfirmGuardBody:
-      'Если Steam прислал запрос — подтвердите на телефоне. Дальше ждём принятия покупателем.',
+      'Откройте Steam Mobile и подтвердите отправку. Страница обновится сама — F5 не нужен.',
     sellerAwaitingBuyerTitle: 'Ждём покупателя',
     sellerAwaitingBuyerBody:
       'Обмен ушёл. Покупатель должен принять его во входящих предложениях Steam.',
@@ -1275,6 +1309,43 @@ const baseRuMessages = {
       title: 'Возврат при сбое',
       description: 'Если обмен не состоялся — hold снимается, деньги возвращаются.',
     },
+  },
+  dealFlowStepExtension: {
+    'trade-offer': {
+      title: 'Автоотправка через расширение',
+      description:
+        'После оплаты расширение продавца само отправит trade offer — обычно без копирования Trade URL.',
+    },
+    accept: {
+      title: 'Безопасный accept со щитом',
+      description:
+        'Откройте проверенный offer. Расширение покажет щит и сверку скина — Accept только кнопкой Steam.',
+    },
+  },
+  extensionAwareBuy: {
+    connectedTitle: 'Расширение готово к безопасному accept',
+    connectedBody:
+      'После покупки откройте offer со страницы сделки — в Steam будет щит R.I.P до Accept.',
+    pairTitle: 'Подключите расширение для более безопасного accept',
+    pairBody:
+      'Необязательно: подключите сейчас, чтобы страница Steam сверила скин с заказом. Покупка работает и без этого.',
+    installTitle: 'Установите расширение для более безопасного accept',
+    installBody:
+      'Опциональный Chrome add-on: щит и проверки на странице Steam offer. Купить можно и без него.',
+  },
+  extensionAwareSell: {
+    connectedTitle: 'Расширение готово к автоотправке',
+    connectedBody:
+      'Когда купят — расширение само отправит trade offer. Подтвердите в Steam Guard, если Steam попросит.',
+    pairTitle: 'Подключите расширение для автоотправки',
+    pairBody:
+      'Подключите один раз — после покупки offer уйдёт без копирования Trade URL. Ручная отправка остаётся fallback.',
+    installTitle: 'Установите расширение для автоотправки',
+    installBody:
+      'Выставляйте лоты здесь как обычно. С Chrome-расширением сделки уходят из Steam сами, когда покупатель платит.',
+  },
+  extensionAwareCommerce: {
+    accountLink: 'Открыть аккаунт, чтобы подключить расширение',
   },
   buyRequestFlowStep: {
     request: {

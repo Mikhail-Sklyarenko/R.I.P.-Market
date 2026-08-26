@@ -101,6 +101,18 @@ describe('decideDeliveryVerification', () => {
     expect(decision.reason).toBe('INVENTORY_CONFIRMED_OFFER_UNKNOWN');
   });
 
+  it('waits when offer still needs Steam Guard confirmation', () => {
+    const decision = decideDeliveryVerification(
+      baseSignals({
+        offerStatus: 'needs_confirmation',
+        inventoryDelta: 'pending',
+      }),
+    );
+    expect(decision.action).toBe('WAIT');
+    expect(decision.reason).toBe('OFFER_NEEDS_CONFIRMATION');
+    expect(decision.reasonCode).toBe('AWAITING_SELLER_STEAM_GUARD');
+  });
+
   it('backs off on rate limit without transition', () => {
     const decision = decideDeliveryVerification(
       baseSignals({ rateLimited: true }),

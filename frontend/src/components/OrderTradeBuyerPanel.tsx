@@ -1,18 +1,27 @@
 import type { Order } from '../api/types';
 import { useLocale } from '../i18n';
 import { TradeCounterpartyCard } from './TradeCounterpartyCard';
+import { BuyerAcceptWizard } from './BuyerAcceptWizard';
 import {
   getBuyerTradeSafetyChecklist,
   isOrderTradeDeliveryCheck,
   STEAM_INCOMING_OFFERS_URL,
 } from '../utils/order-trade';
+import {
+  buildSteamTradeOfferUrl,
+  resolveBuyerScenarioAck,
+} from '../utils/buyer-accept-wizard';
 
 type OrderTradeBuyerPanelProps = {
   order: Order;
   checkingDelivery?: boolean;
   acknowledging?: boolean;
   ackEnabled?: boolean;
+  /** I5: guided buyer wizard; unset/true = show when other conditions met. */
+  guidedBuyerEnabled?: boolean;
   extensionMode?: boolean;
+  extensionConnected?: boolean;
+  remainingMinutes?: number | null;
   nextActionTitle?: string;
   nextActionDescription?: string;
   onCheckDelivery?: () => void;
@@ -25,7 +34,10 @@ export function OrderTradeBuyerPanel({
   checkingDelivery = false,
   acknowledging = false,
   ackEnabled = false,
+  guidedBuyerEnabled = true,
   extensionMode = false,
+  extensionConnected = false,
+  remainingMinutes = null,
   nextActionTitle,
   nextActionDescription,
   onCheckDelivery,
@@ -34,6 +46,9 @@ export function OrderTradeBuyerPanel({
 }: OrderTradeBuyerPanelProps) {
   const { t, locale } = useLocale();
   const hasOfferSaved = Boolean(order.tradeOperation?.externalOfferId);
+  const steamOfferUrl = buildSteamTradeOfferUrl(
+    order.tradeOperation?.externalOfferId,
+  );
   const acks = order.tradeAcknowledgments;
   const isDeliveryCheck = isOrderTradeDeliveryCheck(order);
   const extensionTaskActive =
@@ -41,28 +56,31 @@ export function OrderTradeBuyerPanel({
     order.tradeTask &&
     order.tradeTask.status !== 'EXPIRED' &&
     order.tradeTask.status !== 'FAILED';
-
-  const showPreAccept =
-    ackEnabled &&
-    order.status === 'WAITING_TRADE' &&
+  const showAcceptWizard =
+    guidedBuyerEnabled &&
     hasOfferSaved &&
-    !acks?.buyerPreAccept &&
-    !acks?.buyerReceived &&
     !isDeliveryCheck &&
-    Boolean(onAcknowledgePreAccept);
+    order.status === 'WAITING_TRADE';
 
-  const showConfirmReceived =
-    ackEnabled &&
-    hasOfferSaved &&
-    !acks?.buyerReceived &&
-    Boolean(onAcknowledgeReceived) &&
-    (Boolean(acks?.buyerPreAccept) ||
-      isDeliveryCheck ||
-      order.status === 'TRADE_CONFIRMED' ||
-      order.status === 'SETTLEMENT_HOLD');
+  const scenarioAck = resolveBuyerScenarioAck({
+    order,
+    ackEnabled,
+    blockedByMismatch: order.tradeVerification?.status === 'mismatch',
+  });
 
-  const showSteamCta = hasOfferSaved || isDeliveryCheck;
+  // Delivery-check path: received ack is primary here (wizard hidden).
+  const showDeliveryReceivedAck =
+    isDeliveryCheck &&
+    scenarioAck.showReceived &&
+    Boolean(onAcknowledgeReceived);
+
+  const showSteamCta = (hasOfferSaved || isDeliveryCheck) && !showAcceptWizard;
   const showAwaitingSeller = !hasOfferSaved;
+  const steamCtaHref =
+    steamOfferUrl && hasOfferSaved ? steamOfferUrl : STEAM_INCOMING_OFFERS_URL;
+  const steamCtaLabel = steamOfferUrl
+    ? t('orderTradePanel.openVerifiedOffer')
+    : t('orderTradePanel.openIncomingOffers');
 
   return (
     <div className="card order-trade-panel" data-testid="buyer-trade-panel">
@@ -81,7 +99,7 @@ export function OrderTradeBuyerPanel({
         <TradeCounterpartyCard
           party={order.seller}
           role="seller"
-          showScamWarning={showSteamCta || showAwaitingSeller}
+          showScamWarning={showSteamCta || showAwaitingSeller || showAcceptWizard}
         />
       ) : null}
 
@@ -111,19 +129,49 @@ export function OrderTradeBuyerPanel({
         </p>
       ) : null}
 
+      {showAcceptWizard ? (
+        <BuyerAcceptWizard
+          order={order}
+          extensionConnected={extensionConnected}
+          ackEnabled={ackEnabled}
+          acknowledging={acknowledging}
+          remainingMinutes={remainingMinutes}
+          onAcknowledgePreAccept={onAcknowledgePreAccept}
+          onAcknowledgeReceived={onAcknowledgeReceived}
+        />
+      ) : null}
+
       {showSteamCta ? (
         <a
           className="button primary"
-          href={STEAM_INCOMING_OFFERS_URL}
+          href={steamCtaHref}
           target="_blank"
           rel="noreferrer"
           data-testid="buyer-steam-offers-link"
         >
-          {t('orderTradePanel.openIncomingOffers')}
+          {steamCtaLabel}
         </a>
       ) : null}
 
-      {hasOfferSaved && !isDeliveryCheck ? (
+      {showDeliveryReceivedAck ? (
+        <div className="buyer-accept-ack" data-testid="buyer-ack-received-cta">
+          <strong>{t('buyerAcceptWizard.receivedTitle')}</strong>
+          <p className="muted small">{t('buyerAcceptWizard.receivedBody')}</p>
+          <button
+            type="button"
+            className="button primary"
+            disabled={acknowledging}
+            data-testid="buyer-ack-received"
+            onClick={onAcknowledgeReceived}
+          >
+            {acknowledging
+              ? t('orderTradePanel.saving')
+              : t('buyerAcceptWizard.receivedCta')}
+          </button>
+        </div>
+      ) : null}
+
+      {hasOfferSaved && !isDeliveryCheck && !showAcceptWizard ? (
         <details className="order-trade-details" data-testid="buyer-trade-checklist">
           <summary>{t('orderTradePanel.checklistSummary')}</summary>
           <ul className="order-trade-checklist">
@@ -134,59 +182,7 @@ export function OrderTradeBuyerPanel({
         </details>
       ) : null}
 
-      {(showPreAccept || showConfirmReceived) && !isDeliveryCheck ? (
-        <details className="order-trade-details" data-testid="buyer-ack-details">
-          <summary>{t('orderTradePanel.ackNotUpdatedSummary')}</summary>
-          <p className="muted small">{t('orderTradePanel.ackHint')}</p>
-          {showPreAccept ? (
-            <div className="extension-seller-cta" data-testid="buyer-ack-preaccept-cta">
-              <button
-                type="button"
-                className="button secondary sm"
-                disabled={acknowledging}
-                data-testid="buyer-ack-preaccept"
-                onClick={onAcknowledgePreAccept}
-              >
-                {acknowledging ? t('orderTradePanel.saving') : t('orderTradePanel.seePreAccept')}
-              </button>
-            </div>
-          ) : null}
-          {showConfirmReceived ? (
-            <div className="extension-seller-cta" data-testid="buyer-ack-received-cta">
-              <button
-                type="button"
-                className="button secondary sm"
-                disabled={acknowledging}
-                data-testid="buyer-ack-received"
-                onClick={onAcknowledgeReceived}
-              >
-                {acknowledging
-                  ? t('orderTradePanel.saving')
-                  : t('orderTradePanel.itemAlreadyReceived')}
-              </button>
-            </div>
-          ) : null}
-        </details>
-      ) : null}
-
-      {isDeliveryCheck && showConfirmReceived ? (
-        <details className="order-trade-details" data-testid="buyer-ack-details">
-          <summary>{t('orderTradePanel.speedUpCheckSummary')}</summary>
-          <button
-            type="button"
-            className="button secondary sm"
-            disabled={acknowledging}
-            data-testid="buyer-ack-received"
-            onClick={onAcknowledgeReceived}
-          >
-            {acknowledging
-              ? t('orderTradePanel.saving')
-              : t('orderTradePanel.itemAlreadyReceived')}
-          </button>
-        </details>
-      ) : null}
-
-      {acks?.buyerReceived ? (
+      {!showAcceptWizard && acks?.buyerReceived ? (
         order.status === 'WAITING_TRADE' ? (
           <p className="alert alert-warning" data-testid="buyer-received-ack-pending-steam">
             {t('orderTradePanel.receivedAckPendingSteam')}
@@ -196,11 +192,17 @@ export function OrderTradeBuyerPanel({
             {t('orderTradePanel.receivedAck')}
           </p>
         )
-      ) : acks?.buyerPreAccept ? (
+      ) : null}
+
+      {!showAcceptWizard &&
+      !acks?.buyerReceived &&
+      acks?.buyerPreAccept ? (
         <p className="alert alert-success" data-testid="buyer-extension-ack">
           {t('orderTradePanel.extensionAck')}
         </p>
-      ) : extensionMode && !ackEnabled ? (
+      ) : null}
+
+      {!showAcceptWizard && extensionMode && !ackEnabled ? (
         <p className="muted small" data-testid="buyer-extension-hint">
           {t('orderTradePanel.extensionHintNoAck')}
         </p>

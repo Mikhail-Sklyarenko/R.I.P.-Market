@@ -5,7 +5,7 @@ import {
   Logger,
   NotFoundException,
 } from '@nestjs/common';
-import { InventoryAssetStatus, LotStatus } from '@prisma/client';
+import { InventoryAssetStatus, LotStatus, BuyRequestStatus } from '@prisma/client';
 import { AppException } from '../common/errors/app.exception';
 import { ErrorCode } from '../common/errors/error-codes';
 import { toJsonSafe } from '../common/json-safe.util';
@@ -17,12 +17,22 @@ import type {
   SyncResult,
 } from '../providers/inventory/inventory-provider.interface';
 import { getProvidersConfig } from '../providers/config';
+import { resolveSuggestedListPrice } from './suggested-list-price.util';
 
 export type InventoryPriceHint = {
   steamPriceMinor: number | null;
   buffPriceMinor: number | null;
   csfloatPriceMinor: number | null;
   minMarketplacePriceMinor: string | null;
+  /** Best open buy-request (bid) for this market hash name, if any. */
+  bestBidMinor: string | null;
+  /** Remaining quantity at the best bid price. */
+  bestBidQuantity: number | null;
+  /** I2: suggested list price (bid ?? Steam −5%). */
+  suggestedListMinor: number | null;
+  suggestedListSource: 'bid' | 'steam_discount' | null;
+  commissionMinor: number | null;
+  sellerReceiveMinor: number | null;
 };
 
 export type InventoryListResult = {
@@ -403,14 +413,26 @@ export class InventoryService {
     );
 
     const marketplacePrices = await this.loadMinMarketplacePrices(uniqueNames);
+    const bestBids = await this.loadBestBids(uniqueNames);
 
     const hints: Record<string, InventoryPriceHint> = {};
     for (const name of uniqueNames) {
-      hints[name] = {
+      const bid = bestBids.get(name);
+      const base = {
         steamPriceMinor: steamPrices[name]?.priceMinor ?? null,
         buffPriceMinor: null,
         csfloatPriceMinor: null,
         minMarketplacePriceMinor: marketplacePrices.get(name) ?? null,
+        bestBidMinor: bid?.priceMinor ?? null,
+        bestBidQuantity: bid?.quantity ?? null,
+      };
+      const suggested = resolveSuggestedListPrice(base);
+      hints[name] = {
+        ...base,
+        suggestedListMinor: suggested.suggestedListMinor,
+        suggestedListSource: suggested.suggestedListSource,
+        commissionMinor: suggested.commissionMinor,
+        sellerReceiveMinor: suggested.sellerReceiveMinor,
       };
     }
 
@@ -429,6 +451,117 @@ export class InventoryService {
         stillMissing.length > 0 && this.steamMarketPrice.isEnabled()
           ? stillMissing
           : [],
+    });
+  }
+
+  /**
+   * I2: batch suggested list prices for the Steam inventory overlay.
+   * Accepts marketHashName and/or steamAssetId (platform assetExternalId).
+   */
+  async getExtensionSuggestedPrices(
+    userId: string,
+    items: Array<{ marketHashName?: string; steamAssetId?: string }>,
+    options: PriceHintFetchOptions = {},
+  ) {
+    const normalized = items.map((item) => ({
+      marketHashName: item.marketHashName?.trim() || null,
+      steamAssetId: item.steamAssetId?.trim() || null,
+    }));
+
+    const steamAssetIds = [
+      ...new Set(
+        normalized
+          .map((item) => item.steamAssetId)
+          .filter((id): id is string => Boolean(id)),
+      ),
+    ];
+
+    const assets =
+      steamAssetIds.length > 0
+        ? await this.prisma.inventoryAsset.findMany({
+            where: {
+              ownerId: userId,
+              assetExternalId: { in: steamAssetIds },
+            },
+            select: {
+              id: true,
+              assetExternalId: true,
+              itemDefinition: { select: { marketHashName: true } },
+              lot: {
+                select: { status: true, priceMinor: true },
+              },
+            },
+          })
+        : [];
+
+    const assetBySteamId = new Map(
+      assets.map((asset) => [asset.assetExternalId, asset]),
+    );
+
+    const names = [
+      ...new Set(
+        normalized
+          .map((item) => {
+            if (item.marketHashName) {
+              return item.marketHashName;
+            }
+            if (!item.steamAssetId) {
+              return null;
+            }
+            return (
+              assetBySteamId.get(item.steamAssetId)?.itemDefinition
+                .marketHashName ?? null
+            );
+          })
+          .filter((name): name is string => Boolean(name)),
+      ),
+    ];
+
+    const hintsPayload =
+      names.length > 0
+        ? await this.getPriceHints(names, options)
+        : {
+            hints: {} as Record<string, InventoryPriceHint>,
+            steamPriceFetchedAt: null as string | null,
+            steamPriceMissing: [] as string[],
+          };
+
+    const results = normalized.map((item) => {
+      const asset = item.steamAssetId
+        ? assetBySteamId.get(item.steamAssetId)
+        : undefined;
+      const marketHashName =
+        item.marketHashName ??
+        asset?.itemDefinition.marketHashName ??
+        null;
+      const hint = marketHashName
+        ? (hintsPayload.hints[marketHashName] as InventoryPriceHint | undefined)
+        : undefined;
+      const listedPriceMinor =
+        asset?.lot?.status === LotStatus.ACTIVE
+          ? asset.lot.priceMinor.toString()
+          : null;
+
+      return {
+        marketHashName,
+        steamAssetId: item.steamAssetId,
+        inventoryAssetId: asset?.id ?? null,
+        listedPriceMinor,
+        steamGuideMinor: hint?.steamPriceMinor ?? null,
+        ripMinAskMinor: hint?.minMarketplacePriceMinor ?? null,
+        bestBidMinor: hint?.bestBidMinor ?? null,
+        bestBidQuantity: hint?.bestBidQuantity ?? null,
+        suggestedListMinor: hint?.suggestedListMinor ?? null,
+        suggestedListSource: hint?.suggestedListSource ?? null,
+        commissionMinor: hint?.commissionMinor ?? null,
+        sellerReceiveMinor: hint?.sellerReceiveMinor ?? null,
+      };
+    });
+
+    return toJsonSafe({
+      results,
+      steamPriceFetchedAt: hintsPayload.steamPriceFetchedAt ?? null,
+      steamPriceMissing: hintsPayload.steamPriceMissing ?? [],
     });
   }
 
@@ -471,6 +604,68 @@ export class InventoryService {
       [...map.entries()].map(([name, priceMinor]) => [
         name,
         priceMinor.toString(),
+      ]),
+    );
+  }
+
+  /**
+   * Best open buy-request bid per market hash name.
+   * Notify-match only today — not an auto-fill / instant settlement.
+   */
+  private async loadBestBids(
+    marketHashNames: string[],
+  ): Promise<Map<string, { priceMinor: string; quantity: number }>> {
+    if (marketHashNames.length === 0) {
+      return new Map();
+    }
+
+    const requests = await this.prisma.buyRequest.findMany({
+      where: {
+        status: BuyRequestStatus.OPEN,
+        maxPriceMinor: { not: null },
+        itemDefinition: {
+          marketHashName: { in: marketHashNames },
+        },
+      },
+      select: {
+        maxPriceMinor: true,
+        quantity: true,
+        quantityFilled: true,
+        itemDefinition: { select: { marketHashName: true } },
+      },
+    });
+
+    const bestByName = new Map<string, { priceMinor: bigint; quantity: number }>();
+
+    for (const request of requests) {
+      if (request.maxPriceMinor == null || request.maxPriceMinor <= 0n) {
+        continue;
+      }
+      const remaining = request.quantity - request.quantityFilled;
+      if (remaining <= 0) {
+        continue;
+      }
+      const name = request.itemDefinition.marketHashName;
+      const current = bestByName.get(name);
+      if (!current || request.maxPriceMinor > current.priceMinor) {
+        bestByName.set(name, {
+          priceMinor: request.maxPriceMinor,
+          quantity: remaining,
+        });
+        continue;
+      }
+      if (request.maxPriceMinor === current.priceMinor) {
+        current.quantity += remaining;
+      }
+    }
+
+    return new Map(
+      [...bestByName.entries()].map(([name, entry]) => [
+        name,
+        {
+          priceMinor: entry.priceMinor.toString(),
+          quantity: entry.quantity,
+        },
       ]),
     );
   }

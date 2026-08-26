@@ -7,6 +7,7 @@ import {
 import {
   emptyInventoryLoadResult,
   type InventoryLoadResult,
+  isPrivateInventoryError,
   isRateLimitedError,
 } from './inventory-load-result.js';
 import { fetchWithRetry } from './steam-fetch-retry.js';
@@ -33,14 +34,20 @@ export async function loadCs2InventoryFromCookies(
   try {
     if (!(await hasSteamBrowserSession())) {
       console.warn('[rip-market] cookie inventory: no steam session');
-      return emptyInventoryLoadResult();
+      return emptyInventoryLoadResult(
+        'not_logged_in',
+        'Seller is not logged into Steam in this browser',
+      );
     }
 
     const loggedInSteamId = await resolveLoggedInSteamId();
     const steamId = preferredSteamId ?? loggedInSteamId;
     if (!steamId) {
       console.warn('[rip-market] cookie inventory: steam id not found');
-      return emptyInventoryLoadResult();
+      return emptyInventoryLoadResult(
+        'not_logged_in',
+        'Steam session cookie present but Steam ID could not be resolved',
+      );
     }
 
     const items = await fetchAllInventoryPages(async (startAssetId) => {
@@ -57,16 +64,28 @@ export async function loadCs2InventoryFromCookies(
       return body;
     });
 
-    return { items, rateLimited: false };
+    return { items, rateLimited: false, failReason: null };
   } catch (error) {
     console.warn(
       '[rip-market] cookie inventory failed',
       error instanceof Error ? error.message : error,
     );
-    return {
-      items: [],
-      rateLimited: isRateLimitedError(error),
-    };
+    if (isRateLimitedError(error)) {
+      return emptyInventoryLoadResult(
+        'rate_limited',
+        error instanceof Error ? error.message : 'Inventory HTTP 429',
+      );
+    }
+    if (isPrivateInventoryError(error)) {
+      return emptyInventoryLoadResult(
+        'private',
+        error instanceof Error ? error.message : 'Steam inventory is private',
+      );
+    }
+    return emptyInventoryLoadResult(
+      'unknown',
+      error instanceof Error ? error.message : 'Inventory load failed',
+    );
   }
 }
 

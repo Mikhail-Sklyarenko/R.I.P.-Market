@@ -125,6 +125,14 @@ export function UserMenu() {
           {isAdmin ? (
             <>
               <Link
+                to="/admin/extension"
+                className="user-menu-item"
+                data-testid="user-menu-admin-extension"
+                onClick={() => setOpen(false)}
+              >
+                Extension Ops
+              </Link>
+              <Link
                 to="/admin/orders"
                 className="user-menu-item"
                 data-testid="user-menu-admin"

@@ -5,7 +5,10 @@ type TradeOfferDraft = {
     classId?: string;
     instanceId?: string;
     marketHashName?: string;
+    floatValue?: string | null;
   };
+  /** Optional trade offer message shown in Steam. */
+  note?: string;
 };
 
 type SendOfferPageResult =

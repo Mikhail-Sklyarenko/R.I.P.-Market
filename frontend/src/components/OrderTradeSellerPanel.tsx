@@ -1,13 +1,14 @@
 import { useState } from 'react';
 import type { Order } from '../api/types';
 import { useLocale } from '../i18n';
-import { ExtensionTaskProgress } from './ExtensionTaskProgress';
-import { ItemPreview } from './ItemPreview';
+import { isSellerManualFallbackNeeded } from '../utils/manual-fallback';
 import {
   formatTradePollStatus,
   getSellerTradeInstructions,
   isOrderTradeDeliveryCheck,
 } from '../utils/order-trade';
+import { ExtensionTaskProgress } from './ExtensionTaskProgress';
+import { ItemPreview } from './ItemPreview';
 
 type OrderTradeSellerPanelProps = {
   order: Order;
@@ -50,8 +51,11 @@ export function OrderTradeSellerPanel({
   const pollStatus = formatTradePollStatus(order.tradeOperation, locale);
   const hasOfferSaved = Boolean(order.tradeOperation?.externalOfferId);
   const tradeTask = order.tradeTask;
-  const isConfirmPending = tradeTask?.executionPhase === 'CONFIRM_PENDING';
+  const isConfirmPending =
+    tradeTask?.executionPhase === 'CONFIRM_PENDING' ||
+    Boolean(tradeTask?.confirmPending);
   const isDeliveryCheck = isOrderTradeDeliveryCheck(order);
+  const needsManualFallback = isSellerManualFallbackNeeded(order);
   const sellerAckSent = Boolean(order.tradeAcknowledgments?.sellerAckSent);
   const showSellerAck =
     ackEnabled &&
@@ -59,14 +63,17 @@ export function OrderTradeSellerPanel({
     hasOfferSaved &&
     !sellerAckSent &&
     !isDeliveryCheck &&
+    !isConfirmPending &&
     Boolean(onAcknowledgeSent);
   const extensionHandling =
     extensionMode &&
     tradeTask &&
     tradeTask.status !== 'EXPIRED' &&
     tradeTask.status !== 'FAILED' &&
-    tradeTask.executionPhase !== 'OFFER_FAILED';
+    tradeTask.executionPhase !== 'OFFER_FAILED' &&
+    !needsManualFallback;
   const showManualForm = (!extensionHandling || !hasOfferSaved) && !isDeliveryCheck;
+  const showPrimaryManual = needsManualFallback && showManualForm && !hasOfferSaved;
   const itemMarketHashName =
     order.lot.inventoryAsset.itemDefinition.marketHashName ?? null;
 
@@ -96,6 +103,7 @@ export function OrderTradeSellerPanel({
         <div className="extension-seller-cta" data-testid="seller-extension-guard-cta">
           <strong>{t('orderTradePanel.confirmGuardTitle')}</strong>
           <p className="muted small">{t('orderTradePanel.confirmGuardBody')}</p>
+          <p className="muted small">{t('orderTradePanel.confirmGuardAutoHint')}</p>
         </div>
       ) : null}
 
@@ -126,7 +134,7 @@ export function OrderTradeSellerPanel({
       {extensionMode ? (
         <ExtensionTaskProgress
           tradeTask={order.tradeTask}
-          manualFallbackVisible={showManualForm}
+          manualFallbackVisible={showManualForm && !showPrimaryManual}
           itemMarketHashName={itemMarketHashName}
         />
       ) : (
@@ -142,7 +150,86 @@ export function OrderTradeSellerPanel({
         showAttrs
       />
 
-      {(showSellerAck || showManualForm || buyerTradeUrl) && !isDeliveryCheck ? (
+      {showPrimaryManual ? (
+        <div
+          className="seller-manual-fallback"
+          data-testid="seller-manual-fallback"
+        >
+          <strong>{t('orderTradePanel.manualFallbackTitle')}</strong>
+          <p className="muted small">{t('orderTradePanel.manualFallbackBody')}</p>
+          {itemMarketHashName ? (
+            <p className="muted small" data-testid="seller-manual-item">
+              {t('orderTradePanel.manualFallbackItemLabel')}{' '}
+              <strong>{itemMarketHashName}</strong>
+            </p>
+          ) : null}
+
+          <div className="order-trade-destination">
+            <h4 className="order-trade-subtitle">{t('orderTradePanel.buyerTradeUrlTitle')}</h4>
+            {buyerTradeUrl ? (
+              <div className="order-trade-url-row" data-testid="seller-buyer-trade-url">
+                <code className="order-trade-url-value">{buyerTradeUrl}</code>
+                <div className="order-trade-url-actions">
+                  <a
+                    className="button primary sm"
+                    href={buyerTradeUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    data-testid="seller-open-buyer-trade-url"
+                  >
+                    {t('orderTradePanel.openTradeUrlPrimary')}
+                  </a>
+                  <button
+                    type="button"
+                    className="button secondary sm"
+                    onClick={() => void handleCopyBuyerTradeUrl()}
+                    data-testid="seller-copy-buyer-trade-url"
+                  >
+                    {copied ? t('orderTradePanel.copied') : t('orderTradePanel.copy')}
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <p className="alert alert-warning" data-testid="seller-buyer-trade-url-missing">
+                {t('orderTradePanel.buyerTradeUrlMissing')}
+              </p>
+            )}
+          </div>
+
+          <div data-testid="seller-trade-instructions">
+            <h4 className="order-trade-subtitle">{t('orderTradePanel.instructionsTitle')}</h4>
+            <ol className="order-trade-steps">
+              {getSellerTradeInstructions(locale).map((step) => (
+                <li key={step}>{step}</li>
+              ))}
+            </ol>
+          </div>
+
+          <label className="field">
+            <span className="field-label">{t('orderTradePanel.tradeOfferInputLabel')}</span>
+            <input
+              type="text"
+              value={offerInput}
+              onChange={(event) => onOfferInputChange(event.target.value)}
+              placeholder="https://steamcommunity.com/tradeoffer/…"
+              data-testid="trade-offer-input"
+            />
+          </label>
+          <button
+            type="button"
+            className="button primary"
+            disabled={savingOffer || !offerInput.trim()}
+            data-testid="save-trade-offer"
+            onClick={onSaveTradeReference}
+          >
+            {savingOffer ? t('orderTradePanel.savingTrade') : t('orderTradePanel.saveOffer')}
+          </button>
+        </div>
+      ) : null}
+
+      {!showPrimaryManual &&
+      (showSellerAck || showManualForm || buyerTradeUrl) &&
+      !isDeliveryCheck ? (
         <details
           className="order-trade-details"
           data-testid="seller-trade-details"

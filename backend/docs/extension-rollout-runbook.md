@@ -19,6 +19,13 @@ Staged production rollout for extension-first trade flow with **< 10 minute roll
 | `ENABLE_SETTLEMENT_HOLD_WINDOW` | Settlement | off | 8-day hold after trade confirm |
 | `ENABLE_EXTENSION_DISPUTE_BRIDGE` | Disputes | off | Auto-dispute from extension errors |
 | `ENABLE_EXTENSION_FLOW_OBSERVABILITY` | Ops | off | Metrics, alerts, anti-fraud |
+| `ENABLE_EXTENSION_INVENTORY_LAYER` | Client UX (I5) | **on** (unset) | Steam inventory overlays; set `false` to kill |
+| `ENABLE_EXTENSION_GUIDED_BUYER` | Client UX (I5) | **on** (unset) | Buyer wizard + Steam accept-assist |
+| `ENABLE_EXTENSION_QUIET_NOTIFICATIONS` | Client UX (I5) | **on** (unset) | Quiet Chrome notifications |
+
+**I5 kill order (independent, no re-pair):** guided buyer → quiet notifications → inventory layer last (Steam DOM risk). Flags are published on `GET /auth/config` and re-synced on extension heartbeat.
+
+**Ops habit:** after enabling observability, open **Admin → Extension Ops** (`/admin/extension`) on every incident and after each rollout step. Green/red KPI gates + fail-reason table replace “grep logs first”.
 
 ### Rollout env (M10)
 

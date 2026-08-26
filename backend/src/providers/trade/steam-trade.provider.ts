@@ -25,8 +25,10 @@ type SteamTradeOfferResponse = {
 };
 
 const STATE_MAP: Record<number, TradeVerificationResult['status']> = {
+  // Active — Guard already confirmed (or never required).
   2: 'pending',
-  9: 'pending',
+  // CreatedNeedsConfirmation — seller must confirm in Steam Mobile.
+  9: 'needs_confirmation',
   // 11 = In Escrow: buyer accepted; item may already be in buyer inventory.
   11: 'accepted',
   3: 'accepted',

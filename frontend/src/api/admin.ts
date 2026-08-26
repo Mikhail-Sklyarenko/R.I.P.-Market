@@ -14,6 +14,7 @@ import type {
   CatalogPriceRefreshStatus,
   SettlementAllowlistEntry,
   SettlementAllowlistResponse,
+  ExtensionFlowMetricsResponse,
 } from './types';
 import type { Order } from './types';
 
@@ -300,5 +301,11 @@ export function replyAdminSupportTicket(
     method: 'PATCH',
     token,
     body: { adminReply },
+  });
+}
+
+export function getExtensionFlowMetrics(token: string) {
+  return apiRequest<ExtensionFlowMetricsResponse>('/admin/metrics/extension-flow', {
+    token,
   });
 }

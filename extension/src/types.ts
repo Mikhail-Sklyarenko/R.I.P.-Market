@@ -56,6 +56,8 @@ export type DraftOfferInput = {
   buyerTradeUrl: string;
   item: SteamInventoryItem;
   taskId?: string;
+  /** Optional Steam trade offer message (manual create / branded note). */
+  note?: string;
 };
 
 export type DraftOfferResult =

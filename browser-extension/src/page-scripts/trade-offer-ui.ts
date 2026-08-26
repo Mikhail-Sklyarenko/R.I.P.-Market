@@ -60,6 +60,10 @@ type WindowWithSteam = Window &
     ConfirmTradeOffer?: () => void;
     __ripMarketTradeOffer?: {
       runAutofillFlow: (draft: TradeOfferDraftPayload) => Promise<TradeOfferSendResult>;
+      prepareAndSelectItem: (
+        draft: TradeOfferDraftPayload,
+      ) => Promise<{ ok: true } | { ok: false; error: string }>;
+      submitAndWaitForSend: () => Promise<TradeOfferSendResult>;
     };
   };
 
@@ -325,9 +329,9 @@ export function installSendInterceptor(timeoutMs = 30_000): Promise<SteamSendRes
   });
 }
 
-export async function runAutofillFlow(
+export async function prepareAndSelectItem(
   draft: TradeOfferDraftPayload,
-): Promise<TradeOfferSendResult> {
+): Promise<{ ok: true } | { ok: false; error: string }> {
   if (!window.location.pathname.includes('/tradeoffer/new')) {
     return { ok: false, error: 'Not on Steam trade offer page' };
   }
@@ -336,7 +340,17 @@ export async function runAutofillFlow(
     await waitForTradePageReady(30_000, draft.item.assetId);
     await selectItemForTradeWithRetry(draft.item.assetId);
     setTradeNote(draft.note?.trim() || DEFAULT_TRADE_NOTE);
+    return { ok: true };
+  } catch (error) {
+    return {
+      ok: false,
+      error: error instanceof Error ? error.message : 'Trade offer prepare failed',
+    };
+  }
+}
 
+export async function submitAndWaitForSend(): Promise<TradeOfferSendResult> {
+  try {
     const interceptor = installSendInterceptor();
     submitTradeOffer();
     const steamResponse = await interceptor;
@@ -347,6 +361,16 @@ export async function runAutofillFlow(
       error: error instanceof Error ? error.message : 'Trade offer send failed',
     };
   }
+}
+
+export async function runAutofillFlow(
+  draft: TradeOfferDraftPayload,
+): Promise<TradeOfferSendResult> {
+  const prepared = await prepareAndSelectItem(draft);
+  if (!prepared.ok) {
+    return prepared;
+  }
+  return submitAndWaitForSend();
 }
 
 function postPageResponse(requestId: string, result: TradeOfferSendResult): void {
@@ -381,8 +405,14 @@ function handleBridgeMessage(event: MessageEvent): void {
 }
 
 function bootstrapPageScript(): void {
+  const api = {
+    runAutofillFlow,
+    prepareAndSelectItem,
+    submitAndWaitForSend,
+  };
+
   if (document.getElementById(PAGE_SCRIPT_ID)) {
-    getSteamWindow().__ripMarketTradeOffer = { runAutofillFlow };
+    getSteamWindow().__ripMarketTradeOffer = api;
     return;
   }
 
@@ -391,7 +421,7 @@ function bootstrapPageScript(): void {
   marker.setAttribute('data-rip-market', 'trade-offer-ui');
   document.documentElement.appendChild(marker);
 
-  getSteamWindow().__ripMarketTradeOffer = { runAutofillFlow };
+  getSteamWindow().__ripMarketTradeOffer = api;
   document.documentElement.setAttribute('data-rip-market-trade-offer-ui', 'ready');
   window.addEventListener('message', handleBridgeMessage);
 }

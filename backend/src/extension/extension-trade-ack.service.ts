@@ -14,6 +14,8 @@ import {
 } from './extension-trade-ack.config';
 import type {
   ActiveTradeCounterparty,
+  ActiveTradeDeliveryProgress,
+  ActiveTradeDeliverySignalTone,
   ActiveTradeEscrow,
   ActiveTradeItem,
   ActiveTradeNextAction,
@@ -24,12 +26,26 @@ import type {
   TradeVerificationResult,
   TradeVerificationStatus,
 } from './extension-trade-ack.types';
+import { extractTradeTaskConfirmPending } from './trade-task-confirm-pending.util';
+import { isSellerManualFallbackNeeded } from './trade-task-manual-fallback.util';
+import {
+  EXTENSION_VERIFY_SNAPSHOT_SOURCE,
+  buildExtensionVerificationPayload,
+  shouldPersistExtensionVerification,
+} from './extension-trade-verification-snapshot.util';
+import { getTradeTimeoutMs } from '../trades/delivery-verification.config';
 
 const ACTIVE_ORDER_STATUSES: OrderStatus[] = [
   OrderStatus.WAITING_TRADE,
   OrderStatus.TRADE_CONFIRMED,
   OrderStatus.SETTLEMENT_HOLD,
+  /** C4: buyer inbox surfaces open disputes in the popup. */
+  OrderStatus.DISPUTE,
 ];
+
+/** G3: recently completed deals for post-trade receipt in the popup. */
+const RECENT_COMPLETED_DAYS = 14;
+const RECENT_COMPLETED_LIMIT = 5;
 
 const ACK_TYPES = new Set<TradeAcknowledgmentType>([
   'SELLER_ACK_SENT',
@@ -70,15 +86,39 @@ export class ExtensionTradeAckService {
       Math.max(1, limit ?? extensionActiveTradesLimit()),
     );
 
-    const orders = await this.prisma.order.findMany({
+    const partyFilter = {
+      OR: [{ buyerId: userId }, { sellerId: userId }],
+    };
+
+    const activeOrders = await this.prisma.order.findMany({
       where: {
         status: { in: ACTIVE_ORDER_STATUSES },
-        OR: [{ buyerId: userId }, { sellerId: userId }],
+        ...partyFilter,
       },
       orderBy: { updatedAt: 'desc' },
       take: cappedLimit,
       include: this.orderInclude(),
     });
+
+    const completedSince = new Date(
+      Date.now() - RECENT_COMPLETED_DAYS * 24 * 60 * 60 * 1000,
+    );
+    const recentCompleted = await this.prisma.order.findMany({
+      where: {
+        status: OrderStatus.COMPLETED,
+        updatedAt: { gte: completedSince },
+        ...partyFilter,
+      },
+      orderBy: { updatedAt: 'desc' },
+      take: RECENT_COMPLETED_LIMIT,
+      include: this.orderInclude(),
+    });
+
+    const seen = new Set(activeOrders.map((order) => order.id));
+    const orders = [
+      ...activeOrders,
+      ...recentCompleted.filter((order) => !seen.has(order.id)),
+    ];
 
     const orderIds = orders.map((order) => order.id);
     const ackMap = await this.loadAcknowledgmentMap(orderIds);
@@ -106,13 +146,61 @@ export class ExtensionTradeAckService {
     const order = await this.loadOrderForUser(orderId, userId);
     const ackMap = await this.loadAcknowledgmentMap([order.id]);
     const normalizedOfferId = this.normalizeOfferId(offerId);
-    return this.buildVerificationResult(
+    const result = this.buildVerificationResult(
       order,
       userId,
       normalizedOfferId,
       ackMap.get(order.id),
       observed,
     );
+    await this.persistVerificationForSiteSync(result, observed);
+    return result;
+  }
+
+  /**
+   * B4: persist extension verify so /orders/:id shows the same mismatch/nextAction.
+   * Only writes on mismatch or when observed item data is present (avoids poll noise).
+   */
+  private async persistVerificationForSiteSync(
+    result: TradeVerificationResult,
+    observed?: {
+      assetId?: string | null;
+      floatValue?: string | null;
+    },
+  ): Promise<void> {
+    if (
+      !shouldPersistExtensionVerification({
+        status: result.verificationStatus,
+        observed,
+      })
+    ) {
+      return;
+    }
+
+    try {
+      await this.prisma.tradeVerificationSnapshot.create({
+        data: {
+          orderId: result.orderId,
+          source: EXTENSION_VERIFY_SNAPSHOT_SOURCE,
+          observedStatus: result.verificationStatus,
+          expectedStatus: 'verified',
+          match: result.verificationStatus === 'verified',
+          payload: buildExtensionVerificationPayload({
+            checks: result.checks,
+            nextAction: result.nextAction,
+            offerId: result.offerId,
+            role: result.role,
+            observed,
+          }),
+        },
+      });
+    } catch (error) {
+      this.logger.warn(
+        `Failed to persist extension verification for order ${result.orderId}: ${
+          error instanceof Error ? error.message : 'unknown'
+        }`,
+      );
+    }
   }
 
   async assertOfferSentTrustGate(params: {
@@ -292,7 +380,43 @@ export class ExtensionTradeAckService {
           listingSnapshot: true,
         },
       },
-      tradeOperation: true,
+      tradeOperation: {
+        include: {
+          pollEvents: {
+            orderBy: { checkedAt: 'desc' as const },
+            take: 1,
+            select: {
+              offerStatus: true,
+              outcome: true,
+              strategy: true,
+              error: true,
+              checkedAt: true,
+            },
+          },
+        },
+      },
+      tasks: {
+        where: { type: 'create_offer' },
+        orderBy: { createdAt: 'desc' as const },
+        take: 1,
+        select: {
+          status: true,
+          executionPhase: true,
+          lastErrorCode: true,
+          attemptCount: true,
+          maxAttempts: true,
+          statusEvents: {
+            orderBy: { createdAt: 'desc' as const },
+            take: 40,
+            select: {
+              phase: true,
+              payload: true,
+              reasonCode: true,
+              createdAt: true,
+            },
+          },
+        },
+      },
       hold: true,
       buyer: {
         select: {
@@ -301,6 +425,7 @@ export class ExtensionTradeAckService {
           steamId: true,
           steamPersonaName: true,
           steamAvatarUrl: true,
+          tradeUrl: true,
         },
       },
       seller: {
@@ -310,6 +435,7 @@ export class ExtensionTradeAckService {
           steamId: true,
           steamPersonaName: true,
           steamAvatarUrl: true,
+          tradeUrl: true,
         },
       },
     } as const;
@@ -416,6 +542,99 @@ export class ExtensionTradeAckService {
       ),
       siteUrl: `${getExtensionSiteOrigin()}/orders/${order.id}`,
       amountMinor: order.amountMinor.toString(),
+      commissionMinor: (
+        order.lot.commissionMinor ??
+        (order.amountMinor * 5n) / 100n
+      ).toString(),
+      sellerReceiveMinor: (
+        order.lot.sellerReceiveMinor ??
+        order.amountMinor -
+          (order.lot.commissionMinor ?? (order.amountMinor * 5n) / 100n)
+      ).toString(),
+      createdAt: order.createdAt.toISOString(),
+      tradeTimeoutAt: new Date(
+        order.createdAt.getTime() + getTradeTimeoutMs(),
+      ).toISOString(),
+      buyerTradeUrl:
+        role === 'seller'
+          ? (order.buyer?.tradeUrl?.trim() || null)
+          : null,
+      settlementHoldUntil: order.hold?.settlementHoldUntil
+        ? order.hold.settlementHoldUntil.toISOString()
+        : null,
+      deliveryProgress: this.mapDeliveryProgress(order),
+    };
+  }
+
+  private mapOfferDeliveryTone(
+    offerStatus: string | null | undefined,
+    outcome: string | null | undefined,
+  ): ActiveTradeDeliverySignalTone {
+    const offer = (offerStatus ?? '').toLowerCase();
+    const out = (outcome ?? '').toLowerCase();
+    if (
+      out.includes('confirm') ||
+      offer.includes('accepted') ||
+      offer === '3' ||
+      offer === 'accepted'
+    ) {
+      return 'ok';
+    }
+    if (out.includes('dispute') || out.includes('fail')) {
+      return 'warn';
+    }
+    if (offer.includes('active') || offer === '2' || offer.includes('pending')) {
+      return 'pending';
+    }
+    return offer || out ? 'unknown' : 'pending';
+  }
+
+  private mapInventoryDeliveryTone(
+    hint: ActiveTradeDeliveryProgress['inventoryHint'],
+  ): ActiveTradeDeliverySignalTone {
+    switch (hint) {
+      case 'confirmed':
+        return 'ok';
+      case 'seller_still_holds':
+        return 'warn';
+      case 'pending':
+        return 'pending';
+      case 'unknown':
+        return 'unknown';
+      default:
+        return 'pending';
+    }
+  }
+
+  private mapDeliveryProgress(
+    order: OrderWithRelations,
+  ): ActiveTradeDeliveryProgress | null {
+    if (
+      order.status !== OrderStatus.TRADE_CONFIRMED &&
+      order.status !== OrderStatus.SETTLEMENT_HOLD
+    ) {
+      return null;
+    }
+    const latest = order.tradeOperation?.pollEvents?.[0] ?? null;
+    const strategyHint = latest?.strategy?.includes(':')
+      ? (latest.strategy.split(':').pop() ?? null)
+      : null;
+    const inventoryHint =
+      strategyHint === 'seller_still_holds' ||
+      strategyHint === 'confirmed' ||
+      strategyHint === 'pending' ||
+      strategyHint === 'unknown'
+        ? strategyHint
+        : null;
+    const offerStatus = latest?.offerStatus ?? null;
+    const outcome = latest?.outcome ?? null;
+    return {
+      offerTone: this.mapOfferDeliveryTone(offerStatus, outcome),
+      inventoryTone: this.mapInventoryDeliveryTone(inventoryHint),
+      offerStatus,
+      inventoryHint,
+      outcome,
+      checkedAt: latest?.checkedAt ? latest.checkedAt.toISOString() : null,
     };
   }
 
@@ -615,6 +834,33 @@ export class ExtensionTradeAckService {
     };
   }
 
+  private isSellerManualSendNeeded(order: OrderWithRelations): boolean {
+    const rawTask = order.tasks?.[0] ?? null;
+    return isSellerManualFallbackNeeded({
+      orderStatus: order.status,
+      externalOfferId: order.tradeOperation?.externalOfferId ?? null,
+      task: rawTask
+        ? {
+            status: String(rawTask.status),
+            executionPhase: rawTask.executionPhase,
+            lastErrorCode: rawTask.lastErrorCode,
+            attemptCount: rawTask.attemptCount,
+            maxAttempts: rawTask.maxAttempts,
+          }
+        : null,
+    });
+  }
+
+  private isSellerGuardStillNeeded(order: OrderWithRelations): boolean {
+    const rawTask = order.tasks?.[0];
+    if (!rawTask) {
+      // No task history — do not force Guard CTA (offer may have been manual).
+      return false;
+    }
+    const latestPoll = order.tradeOperation?.pollEvents?.[0] ?? null;
+    return extractTradeTaskConfirmPending(rawTask, latestPoll);
+  }
+
   private resolveNextAction(
     order: OrderWithRelations,
     role: 'buyer' | 'seller',
@@ -630,11 +876,28 @@ export class ExtensionTradeAckService {
       };
     }
 
+    if (order.status === OrderStatus.DISPUTE) {
+      return {
+        kind: 'report_issue',
+        title: 'Спор по сделке',
+        description:
+          'Откройте заказ на сайте — поддержка разбирает обмен. Не принимайте другие офферы по этой сделке.',
+      };
+    }
+
     if (role === 'seller') {
       if (
         order.status === OrderStatus.WAITING_TRADE &&
         !order.tradeOperation?.externalOfferId
       ) {
+        if (this.isSellerManualSendNeeded(order)) {
+          return {
+            kind: 'send_manual',
+            title: 'Отправьте обмен вручную',
+            description:
+              'Автоотправка не сработала. Откройте Trade URL покупателя, отправьте скин и сохраните ссылку на offer на сайте.',
+          };
+        }
         return {
           kind: 'wait',
           title: 'Отправляем обмен…',
@@ -642,15 +905,24 @@ export class ExtensionTradeAckService {
             'Расширение само отправит trade offer. Если Steam попросит — подтвердите Guard на телефоне.',
         };
       }
+      const guardStillNeeded = this.isSellerGuardStillNeeded(order);
+      if (order.status === OrderStatus.WAITING_TRADE && guardStillNeeded) {
+        return {
+          kind: 'confirm_guard',
+          title: 'Подтвердите в Steam Guard',
+          description:
+            'Откройте Steam Mobile и подтвердите отправку. Мы не подтверждаем Guard из расширения — статус обновится сам.',
+        };
+      }
       if (
         order.status === OrderStatus.WAITING_TRADE &&
         !acknowledgments.sellerAckSent
       ) {
         return {
-          kind: 'confirm_guard',
-          title: 'Подтвердите в Steam Guard',
+          kind: 'wait',
+          title: 'Ждём покупателя',
           description:
-            'Если пришло уведомление Steam — подтвердите на телефоне. Дальше ждём покупателя.',
+            'Guard подтверждён. Обмен у покупателя — ждём принятия во входящих предложениях Steam.',
         };
       }
       if (order.status === OrderStatus.WAITING_TRADE) {
@@ -665,10 +937,19 @@ export class ExtensionTradeAckService {
         order.status === OrderStatus.TRADE_CONFIRMED ||
         order.status === OrderStatus.SETTLEMENT_HOLD
       ) {
+        if (order.status === OrderStatus.SETTLEMENT_HOLD) {
+          return {
+            kind: 'platform_verifying',
+            title: 'Выплата после окна проверки',
+            description:
+              'Защита от chargeback и возврата скина в Steam. Средства на hold до конца периода.',
+          };
+        }
         return {
           kind: 'platform_verifying',
-          title: 'Сделка подтверждена платформой',
-          description: 'Выплата будет доступна после проверки.',
+          title: 'Платформа проверяет доставку',
+          description:
+            'Сверяем Steam offer и инвентарь. Новый offer по этой сделке не нужен.',
         };
       }
       return {
@@ -691,19 +972,25 @@ export class ExtensionTradeAckService {
         kind: 'accept_in_steam',
         title: 'Примите обмен в Steam',
         description:
-          'Откройте входящие предложения, проверьте скин и примите обмен. Сайт обновится сам.',
+          'Откройте этот проверенный offer (не общий inbox), сверьте щит R.I.P и примите кнопкой Steam. Сайт обновится сам.',
       };
     }
 
-    if (
-      order.status === OrderStatus.TRADE_CONFIRMED ||
-      order.status === OrderStatus.SETTLEMENT_HOLD
-    ) {
+    if (order.status === OrderStatus.TRADE_CONFIRMED) {
       return {
         kind: 'platform_verifying',
-        title: 'Обмен подтверждён',
+        title: 'Платформа проверяет доставку',
         description:
-          'Платформа проверяет передачу предмета. Статус обновится автоматически.',
+          'Предмет должен быть у вас. Сверяем Steam offer и инвентарь — ничего делать не нужно.',
+      };
+    }
+
+    if (order.status === OrderStatus.SETTLEMENT_HOLD) {
+      return {
+        kind: 'platform_verifying',
+        title: 'Предмет у вас — расчёт у площадки',
+        description:
+          'Скин в инвентаре. Средства продавцу станут доступны после проверки / hold.',
       };
     }
 

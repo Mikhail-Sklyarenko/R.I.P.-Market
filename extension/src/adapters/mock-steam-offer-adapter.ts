@@ -1,5 +1,6 @@
 import type { SteamOfferAdapter } from './steam-offer-adapter.js';
 import type { DraftOfferInput, SendOfferHooks, SteamInventoryItem } from '../types.js';
+import type { SellerInventoryLoadResult } from './inventory-load.types.js';
 import { OfferErrorCode } from '../error-codes.js';
 
 export type MockSteamScenario =
@@ -8,6 +9,9 @@ export type MockSteamScenario =
   | 'item_missing'
   | 'item_mismatch'
   | 'inventory_not_loaded'
+  | 'inventory_private'
+  | 'inventory_rate_limited'
+  | 'steam_cookie_expired'
   | 'steam_unavailable'
   | 'confirm_pending'
   | 'confirm_pending_with_offer_id'
@@ -27,25 +31,54 @@ export class MockSteamOfferAdapter implements SteamOfferAdapter {
   ];
 
   async resolveSessionSteamId() {
+    if (this.scenario === 'steam_cookie_expired') {
+      return null;
+    }
     return '76561198000000000';
   }
 
-  async loadSellerInventory(_sellerSteamId?: string | null) {
-    if (
-      this.scenario === 'steam_unavailable' ||
-      this.scenario === 'inventory_not_loaded'
-    ) {
-      return null;
+  async loadSellerInventory(
+    _sellerSteamId?: string | null,
+  ): Promise<SellerInventoryLoadResult> {
+    if (this.scenario === 'steam_unavailable' || this.scenario === 'inventory_not_loaded') {
+      return {
+        items: [],
+        errorCode: OfferErrorCode.INVENTORY_NOT_LOADED,
+        errorMessage: 'Seller inventory is not loaded',
+      };
+    }
+    if (this.scenario === 'inventory_private') {
+      return {
+        items: [],
+        errorCode: OfferErrorCode.INVENTORY_PRIVATE,
+        errorMessage: 'Steam inventory is private',
+      };
+    }
+    if (this.scenario === 'inventory_rate_limited') {
+      return {
+        items: [],
+        errorCode: OfferErrorCode.INVENTORY_RATE_LIMITED,
+        errorMessage: 'Steam inventory rate limited (HTTP 429)',
+      };
+    }
+    if (this.scenario === 'steam_cookie_expired') {
+      return {
+        items: [],
+        errorCode: OfferErrorCode.STEAM_COOKIE_EXPIRED,
+        errorMessage: 'Seller is not logged into Steam in this browser',
+      };
     }
     if (this.scenario === 'item_missing') {
-      return [
-        {
-          assetId: 'other-asset',
-          marketHashName: 'Other Item',
-        },
-      ];
+      return {
+        items: [
+          {
+            assetId: 'other-asset',
+            marketHashName: 'Other Item',
+          },
+        ],
+      };
     }
-    return this.inventory;
+    return { items: this.inventory };
   }
 
   async warmTradePage(_buyerTradeUrl: string) {

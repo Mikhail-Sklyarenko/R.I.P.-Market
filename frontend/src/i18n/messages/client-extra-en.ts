@@ -89,6 +89,8 @@ export const clientExtraEn = {
     installBodyFull:
       'Install the R.I.P Market extension (browser-extension/dist folder in Chrome → Extensions → Developer mode) and set VITE_EXTENSION_ID in the frontend .env.',
     connectSuccess: 'Extension connected. Deals will be handled automatically.',
+    nextInventory: 'Next (~1 min): open your',
+    nextInventoryLink: 'CS2 inventory on Steam',
     connected: 'Connected',
     connectedUntil: 'Connected until {{time}}',
     notConnected: 'Not connected — auto-sending the trade offer is unavailable',
@@ -185,6 +187,10 @@ export const clientExtraEn = {
     preparing: 'Preparing the trade',
     itemLabel: 'Item:',
     confirmPending: 'Open Steam Mobile and confirm the send.',
+    confirmPendingHint:
+      'We never confirm Guard from the extension — only the official Steam app. This page updates automatically after you confirm.',
+    confirmPendingWaiting: 'Waiting for Steam Guard confirmation…',
+    confirmPendingTimer: 'Waiting for confirmation · {{elapsed}}',
     offerSent: 'Trade sent. Now waiting for the buyer in Steam.',
     deliveryCheckBody:
       'The item already left the inventory. Do not create a new offer — we are checking delivery.',
@@ -193,6 +199,166 @@ export const clientExtraEn = {
     manualFallbackHint:
       "If auto-sending didn't work — open the section below and enter the offer manually.",
     attemptCount: 'Attempt {{current}} of {{max}}',
+  },
+  dealHealth: {
+    supportCodeLabel: 'Support code',
+    copyDebugPack: 'Copy support report',
+    debugCopied: 'Copied',
+    settlementTitle: 'Deal under review',
+    settlementBody: 'Funds are protected. Payout unlocks after the review window.',
+    tradeConfirmedTitle: 'Trade confirmed',
+    tradeConfirmedBody: 'The platform is verifying delivery — status updates itself.',
+    deliveryCheckTitle: 'Checking delivery',
+    deliveryCheckBody:
+      'The item already left inventory. Do not send a new offer — waiting for Steam.',
+    guardTitle: 'Confirm in Steam Guard',
+    guardBody: 'Open Steam Mobile and confirm the send. The extension never confirms Guard.',
+    manualTitle: 'Manual send needed',
+    manualBody:
+      'Auto-send did not finish. Open the buyer Trade URL, send the skin, then save the offer link.',
+    extensionOfflineTitle: 'Extension not connected',
+    extensionOfflineBody: 'Connect the extension below — otherwise auto-send will not start.',
+    retryTitle: 'Auto-send has a problem',
+    retryBody: 'See the hint and code below. You can retry or send manually.',
+    autoSendTitle: 'All good — sending the trade',
+    autoSendBody: 'The extension will send the trade offer. Keep Steam open.',
+    waitingBuyerTitle: 'All good — waiting for the buyer',
+    waitingBuyerBody: 'Trade was sent. The buyer needs to accept it in Steam.',
+    buyerWaitingOfferTitle: 'All good — waiting for the offer',
+    buyerWaitingOfferBody: 'The seller is sending the offer. This page updates itself.',
+    buyerAcceptTitle: 'Your step — accept in Steam',
+    buyerAcceptBody: 'Open incoming offers, verify the skin, and accept the trade.',
+    mismatchTitle: 'Mismatch — do not accept',
+    mismatchBody:
+      'The extension recorded a mismatch with the order. Do not accept the Steam offer. Checks below match the overlay.',
+    tradeConfirmedSellerTitle: 'Platform is verifying delivery',
+    tradeConfirmedSellerBody:
+      'We match the Steam offer and inventory. Payout unlocks after confirmation.',
+    tradeConfirmedBuyerTitle: 'Platform is verifying delivery',
+    tradeConfirmedBuyerBody:
+      'The item should already be yours. Nothing to click — status updates itself.',
+    settlementSellerTitle: 'Funds under review (up to 8 days)',
+    settlementSellerBody:
+      'Protection against chargebacks and Steam trade reversals. Payout after the window.',
+    settlementBuyerTitle: 'Deal under review',
+    settlementBuyerBody:
+      'The item is yours. Seller funds unlock after platform review / hold.',
+    buyerPairTitle: 'Connect the extension for a safe accept',
+    buyerPairBody:
+      'The offer is ready. The extension shows a shield and skin checks on the Steam offer page — before Accept.',
+  },
+  buyerExtensionPair: {
+    eyebrow: 'Safe accept',
+    promptTitle: 'Connect the extension for a safe accept',
+    promptBody:
+      'We will verify name, assetId, float, and the seller SteamID on the offer page. The extension never clicks Accept for you.',
+    readyTitle: 'Extension ready for a safe accept',
+    readyBody:
+      'Open the verified offer — the Steam page will show the R.I.P Market shield. Accept with the Steam button.',
+    openVerifiedOffer: 'Open verified offer in Steam',
+    connectCta: 'Connect extension for safe accept',
+    connectSuccess: 'Extension connected. You can open the offer with the R.I.P shield.',
+    panelTitle: 'Extension for accept',
+    notConnected: 'Not connected — safe offer verification is unavailable',
+    installTitle: 'Install the extension for a safe accept',
+    installBody:
+      'You can still accept in Steam without it, but you will not get the shield and order checks on the offer page.',
+  },
+  buyerAcceptWizard: {
+    eyebrow: '3 steps to accept',
+    title: 'Accept the trade safely',
+    subtitle:
+      'Open this exact offer, verify the R.I.P shield on Steam, then Accept — the site status updates itself.',
+    step1Title: 'Open the right offer',
+    step1Body: 'Follow the link to this specific trade offer — not the general incoming inbox.',
+    step2Title: 'Check the shield and skin',
+    step2BodyConnected:
+      'On the Steam page, use the overlay: “Skin matched”, float, SteamID. Do not accept on mismatch.',
+    step2BodyManual:
+      'Compare name, float, and seller SteamID with the order. Connect the extension for a verification shield.',
+    step3Title: 'Accept in Steam and return',
+    step3Body:
+      'Press Accept with the Steam button. The extension never accepts for you. Come back here — status updates itself.',
+    stateDone: 'Done',
+    stateCurrent: 'Now',
+    stateUpcoming: 'Next',
+    ctaOpenOffer: 'Open this offer in Steam',
+    ctaReopenOffer: 'Reopen offer to verify',
+    ctaAcceptInSteam: 'Open offer and accept in Steam',
+    returnHint: 'After Accept, refresh this tab if needed — usually the status changes on its own.',
+    mismatchTitle: 'Do not accept — mismatch',
+    mismatchBody:
+      'The offer does not match the order. Do not press Accept. Contact support if you need help.',
+    preAcceptTitle: 'I see the correct offer',
+    preAcceptBody:
+      'Confirm the Steam page shows the same skin and seller as the order. This does not replace Accept.',
+    preAcceptCta: 'I see the correct offer',
+    preAcceptDone: 'Marked: offer looks correct. Next — Accept with the Steam button.',
+    receivedTitle: 'Item is in my inventory',
+    receivedBody:
+      'If the skin is already in your Steam inventory, mark it. This helps delivery checks but does not replace platform dual-signal.',
+    receivedCta: 'Item is in my inventory',
+    receivedDone: 'Receipt marked. The platform will keep verifying delivery on its own.',
+  },
+  postAcceptTrust: {
+    eyebrow: 'After the trade',
+    deliverySellerTitle: 'Platform is verifying delivery',
+    deliverySellerBody:
+      'Waiting on two signals: Steam offer status and that the skin left your inventory.',
+    deliverySellerReason: 'While verification runs, do not send another offer for this deal.',
+    deliveryBuyerTitle: 'Platform is verifying delivery',
+    deliveryBuyerBody:
+      'The skin should already be yours. We match the Steam offer and inventory — this page updates itself.',
+    deliveryBuyerReason: 'Never pay in chat and never accept other offers “instead” of this deal.',
+    holdSellerTitle: 'Payout after the review window',
+    holdSellerBody:
+      'Trade confirmed. Funds stay on hold until the protection window ends.',
+    holdSellerReason:
+      'Up to 8 days protects against chargebacks and Steam trade reversals.',
+    holdBuyerTitle: 'Item is yours — settlement is on-platform',
+    holdBuyerBody:
+      'The skin is in your inventory. Seller funds unlock after review / hold.',
+    holdBuyerReason: 'Payment is already on the platform. Do not send money to the seller in Steam chat.',
+    signalOffer: 'Steam offer signal',
+    signalInventory: 'Inventory signal',
+    toneOk: 'OK',
+    tonePending: 'Waiting',
+    toneWarn: 'Attention',
+    toneUnknown: 'Checking',
+    holdUntilLabel: 'Payout expected from',
+  },
+  postTradeReceipt: {
+    eyebrow: 'Receipt',
+    bought: 'Bought',
+    sold: 'Sold',
+    deal: 'Deal',
+    completedHint: 'Deal completed successfully.',
+    price: 'Deal price',
+    commission: 'Platform fee (5%)',
+    paid: 'You paid',
+    credited: 'Credited to balance',
+    amount: 'Amount',
+    offerId: 'Steam offer',
+    walletCta: 'Open wallet',
+    dealsCta: 'My deals',
+  },
+  tradeEscalation: {
+    eyebrow: 'Trade window',
+    timeLeftMinutes: '~{{minutes}} min left',
+    timeLeftHours: '~{{hours}} h {{minutes}} min left',
+    timeExpiredLabel: 'Trade window expired',
+    timeoutOk:
+      'If the trade is not finished in time, an automatic dispute opens — funds stay protected on the platform.',
+    timeoutSoon:
+      'Under 15 minutes until an automatic dispute. If the offer is wrong or the seller is silent — open a problem now.',
+    timeoutCritical:
+      'Under 5 minutes left. If something went wrong, tap “Trade problem” before a dispute opens on its own.',
+    timeoutExpired:
+      'The trade window ended — an automatic dispute may open soon. Describe the issue if the deal is still open.',
+    problemCta: 'Trade problem',
+    openDisputeCta: 'Open dispute',
+    prefillHint:
+      'We already filled deal ID, offer, and verify status — add what went wrong.',
   },
   extensionTaskPhase: {
     ACKED: 'Extension picked up the task',
@@ -215,6 +381,12 @@ export const clientExtraEn = {
       'Several identical skins are in the inventory — enter the offer manually or recreate the listing.',
     INVENTORY_NOT_LOADED:
       'Could not load the Steam inventory. Open steamcommunity.com in this Chrome profile and refresh the order page.',
+    INVENTORY_PRIVATE:
+      'Steam inventory is private. Set Inventory to Public in Steam privacy settings and retry.',
+    INVENTORY_RATE_LIMITED:
+      'Steam rate-limited inventory requests (429). Wait 1–2 minutes and click Retry.',
+    STEAM_COOKIE_EXPIRED:
+      'You are not logged into Steam in this Chrome profile. Sign in on steamcommunity.com as the seller.',
     STEAM_ACCOUNT_MISMATCH:
       'A different Steam account is logged in in Chrome. Log in as the seller or connect the extension in the right profile.',
     STEAM_UNAVAILABLE: 'Steam is temporarily unavailable.',
@@ -229,6 +401,13 @@ export const clientExtraEn = {
       'This deal is outdated — there is a newer order. Open the current deal in "My deals".',
     MAX_ATTEMPTS_REACHED: 'Auto-sending ran out of attempts. Send the offer manually using the link below.',
     TASK_TTL_EXPIRED: 'Auto-sending timed out. Refresh the page — the task will resume automatically.',
+  },
+  extensionTaskCta: {
+    openSteamLogin: 'Log into the correct Steam',
+    openSteamPrivacy: 'Open Steam privacy settings',
+    openSteamInventory: 'Open Steam inventory',
+    openAccountRepair: 'Reconnect extension',
+    supportCode: 'Support code',
   },
   extensionUiFlow: {
     uiTrade: 'UI trade (Steam page, auto-fill)',
@@ -497,6 +676,7 @@ export const clientExtraEn = {
       'The seller is sending the trade via the extension. Usually 1–2 minutes — the page will update itself.',
     awaitingSeller: 'Waiting for the seller to send the trade in Steam.',
     openIncomingOffers: 'Open incoming Steam offers',
+    openVerifiedOffer: 'Open verified offer in Steam',
     checklistSummary: 'Check the skin before accepting',
     ackNotUpdatedSummary: "If the site status hasn't updated",
     ackHint: "These buttons don't replace accepting the trade in Steam — they only help the site verify the status faster.",
@@ -511,6 +691,8 @@ export const clientExtraEn = {
     extensionHintNoAck: 'With the R.I.P Market extension, the Steam trade page will verify the deal.',
     confirmGuardTitle: 'Confirm in Steam Guard',
     confirmGuardBody: 'The trade is already created. Open Steam Mobile and confirm the send — that is your main step.',
+    confirmGuardAutoHint:
+      'After you confirm, the status updates itself — no need to refresh the page.',
     checkingDeliveryTitle: 'Checking delivery',
     checkingDeliveryBody:
       "The item already left your inventory. Don't send a new trade — the platform is verifying the buyer.",
@@ -518,6 +700,11 @@ export const clientExtraEn = {
     waitingMessage: 'Send the trade offer to the buyer and save the offer link below.',
     detailsExtraSummary: "Extra / if auto-sending didn't work",
     detailsManualSummary: 'Where to send it and how to enter the trade',
+    manualFallbackTitle: 'Send the trade manually — that’s fine',
+    manualFallbackBody:
+      'One tap opens the buyer Trade URL. Add the deal skin, send the offer, then paste the link here. No FAQ hunt.',
+    manualFallbackItemLabel: 'Deal item:',
+    openTradeUrlPrimary: 'Open buyer Trade URL',
     guardConfirmedHint: "If Guard is already confirmed but the site status hasn't updated — mark it as sent.",
     iSentTrade: 'I sent the trade',
     buyerTradeUrlTitle: "Buyer's Trade URL",

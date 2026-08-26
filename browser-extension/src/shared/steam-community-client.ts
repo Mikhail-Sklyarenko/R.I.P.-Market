@@ -1,7 +1,10 @@
-import type { SteamInventoryItem } from '@rip-market/extension-orchestrator';
 import { fetchInventoryViaWebApi } from './steam-api-inventory.js';
 import { loadCs2InventoryFromCookies } from './steam-cookie-client.js';
 import { isDirectTradeApiEnabled, shouldUseUiTradeFlow } from './extension-flags.js';
+import {
+  emptyInventoryLoadResult,
+  type InventoryLoadResult,
+} from './inventory-load-result.js';
 import { loadInventoryViaPageScript } from './steam-page-inventory.js';
 import { resolveLoggedInSteamId } from './steam-session.js';
 import { getSteamWebApiKey } from './steam-web-api-settings.js';
@@ -14,10 +17,37 @@ import type { TradeOfferDraftPayload } from './trade-offer-messages.js';
 import {
   isTabOnBuyerTradeUrl,
   runTradeOfferAutofillInMainWorld,
+  type TradeOfferProgressHooks,
 } from './trade-offer-ui-runner.js';
+
+export type { TradeOfferProgressHooks };
 
 const STEAM_TAB_URL = 'https://steamcommunity.com/my/inventory/#730_2';
 const TRADE_PAGE_SETTLE_MS = 800;
+
+function mergeInventoryFailures(results: InventoryLoadResult[]): InventoryLoadResult {
+  if (results.length === 0) {
+    return emptyInventoryLoadResult('unknown', 'Seller inventory is not loaded');
+  }
+  const priority: Array<NonNullable<InventoryLoadResult['failReason']>> = [
+    'private',
+    'rate_limited',
+    'not_logged_in',
+    'unknown',
+  ];
+  for (const reason of priority) {
+    const hit = results.find((entry) => entry.failReason === reason || (reason === 'rate_limited' && entry.rateLimited));
+    if (hit) {
+      return {
+        items: [],
+        rateLimited: hit.rateLimited || reason === 'rate_limited',
+        failReason: hit.failReason ?? reason,
+        errorMessage: hit.errorMessage,
+      };
+    }
+  }
+  return results[results.length - 1] ?? emptyInventoryLoadResult('unknown');
+}
 
 function isUsableSteamTab(url = ''): boolean {
   if (!url.includes('steamcommunity.com')) {
@@ -95,7 +125,28 @@ export class SteamCommunityClient {
     return this.openSteamTab();
   }
 
-  async navigateToTradePage(buyerTradeUrl: string): Promise<number | null> {
+  async navigateToTradePage(
+    buyerTradeUrl: string,
+    options?: { forceNewTab?: boolean },
+  ): Promise<number | null> {
+    if (options?.forceNewTab) {
+      const created = await chrome.tabs.create({
+        url: buyerTradeUrl,
+        active: true,
+      });
+      if (!created.id) {
+        return null;
+      }
+      await waitForTabLoad(created.id);
+      const ready = await waitForTabUrl(created.id, buyerTradeUrl);
+      if (!ready) {
+        return null;
+      }
+      await new Promise((resolve) => setTimeout(resolve, TRADE_PAGE_SETTLE_MS));
+      this.cachedTabId = created.id;
+      return created.id;
+    }
+
     const tabs = await chrome.tabs.query({ url: 'https://steamcommunity.com/*' });
     const existingTradeTab = tabs.find(
       (tab) => tab.id && isTabOnBuyerTradeUrl(tab.url, buyerTradeUrl),
@@ -130,33 +181,37 @@ export class SteamCommunityClient {
     return tabId;
   }
 
-  async loadInventory(steamId: string): Promise<SteamInventoryItem[]> {
+  async loadInventory(steamId: string): Promise<InventoryLoadResult> {
+    const failures: InventoryLoadResult[] = [];
     try {
       const tabId = await this.ensureSteamTab();
       if (tabId) {
         const fromPage = await loadInventoryViaPageScript(tabId, steamId);
         if (fromPage.items.length > 0) {
-          return fromPage.items;
+          return fromPage;
         }
+        failures.push(fromPage);
       }
 
       const fromCookies = await loadCs2InventoryFromCookies(steamId);
       if (fromCookies.items.length > 0) {
-        return fromCookies.items;
+        return fromCookies;
       }
+      failures.push(fromCookies);
 
       if (tabId) {
         const retryPage = await loadInventoryViaPageScript(tabId, steamId);
         if (retryPage.items.length > 0) {
-          return retryPage.items;
+          return retryPage;
         }
+        failures.push(retryPage);
       }
 
       const apiKey = await getSteamWebApiKey();
       if (apiKey) {
         const fromWebApi = await fetchInventoryViaWebApi(steamId, apiKey);
         if (fromWebApi.length > 0) {
-          return fromWebApi;
+          return { items: fromWebApi, rateLimited: false, failReason: null };
         }
       }
     } catch (error) {
@@ -164,19 +219,31 @@ export class SteamCommunityClient {
         '[rip-market] loadInventory failed',
         error instanceof Error ? error.message : error,
       );
+      return emptyInventoryLoadResult(
+        'unknown',
+        error instanceof Error ? error.message : 'Inventory load failed',
+      );
     }
 
-    return [];
+    return mergeInventoryFailures(failures);
   }
 
-  async sendTradeOffer(draft: TradeOfferDraft): Promise<SendTradeOfferResult> {
+  async sendTradeOffer(
+    draft: TradeOfferDraft,
+    progress?: TradeOfferProgressHooks,
+  ): Promise<SendTradeOfferResult> {
     try {
       if (await isDirectTradeApiEnabled()) {
         const tabId = await this.ensureSteamTab();
         if (!tabId) {
           return { ok: false, error: 'Steam tab unavailable' };
         }
-        return await sendTradeOfferViaPageScript(tabId, draft);
+        const apiResult = await sendTradeOfferViaPageScript(tabId, draft);
+        if (apiResult.ok) {
+          await progress?.onItemSelected?.();
+          await progress?.onOfferSubmitted?.();
+        }
+        return apiResult;
       }
 
       if (await shouldUseUiTradeFlow()) {
@@ -184,7 +251,7 @@ export class SteamCommunityClient {
         if (!tabId) {
           return { ok: false, error: 'Failed to open Steam trade page' };
         }
-        return await this.sendTradeOfferViaUi(tabId, draft);
+        return await this.sendTradeOfferViaUi(tabId, draft, progress);
       }
 
       const tabId = await this.ensureSteamTab();
@@ -198,6 +265,10 @@ export class SteamCommunityClient {
           apiResult.error,
         )
       ) {
+        if (apiResult.ok) {
+          await progress?.onItemSelected?.();
+          await progress?.onOfferSubmitted?.();
+        }
         return apiResult;
       }
 
@@ -208,10 +279,9 @@ export class SteamCommunityClient {
         return {
           ok: false,
           error: `${apiResult.error} (UI fallback failed: trade page unavailable)`,
-          strError: apiResult.strError,
         };
       }
-      return await this.sendTradeOfferViaUi(tradeTabId, draft);
+      return await this.sendTradeOfferViaUi(tradeTabId, draft, progress);
     } catch (error) {
       return {
         ok: false,
@@ -223,15 +293,20 @@ export class SteamCommunityClient {
   async sendTradeOfferViaUi(
     tabId: number,
     draft: TradeOfferDraft,
+    progress?: TradeOfferProgressHooks,
   ): Promise<SendTradeOfferResult> {
     const payload: TradeOfferDraftPayload = {
       buyerTradeUrl: draft.buyerTradeUrl,
       item: draft.item,
-      note: 'R.I.P Market trade',
+      note: draft.note?.trim() || 'R.I.P Market trade',
     };
 
     try {
-      const result = await runTradeOfferAutofillInMainWorld(tabId, payload);
+      const result = await runTradeOfferAutofillInMainWorld(
+        tabId,
+        payload,
+        progress,
+      );
       if (result.ok) {
         return {
           ok: true,

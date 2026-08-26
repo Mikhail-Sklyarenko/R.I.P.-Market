@@ -42,6 +42,10 @@ describe('ExtensionFlowMetricsService', () => {
     expect(snapshot.rates.extension_flow_dispute_rate_pct).toBe(50);
     expect(snapshot.rates.extension_flow_task_success_rate_pct).toBe(50);
     expect(snapshot.latency.extension_flow_time_to_complete_ms_samples).toBe(1);
+    expect(snapshot.rolling_5m.top_fail_reasons).toEqual([
+      { reasonCode: 'FAIL', count: 1 },
+    ]);
+    expect(snapshot.gates.overall).toBe('insufficient_sample');
   });
 
   it('no-ops when observability flag is disabled', () => {

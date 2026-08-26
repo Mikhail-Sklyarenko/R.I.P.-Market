@@ -5,7 +5,7 @@ import { mapSteamSendError, parseSteamSendResponse } from './trade-offer-send-er
 describe('trade-offer-send-errors', () => {
   it('maps session errors', () => {
     expect(mapSteamSendError('Steam session expired')).toEqual({
-      code: OfferErrorCode.INVENTORY_NOT_LOADED,
+      code: OfferErrorCode.STEAM_COOKIE_EXPIRED,
       message: 'Steam session expired',
     });
   });
@@ -63,21 +63,24 @@ describe('trade-offer-send-errors', () => {
     });
   });
 
-  it('maps account mismatch style inventory errors', () => {
-    expect(
-      mapSteamSendError(
-        'Logged-in Steam account does not match seller account',
-      ),
-    ).toEqual({
-      code: OfferErrorCode.OFFER_SEND_FAILED,
-      message: 'Logged-in Steam account does not match seller account',
+  it('maps private inventory before generic inventory match', () => {
+    expect(mapSteamSendError('Steam inventory is private')).toEqual({
+      code: OfferErrorCode.INVENTORY_PRIVATE,
+      message: 'Steam inventory is private',
     });
   });
 
   it('maps HTTP 429 inventory throttling', () => {
     expect(mapSteamSendError('HTTP 429 Too Many Requests')).toEqual({
-      code: OfferErrorCode.OFFER_SEND_FAILED,
+      code: OfferErrorCode.INVENTORY_RATE_LIMITED,
       message: 'HTTP 429 Too Many Requests',
+    });
+  });
+
+  it('maps session/login errors to STEAM_COOKIE_EXPIRED', () => {
+    expect(mapSteamSendError('Steam session expired — reload steamcommunity.com')).toEqual({
+      code: OfferErrorCode.STEAM_COOKIE_EXPIRED,
+      message: 'Steam session expired — reload steamcommunity.com',
     });
   });
 });

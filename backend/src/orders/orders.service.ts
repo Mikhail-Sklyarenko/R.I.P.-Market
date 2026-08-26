@@ -25,6 +25,14 @@ import {
 import { isExtensionUiTradeFlowEnabled } from '../extension/extension-ui-trade-flow.config';
 import { ExtensionTradeAckService } from '../extension/extension-trade-ack.service';
 import type { TradeAcknowledgmentType } from '../extension/extension-trade-ack.types';
+import {
+  EXTENSION_VERIFY_SNAPSHOT_SOURCE,
+  mapExtensionVerificationSnapshot,
+} from '../extension/extension-trade-verification-snapshot.util';
+import {
+  extractTradeTaskConfirmPending,
+  extractTradeTaskConfirmPendingSince,
+} from '../extension/trade-task-confirm-pending.util';
 import { LedgerService } from '../wallet/ledger.service';
 import { ExtensionRolloutService } from '../extension/extension-rollout.service';
 import { TradeReferenceReconcileService } from '../trades/trade-reference-reconcile.service';
@@ -505,7 +513,12 @@ export class OrdersService {
             statusEvents: {
               orderBy: { createdAt: 'desc' },
               take: 20,
-              select: { reasonCode: true, payload: true, phase: true },
+              select: {
+                reasonCode: true,
+                payload: true,
+                phase: true,
+                createdAt: true,
+              },
             },
           },
         },
@@ -522,33 +535,6 @@ export class OrdersService {
 
     const { tasks, ...orderRest } = order;
     const rawTask = tasks[0];
-    const tradeTask = rawTask
-      ? {
-          id: rawTask.id,
-          type: rawTask.type,
-          status: rawTask.status,
-          executionPhase: rawTask.executionPhase,
-          lastErrorCode: rawTask.lastErrorCode,
-          lastErrorMessage: extractTradeTaskErrorMessage(
-            rawTask.statusEvents.find(
-              (event) =>
-                event.phase === 'OFFER_FAILED' ||
-                (event.payload &&
-                  typeof event.payload === 'object' &&
-                  typeof (event.payload as { message?: unknown }).message ===
-                    'string'),
-            ) ?? rawTask.statusEvents[0],
-          ),
-          selectedMarketHashName: extractTradeTaskMarketHashName(
-            rawTask.statusEvents,
-          ),
-          expiresAt: rawTask.expiresAt,
-          attemptCount: rawTask.attemptCount,
-          maxAttempts: rawTask.maxAttempts,
-          createdAt: rawTask.createdAt,
-          updatedAt: rawTask.updatedAt,
-        }
-      : null;
 
     const ackRows = await this.prisma.tradeAcknowledgment.findMany({
       where: { orderId },
@@ -593,11 +579,62 @@ export class OrdersService {
         }
       : null;
 
+    const tradeTask = rawTask
+      ? {
+          id: rawTask.id,
+          type: rawTask.type,
+          status: rawTask.status,
+          executionPhase: rawTask.executionPhase,
+          lastErrorCode: rawTask.lastErrorCode,
+          lastErrorMessage: extractTradeTaskErrorMessage(
+            rawTask.statusEvents.find(
+              (event) =>
+                event.phase === 'OFFER_FAILED' ||
+                (event.payload &&
+                  typeof event.payload === 'object' &&
+                  typeof (event.payload as { message?: unknown }).message ===
+                    'string'),
+            ) ?? rawTask.statusEvents[0],
+          ),
+          selectedMarketHashName: extractTradeTaskMarketHashName(
+            rawTask.statusEvents,
+          ),
+          confirmPending: extractTradeTaskConfirmPending(rawTask, deliveryProbe),
+          confirmPendingSince: extractTradeTaskConfirmPendingSince(
+            rawTask.statusEvents,
+          ),
+          expiresAt: rawTask.expiresAt,
+          attemptCount: rawTask.attemptCount,
+          maxAttempts: rawTask.maxAttempts,
+          createdAt: rawTask.createdAt,
+          updatedAt: rawTask.updatedAt,
+        }
+      : null;
+
+    const latestExtensionVerify =
+      await this.prisma.tradeVerificationSnapshot.findFirst({
+        where: {
+          orderId,
+          source: EXTENSION_VERIFY_SNAPSHOT_SOURCE,
+        },
+        orderBy: { createdAt: 'desc' },
+        select: {
+          observedStatus: true,
+          match: true,
+          createdAt: true,
+          payload: true,
+        },
+      });
+    const tradeVerification = mapExtensionVerificationSnapshot(
+      latestExtensionVerify,
+    );
+
     return toJsonSafe({
       ...orderRest,
       tradeTask,
       tradeAcknowledgments,
       deliveryProbe,
+      tradeVerification,
     });
   }
 
@@ -955,3 +992,4 @@ function extractTradeTaskMarketHashName(
   }
   return null;
 }
+

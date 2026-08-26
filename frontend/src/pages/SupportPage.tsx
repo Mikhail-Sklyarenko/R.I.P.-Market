@@ -15,14 +15,53 @@ import {
   type SupportTicketTopicId,
 } from '../data/support-ticket-topics';
 import { SUPPORT_EMAIL } from '../utils/format';
+import {
+  formatTradeEscalationTicketBody,
+  parseSupportEscalationFromSearch,
+  readTradeEscalationPack,
+  type TradeEscalationPack,
+} from '../utils/trade-timeout-escalation';
+import {
+  formatSupportBridgeTicketBody,
+  parseSupportBridgeFromSearch,
+  type SupportBridgePack,
+} from '../utils/support-bridge-pack';
 
-function buildTicketBody(dealId: string, body: string): string {
-  const trimmedDeal = dealId.trim();
+function buildTicketBody(
+  dealId: string,
+  body: string,
+  offerId?: string,
+  pack?: TradeEscalationPack | null,
+  bridge?: SupportBridgePack | null,
+): string {
   const trimmedBody = body.trim();
-  if (!trimmedDeal) {
+  if (bridge) {
+    if (trimmedBody.includes('--- R.I.P extension support ---')) {
+      return trimmedBody;
+    }
+    return formatSupportBridgeTicketBody(bridge);
+  }
+  if (pack) {
+    // Body may already include the pack template — avoid double-wrapping.
+    if (trimmedBody.includes('--- R.I.P trade escalation ---')) {
+      return trimmedBody;
+    }
+    return formatTradeEscalationTicketBody(pack, trimmedBody);
+  }
+
+  const trimmedDeal = dealId.trim();
+  const trimmedOffer = offerId?.trim() || '';
+  const header: string[] = [];
+  if (trimmedDeal) {
+    header.push(`Deal ID: ${trimmedDeal}`);
+  }
+  if (trimmedOffer) {
+    header.push(`Offer ID: ${trimmedOffer}`);
+  }
+  if (header.length === 0) {
     return trimmedBody;
   }
-  return `Deal ID: ${trimmedDeal}\n\n${trimmedBody}`;
+  return `${header.join('\n')}\n\n${trimmedBody}`;
 }
 
 export function SupportPage() {
@@ -31,10 +70,15 @@ export function SupportPage() {
   const [searchParams] = useSearchParams();
   const [tickets, setTickets] = useState<SupportTicket[]>([]);
   const [topicId, setTopicId] = useState<SupportTicketTopicId | ''>('');
-  const [dealId, setDealId] = useState(
-    () => searchParams.get('dealId')?.trim() || searchParams.get('orderId')?.trim() || '',
-  );
+  const [dealId, setDealId] = useState('');
+  const [offerId, setOfferId] = useState('');
   const [body, setBody] = useState('');
+  const [escalationPrefill, setEscalationPrefill] = useState(false);
+  const [escalationPack, setEscalationPack] = useState<TradeEscalationPack | null>(
+    null,
+  );
+  const [supportBridgePack, setSupportBridgePack] =
+    useState<SupportBridgePack | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<unknown>(null);
   const [success, setSuccess] = useState<string | null>(null);
@@ -56,10 +100,69 @@ export function SupportPage() {
   const topicHint = topicId ? supportTicketTopicHint(topicId, locale) : null;
 
   useEffect(() => {
-    const fromQuery =
-      searchParams.get('dealId')?.trim() || searchParams.get('orderId')?.trim() || '';
-    if (fromQuery) {
-      setDealId(fromQuery);
+    const parsed = parseSupportEscalationFromSearch(searchParams);
+    if (parsed.dealId) {
+      setDealId(parsed.dealId);
+    }
+    if (parsed.offerId) {
+      setOfferId(parsed.offerId);
+    }
+    if (parsed.topic) {
+      setTopicId(parsed.topic);
+    }
+
+    const bridge = parseSupportBridgeFromSearch(searchParams);
+    if (bridge) {
+      setSupportBridgePack(bridge);
+      setEscalationPrefill(true);
+      setEscalationPack(null);
+      if (!parsed.topic) {
+        setTopicId('extension');
+      }
+      if (!parsed.dealId && bridge.primaryOrderId) {
+        setDealId(bridge.primaryOrderId);
+      }
+      const primaryOffer = bridge.deals.find(
+        (deal) => deal.orderId === bridge.primaryOrderId,
+      )?.offerId;
+      if (!parsed.offerId && primaryOffer) {
+        setOfferId(primaryOffer);
+      }
+      setBody(formatSupportBridgeTicketBody(bridge));
+      return;
+    }
+
+    setSupportBridgePack(null);
+    const packFromStorage = parsed.dealId
+      ? readTradeEscalationPack(parsed.dealId)
+      : null;
+    const packFromEvidence = parsed.evidence;
+    const pack = packFromStorage ?? packFromEvidence;
+    if (pack || parsed.reason) {
+      setEscalationPrefill(true);
+      const effectivePack: TradeEscalationPack =
+        pack ??
+        ({
+          version: 1,
+          reason: parsed.reason ?? 'trade_problem',
+          orderId: parsed.dealId,
+          offerId: parsed.offerId || null,
+          orderStatus: 'UNKNOWN',
+          role: 'other',
+          verificationStatus: parsed.verifyStatus || null,
+          failedCheckKeys: parsed.failedChecks,
+          nextActionKind: parsed.nextAction || null,
+          remainingMinutes: null,
+          tradeTimeoutAt: null,
+          capturedAt: parsed.capturedAt || new Date().toISOString(),
+        } satisfies TradeEscalationPack);
+      setEscalationPack(effectivePack);
+      setBody(formatTradeEscalationTicketBody(effectivePack));
+      if (!parsed.offerId && effectivePack.offerId) {
+        setOfferId(effectivePack.offerId);
+      }
+    } else {
+      setEscalationPack(null);
     }
   }, [searchParams]);
 
@@ -81,14 +184,20 @@ export function SupportPage() {
     setError(null);
     setSuccess(null);
     try {
+      const pack =
+        escalationPack ?? (dealId ? readTradeEscalationPack(dealId) : null);
       const ticket = await createSupportTicket(token, {
         subject,
-        body: buildTicketBody(dealId, body),
+        body: buildTicketBody(dealId, body, offerId, pack, supportBridgePack),
       });
       setTickets((current) => [ticket, ...current]);
       setTopicId('');
       setDealId('');
+      setOfferId('');
       setBody('');
+      setEscalationPrefill(false);
+      setEscalationPack(null);
+      setSupportBridgePack(null);
       setSuccess(t('support.success'));
     } catch (err: unknown) {
       setError(err);
@@ -141,6 +250,17 @@ export function SupportPage() {
           </div>
         ) : (
           <form className="support-ticket-form" onSubmit={(event) => void handleSubmit(event)}>
+            {escalationPrefill ? (
+              <p
+                className="alert alert-info"
+                data-testid="support-escalation-prefill"
+              >
+                {supportBridgePack
+                  ? t('support.bridgePrefillHint')
+                  : t('tradeEscalation.prefillHint')}
+              </p>
+            ) : null}
+
             <label className="field">
               <span className="field-label">{t('support.topicLabel')}</span>
               <ThemeSelect
@@ -174,11 +294,24 @@ export function SupportPage() {
             </label>
 
             <label className="field">
+              <span className="field-label">{t('support.offerIdLabel')}</span>
+              <input
+                type="text"
+                value={offerId}
+                onChange={(event) => setOfferId(event.target.value)}
+                placeholder={t('support.offerIdPlaceholder')}
+                autoComplete="off"
+                spellCheck={false}
+                data-testid="support-ticket-offer-id"
+              />
+            </label>
+
+            <label className="field">
               <span className="field-label">{t('support.bodyLabel')}</span>
               <textarea
                 value={body}
                 onChange={(event) => setBody(event.target.value)}
-                rows={5}
+                rows={escalationPrefill ? 12 : 5}
                 placeholder={t('support.bodyPlaceholder')}
                 data-testid="support-ticket-body"
                 required

@@ -157,6 +157,8 @@ export class AdminService {
       ordersCompleted24h,
       ordersDisputed24h,
       tasksFailed24h,
+      failReasonGroups,
+      rollout,
     ] = await Promise.all([
       this.prisma.order.count({
         where: {
@@ -188,10 +190,27 @@ export class AdminService {
           status: 'FAILED',
         },
       }),
+      this.prisma.tradeTask.groupBy({
+        by: ['lastErrorCode'],
+        where: {
+          updatedAt: { gte: since },
+          status: 'FAILED',
+          lastErrorCode: { not: null },
+        },
+        _count: { _all: true },
+      }),
+      this.extensionRolloutService.getOpsSnapshot(),
     ]);
 
     const kpis = this.extensionFlowMetrics.snapshotKpis();
     const thresholds = extensionFlowAlertThresholds();
+    const failReasonsTop24h = failReasonGroups
+      .map((row) => ({
+        reasonCode: row.lastErrorCode ?? 'unknown',
+        count: row._count._all,
+      }))
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 15);
 
     return toJsonSafe({
       enabled: true,
@@ -199,6 +218,17 @@ export class AdminService {
       inMemory: kpis,
       activeAlerts: this.observabilityAlerts.snapshotActiveAlerts(),
       thresholds,
+      failReasonsTop24h,
+      rollout: {
+        enabled: rollout.enabled,
+        killSwitch: rollout.killSwitch,
+        inflightGrace: rollout.inflightGrace,
+        stage: rollout.stage,
+        percent: rollout.percent,
+        allowlistCount: rollout.allowlist.entries.length,
+        featureFlags: rollout.featureFlags,
+        rollback: rollout.rollback,
+      },
       db24h: {
         orders_started: ordersStarted24h,
         orders_completed: ordersCompleted24h,

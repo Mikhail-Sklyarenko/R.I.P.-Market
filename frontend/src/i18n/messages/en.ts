@@ -445,6 +445,8 @@ const baseEnMessages = {
     createTicket: 'Create a ticket',
     formHint:
       'Briefly say what happened and what you already tried. For deals, include the ID.',
+    bridgePrefillHint:
+      'The extension report is already filled in (version, orderId, phase, error, steamMatch). Add what you see on screen and submit the ticket.',
     loginRequiredTitle: 'Sign in to create a ticket',
     loginRequired: 'Steam sign-in is required — you’ll return to this page afterward.',
     topicLabel: 'Topic',
@@ -452,6 +454,8 @@ const baseEnMessages = {
     dealIdLabel: 'Deal ID (optional)',
     dealIdPlaceholder: 'From Deals or the order page',
     dealIdHint: 'Deals → copy the ID on the card or on the deal page.',
+    offerIdLabel: 'Steam Offer ID (if any)',
+    offerIdPlaceholder: 'e.g. 8301234567',
     bodyLabel: 'Description',
     bodyPlaceholder: 'What happened, what you expected, what you already tried…',
     attachmentHint:
@@ -671,16 +675,23 @@ const baseEnMessages = {
       'The trade is confirmed. Payout to your balance after the review window (up to 8 days).',
     settlementHoldSellerBody2:
       'The deal is confirmed. Funds will be credited once the 8-day review period ends.',
+    settlementHoldSellerProtectBody:
+      'Protection against chargebacks and Steam trade reversals. Payout after the review window (up to 8 days).',
     settlementHoldBuyerTitle: 'Deal under review',
     settlementHoldBuyerBody: 'The trade went through. Final settlement happens after the review window.',
     settlementHoldBuyerBody2:
       'The trade is confirmed. The payout to the seller will be available after the 8-day review period.',
+    settlementHoldBuyerProtectBody:
+      'The item is yours. Seller funds unlock after platform review / hold.',
     canceledTitle: 'Deal canceled',
     canceledBody: 'The reserved funds were returned to your wallet.',
     failedTitle: 'Deal failed',
     failedBody: 'Funds were refunded to the buyer, the listing is back in the catalog.',
     disputeTitle: 'Dispute opened',
     disputeBody: 'The support team will review the situation and make a decision.',
+    mismatchTitle: 'Trade does not match the order',
+    mismatchBody:
+      'Do not accept this trade offer. The Steam skin does not match the R.I.P Market order — contact support if needed.',
     buyerCheckItemTitle: 'Check the item in Steam',
     buyerCheckItemBody:
       'The trade may have already gone through. Open your Steam inventory — the platform will verify delivery itself.',
@@ -690,9 +701,19 @@ const baseEnMessages = {
     buyerAcceptTitle: 'Accept the trade in Steam',
     buyerAcceptBody:
       'Open your incoming offers, check the skin, and accept the trade. The site will update itself.',
+    buyerAcceptShieldTitle: 'Open the verified offer — check the shield',
+    buyerAcceptShieldBody:
+      'The extension is connected. Open this offer in Steam, confirm the R.I.P shield and skin checks, then Accept with the Steam button.',
+    buyerAcceptPairTitle: 'Connect the extension, then accept safely',
+    buyerAcceptPairBody:
+      'Pair the extension below for the shield and order checks on the Steam offer page. You can still accept manually — the extension never clicks Accept for you.',
     tradeConfirmedTitle: 'Trade confirmed',
     tradeConfirmedBuyerBody: 'The platform is finishing its checks. The page will update automatically.',
+    tradeConfirmedBuyerDeliveryBody:
+      'The platform is verifying delivery (Steam offer + inventory). The item should be yours — nothing to do.',
     tradeConfirmedSellerBody: 'Waiting for the payout to your wallet.',
+    tradeConfirmedSellerDeliveryBody:
+      'The platform is verifying delivery (Steam offer + inventory). Payout unlocks after confirmation.',
     waitTitle: 'Please wait',
     waitBody: 'The deal is being processed. The status will update automatically.',
     sellerWaitBody: 'The deal is being processed.',
@@ -702,9 +723,15 @@ const baseEnMessages = {
     sellerAwaitingAutoSendTitle: 'Waiting for auto-send',
     sellerAwaitingAutoSendBody:
       'The extension will send the trade automatically. If Steam asks — confirm it in the mobile app.',
+    sellerConnectExtensionTitle: 'Connect the extension to auto-send',
+    sellerConnectExtensionBody:
+      'Pair the extension below — it will send the trade offer. Manual send stays available if needed.',
+    sellerManualSendTitle: 'Send the trade manually',
+    sellerManualSendBody:
+      'Auto-send did not finish. Open the buyer Trade URL, send the skin, then paste the offer link below.',
     sellerConfirmGuardTitle: 'Confirm in Steam Guard',
     sellerConfirmGuardBody:
-      'If Steam sent a request — confirm it on your phone. Then we wait for the buyer to accept.',
+      'Open Steam Mobile and confirm the send. This page updates itself — no refresh needed.',
     sellerAwaitingBuyerTitle: 'Waiting for the buyer',
     sellerAwaitingBuyerBody:
       'The trade was sent. The buyer needs to accept it in their incoming Steam offers.',
@@ -726,6 +753,43 @@ const baseEnMessages = {
       title: 'Refund on failure',
       description: 'If the trade fails, the hold is released and the money is refunded.',
     },
+  },
+  dealFlowStepExtension: {
+    'trade-offer': {
+      title: 'Auto-send via extension',
+      description:
+        'After payment, the seller’s R.I.P extension sends the trade offer — usually without leaving Steam.',
+    },
+    accept: {
+      title: 'Safe accept with the shield',
+      description:
+        'Open the verified offer. The extension shows a shield and skin checks — Accept only with the Steam button.',
+    },
+  },
+  extensionAwareBuy: {
+    connectedTitle: 'Extension ready for a safe accept',
+    connectedBody:
+      'After you buy, open the offer from the order page — Steam will show the R.I.P shield before Accept.',
+    pairTitle: 'Connect the extension for a safer accept',
+    pairBody:
+      'Optional: pair now so the Steam offer page can verify the skin against the order. Buying works without it.',
+    installTitle: 'Install the extension for a safer accept',
+    installBody:
+      'Optional Chrome add-on: shield and checks on the Steam offer page. You can buy without it.',
+  },
+  extensionAwareSell: {
+    connectedTitle: 'Extension ready for auto-send',
+    connectedBody:
+      'When someone buys, the extension sends the trade offer itself. Confirm in Steam Guard if Steam asks.',
+    pairTitle: 'Connect the extension for auto-send',
+    pairBody:
+      'Pair once — after a purchase the offer goes out without copying Trade URLs. Manual send stays as fallback.',
+    installTitle: 'Install the extension for auto-send',
+    installBody:
+      'List here as usual. With the Chrome extension, deals auto-send from Steam when a buyer pays.',
+  },
+  extensionAwareCommerce: {
+    accountLink: 'Open account to connect the extension',
   },
   buyRequestFlowStep: {
     request: {

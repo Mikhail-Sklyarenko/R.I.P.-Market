@@ -4,6 +4,7 @@ export * from './error-codes.js';
 export * from './crypto/signature.js';
 export * from './orchestrator/create-offer-orchestrator.js';
 export * from './adapters/steam-offer-adapter.js';
+export * from './adapters/inventory-load.types.js';
 export * from './adapters/mock-steam-offer-adapter.js';
 export * from './api/task-progress-reporter.js';
 export * from './api/http-task-progress-reporter.js';

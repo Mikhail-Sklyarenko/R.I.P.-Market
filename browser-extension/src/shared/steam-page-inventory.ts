@@ -140,13 +140,41 @@ export async function loadInventoryViaPageScript(
   const value = result?.result as PageInventoryResult | undefined;
   if (!value?.ok) {
     console.warn('[rip-market] page inventory failed', value?.error);
+    const errorMessage = value?.error ?? 'Inventory load failed';
+    if (value?.rateLimited || /HTTP 429/.test(errorMessage)) {
+      return {
+        items: [],
+        rateLimited: true,
+        failReason: 'rate_limited',
+        errorMessage,
+      };
+    }
+    if (/private/i.test(errorMessage)) {
+      return {
+        items: [],
+        rateLimited: false,
+        failReason: 'private',
+        errorMessage,
+      };
+    }
+    if (/Steam ID not found|not logged|login/i.test(errorMessage)) {
+      return {
+        items: [],
+        rateLimited: false,
+        failReason: 'not_logged_in',
+        errorMessage,
+      };
+    }
     return {
       items: [],
-      rateLimited: Boolean(value?.rateLimited),
+      rateLimited: false,
+      failReason: 'unknown',
+      errorMessage,
     };
   }
   return {
     items: value.items,
     rateLimited: false,
+    failReason: null,
   };
 }
