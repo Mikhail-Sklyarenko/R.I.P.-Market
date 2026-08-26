@@ -1,7 +1,11 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import type { Lot } from '../api/types.ts';
-import { sortItemOffers } from './item-offers-sort.ts';
+import {
+  clampItemOfferSort,
+  resolveItemOfferSortOptions,
+  sortItemOffers,
+} from './item-offers-sort.ts';
 
 function makeLot(id: string, priceMinor: string, floatValue?: string | null): Lot {
   return {
@@ -54,5 +58,22 @@ describe('sortItemOffers', () => {
       sortItemOffers(lots, 'float_asc').map((lot) => lot.id),
       ['low', 'high', 'empty'],
     );
+  });
+
+  it('omits float sort options when float UX is off', () => {
+    assert.deepEqual(resolveItemOfferSortOptions(false), [
+      'price_asc',
+      'price_desc',
+      'newest',
+    ]);
+    assert.deepEqual(resolveItemOfferSortOptions(true), [
+      'price_asc',
+      'price_desc',
+      'float_asc',
+      'float_desc',
+      'newest',
+    ]);
+    assert.equal(clampItemOfferSort('float_asc', false), 'price_asc');
+    assert.equal(clampItemOfferSort('float_asc', true), 'float_asc');
   });
 });

@@ -11,6 +11,28 @@ const messagesByLocale = {
 
 export type ItemOfferSort = 'price_asc' | 'price_desc' | 'float_asc' | 'float_desc' | 'newest';
 
+const FLOAT_OFFER_SORTS = new Set<ItemOfferSort>(['float_asc', 'float_desc']);
+
+export function isFloatOfferSort(sort: ItemOfferSort): boolean {
+  return FLOAT_OFFER_SORTS.has(sort);
+}
+
+/** Drop float sorts when the item has no float UX (cases, keys, …). */
+export function resolveItemOfferSortOptions(showFloat: boolean): ItemOfferSort[] {
+  const options: ItemOfferSort[] = ['price_asc', 'price_desc', 'newest'];
+  if (showFloat) {
+    options.splice(2, 0, 'float_asc', 'float_desc');
+  }
+  return options;
+}
+
+export function clampItemOfferSort(sort: ItemOfferSort, showFloat: boolean): ItemOfferSort {
+  if (!showFloat && isFloatOfferSort(sort)) {
+    return 'price_asc';
+  }
+  return sort;
+}
+
 function parseFloatSortValue(lot: Lot): number | null {
   const raw = lot.listingSnapshot?.floatValue ?? lot.inventoryAsset.floatValue;
   if (raw === null || raw === undefined || raw === '') {

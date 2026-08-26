@@ -342,6 +342,8 @@ export type ItemOrderBook = {
   wear: string | null;
   bids: OrderBookBidLevel[];
   asks: OrderBookAskPreview[];
+  /** Aggregated sell depth by price (preferred for fungible markets). */
+  asksLevels?: OrderBookBidLevel[];
   asksSummary: {
     count: number;
     minPriceMinor: string | null;

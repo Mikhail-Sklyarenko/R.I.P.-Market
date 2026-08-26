@@ -5903,7 +5903,20 @@ a.button.primary {
   gap: var(--space-2);
 }
 
+.item-order-book-ask-list {
+  display: grid;
+  gap: var(--space-2);
+}
+
 .item-order-book-bid-row {
+  position: relative;
+  overflow: hidden;
+  border-radius: var(--radius-sm);
+  border: 1px solid rgba(148, 163, 184, 0.12);
+  background: rgba(15, 23, 42, 0.72);
+}
+
+.item-order-book-ask-row {
   position: relative;
   overflow: hidden;
   border-radius: var(--radius-sm);
@@ -5923,7 +5936,30 @@ a.button.primary {
   pointer-events: none;
 }
 
+.item-order-book-ask-depth {
+  position: absolute;
+  inset: 0 0 0 auto;
+  max-width: 100%;
+  background: linear-gradient(
+    270deg,
+    color-mix(in srgb, var(--color-danger, #ef4444) 24%, transparent),
+    color-mix(in srgb, var(--color-danger, #ef4444) 6%, transparent)
+  );
+  pointer-events: none;
+}
+
 .item-order-book-bid-row-main {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: 0.65rem 0.75rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.item-order-book-ask-row-main {
   position: relative;
   z-index: 1;
   display: flex;
@@ -6147,6 +6183,23 @@ a.button.primary {
 
 .item-offers-table tbody tr:hover {
   background: rgba(37, 99, 235, 0.06);
+}
+
+.item-offers-table-selectable tbody tr {
+  cursor: pointer;
+}
+
+.item-offers-table tbody tr.item-offers-row-selected,
+.item-offers-table tbody tr[data-selected='true'] {
+  background: color-mix(in srgb, var(--color-accent, #3b82f6) 14%, transparent);
+  outline: 1px solid color-mix(in srgb, var(--color-accent, #3b82f6) 45%, transparent);
+}
+
+.item-offers-row-actions {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0.35rem;
 }
 
 .item-offers-table-price {

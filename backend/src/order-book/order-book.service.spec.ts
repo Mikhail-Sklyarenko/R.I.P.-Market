@@ -41,14 +41,16 @@ describe('OrderBookService', () => {
     ]);
     prisma.lot.count.mockResolvedValue(2);
     prisma.lot.findFirst.mockResolvedValue({ priceMinor: 1300n });
-    prisma.lot.findMany.mockResolvedValue([
-      {
-        id: 'lot-1',
-        priceMinor: 1300n,
-        listingSnapshot: { floatValue: 0.12, wear: 'MW' },
-        inventoryAsset: { floatValue: 0.12, wear: 'MW' },
-      },
-    ]);
+    prisma.lot.findMany
+      .mockResolvedValueOnce([
+        {
+          id: 'lot-1',
+          priceMinor: 1300n,
+          listingSnapshot: { floatValue: 0.12, wear: 'MW' },
+          inventoryAsset: { floatValue: 0.12, wear: 'MW' },
+        },
+      ])
+      .mockResolvedValueOnce([{ priceMinor: 1300n }, { priceMinor: 1300n }]);
 
     const result = await service.getForItem('ak-47-redline');
 
@@ -57,6 +59,7 @@ describe('OrderBookService', () => {
       { priceMinor: '1100', quantity: 1 },
     ]);
     expect(result.asks).toHaveLength(1);
+    expect(result.asksLevels).toEqual([{ priceMinor: '1300', quantity: 2 }]);
     expect(result.asksSummary.count).toBe(2);
     expect(result.bestBidMinor).toBe('1200');
     expect(result.bestAskMinor).toBe('1300');

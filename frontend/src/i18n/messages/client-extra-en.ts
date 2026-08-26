@@ -115,7 +115,11 @@ export const clientExtraEn = {
     priceMaybeStale: 'price may be outdated',
     bestOffer: 'Best offer',
     openBestOffer: 'Open best offer',
+    selectedOffer: 'Selected offer',
     floatStickersHint: 'Float, stickers, and inspect are available on the specific listing page.',
+    fungibleOfferHint: 'Buy at the best price — no hop to a listing page.',
+    selectOfferHint: 'Select an offer in the list, then press Buy.',
+    lotDetailsLink: 'Listing details',
   },
   orderBook: {
     title: 'Order book',
@@ -262,6 +266,7 @@ export const clientExtraEn = {
   itemOffers: {
     title: "Seller offers",
     subtitle: 'Pick a specific listing to see float, stickers, and complete the purchase.',
+    subtitleSelect: 'Click a row to select the listing and buy on this page.',
     sortAria: 'Sort',
     sortPriceAsc: 'Price ↑',
     sortPriceDesc: 'Price ↓',
@@ -275,6 +280,9 @@ export const clientExtraEn = {
     colStickers: 'Stickers',
     colListed: 'Listed',
     open: 'Open',
+    select: 'Select',
+    selected: 'Selected',
+    details: 'Details',
     stickerCount: '{{count}} stickers',
   },
   lotBreadcrumbs: {

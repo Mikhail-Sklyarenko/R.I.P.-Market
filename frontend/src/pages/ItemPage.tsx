@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import {
   cancelBuyRequest,
   createBuyRequest,
@@ -19,9 +19,9 @@ import { usePageMeta } from '../hooks/usePageMeta';
 import { DealFlowSteps } from '../components/DealFlowSteps';
 import { BUY_REQUEST_FLOW_STEP_ITEMS } from '../utils/order-flow';
 import { ErrorAlert } from '../components/ErrorAlert';
-import { InventoryPriceStack } from '../components/InventoryPriceStack';
 import { ItemBuyRequestPanel } from '../components/ItemBuyRequestPanel';
 import { ItemCompareHeader } from '../components/ItemCompareHeader';
+import { ItemMarketPurchaseCard } from '../components/ItemMarketPurchaseCard';
 import { ItemOffersTable } from '../components/ItemOffersTable';
 import { ItemOrderBook } from '../components/ItemOrderBook';
 import { ItemParamsPanel } from '../components/ItemParamsPanel';
@@ -31,7 +31,6 @@ import { LotActionButtons } from '../components/LotActionButtons';
 import { LotBreadcrumbs } from '../components/LotBreadcrumbs';
 import { LotItemHero } from '../components/LotItemHero';
 import { LotListingDetail } from '../components/LotListingDetail';
-import { MoneyDisplay } from '../components/MoneyDisplay';
 import { getCatalogItemRef, isUuid } from '../utils/item-slug';
 import {
   formatSteamPriceAge,
@@ -49,6 +48,7 @@ import {
 import { getSteamItemImageUrl } from '../utils/item-image';
 import { preloadWearIcons } from '../utils/wear-icons';
 import { resolveItemPageMode } from '../utils/item-page-mode';
+import { resolveItemMarketTraits } from '../utils/item-market-taxonomy';
 
 export function ItemPage() {
   const { id } = useParams();
@@ -76,11 +76,26 @@ export function ItemPage() {
   const [maxPriceInput, setMaxPriceInput] = useState('');
   const [quantityInput, setQuantityInput] = useState('1');
   const [selectedWear, setSelectedWear] = useState('');
+  const [selectedLotId, setSelectedLotId] = useState<string | null>(null);
 
   const pageMode = item ? resolveItemPageMode(item.activeLotCount) : null;
   const isBuyRequestPage = pageMode === 'buy-request';
   const isSingleListingPage = pageMode === 'single-listing';
   const isComparisonPage = pageMode === 'comparison';
+  const marketTraits = item
+    ? resolveItemMarketTraits({
+        weapon: item.weapon,
+        marketHashName: item.marketHashName,
+        availableWears: item.availableWears,
+      })
+    : null;
+  const itemMarket = item
+    ? {
+        weapon: item.weapon,
+        marketHashName: item.marketHashName,
+        availableWears: item.availableWears,
+      }
+    : undefined;
 
   const maxPriceMinor = useMemo(() => parseUsdToMinor(maxPriceInput), [maxPriceInput]);
   const openBuyRequests = useMemo(() => {
@@ -98,6 +113,10 @@ export function ItemPage() {
     });
   }, [buyRequests, selectedWear]);
   const cheapestLot = lots[0] ?? null;
+  const selectedLot =
+    (selectedLotId ? lots.find((lot) => lot.id === selectedLotId) : null) ??
+    cheapestLot;
+  const isFungibleMarket = marketTraits?.marketKind === 'fungible';
   const wearOptions = item?.availableWears ?? [];
   const effectiveWear =
     selectedWear ||
@@ -125,13 +144,26 @@ export function ItemPage() {
   });
 
   useEffect(() => {
-    if (!isSingleListingPage) {
+    if (!isSingleListingPage && !isComparisonPage) {
       return;
     }
     getAuthConfig()
       .then((config) => setRequiresSteamLink(config.inventoryProvider === 'steam'))
       .catch(() => undefined);
-  }, [isSingleListingPage]);
+  }, [isSingleListingPage, isComparisonPage]);
+
+  useEffect(() => {
+    if (lots.length === 0) {
+      setSelectedLotId(null);
+      return;
+    }
+    setSelectedLotId((prev) => {
+      if (prev && lots.some((lot) => lot.id === prev)) {
+        return prev;
+      }
+      return lots[0]?.id ?? null;
+    });
+  }, [lots]);
 
   useEffect(() => {
     if (!id) {
@@ -382,6 +414,7 @@ export function ItemPage() {
                     hideEmptyAsks
                     variant="compact"
                     ownBuyRequests={openBuyRequests}
+                    market={itemMarket}
                   />
                 </div>
 
@@ -444,7 +477,11 @@ export function ItemPage() {
           ) : null}
 
           {isComparisonPage ? (
-            <div className="item-compare-layout" data-testid="item-comparison-layout">
+            <div
+              className="item-compare-layout"
+              data-testid="item-comparison-layout"
+              data-market-kind={marketTraits?.marketKind ?? 'differentiated'}
+            >
               <div className="item-compare-main">
                 <ItemCompareHeader
                   item={item}
@@ -459,75 +496,46 @@ export function ItemPage() {
                   orderBook={orderBook}
                   loading={orderBookLoading}
                   hideEmptyBids
+                  market={itemMarket}
+                  asksMode="levels"
                 />
-                <ItemOffersTable lots={lots} loading={lotsLoading} />
+                {!isFungibleMarket ? (
+                  <ItemOffersTable
+                    lots={lots}
+                    loading={lotsLoading}
+                    market={itemMarket}
+                    selectable
+                    selectedLotId={selectedLot?.id ?? null}
+                    onSelectLot={setSelectedLotId}
+                  />
+                ) : null}
               </div>
 
               <aside className="item-compare-sidebar">
-                <div className="card lot-purchase-card item-purchase-card">
-                  <p className="item-purchase-label muted small">{t('item.bestOffer')}</p>
-                  <div data-testid="item-market-price">
-                    <InventoryPriceStack
-                      steamPriceMinor={wearSteamPrice}
-                      marketplacePriceMinor={
-                        cheapestLot?.priceMinor ?? item.minMarketplacePriceMinor
-                      }
-                      testIdPrefix="item"
-                      loading={wearSteamPriceLoading}
-                    />
-                    {wearSteamPrice != null && wearSteamPriceFetchedAt ? (
-                      <p
-                        className={`muted small item-steam-price-age${
-                          isSteamPriceStale(wearSteamPriceFetchedAt)
-                            ? ' item-steam-price-age-stale'
-                            : ''
-                        }`}
-                        data-testid="item-steam-price-age"
-                      >
-                        {t('item.steamUpdated', {
-                          age: formatSteamPriceAge(wearSteamPriceFetchedAt, locale) ?? '',
-                        })}
-                        {isSteamPriceStale(wearSteamPriceFetchedAt)
-                          ? ` · ${t('item.priceMaybeStale')}`
-                          : ''}
-                      </p>
-                    ) : null}
-                  </div>
-
-                  {cheapestLot ? (
-                    <div className="lot-purchase-sticky-dock" data-testid="item-mobile-purchase-dock">
-                      <div className="lot-purchase-sticky-price">
-                        <MoneyDisplay minor={cheapestLot.priceMinor} strong />
-                      </div>
-                      <div className="lot-purchase-actions">
-                        <Link
-                          to={`/lots/${cheapestLot.id}`}
-                          className="button primary lot-purchase-button"
-                          data-testid="item-open-cheapest"
-                        >
-                          {t('item.openBestOffer')}
-                        </Link>
-                      </div>
-                    </div>
-                  ) : null}
-
-                  <a
-                    className="button secondary lot-purchase-button"
-                    href={buildSteamMarketListingUrl(
-                      item.marketHashName,
-                      effectiveWear || null,
-                    )}
-                    target="_blank"
-                    rel="noreferrer"
-                    data-testid="item-steam-market-link"
-                  >
-                    Steam Market
-                  </a>
-
-                  <p className="muted small">
-                    {t('item.floatStickersHint')}
-                  </p>
-                </div>
+                <ItemMarketPurchaseCard
+                  lot={selectedLot}
+                  token={token}
+                  user={user}
+                  requiresSteamLink={requiresSteamLink}
+                  returnPath={`/catalog/items/${getCatalogItemRef(item)}`}
+                  marketKind={marketTraits?.marketKind ?? 'differentiated'}
+                  steamPriceMinor={wearSteamPrice}
+                  steamPriceLoading={wearSteamPriceLoading}
+                  steamPriceFetchedAt={wearSteamPriceFetchedAt}
+                  steamPriceAgeLabel={
+                    wearSteamPriceFetchedAt
+                      ? formatSteamPriceAge(wearSteamPriceFetchedAt, locale)
+                      : null
+                  }
+                  steamPriceStale={isSteamPriceStale(wearSteamPriceFetchedAt)}
+                  steamMarketUrl={buildSteamMarketListingUrl(
+                    item.marketHashName,
+                    effectiveWear || null,
+                  )}
+                  lotDetailsPath={
+                    !isFungibleMarket && selectedLot ? `/lots/${selectedLot.id}` : null
+                  }
+                />
               </aside>
             </div>
           ) : null}

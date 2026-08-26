@@ -121,7 +121,11 @@ export const clientExtraRu = {
     priceMaybeStale: 'цена может быть устаревшей',
     bestOffer: 'Лучшее предложение',
     openBestOffer: 'Открыть лучшее предложение',
+    selectedOffer: 'Выбранное предложение',
     floatStickersHint: 'Float, стикеры и inspect доступны на странице конкретного лота.',
+    fungibleOfferHint: 'Покупка по лучшей цене — без перехода на страницу лота.',
+    selectOfferHint: 'Выберите предложение в списке слева, затем нажмите «Купить».',
+    lotDetailsLink: 'Подробнее о лоте',
   },
   orderBook: {
     title: 'Стакан заявок',
@@ -270,6 +274,7 @@ export const clientExtraRu = {
   itemOffers: {
     title: 'Предложения продавцов',
     subtitle: 'Выберите конкретный лот, чтобы увидеть float, стикеры и оформить покупку.',
+    subtitleSelect: 'Клик по строке выбирает лот для покупки на этой странице.',
     sortAria: 'Сортировка',
     sortPriceAsc: 'Цена ↑',
     sortPriceDesc: 'Цена ↓',
@@ -283,6 +288,9 @@ export const clientExtraRu = {
     colStickers: 'Стикеры',
     colListed: 'Выставлен',
     open: 'Открыть',
+    select: 'Выбрать',
+    selected: 'Выбрано',
+    details: 'Подробнее',
     stickerCount: '{{count}} шт.',
   },
   lotBreadcrumbs: {

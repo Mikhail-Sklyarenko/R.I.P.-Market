@@ -1,6 +1,11 @@
 import { Link } from 'react-router-dom';
 import type { BuyRequest, ItemOrderBook as ItemOrderBookData } from '../api/types';
 import { useLocale, wearLabel } from '../i18n';
+import {
+  resolveItemMarketTraits,
+  resolveOrderBookAskFloatVisibility,
+  type ItemMarketInput,
+} from '../utils/item-market-taxonomy';
 import { formatBuyerSellHintPrefix } from '../utils/order-book-labels';
 import { LoadingState } from './LoadingState';
 import { MoneyDisplay } from './MoneyDisplay';
@@ -18,6 +23,15 @@ type ItemOrderBookProps = {
   variant?: 'default' | 'compact';
   /** Highlights bid levels that include the viewer's open buy requests. */
   ownBuyRequests?: BuyRequest[];
+  /** Catalog identity — hides ask Float for fungible items (cases, keys, …). */
+  market?: ItemMarketInput;
+  /**
+   * How to render the sell side.
+   * - levels: price + qty (fungible / market depth)
+   * - lots: individual lot preview (differentiated skins)
+   * - auto: fungible → levels, else lots
+   */
+  asksMode?: 'levels' | 'lots' | 'auto';
 };
 
 function ownQuantityAtPrice(requests: BuyRequest[], priceMinor: string): number {
@@ -90,6 +104,52 @@ function CompactBidLevels({
   );
 }
 
+function CompactAskLevels({ levels }: { levels: ItemOrderBookData['asksLevels'] }) {
+  const { t } = useLocale();
+  const rows = levels ?? [];
+  const maxQuantity = Math.max(...rows.map((level) => level.quantity), 1);
+
+  return (
+    <div className="item-order-book-ask-list" data-testid="item-order-book-ask-levels">
+      {rows.map((level) => {
+        const depthPercent = Math.max(12, (level.quantity / maxQuantity) * 100);
+        return (
+          <div
+            key={level.priceMinor}
+            className="item-order-book-ask-row"
+            data-testid={`item-order-book-ask-level-${level.priceMinor}`}
+          >
+            <div
+              className="item-order-book-ask-depth"
+              style={{ width: `${depthPercent}%` }}
+              aria-hidden="true"
+            />
+            <div className="item-order-book-ask-row-main">
+              <MoneyDisplay minor={level.priceMinor} strong />
+              <span className="item-order-book-ask-qty muted small">
+                {t('orderBook.quantityShort', { count: level.quantity })}
+              </span>
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+function resolveAsksLevels(orderBook: ItemOrderBookData): NonNullable<ItemOrderBookData['asksLevels']> {
+  if (orderBook.asksLevels && orderBook.asksLevels.length > 0) {
+    return orderBook.asksLevels;
+  }
+  const levels = new Map<string, number>();
+  for (const ask of orderBook.asks) {
+    levels.set(ask.priceMinor, (levels.get(ask.priceMinor) ?? 0) + 1);
+  }
+  return [...levels.entries()]
+    .map(([priceMinor, quantity]) => ({ priceMinor, quantity }))
+    .sort((left, right) => Number(left.priceMinor) - Number(right.priceMinor));
+}
+
 export function ItemOrderBook({
   orderBook,
   loading = false,
@@ -98,12 +158,21 @@ export function ItemOrderBook({
   hideEmptyAsks = false,
   variant = 'default',
   ownBuyRequests = [],
+  market,
+  asksMode = 'auto',
 }: ItemOrderBookProps) {
   const { locale, t } = useLocale();
   const isCompact = variant === 'compact';
   const cardClassName = `card item-order-book-card${
     isCompact ? ' item-order-book-compact' : ''
   }`;
+  const showAskFloat = resolveOrderBookAskFloatVisibility(
+    market ?? {},
+    orderBook?.asks ?? [],
+  );
+  const marketKind = resolveItemMarketTraits(market ?? {}).marketKind;
+  const resolvedAsksMode =
+    asksMode === 'auto' ? (marketKind === 'fungible' ? 'levels' : 'lots') : asksMode;
 
   if (loading) {
     return (
@@ -289,42 +358,83 @@ export function ItemOrderBook({
                   <MoneyDisplay minor={orderBook.asksSummary.minPriceMinor} />
                 </p>
               ) : null}
-              <table className="item-order-book-table">
-                <thead>
-                  <tr>
-                    <th>{t('orderBook.colPrice')}</th>
-                    <th>{t('orderBook.colFloat')}</th>
-                    <th aria-hidden="true" />
-                  </tr>
-                </thead>
-                <tbody>
-                  {orderBook.asks.map((ask) => (
-                    <tr key={ask.lotId} data-testid={`item-order-book-ask-${ask.lotId}`}>
-                      <td className="item-order-book-price item-order-book-price-ask">
-                        <MoneyDisplay minor={ask.priceMinor} strong />
-                      </td>
-                      <td className="muted small">
-                        {formatFloat(ask.floatValue)}
-                        {ask.wear ? (
-                          <span className="item-order-book-wear">
-                            {' '}
-                            · {wearLabel(ask.wear, locale)}
-                          </span>
-                        ) : null}
-                      </td>
-                      <td className="item-order-book-action">
-                        <Link
-                          to={`/lots/${ask.lotId}`}
-                          className="button secondary sm"
-                          data-testid={`item-order-book-open-${ask.lotId}`}
+              {resolvedAsksMode === 'levels' ? (
+                isCompact ? (
+                  <CompactAskLevels levels={resolveAsksLevels(orderBook)} />
+                ) : (
+                  <table
+                    className="item-order-book-table"
+                    data-testid="item-order-book-asks-table"
+                    data-asks-mode="levels"
+                  >
+                    <thead>
+                      <tr>
+                        <th>{t('orderBook.colPrice')}</th>
+                        <th>{t('orderBook.colQty')}</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {resolveAsksLevels(orderBook).map((level) => (
+                        <tr
+                          key={level.priceMinor}
+                          data-testid={`item-order-book-ask-level-${level.priceMinor}`}
                         >
-                          {t('orderBook.openLot')}
-                        </Link>
-                      </td>
+                          <td className="item-order-book-price item-order-book-price-ask">
+                            <MoneyDisplay minor={level.priceMinor} strong />
+                          </td>
+                          <td className="muted small">
+                            {t('orderBook.quantityShort', { count: level.quantity })}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                )
+              ) : (
+                <table
+                  className="item-order-book-table"
+                  data-testid="item-order-book-asks-table"
+                  data-show-float={showAskFloat ? 'true' : 'false'}
+                  data-asks-mode="lots"
+                >
+                  <thead>
+                    <tr>
+                      <th>{t('orderBook.colPrice')}</th>
+                      {showAskFloat ? <th>{t('orderBook.colFloat')}</th> : null}
+                      <th aria-hidden="true" />
                     </tr>
-                  ))}
-                </tbody>
-              </table>
+                  </thead>
+                  <tbody>
+                    {orderBook.asks.map((ask) => (
+                      <tr key={ask.lotId} data-testid={`item-order-book-ask-${ask.lotId}`}>
+                        <td className="item-order-book-price item-order-book-price-ask">
+                          <MoneyDisplay minor={ask.priceMinor} strong />
+                        </td>
+                        {showAskFloat ? (
+                          <td className="muted small">
+                            {formatFloat(ask.floatValue)}
+                            {ask.wear ? (
+                              <span className="item-order-book-wear">
+                                {' '}
+                                · {wearLabel(ask.wear, locale)}
+                              </span>
+                            ) : null}
+                          </td>
+                        ) : null}
+                        <td className="item-order-book-action">
+                          <Link
+                            to={`/lots/${ask.lotId}`}
+                            className="button secondary sm"
+                            data-testid={`item-order-book-open-${ask.lotId}`}
+                          >
+                            {t('orderBook.openLot')}
+                          </Link>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
             </>
           )}
         </div>

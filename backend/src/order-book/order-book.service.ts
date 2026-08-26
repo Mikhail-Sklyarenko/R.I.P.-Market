@@ -6,12 +6,14 @@ import { toJsonSafe } from '../common/json-safe.util';
 import { PrismaService } from '../prisma/prisma.service';
 import { resolveOrderBookItemScope } from './order-book-item-scope.util';
 import {
+  aggregateAskLevels,
   aggregateBidLevels,
   AskPreviewRow,
   buildOrderBookSnapshot,
 } from './order-book.util';
 
 const ASK_PREVIEW_LIMIT = 8;
+const ASK_LEVEL_LOT_LIMIT = 200;
 
 function toFloatNumber(
   value: { toString(): string } | number | null | undefined,
@@ -41,7 +43,8 @@ export class OrderBookService {
     }
 
     const lotWhere = this.buildActiveLotsWhere(scope);
-    const [openBuyRequests, askCount, minAskLot, askLots] = await Promise.all([
+    const [openBuyRequests, askCount, minAskLot, askLots, askPriceLots] =
+      await Promise.all([
       this.prisma.buyRequest.findMany({
         where: {
           status: BuyRequestStatus.OPEN,
@@ -75,6 +78,12 @@ export class OrderBookService {
           },
         },
       }),
+      this.prisma.lot.findMany({
+        where: lotWhere,
+        orderBy: { priceMinor: 'asc' },
+        take: ASK_LEVEL_LOT_LIMIT,
+        select: { priceMinor: true },
+      }),
     ]);
 
     const bids = aggregateBidLevels(openBuyRequests);
@@ -86,10 +95,12 @@ export class OrderBookService {
       ),
       wear: lot.listingSnapshot?.wear ?? lot.inventoryAsset.wear,
     }));
+    const asksLevels = aggregateAskLevels(askPriceLots);
 
     const snapshot = buildOrderBookSnapshot({
       bids,
       asks,
+      asksLevels,
       asksCount: askCount,
       minAskPriceMinor: minAskLot?.priceMinor ?? null,
     });

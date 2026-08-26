@@ -1,18 +1,15 @@
-import { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
-import { createOrder } from '../api/marketplace';
+import { Link } from 'react-router-dom';
 import type { AuthUser, Lot } from '../api/types';
 import { useLocale } from '../i18n';
-import { useWalletSummary } from '../hooks/useWalletSummary';
+import { useLotPurchase } from '../hooks/useLotPurchase';
 import { formatUsdFromMinor } from '../utils/format';
 import { isCredibleSteamGuidePrice } from '../utils/steam-guide-price';
 import { formatCounterpartyDisplayName } from '../utils/steam-profile';
-import { startSteamLogin } from '../utils/start-steam-login';
 import { DealFlowSteps } from './DealFlowSteps';
 import { ErrorAlert } from './ErrorAlert';
 import { InventoryPriceStack } from './InventoryPriceStack';
 import { MoneyDisplay } from './MoneyDisplay';
-import { isPurchaseBlocked, PurchaseReadinessAlerts } from './PurchaseReadinessAlerts';
+import { PurchaseReadinessAlerts } from './PurchaseReadinessAlerts';
 import { StatusBadge } from './StatusBadge';
 
 type LotPurchaseCardProps = {
@@ -41,66 +38,20 @@ export function LotPurchaseCard({
   purchaseError,
 }: LotPurchaseCardProps) {
   const { t } = useLocale();
-  const navigate = useNavigate();
-  const { summary, availableMinor, loading: walletLoading } = useWalletSummary();
-  const [confirming, setConfirming] = useState(false);
-  const [buyError, setBuyError] = useState<unknown>(null);
+  const purchase = useLotPurchase({
+    lot,
+    token,
+    user,
+    requiresSteamLink,
+    returnPath,
+    purchaseError,
+  });
 
-  const listingPriceMinor = lot.marketplacePriceMinor ?? lot.priceMinor;
-  const priceMinor = Number(lot.priceMinor);
-  const steamForGuide = isCredibleSteamGuidePrice(lot.steamPriceMinor, listingPriceMinor)
+  const steamForGuide = isCredibleSteamGuidePrice(lot.steamPriceMinor, purchase.listingPriceMinor)
     ? lot.steamPriceMinor
     : null;
   const sellerName = lot.seller ? formatCounterpartyDisplayName(lot.seller) : null;
-
-  const isOwnLot = Boolean(user && lot.sellerId === user.id);
-  const isUnavailable = lot.status !== 'ACTIVE';
-  const purchaseBlocked = isPurchaseBlocked(user, requiresSteamLink, Boolean(token));
-  const insufficient =
-    Boolean(token) &&
-    availableMinor !== null &&
-    priceMinor > 0 &&
-    availableMinor < priceMinor;
-  const shortfallMinor =
-    insufficient && availableMinor !== null ? priceMinor - availableMinor : 0;
-  const depositNeededMinor = shortfallMinor > 0 ? shortfallMinor : priceMinor;
-  const depositHref = `/wallet?tab=deposit&returnUrl=${encodeURIComponent(returnPath)}&needed=${depositNeededMinor}`;
-  const showReadiness =
-    Boolean(token) && !isOwnLot && !isUnavailable;
-  const canBuy =
-    Boolean(token) &&
-    lot.status === 'ACTIVE' &&
-    !isOwnLot &&
-    !purchaseBlocked &&
-    !insufficient &&
-    !confirming &&
-    !walletLoading;
-  const displayError = buyError ?? purchaseError;
-
-  async function handleBuy() {
-    if (!token) {
-      try {
-        await startSteamLogin(returnPath);
-      } catch {
-        // Stay on listing; user can retry via header Steam CTA.
-      }
-      return;
-    }
-    if (!canBuy) {
-      return;
-    }
-
-    setConfirming(true);
-    setBuyError(null);
-    try {
-      const order = await createOrder(token, lot.id);
-      navigate(`/orders/${order.id}`);
-    } catch (err) {
-      setBuyError(err);
-    } finally {
-      setConfirming(false);
-    }
-  }
+  const listingPriceMinor = purchase.listingPriceMinor ?? lot.priceMinor;
 
   return (
     <div className="card lot-purchase-card" data-testid="lot-purchase-card">
@@ -140,75 +91,77 @@ export function LotPurchaseCard({
         </Link>
       ) : null}
 
-      {token && summary ? (
+      {token && purchase.summary ? (
         <div className="lot-purchase-wallet-inline" data-testid="checkout-wallet">
           <div className="lot-purchase-wallet-row">
             <span>{t('checkout.available')}</span>
-            <MoneyDisplay minor={summary.availableMinor} strong />
+            <MoneyDisplay minor={purchase.summary.availableMinor} strong />
           </div>
-          {insufficient && shortfallMinor > 0 ? (
+          {purchase.insufficient && purchase.shortfallMinor > 0 ? (
             <div className="lot-purchase-wallet-row lot-purchase-wallet-shortfall">
               <span>{t('checkout.shortfall')}</span>
-              <MoneyDisplay minor={shortfallMinor} strong />
+              <MoneyDisplay minor={purchase.shortfallMinor} strong />
             </div>
           ) : null}
         </div>
       ) : null}
 
-      <ErrorAlert error={displayError} />
+      <ErrorAlert error={purchase.displayError} />
 
-      {showReadiness ? (
+      {purchase.showReadiness ? (
         <PurchaseReadinessAlerts
           user={user}
           requiresSteamLink={requiresSteamLink}
           authenticated
-          insufficientBalance={insufficient}
-          neededMinor={priceMinor}
-          walletDepositHref={depositHref}
+          insufficientBalance={purchase.insufficient}
+          neededMinor={purchase.priceMinor}
+          walletDepositHref={purchase.depositHref}
           showDepositAction={false}
           showTradeHint={false}
           compactTradeUrlWarning
         />
       ) : null}
 
-      {isUnavailable ? (
+      {purchase.isUnavailable ? (
         <p className="muted" data-testid="lot-unavailable-message">
           {t('lot.unavailable', { status: lot.status })}
         </p>
       ) : null}
 
-      {isOwnLot ? (
+      {purchase.isOwnLot ? (
         <p className="muted" data-testid="own-lot-message">
           {t('lot.ownLot')}
         </p>
       ) : null}
 
-      {!isOwnLot && !isUnavailable ? (
+      {!purchase.isOwnLot && !purchase.isUnavailable ? (
         <div className="lot-purchase-sticky-dock" data-testid="lot-mobile-purchase-dock">
           <div className="lot-purchase-sticky-price">
             <MoneyDisplay minor={listingPriceMinor} strong />
           </div>
           <div className="lot-purchase-actions">
-            {insufficient ? (
+            {purchase.insufficient ? (
               <Link
-                to={depositHref}
+                to={purchase.depositHref}
                 className="button primary lot-purchase-button"
                 data-testid="checkout-deposit-link"
               >
                 {t('checkout.depositButton')}
-                {shortfallMinor > 0 ? ` · ${formatUsdFromMinor(shortfallMinor)}` : ''}
+                {purchase.shortfallMinor > 0
+                  ? ` · ${formatUsdFromMinor(purchase.shortfallMinor)}`
+                  : ''}
               </Link>
             ) : (
               <button
                 type="button"
                 className="button primary lot-purchase-button"
-                disabled={Boolean(token) ? !canBuy : false}
+                disabled={Boolean(token) ? !purchase.canBuy : false}
                 data-testid="buy-lot-button"
-                onClick={() => void handleBuy()}
+                onClick={() => void purchase.buy()}
               >
                 {!token
                   ? t('lot.loginToBuy')
-                  : confirming
+                  : purchase.confirming
                     ? t('checkout.confirming')
                     : t('lot.buyNow')}
               </button>
