@@ -287,6 +287,9 @@ export class ExtensionController {
     const observedFloatValue = readOptionalJsonString(
       dto.payload.observedFloatValue,
     );
+    const observedPartnerSteamId = readOptionalJsonString(
+      dto.payload.observedPartnerSteamId,
+    );
     return this.extensionTradeAckService.verifyTrade(
       auth.userId,
       orderId,
@@ -294,6 +297,7 @@ export class ExtensionController {
       {
         assetId: observedAssetId,
         floatValue: observedFloatValue,
+        partnerSteamId: observedPartnerSteamId,
       },
     );
   }

@@ -140,6 +140,7 @@ export class ExtensionTradeAckService {
     observed?: {
       assetId?: string | null;
       floatValue?: string | null;
+      partnerSteamId?: string | null;
     },
   ): Promise<TradeVerificationResult> {
     this.ensureEnabled();
@@ -166,6 +167,7 @@ export class ExtensionTradeAckService {
     observed?: {
       assetId?: string | null;
       floatValue?: string | null;
+      partnerSteamId?: string | null;
     },
   ): Promise<void> {
     if (
@@ -502,6 +504,7 @@ export class ExtensionTradeAckService {
     observed?: {
       assetId?: string | null;
       floatValue?: string | null;
+      partnerSteamId?: string | null;
     },
   ): TradeVerificationResult {
     const role = order.buyerId === userId ? 'buyer' : 'seller';
@@ -646,6 +649,7 @@ export class ExtensionTradeAckService {
     observed?: {
       assetId?: string | null;
       floatValue?: string | null;
+      partnerSteamId?: string | null;
     },
   ): TradeVerificationCheck[] {
     const asset = order.lot.inventoryAsset;
@@ -658,6 +662,11 @@ export class ExtensionTradeAckService {
     const expectedFloatValue = expectations.expectedFloatValue;
     const observedAssetId = observed?.assetId?.trim() || null;
     const observedFloatValue = observed?.floatValue ?? null;
+    const expectedPartnerSteamId =
+      role === 'buyer'
+        ? order.seller.steamId?.trim() || null
+        : order.buyer.steamId?.trim() || null;
+    const observedPartnerSteamId = observed?.partnerSteamId?.trim() || null;
     const checks: TradeVerificationCheck[] = [
       {
         key: 'escrow_active',
@@ -715,6 +724,29 @@ export class ExtensionTradeAckService {
               : 'warn',
       },
     ];
+
+    if (observed) {
+      if (observedPartnerSteamId) {
+        const partnerMatches =
+          Boolean(expectedPartnerSteamId) &&
+          expectedPartnerSteamId === observedPartnerSteamId;
+        checks.push({
+          key: 'partner_steam_match',
+          passed: partnerMatches,
+          label: partnerMatches
+            ? 'SteamID партнёра совпадает с заказом'
+            : 'SteamID партнёра не совпадает с заказом',
+          severity: partnerMatches ? 'ok' : 'error',
+        });
+      } else if (expectedPartnerSteamId) {
+        checks.push({
+          key: 'partner_steam_match',
+          passed: false,
+          label: 'SteamID партнёра на странице Steam не найден',
+          severity: 'warn',
+        });
+      }
+    }
 
     if (observedAssetId) {
       const assetMatches = observedAssetId === expectedAssetId;

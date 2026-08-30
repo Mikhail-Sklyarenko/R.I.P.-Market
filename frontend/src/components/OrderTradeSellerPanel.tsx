@@ -9,6 +9,8 @@ import {
 } from '../utils/order-trade';
 import { ExtensionTaskProgress } from './ExtensionTaskProgress';
 import { ItemPreview } from './ItemPreview';
+import { TradeCounterpartyCard } from './TradeCounterpartyCard';
+import { buildOrderDealItemLines } from '../utils/deal-shield-item-lines';
 
 type OrderTradeSellerPanelProps = {
   order: Order;
@@ -97,6 +99,19 @@ export function OrderTradeSellerPanel({
             <p className="muted small">{nextActionDescription}</p>
           ) : null}
         </div>
+      ) : null}
+
+      {order.buyer ? (
+        <TradeCounterpartyCard
+          party={order.buyer}
+          role="buyer"
+          showScamWarning={showManualForm || Boolean(extensionHandling)}
+          itemLines={buildOrderDealItemLines(order, {
+            wear: t('orderTradePanel.wearLabel'),
+            float: t('orderTradePanel.floatLabel'),
+            stickers: t('orderTradePanel.stickersLabel'),
+          })}
+        />
       ) : null}
 
       {extensionMode && extensionHandling && isConfirmPending ? (

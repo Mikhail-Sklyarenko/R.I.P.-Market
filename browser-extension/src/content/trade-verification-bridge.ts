@@ -8,9 +8,7 @@ import {
   parseObservedItemFromTradePage,
 } from '../shared/trade-offer-observed-item.js';
 import {
-  buildGuidedCompareRows,
   buyerOfferPagePrimaryHint,
-  guidedGateHeadline,
   type ObservedOfferSnapshot,
 } from '../shared/trade-offer-guided-gate.js';
 import { buildInFlowDisputeSupportUrl } from '../shared/in-flow-dispute.js';
@@ -39,6 +37,13 @@ import {
   type SteamAcceptControlKind,
 } from '../shared/manual-accept-assist.js';
 import { isExtensionGuidedBuyerEnabled } from '../shared/extension-flags.js';
+import {
+  applyPartnerObservation,
+  buildDealShieldModel,
+  type DealShieldModel,
+} from '../shared/deal-shield.js';
+import { parsePartnerSteamIdFromDocument } from '../shared/parse-trade-partner-steamid.js';
+
 
 const PANEL_ID = 'rip-market-trade-verification-panel';
 const STICKY_ID = 'rip-market-anti-scam-sticky';
@@ -212,16 +217,24 @@ async function resolveObservedFloat(assetId: string): Promise<string | null> {
 
 async function resolveObservedFromPage(): Promise<ObservedOfferSnapshot | null> {
   const role = detectTradePageRole(window.location.pathname);
-  const observed = parseObservedItemFromTradePage(role);
-  if (!observed?.assetId) {
+  const observedItem = parseObservedItemFromTradePage(role);
+  const partnerSteamId = parsePartnerSteamIdFromDocument(
+    document,
+    window.location.href,
+  );
+
+  if (!observedItem?.assetId && !partnerSteamId) {
     return null;
   }
 
-  const floatValue = await resolveObservedFloat(observed.assetId);
+  const floatValue = observedItem?.assetId
+    ? await resolveObservedFloat(observedItem.assetId)
+    : null;
   return {
-    assetId: observed.assetId,
-    marketHashName: observed.marketHashName,
+    assetId: observedItem?.assetId ?? null,
+    marketHashName: observedItem?.marketHashName ?? null,
     floatValue: floatValue ?? null,
+    partnerSteamId,
   };
 }
 
@@ -236,6 +249,9 @@ async function loadTradeForPage(): Promise<OfferPageContext | null> {
   const observedPayload = {
     ...(observed?.assetId ? { observedAssetId: observed.assetId } : {}),
     ...(observed?.floatValue ? { observedFloatValue: observed.floatValue } : {}),
+    ...(observed?.partnerSteamId
+      ? { observedPartnerSteamId: observed.partnerSteamId }
+      : {}),
   };
 
   if (offerId) {
@@ -260,7 +276,11 @@ async function loadTradeForPage(): Promise<OfferPageContext | null> {
       // B3: still show anti-scam gate for foreign / unlinked offers.
       return { trade: null, observed, slots, offerId };
     }
-    if (!observedPayload.observedAssetId && !observedPayload.observedFloatValue) {
+    if (
+      !observedPayload.observedAssetId &&
+      !observedPayload.observedFloatValue &&
+      !observedPayload.observedPartnerSteamId
+    ) {
       return { trade: fallback, observed, slots, offerId };
     }
     const reverified = await runtimeRequest<{ ok: boolean; trade?: TradeVerificationResult }>({
@@ -357,21 +377,19 @@ function renderFailedChecks(trade: TradeVerificationResult): string {
     .join('')}</ul>`;
 }
 
-function renderCompareTable(
-  trade: TradeVerificationResult,
-  observed: ObservedOfferSnapshot | null,
-): string {
-  const rows = buildGuidedCompareRows(trade.item, observed, overlayLocale);
+function renderCompareTable(model: DealShieldModel): string {
+  const rows = model.compareRows;
   if (rows.length === 0) {
     return '';
   }
 
   return `
     <div class="compare">
+      <p class="compare-title">${escapeHtml(t('shield.compareTitle'))}</p>
       <div class="compare-head">
         <span></span>
-        <span>Ожидаем</span>
-        <span>В оффере</span>
+        <span>${escapeHtml(t('shield.expectedCol'))}</span>
+        <span>${escapeHtml(t('shield.observedCol'))}</span>
       </div>
       ${rows
         .map(
@@ -386,18 +404,101 @@ function renderCompareTable(
     </div>`;
 }
 
-function primaryCtaHtml(trade: TradeVerificationResult): string {
-  const status = trade.verificationStatus;
+function renderPartnerBlock(model: DealShieldModel): string {
+  const steamId = model.partner.steamId;
+  const avatar = model.partner.avatarUrl
+    ? `<img class="partner-avatar" src="${escapeHtml(model.partner.avatarUrl)}" alt="" />`
+    : `<div class="partner-avatar-fallback" aria-hidden="true">${escapeHtml(
+        model.partner.displayName.slice(0, 1).toUpperCase(),
+      )}</div>`;
+  const matchTone =
+    model.partner.match === 'match'
+      ? 'ok'
+      : model.partner.match === 'mismatch'
+        ? 'error'
+        : 'warn';
+  const profile = model.partner.profileUrl
+    ? `<a class="partner-link" href="${escapeHtml(model.partner.profileUrl)}" target="_blank" rel="noreferrer">${escapeHtml(t('shield.openProfile'))}</a>`
+    : '';
+
+  return `
+    <div class="partner">
+      <div class="partner-top">
+        ${avatar}
+        <div class="partner-copy">
+          <p class="partner-label">${escapeHtml(model.counterpartyRoleLabel)}</p>
+          <p class="partner-name">${escapeHtml(model.partner.displayName)}</p>
+          <p class="partner-match tone-${matchTone}">${escapeHtml(model.partner.matchLabel)}</p>
+        </div>
+      </div>
+      <div class="partner-row">
+        <span class="partner-id" data-steamid>${
+          steamId
+            ? escapeHtml(steamId)
+            : escapeHtml(t('shield.steamIdMissing'))
+        }</span>
+        ${
+          steamId
+            ? `<button type="button" class="copy-btn" data-action="copy-steamid">${escapeHtml(t('shield.copySteamId'))}</button>`
+            : ''
+        }
+        ${profile}
+      </div>
+    </div>`;
+}
+
+function renderItemHero(model: DealShieldModel): string {
+  const imageUrl = getItemImageUrl(model.item.iconUrl);
+  const lines =
+    model.item.lines.length > 0
+      ? `<ul class="item-lines">${model.item.lines
+          .map(
+            (line) =>
+              `<li><span class="item-line-label">${escapeHtml(line.label)}</span> ${escapeHtml(line.value)}</li>`,
+          )
+          .join('')}</ul>`
+      : '';
+  return `
+    <div class="hero">
+      ${
+        imageUrl
+          ? `<img class="preview" src="${escapeHtml(imageUrl)}" alt="" />`
+          : `<div class="preview-fallback">CS2</div>`
+      }
+      <div>
+        <p class="item-name">${escapeHtml(model.item.marketHashName)}</p>
+        <p class="meta">${escapeHtml(
+          t('shield.dealLine', {
+            short: model.orderShortId,
+            amount: model.amountLabel,
+          }),
+        )}</p>
+        ${lines}
+      </div>
+    </div>`;
+}
+
+function primaryCtaHtml(
+  trade: TradeVerificationResult,
+  shield: DealShieldModel,
+): string {
+  const status = shield.effectiveStatus;
   const onOfferPage = Boolean(parseOfferIdFromPath(window.location.pathname));
 
-  if (status === 'mismatch' || trade.orderStatus === 'DISPUTE') {
+  if (
+    status === 'mismatch' ||
+    trade.orderStatus === 'DISPUTE' ||
+    shield.partner.match === 'mismatch'
+  ) {
     const supportUrl = buildInFlowDisputeSupportUrl(trade);
     const isOpenDispute = trade.orderStatus === 'DISPUTE';
     return `
       <p class="primary-hint block">${
         isOpenDispute
           ? escapeHtml(t('dispute.openTitle'))
-          : escapeHtml(t('guided.hintBlock'))
+          : shield.partner.match === 'mismatch'
+            ? escapeHtml(t('shield.partnerMismatch'))
+            : escapeHtml(t('guided.hintBlock'))
       }</p>
       <a class="btn danger" href="${escapeHtml(supportUrl)}" target="_blank" rel="noreferrer">${
         isOpenDispute
@@ -411,7 +512,11 @@ function primaryCtaHtml(trade: TradeVerificationResult): string {
     guidedBuyerEnabled &&
     trade.role === 'buyer' &&
     onOfferPage &&
-    canShowManualAcceptAssist(trade)
+    canShowManualAcceptAssist({
+      ...trade,
+      verificationStatus: status,
+    }) &&
+    shield.partner.match === 'match'
   ) {
     const phase =
       acceptAssistUi?.offerId === trade.offerId
@@ -533,14 +638,50 @@ const PANEL_STYLES = `
       .tone-error .compare-observed { color: #f0a8a8; font-weight: 700; }
       .tone-warn .compare-observed { color: #f0d78a; }
       .partner {
-        display: grid; gap: 6px; margin: 0 0 10px; padding: 8px 10px;
+        display: grid; gap: 8px; margin: 0 0 10px; padding: 10px;
         border-radius: 8px; background: #1a2030; border: 1px solid #2a3140;
       }
-      .partner-label { font-size: 11px; color: #7d8594; margin: 0; }
-      .partner-row { display: flex; gap: 8px; align-items: center; }
+      .partner-top { display: flex; gap: 10px; align-items: center; }
+      .partner-avatar {
+        width: 40px; height: 40px; border-radius: 50%; object-fit: cover;
+        border: 1px solid #2a3140; background: #0b0e14; flex-shrink: 0;
+      }
+      .partner-avatar-fallback {
+        width: 40px; height: 40px; border-radius: 50%; display: grid; place-items: center;
+        background: #0b0e14; border: 1px solid #2a3140; color: #a8adb8;
+        font-size: 14px; font-weight: 700; flex-shrink: 0;
+      }
+      .partner-copy { min-width: 0; flex: 1; }
+      .partner-label { font-size: 10px; color: #7d8594; margin: 0; text-transform: uppercase; letter-spacing: .04em; }
+      .partner-name { font-size: 13px; font-weight: 700; margin: 2px 0; color: #e8e8e8; }
+      .partner-match { font-size: 11px; margin: 0; }
+      .partner-match.tone-ok { color: #8fe6a4; }
+      .partner-match.tone-warn { color: #f0d78a; }
+      .partner-match.tone-error { color: #f0a8a8; font-weight: 700; }
+      .partner-row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
       .partner-id {
         flex: 1; font-size: 12px; font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-        color: #e8e8e8; word-break: break-all;
+        color: #e8e8e8; word-break: break-all; min-width: 120px;
+      }
+      .partner-link {
+        font-size: 11px; color: #b7d0ff; text-decoration: none;
+        border: 1px solid #3d5f8f; border-radius: 6px; padding: 6px 8px;
+      }
+      .partner-link:hover { background: rgba(91,141,239,.16); }
+      .item-lines {
+        margin: 6px 0 0; padding: 0; list-style: none; display: grid; gap: 2px;
+      }
+      .item-lines li { font-size: 11px; color: #a8adb8; margin: 0; }
+      .item-line-label { color: #7d8594; }
+      .pre-send {
+        margin: 0 0 10px; padding: 8px 10px; border-radius: 8px;
+        background: rgba(91,141,239,.12); border: 1px solid rgba(91,141,239,.35);
+      }
+      .pre-send-title { margin: 0 0 4px; font-size: 12px; font-weight: 700; color: #d7e4ff; }
+      .pre-send-body { margin: 0; font-size: 11px; color: #a8adb8; line-height: 1.4; }
+      .compare-title {
+        margin: 0 0 6px; font-size: 10px; letter-spacing: .06em;
+        text-transform: uppercase; color: #7d8594;
       }
       .copy-btn {
         flex-shrink: 0; border: none; border-radius: 6px; padding: 6px 8px;
@@ -635,14 +776,25 @@ function buildPanel(context: OfferPageContext): HTMLElement {
     return buildUnlinkedPanel(context);
   }
 
-  const { trade, observed } = context;
+  const { trade: rawTrade, observed } = context;
   const host = document.createElement('div');
   host.id = PANEL_ID;
   const shadow = host.attachShadow({ mode: 'open' });
-  const status = trade.verificationStatus;
-  const headline = guidedGateHeadline(status, trade.role, overlayLocale);
-  const imageUrl = getItemImageUrl(trade.item.iconUrl);
-  const steamId = trade.counterparty.steamId?.trim() || null;
+  const isPreSendPage = window.location.pathname.includes('/tradeoffer/new');
+  const shield = buildDealShieldModel({
+    trade: rawTrade,
+    observed,
+    locale: overlayLocale,
+    isPreSend: isPreSendPage && rawTrade.role === 'seller',
+  });
+  const trade = applyPartnerObservation(
+    rawTrade,
+    observed?.partnerSteamId,
+    overlayLocale,
+  );
+  const status = shield.effectiveStatus;
+  const headline = shield.headline;
+  const steamId = shield.partner.steamId;
   const onOfferPage = Boolean(parseOfferIdFromPath(window.location.pathname));
   const warnings = collectAntiScamWarnings(context);
   const scamBlocks = antiScamHasBlocking(warnings);
@@ -673,10 +825,25 @@ function buildPanel(context: OfferPageContext): HTMLElement {
     trade.nextAction.kind !== 'confirm_guard';
   const showAckSection = showSellerAckSent || showPreAccept || showConfirmReceived;
 
+  const acceptAllowed =
+    canShowManualAcceptAssist({
+      ...trade,
+      verificationStatus: status,
+    }) &&
+    shield.partner.match === 'match' &&
+    !scamBlocks;
+
   const buyerCtaOverride =
     trade.role === 'buyer' && onOfferPage && scamBlocks && status !== 'mismatch'
       ? `<p class="primary-hint block">Сначала устраните anti-scam предупреждения — Accept пока не нажимайте</p>`
-      : primaryCtaHtml(trade);
+      : primaryCtaHtml(trade, shield);
+
+  const preSendBanner = shield.isPreSend
+    ? `<div class="pre-send">
+        <p class="pre-send-title">${escapeHtml(t('shield.preSendTitle'))}</p>
+        <p class="pre-send-body">${escapeHtml(t('shield.preSendBody'))}</p>
+      </div>`
+    : '';
 
   shadow.innerHTML = `
     <style>${PANEL_STYLES}</style>
@@ -693,41 +860,22 @@ function buildPanel(context: OfferPageContext): HTMLElement {
             : headline.subtitle,
         )}</p>
       </div>
-      <div class="hero">
-        ${
-          imageUrl
-            ? `<img class="preview" src="${escapeHtml(imageUrl)}" alt="" />`
-            : `<div class="preview-fallback">CS2</div>`
-        }
-        <div>
-          <p class="item-name">${escapeHtml(trade.item.marketHashName)}</p>
-          <p class="meta">Заказ #${escapeHtml(trade.orderShortId)} · ${formatMoneyMinor(trade.amountMinor)}</p>
-        </div>
-      </div>
+      ${preSendBanner}
+      ${renderItemHero(shield)}
+      ${renderPartnerBlock(shield)}
       ${
         trade.escrow.status === 'active'
           ? `<p class="escrow"><strong>Деньги на площадке:</strong> hold ${formatMoneyMinor(trade.escrow.holdAmountMinor)}. Не платите продавцу в чат Steam.</p>`
           : `<p class="escrow"><strong>Оплата на площадке.</strong> Не переводите деньги в чат Steam.</p>`
       }
       ${renderAntiScamWarnings(warnings)}
-      ${onOfferPage ? renderCompareTable(trade, observed) : ''}
-      <div class="partner">
-        <p class="partner-label">Контрагент · ${escapeHtml(trade.counterparty.personaName || trade.counterparty.username)}</p>
-        <div class="partner-row">
-          <span class="partner-id" data-steamid>${steamId ? escapeHtml(steamId) : 'SteamID недоступен'}</span>
-          ${
-            steamId
-              ? '<button type="button" class="copy-btn" data-action="copy-steamid">Копировать</button>'
-              : ''
-          }
-        </div>
-      </div>
+      ${onOfferPage || isPreSendPage ? renderCompareTable(shield) : ''}
       ${renderFailedChecks(trade)}
       <div class="actions">
         ${buyerCtaOverride}
         ${
-          status !== 'mismatch'
-            ? `<a class="btn secondary" href="${escapeHtml(trade.siteUrl)}" target="_blank" rel="noreferrer">Открыть заказ на сайте</a>`
+          status !== 'mismatch' && shield.partner.match !== 'mismatch'
+            ? `<a class="btn secondary" href="${escapeHtml(trade.siteUrl)}" target="_blank" rel="noreferrer">${escapeHtml(t('cta.openOrder'))}</a>`
             : ''
         }
         ${
@@ -745,10 +893,7 @@ function buildPanel(context: OfferPageContext): HTMLElement {
         }
       </div>
       <p class="never-auto">${
-        trade.role === 'buyer' &&
-        onOfferPage &&
-        canShowManualAcceptAssist(trade) &&
-        !scamBlocks
+        trade.role === 'buyer' && onOfferPage && acceptAllowed
           ? 'Accept в Steam — только после вашего двойного подтверждения. Автоматом не принимаем.'
           : 'R.I.P Market никогда не нажимает Accept за вас'
       }</p>
@@ -764,9 +909,9 @@ function buildPanel(context: OfferPageContext): HTMLElement {
       }
       void navigator.clipboard.writeText(steamId).then(
         () => {
-          button.textContent = 'Скопировано';
+          button.textContent = t('shield.copied');
           window.setTimeout(() => {
-            button.textContent = 'Копировать';
+            button.textContent = t('shield.copySteamId');
           }, 1600);
         },
         () => {

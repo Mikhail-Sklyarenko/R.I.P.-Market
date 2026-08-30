@@ -17,10 +17,13 @@ import { buildOfferCardContext } from '../shared/trade-offer-card-context.js';
 import {
   DEFAULT_EXTENSION_LOCALE,
   getStoredExtensionLocale,
+  createExtensionT,
   type ExtensionLocale,
 } from '../shared/extension-i18n.js';
 import { getStoredSiteLinkSnapshot } from '../shared/offline-safe-mode.js';
 import { isExtensionGuidedBuyerEnabled } from '../shared/extension-flags.js';
+import { buildDealShieldModel } from '../shared/deal-shield.js';
+import { buildSteamProfileUrl, isRealSteamId64 } from '../shared/steam-id64.js';
 
 const TOOLBAR_ID = 'rip-market-tradeoffers-toolbar';
 const DETAIL_ID = 'rip-market-tradeoffers-detail';
@@ -274,6 +277,18 @@ function ensureBadgeStyles(): void {
     #${DETAIL_ID} h2 { margin: 0 0 8px; font-size: 14px; }
     #${DETAIL_ID} p { margin: 0 0 8px; color: #c7ccd6; line-height: 1.4; }
     #${DETAIL_ID} .meta { color: #a8adb8; font-size: 12px; }
+    #${DETAIL_ID} .rip-detail-hero {
+      display: flex; gap: 10px; align-items: center; margin: 0 0 10px;
+      padding: 8px; border-radius: 8px; background: #1a2030; border: 1px solid #2a3140;
+    }
+    #${DETAIL_ID} .rip-detail-avatar {
+      width: 40px; height: 40px; border-radius: 50%; object-fit: cover; flex-shrink: 0;
+    }
+    #${DETAIL_ID} .rip-detail-avatar-fallback {
+      width: 40px; height: 40px; border-radius: 50%; display: grid; place-items: center;
+      background: #0b0e14; border: 1px solid #2a3140; color: #a8adb8; font-weight: 700;
+      flex-shrink: 0;
+    }
     #${DETAIL_ID} a {
       display: block; text-align: center; text-decoration: none; margin-top: 10px;
       background: #5b8def; color: #fff; border-radius: 8px; padding: 10px 12px;
@@ -470,19 +485,42 @@ function showDetail(mark: OfferMark, anchor: HTMLElement): void {
       <button class="close" type="button">Закрыть</button>
     `;
   } else {
-    const partner =
-      trade.counterparty.personaName?.trim() ||
-      trade.counterparty.username ||
-      'контрагент';
-    const steamId = trade.counterparty.steamId?.trim() || '—';
+    const shield = buildDealShieldModel({
+      trade,
+      locale: listBridgeLocale,
+    });
+    const t = createExtensionT(listBridgeLocale);
     const ctx = buildOfferCardContext(trade, listBridgeLocale);
     const acceptCta =
       guidedBuyerEnabled
         ? buildManualAcceptListCta(trade, listBridgeLocale)
         : null;
+    const avatar = shield.partner.avatarUrl
+      ? `<img class="rip-detail-avatar" src="${escapeHtml(shield.partner.avatarUrl)}" alt="" />`
+      : `<span class="rip-detail-avatar-fallback">${escapeHtml(shield.partner.displayName.slice(0, 1).toUpperCase())}</span>`;
+    const profile =
+      shield.partner.steamId && isRealSteamId64(shield.partner.steamId)
+        ? `<a href="${escapeHtml(buildSteamProfileUrl(shield.partner.steamId))}" target="_blank" rel="noreferrer">${escapeHtml(t('shield.openProfile'))}</a>`
+        : '';
+    const itemLines =
+      shield.item.lines.length > 0
+        ? `<p class="meta">${escapeHtml(
+            shield.item.lines.map((l) => `${l.label}: ${l.value}`).join(' · '),
+          )}</p>`
+        : '';
     panel.innerHTML = `
       <h2>${escapeHtml(mark.label)}</h2>
+      <div class="rip-detail-hero">
+        ${avatar}
+        <div>
+          <p class="meta">${escapeHtml(shield.counterpartyRoleLabel)}</p>
+          <p><strong>${escapeHtml(shield.partner.displayName)}</strong></p>
+          <p class="meta">SteamID64: <code>${escapeHtml(shield.partner.steamId || '—')}</code></p>
+          ${profile}
+        </div>
+      </div>
       <p><strong>${escapeHtml(ctx.itemName)}</strong></p>
+      ${itemLines}
       <dl class="context-grid">
         <dt>Заказ</dt><dd>#${escapeHtml(ctx.orderShortId)}</dd>
         <dt>Цена</dt><dd>${escapeHtml(ctx.priceLabel)}</dd>
@@ -490,14 +528,12 @@ function showDetail(mark: OfferMark, anchor: HTMLElement): void {
         <dt>Статус</dt><dd>${escapeHtml(ctx.platformStatusLabel)}</dd>
         <dt>Дальше</dt><dd>${escapeHtml(ctx.nextActionTitle)}</dd>
       </dl>
-      <p class="meta">${escapeHtml(trade.role === 'buyer' ? 'Продавец' : 'Покупатель')}: ${escapeHtml(partner)}</p>
-      <p class="meta">SteamID64: <code>${escapeHtml(steamId)}</code></p>
       ${
         acceptCta
           ? `<a class="rip-accept-assist-detail" href="${escapeHtml(acceptCta.href)}">${escapeHtml(acceptCta.label)}</a>`
           : ''
       }
-      <a href="${escapeHtml(trade.siteUrl)}" target="_blank" rel="noreferrer">Открыть заказ</a>
+      <a href="${escapeHtml(trade.siteUrl)}" target="_blank" rel="noreferrer">${escapeHtml(t('common.openOrder'))}</a>
       <button class="close" type="button">Закрыть</button>
     `;
   }

@@ -7392,8 +7392,48 @@ a.button.primary {
 }
 
 .trade-counterparty-header {
+  display: flex;
+  gap: var(--space-3);
+  align-items: center;
+}
+
+.trade-counterparty-header-copy {
   display: grid;
   gap: 0.15rem;
+  min-width: 0;
+}
+
+.trade-counterparty-avatar {
+  width: 40px;
+  height: 40px;
+  border-radius: 999px;
+  object-fit: cover;
+  flex-shrink: 0;
+  border: 1px solid var(--color-border);
+  background: var(--color-bg-subtle, rgba(255, 255, 255, 0.04));
+}
+
+.trade-counterparty-avatar-fallback {
+  width: 40px;
+  height: 40px;
+  border-radius: 999px;
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  border: 1px solid var(--color-border);
+  background: var(--color-bg-subtle, rgba(255, 255, 255, 0.04));
+  color: var(--color-text-muted);
+  font-size: var(--font-size-sm);
+  font-weight: 700;
+}
+
+.trade-counterparty-item-lines {
+  margin: var(--space-3) 0 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: var(--space-1);
+  font-size: var(--font-size-sm);
 }
 
 .trade-counterparty-steam-id {

@@ -44,6 +44,10 @@ import {
   type ExtensionLocale,
 } from '../shared/extension-i18n.js';
 import {
+  buildDealShieldModel,
+  dealShieldPartnerSummary,
+} from '../shared/deal-shield.js';
+import {
   applySafeModeToNextAction,
   buildSafeModeBanner,
   defaultSiteLinkSnapshot,
@@ -304,6 +308,29 @@ function renderBuyerInbox(cards: BuyerInboxCard[]): void {
   bindCardActions(buyerInboxEl);
 }
 
+function renderShieldStrip(trade: TradeVerificationResult): string {
+  const shield = buildDealShieldModel({ trade, locale: activeLocale });
+  const avatar = shield.partner.avatarUrl
+    ? `<img class="shield-avatar" src="${escapeHtml(shield.partner.avatarUrl)}" alt="" />`
+    : `<span class="shield-avatar-fallback">${escapeHtml(
+        shield.partner.displayName.slice(0, 1).toUpperCase(),
+      )}</span>`;
+  const chars =
+    shield.item.lines.length > 0
+      ? `<p class="shield-chars">${escapeHtml(
+          shield.item.lines.map((l) => `${l.label} ${l.value}`).join(' · '),
+        )}</p>`
+      : '';
+  return `
+    <div class="shield-strip">
+      ${avatar}
+      <div class="shield-strip-copy">
+        <p class="shield-partner">${escapeHtml(dealShieldPartnerSummary(shield))}</p>
+        ${chars}
+      </div>
+    </div>`;
+}
+
 function renderBuyerCard(card: BuyerInboxCard): string {
   const settlement =
     card.settlement != null
@@ -312,6 +339,31 @@ function renderBuyerCard(card: BuyerInboxCard): string {
   const dispute =
     card.dispute != null ? disputeStatusHtml(card.dispute, escapeHtml) : '';
   const cta = withSafeModeCta(card.cta);
+  const avatar = card.partnerAvatarUrl
+    ? `<img class="shield-avatar" src="${escapeHtml(card.partnerAvatarUrl)}" alt="" />`
+    : card.partnerLabel
+      ? `<span class="shield-avatar-fallback">${escapeHtml(
+          card.partnerLabel.slice(0, 1).toUpperCase(),
+        )}</span>`
+      : '';
+  const shield =
+    card.partnerLabel || card.itemCharacteristics
+      ? `<div class="shield-strip">
+          ${avatar}
+          <div class="shield-strip-copy">
+            ${
+              card.partnerLabel
+                ? `<p class="shield-partner">${escapeHtml(card.partnerLabel)}</p>`
+                : ''
+            }
+            ${
+              card.itemCharacteristics
+                ? `<p class="shield-chars">${escapeHtml(card.itemCharacteristics)}</p>`
+                : ''
+            }
+          </div>
+        </div>`
+      : '';
   return `
     <article class="trade-card phase-${card.phase} tone-${card.tone}" data-buyer-phase="${card.phase}" data-primary-cta="${escapeHtml(cta.primary.id)}">
       <div class="phase-row">
@@ -319,6 +371,7 @@ function renderBuyerCard(card: BuyerInboxCard): string {
       </div>
       <h2>${escapeHtml(card.itemName)}</h2>
       <p class="meta">#${escapeHtml(card.orderShortId)} · ${escapeHtml(formatMoneyMinor(card.amountMinor))}</p>
+      ${shield}
       <p class="next"><strong>${escapeHtml(card.title)}</strong><br />${escapeHtml(card.description)}</p>
       ${
         card.timeoutLabel
@@ -380,6 +433,7 @@ function renderSellerCard(trade: TradeVerificationResult): string {
     <article class="trade-card ${statusClass}" data-primary-cta="${escapeHtml(cta.primary.id)}">
       <h2>${escapeHtml(trade.item.marketHashName)}</h2>
       <p class="meta">#${escapeHtml(trade.orderShortId)} · ${escapeHtml(roleLabel(trade.role))} · ${escapeHtml(formatMoneyMinor(trade.amountMinor))}</p>
+      ${renderShieldStrip(trade)}
       <p class="next"><strong>${escapeHtml(trade.nextAction.title)}</strong><br />${escapeHtml(trade.nextAction.description)}</p>
       ${dispute}
       ${settlement}

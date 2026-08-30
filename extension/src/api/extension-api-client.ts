@@ -190,13 +190,19 @@ export class ExtensionApiClient {
     observed?: {
       assetId?: string | null;
       floatValue?: string | null;
+      partnerSteamId?: string | null;
     },
   ): Promise<TradeVerificationResult> {
     return this.signedPost<TradeVerificationResult>('/extension/trades/verify', {
       orderId,
       ...(offerId ? { offerId } : {}),
       ...(observed?.assetId ? { observedAssetId: observed.assetId } : {}),
-      ...(observed?.floatValue ? { observedFloatValue: observed.floatValue } : {}),
+      ...(observed?.floatValue
+        ? { observedFloatValue: observed.floatValue }
+        : {}),
+      ...(observed?.partnerSteamId
+        ? { observedPartnerSteamId: observed.partnerSteamId }
+        : {}),
     });
   }
 

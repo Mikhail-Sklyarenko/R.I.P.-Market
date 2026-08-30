@@ -726,6 +726,9 @@ export const clientExtraEn = {
     steamIdLabel: 'SteamID64',
     steamIdMissing: 'Seller SteamID is not available yet.',
     openSteamProfile: 'Steam profile',
+    wearLabel: 'Wear',
+    floatLabel: 'Float',
+    stickersLabel: 'Stickers',
   },
   tradeUrlBanner: {
     text: 'Add your Trade URL in Steam — you cannot buy or sell skins without it.',

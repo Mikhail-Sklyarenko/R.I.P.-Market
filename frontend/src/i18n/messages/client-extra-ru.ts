@@ -740,6 +740,9 @@ export const clientExtraRu = {
     steamIdLabel: 'SteamID64',
     steamIdMissing: 'SteamID продавца пока недоступен.',
     openSteamProfile: 'Профиль Steam',
+    wearLabel: 'Износ',
+    floatLabel: 'Float',
+    stickersLabel: 'Стикеры',
   },
   tradeUrlBanner: {
     text: 'Укажите Trade URL в Steam — без него нельзя продавать и покупать скины.',

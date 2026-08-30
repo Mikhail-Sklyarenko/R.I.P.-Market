@@ -483,15 +483,32 @@ export class OrdersService {
       where: { id: orderId },
       include: {
         lot: {
-          include: { inventoryAsset: { include: { itemDefinition: true } } },
+          include: {
+            inventoryAsset: { include: { itemDefinition: true } },
+            listingSnapshot: true,
+          },
         },
         tradeOperation: true,
         hold: true,
         buyer: {
-          select: { id: true, username: true, tradeUrl: true, steamId: true, steamPersonaName: true },
+          select: {
+            id: true,
+            username: true,
+            tradeUrl: true,
+            steamId: true,
+            steamPersonaName: true,
+            steamAvatarUrl: true,
+          },
         },
         seller: {
-          select: { id: true, username: true, tradeUrl: true, steamId: true, steamPersonaName: true },
+          select: {
+            id: true,
+            username: true,
+            tradeUrl: true,
+            steamId: true,
+            steamPersonaName: true,
+            steamAvatarUrl: true,
+          },
         },
         statusEvents: {
           orderBy: { createdAt: 'asc' },

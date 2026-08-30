@@ -222,6 +222,49 @@
         color: #f0d29a;
         margin: 0 0 8px;
       }
+      .shield-strip {
+        display: flex;
+        gap: 8px;
+        align-items: center;
+        margin: 0 0 8px;
+        padding: 8px;
+        border-radius: 8px;
+        background: #161a22;
+        border: 1px solid #2a3140;
+      }
+      .shield-avatar {
+        width: 32px;
+        height: 32px;
+        border-radius: 50%;
+        object-fit: cover;
+        flex-shrink: 0;
+      }
+      .shield-avatar-fallback {
+        width: 32px;
+        height: 32px;
+        border-radius: 50%;
+        display: grid;
+        place-items: center;
+        background: #0b0e14;
+        border: 1px solid #2a3140;
+        color: #a8adb8;
+        font-size: 12px;
+        font-weight: 700;
+        flex-shrink: 0;
+      }
+      .shield-strip-copy { min-width: 0; flex: 1; }
+      .shield-partner {
+        margin: 0;
+        font-size: 11px;
+        color: #c7ccd6;
+        line-height: 1.35;
+      }
+      .shield-chars {
+        margin: 2px 0 0;
+        font-size: 10px;
+        color: #7d8494;
+        line-height: 1.35;
+      }
 
       .settlement-block {
         margin: 0 0 8px;

@@ -605,9 +605,12 @@ async function verifyTradeFromRuntime(params: {
   offerId?: string;
   observedAssetId?: string;
   observedFloatValue?: string;
+  observedPartnerSteamId?: string;
 }): Promise<TradeVerificationResult | null> {
   const hasObserved = Boolean(
-    params.observedAssetId?.trim() || params.observedFloatValue?.trim(),
+    params.observedAssetId?.trim() ||
+      params.observedFloatValue?.trim() ||
+      params.observedPartnerSteamId?.trim(),
   );
   const cache = await getActiveTradesCache();
   if (params.offerId && cache && !hasObserved) {
@@ -625,6 +628,7 @@ async function verifyTradeFromRuntime(params: {
   const observed = {
     assetId: params.observedAssetId ?? null,
     floatValue: params.observedFloatValue ?? null,
+    partnerSteamId: params.observedPartnerSteamId ?? null,
   };
 
   if (params.orderId) {
@@ -1705,6 +1709,9 @@ function handleTradeVerificationRuntimeMessage(
         : undefined,
       observedFloatValue: message.observedFloatValue
         ? String(message.observedFloatValue)
+        : undefined,
+      observedPartnerSteamId: message.observedPartnerSteamId
+        ? String(message.observedPartnerSteamId)
         : undefined,
     })
       .then((trade) => sendResponse({ ok: Boolean(trade), trade }))

@@ -11,6 +11,7 @@ import {
   buildSteamTradeOfferUrl,
   resolveBuyerScenarioAck,
 } from '../utils/buyer-accept-wizard';
+import { buildOrderDealItemLines } from '../utils/deal-shield-item-lines';
 
 type OrderTradeBuyerPanelProps = {
   order: Order;
@@ -100,6 +101,11 @@ export function OrderTradeBuyerPanel({
           party={order.seller}
           role="seller"
           showScamWarning={showSteamCta || showAwaitingSeller || showAcceptWizard}
+          itemLines={buildOrderDealItemLines(order, {
+            wear: t('orderTradePanel.wearLabel'),
+            float: t('orderTradePanel.floatLabel'),
+            stickers: t('orderTradePanel.stickersLabel'),
+          })}
         />
       ) : null}
 

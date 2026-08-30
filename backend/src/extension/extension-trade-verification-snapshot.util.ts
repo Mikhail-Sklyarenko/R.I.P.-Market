@@ -160,6 +160,7 @@ export function shouldPersistExtensionVerification(params: {
   observed?: {
     assetId?: string | null;
     floatValue?: string | null;
+    partnerSteamId?: string | null;
   };
 }): boolean {
   if (params.status === 'mismatch') {
@@ -167,5 +168,6 @@ export function shouldPersistExtensionVerification(params: {
   }
   const assetId = params.observed?.assetId?.trim();
   const floatValue = params.observed?.floatValue?.trim();
-  return Boolean(assetId || floatValue);
+  const partnerSteamId = params.observed?.partnerSteamId?.trim();
+  return Boolean(assetId || floatValue || partnerSteamId);
 }

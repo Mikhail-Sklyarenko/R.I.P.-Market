@@ -3,7 +3,7 @@
 Подробное руководство по ручному тестированию **автоотправки trade offer** на staging **p2pcs.ru**.
 
 **Сайт:** https://p2pcs.ru  
-**Версия расширения:** **0.6.37** (Slice 4 — [QA-SLICE4-DRAFT-MEDIAN-ASSIST.md](./QA-SLICE4-DRAFT-MEDIAN-ASSIST.md); Slice 3 сайт — [QA-SLICE3-SITE-STEAM-PATH.md](./QA-SLICE3-SITE-STEAM-PATH.md); Slice 2 — [QA-SLICE2-INVENTORY-TRUST-0.6.36.md](./QA-SLICE2-INVENTORY-TRUST-0.6.36.md); Slice 1 — [QA-SLICE1-HONEST-LIST-0.6.35.md](./QA-SLICE1-HONEST-LIST-0.6.35.md))  
+**Версия расширения:** **0.6.38** (Deal Shield 1a–1e — [QA-DEAL-SHIELD-0.6.38.md](./QA-DEAL-SHIELD-0.6.38.md); Slice 4 — [QA-SLICE4-DRAFT-MEDIAN-ASSIST.md](./QA-SLICE4-DRAFT-MEDIAN-ASSIST.md); Slice 3 сайт — [QA-SLICE3-SITE-STEAM-PATH.md](./QA-SLICE3-SITE-STEAM-PATH.md); Slice 2 — [QA-SLICE2-INVENTORY-TRUST-0.6.36.md](./QA-SLICE2-INVENTORY-TRUST-0.6.36.md); Slice 1 — [QA-SLICE1-HONEST-LIST-0.6.35.md](./QA-SLICE1-HONEST-LIST-0.6.35.md))
 **Дата:** август 2026
 
 > Этот документ — базовый happy path автоотправки оффера.  

@@ -13,6 +13,9 @@ export type ObservedOfferSnapshot = {
   assetId?: string | null;
   marketHashName?: string | null;
   floatValue?: string | null;
+  /** SteamID64 of the trade partner as seen on the Steam page / URL. */
+  partnerSteamId?: string | null;
+  wear?: string | null;
 };
 
 export type CompareRow = {
@@ -95,6 +98,10 @@ export function buildGuidedCompareRows(
   expected: ActiveTradeItem,
   observed: ObservedOfferSnapshot | null | undefined,
   locale: ExtensionLocale = DEFAULT_EXTENSION_LOCALE,
+  partner?: {
+    expectedPartnerSteamId?: string | null;
+    observedPartnerSteamId?: string | null;
+  },
 ): CompareRow[] {
   const t = createExtensionT(locale);
   const expectedName = normalize(expected.marketHashName);
@@ -103,8 +110,25 @@ export function buildGuidedCompareRows(
   const observedAsset = normalize(observed?.assetId);
   const expectedFloat = normalize(expected.floatValue);
   const observedFloat = normalize(observed?.floatValue);
+  const expectedWear = normalize(expected.wear);
+  const observedWear = normalize(observed?.wear);
+  const expectedPartner = normalize(
+    partner?.expectedPartnerSteamId ?? null,
+  );
+  const observedPartner = normalize(
+    partner?.observedPartnerSteamId ?? observed?.partnerSteamId,
+  );
 
   const rows: CompareRow[] = [
+    {
+      key: 'partner',
+      label: t('guided.partner'),
+      expected: expectedPartner,
+      observed: observedPartner,
+      tone: compareTone(expectedPartner, observedPartner, {
+        softWhenMissingObserved: true,
+      }),
+    },
     {
       key: 'name',
       label: t('guided.name'),
@@ -116,7 +140,7 @@ export function buildGuidedCompareRows(
     },
     {
       key: 'asset',
-      label: 'Asset ID',
+      label: t('guided.assetId'),
       expected: expectedAsset,
       observed: observedAsset,
       tone: compareTone(expectedAsset, observedAsset, {
@@ -125,10 +149,22 @@ export function buildGuidedCompareRows(
     },
   ];
 
+  if (expectedWear !== '—' || observedWear !== '—') {
+    rows.push({
+      key: 'wear',
+      label: t('guided.wear'),
+      expected: expectedWear,
+      observed: observedWear,
+      tone: compareTone(expectedWear, observedWear, {
+        softWhenMissingObserved: true,
+      }),
+    });
+  }
+
   if (expectedFloat !== '—' || observedFloat !== '—') {
     rows.push({
       key: 'float',
-      label: 'Float',
+      label: t('guided.float'),
       expected: expectedFloat,
       observed: observedFloat,
       tone: compareTone(expectedFloat, observedFloat, {

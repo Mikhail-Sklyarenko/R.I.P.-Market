@@ -394,6 +394,7 @@ export type OrderParty = {
   tradeUrl?: string | null;
   steamId?: string | null;
   steamPersonaName?: string | null;
+  steamAvatarUrl?: string | null;
 };
 
 export type TradePollEvent = {

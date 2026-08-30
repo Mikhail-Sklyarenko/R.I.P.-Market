@@ -17,6 +17,10 @@ import {
   buildInFlowDisputeSupportUrl,
   type DisputeStatusView,
 } from './in-flow-dispute.js';
+import {
+  buildDealShieldModel,
+  dealShieldPartnerSummary,
+} from './deal-shield.js';
 
 /**
  * C4: buyer purchase phases in the extension popup inbox.
@@ -62,6 +66,10 @@ export type BuyerInboxCard = {
   settlement: SettlementTransparencyView | null;
   /** G2: in-flow dispute status (mismatch / open dispute). */
   dispute: DisputeStatusView | null;
+  /** Deal Shield strip (1d). */
+  partnerLabel: string | null;
+  partnerAvatarUrl: string | null;
+  itemCharacteristics: string | null;
 };
 
 const PHASE_PRIORITY: Record<BuyerInboxPhase, number> = {
@@ -282,6 +290,12 @@ export function buildBuyerInboxCard(
           ? 'info'
           : 'pending';
 
+  const shield = buildDealShieldModel({ trade, locale });
+  const itemCharacteristics =
+    shield.item.lines.length > 0
+      ? shield.item.lines.map((l) => `${l.label} ${l.value}`).join(' · ')
+      : null;
+
   return {
     orderId: trade.orderId,
     orderShortId: trade.orderShortId,
@@ -303,6 +317,9 @@ export function buildBuyerInboxCard(
     cta: next,
     settlement: buildSettlementTransparency(trade, { locale }),
     dispute: buildDisputeStatusView(trade, locale),
+    partnerLabel: dealShieldPartnerSummary(shield),
+    partnerAvatarUrl: shield.partner.avatarUrl,
+    itemCharacteristics,
   };
 }
 
