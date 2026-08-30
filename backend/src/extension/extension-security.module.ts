@@ -10,7 +10,10 @@ import { UserOrExtensionAuthGuard } from './guards/user-or-extension-auth.guard'
  * (which already imports InventoryModule).
  */
 @Module({
-  imports: [AuthModule, forwardRef(() => UsersModule)],
+  imports: [
+    forwardRef(() => AuthModule),
+    forwardRef(() => UsersModule),
+  ],
   providers: [ExtensionSecurityService, UserOrExtensionAuthGuard],
   exports: [ExtensionSecurityService, UserOrExtensionAuthGuard],
 })
