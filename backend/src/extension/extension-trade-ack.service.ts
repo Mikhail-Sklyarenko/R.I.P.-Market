@@ -1,5 +1,5 @@
 import { HttpStatus, Inject, Injectable, Logger, forwardRef } from '@nestjs/common';
-import { OrderStatus } from '@prisma/client';
+import { OrderStatus, Prisma } from '@prisma/client';
 import { AppException } from '../common/errors/app.exception';
 import { ErrorCode } from '../common/errors/error-codes';
 import { PrismaService } from '../prisma/prisma.service';
@@ -191,7 +191,7 @@ export class ExtensionTradeAckService {
             offerId: result.offerId,
             role: result.role,
             observed,
-          }),
+          }) as Prisma.InputJsonValue,
         },
       });
     } catch (error) {
