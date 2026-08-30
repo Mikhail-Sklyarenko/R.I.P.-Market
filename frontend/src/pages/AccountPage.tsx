@@ -66,6 +66,20 @@ export function AccountPage() {
   }, []);
 
   useEffect(() => {
+    const hash = window.location.hash.replace(/^#/, '');
+    if (hash !== 'connect-extension' && hash !== 'account-extension-section') {
+      return;
+    }
+    const timer = window.setTimeout(() => {
+      document.getElementById('connect-extension')?.scrollIntoView({
+        behavior: 'smooth',
+        block: 'center',
+      });
+    }, 80);
+    return () => window.clearTimeout(timer);
+  }, [config, token]);
+
+  useEffect(() => {
     if (!token) {
       return;
     }
@@ -294,8 +308,9 @@ export function AccountPage() {
 
           {token && config?.extension?.extensionChannelEnabled ? (
             <div
-              id="account-extension-section"
+              id="connect-extension"
               className="card account-extension-card"
+              data-testid="account-extension-section"
             >
               <ExtensionConnectPanel token={token} compact />
             </div>

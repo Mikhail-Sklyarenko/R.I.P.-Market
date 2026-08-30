@@ -73,17 +73,22 @@ export type ExtensionSessionState = {
 };
 
 export async function getSessionState(): Promise<ExtensionSessionState | null> {
-  const stored = await chrome.storage.local.get([
-    'sessionId',
-    'deviceId',
-    'accessToken',
-    'expiresAt',
-    'apiBaseUrl',
-  ]);
-  if (!stored.sessionId || !stored.accessToken || !stored.apiBaseUrl) {
+  try {
+    const stored = await chrome.storage.local.get([
+      'sessionId',
+      'deviceId',
+      'accessToken',
+      'expiresAt',
+      'apiBaseUrl',
+    ]);
+    if (!stored.sessionId || !stored.accessToken || !stored.apiBaseUrl) {
+      return null;
+    }
+    return stored as ExtensionSessionState;
+  } catch {
+    // Orphaned content script after extension reload — treat as logged out.
     return null;
   }
-  return stored as ExtensionSessionState;
 }
 
 export async function saveSessionState(state: ExtensionSessionState): Promise<void> {

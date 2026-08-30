@@ -83,7 +83,7 @@ export function resolveInventorySellAction(params: {
   if (!params.connected) {
     return {
       kind: 'pair',
-      label: 'Продать на R.I.P',
+      label: 'Продать',
       blockReason: null,
       blockMessage: PRELIST_SOFT_GATE_MESSAGE,
       lotUrl: null,
@@ -97,7 +97,7 @@ export function resolveInventorySellAction(params: {
       label: 'Сайт offline',
       blockReason: 'site_offline',
       blockMessage:
-        'Сайт недоступен или связь нестабильна — выставка и управление лотом временно отключены.',
+        'API сделок недоступен или связь нестабильна — выставка и управление лотом временно отключены.',
       lotUrl: params.platform?.lotUrl ?? params.platform?.orderUrl ?? null,
       lotId: params.platform?.lotId ?? null,
       listedPriceMinor: params.platform?.listedPriceMinor ?? null,
@@ -161,7 +161,7 @@ export function resolveInventorySellAction(params: {
 
   return {
     kind: 'list',
-    label: 'Продать на R.I.P',
+    label: 'Продать',
     blockReason: null,
     blockMessage: null,
     lotUrl: null,

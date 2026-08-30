@@ -18,6 +18,8 @@ export type SteamPriceFetchOptions = {
 
 export type SteamPriceMeta = {
   priceMinor: number | null;
+  /** Steam market priceoverview `median_price` when known from a live fetch. */
+  medianPriceMinor?: number | null;
   fetchedAt: string | null;
 };
 
@@ -80,6 +82,8 @@ export class SteamMarketPriceService {
   private fallbackSnapshot: FallbackSnapshot | null = null;
   private fallbackSnapshotInflight: Promise<FallbackSnapshot | null> | null =
     null;
+  /** Live Steam median from priceoverview (not persisted — optional rail only). */
+  private readonly lastMedianByName = new Map<string, number>();
 
   constructor(private readonly prisma: PrismaService) {}
 
@@ -182,6 +186,7 @@ export class SteamMarketPriceService {
       ) {
         result[name] = {
           priceMinor: memoryEntry.priceMinor,
+          medianPriceMinor: this.lastMedianByName.get(name) ?? null,
           fetchedAt: new Date(memoryEntry.fetchedAt).toISOString(),
         };
         continue;
@@ -189,7 +194,10 @@ export class SteamMarketPriceService {
 
       // Serve any stored Steam price immediately; refresh only hard misses.
       if (dbEntry?.priceMinor != null) {
-        result[name] = this.toMetaFromDatabase(dbEntry);
+        result[name] = {
+          ...this.toMetaFromDatabase(dbEntry),
+          medianPriceMinor: this.lastMedianByName.get(name) ?? null,
+        };
         continue;
       }
 
@@ -306,6 +314,7 @@ export class SteamMarketPriceService {
       if (priceMinor === null && previous?.priceMinor != null) {
         result[name] = {
           priceMinor: previous.priceMinor,
+          medianPriceMinor: this.lastMedianByName.get(name) ?? null,
           fetchedAt: new Date(previous.fetchedAt).toISOString(),
         };
         this.memoryCache.set(name, {
@@ -322,6 +331,7 @@ export class SteamMarketPriceService {
         });
         result[name] = {
           priceMinor,
+          medianPriceMinor: this.lastMedianByName.get(name) ?? null,
           fetchedAt: new Date(fetchedAt).toISOString(),
         };
         if (priceMinor !== null) {
@@ -567,10 +577,12 @@ export class SteamMarketPriceService {
     if (!payload?.success) {
       return null;
     }
-    return (
-      this.parseUsdToMinor(payload.lowest_price) ??
-      this.parseUsdToMinor(payload.median_price)
-    );
+    const lowest = this.parseUsdToMinor(payload.lowest_price);
+    const median = this.parseUsdToMinor(payload.median_price);
+    if (median != null && median > 0) {
+      this.lastMedianByName.set(marketHashName, median);
+    }
+    return lowest ?? median;
   }
 
   private async requestSteamPriceOverview(

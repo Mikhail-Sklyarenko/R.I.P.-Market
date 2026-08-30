@@ -226,6 +226,8 @@ export type InventoryAsset = {
 
 export type InventoryPriceHint = {
   steamPriceMinor: number | null;
+  /** Steam market median when known from a live priceoverview fetch. */
+  steamMedianPriceMinor?: number | null;
   buffPriceMinor: number | null;
   csfloatPriceMinor: number | null;
   minMarketplacePriceMinor: string | null;

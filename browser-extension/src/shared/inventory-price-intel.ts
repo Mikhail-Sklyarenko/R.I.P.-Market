@@ -7,6 +7,7 @@
 
 export type InventoryPriceHintLike = {
   steamPriceMinor?: number | null;
+  steamMedianPriceMinor?: number | null;
   minMarketplacePriceMinor?: string | number | null;
   buffPriceMinor?: number | null;
   csfloatPriceMinor?: number | null;

@@ -105,6 +105,7 @@ import {
     MockAuthProvider,
     SteamProfileService,
     InventoryMetricsService,
+    SteamInventoryProvider,
   ],
 })
 export class ProvidersModule {}

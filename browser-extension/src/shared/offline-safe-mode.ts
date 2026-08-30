@@ -212,7 +212,12 @@ export function applySafeModeToNextAction(
 export function buildSafeModeBanner(
   snapshot: SiteLinkSnapshot,
   locale: ExtensionLocale = DEFAULT_EXTENSION_LOCALE,
+  options?: { paired?: boolean },
 ): SafeModeBannerView | null {
+  // Unpaired ≠ site down. Show pair CTA in connection strip only.
+  if (options?.paired === false) {
+    return null;
+  }
   if (!snapshot.safeMode) {
     return null;
   }

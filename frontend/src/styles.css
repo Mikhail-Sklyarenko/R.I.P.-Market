@@ -3794,6 +3794,39 @@ a.button.primary {
   background: rgba(248, 113, 113, 0.08);
 }
 
+.inventory-steam-path {
+  margin: var(--space-3) 0;
+}
+
+.inventory-steam-path-title {
+  margin: 0 0 var(--space-2);
+  font-size: 1.05rem;
+}
+
+.inventory-steam-path-body {
+  margin: 0 0 var(--space-3);
+  line-height: 1.4;
+}
+
+.inventory-steam-path-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  align-items: center;
+}
+
+.inventory-steam-path--compact {
+  margin: var(--space-2) 0 var(--space-3);
+  padding: var(--space-3);
+  border-radius: var(--radius-md);
+  border: 1px solid rgba(96, 165, 250, 0.35);
+  background: rgba(59, 130, 246, 0.08);
+}
+
+.inventory-steam-path--compact .inventory-steam-path-title {
+  color: #93c5fd;
+}
+
 .inventory-toolbar {
   display: grid;
   gap: var(--space-2);
@@ -8206,6 +8239,41 @@ a.button.primary {
 .trade-url-banner-text {
   margin: 0;
   font-size: var(--font-size-sm);
+}
+
+.one-gesture-pair-banner {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  margin-bottom: var(--space-4);
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-md);
+  border: 1px solid rgba(59, 130, 246, 0.35);
+  background: rgba(59, 130, 246, 0.08);
+}
+
+.one-gesture-pair-banner-copy {
+  display: grid;
+  gap: 2px;
+  min-width: min(100%, 28rem);
+}
+
+.one-gesture-pair-banner-title {
+  margin: 0;
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+}
+
+.one-gesture-pair-banner-body {
+  margin: 0;
+}
+
+.one-gesture-pair-banner-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
 }
 
 .account-trade-url-section {

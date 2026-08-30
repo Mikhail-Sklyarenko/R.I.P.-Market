@@ -11,6 +11,7 @@ import {
   type ExtensionAwareSurface,
 } from '../utils/extension-aware-commerce';
 import { ExtensionConnectPanel } from './ExtensionConnectPanel';
+import { CS2_STEAM_INVENTORY_URL } from '../utils/steam-inventory-links';
 
 type ExtensionAwareCommerceHintProps = {
   surface: ExtensionAwareSurface;
@@ -104,6 +105,18 @@ export function ExtensionAwareCommerceHint({
           purpose={purpose}
           onConnectedChange={setConnected}
         />
+      ) : null}
+      {hint.kind === 'connected' && surface === 'sell' ? (
+        <p className="muted small">
+          <a
+            href={CS2_STEAM_INVENTORY_URL}
+            target="_blank"
+            rel="noreferrer noopener"
+            data-testid="extension-aware-sell-steam-inventory"
+          >
+            {t('inventory.steamPathOpenSteam')}
+          </a>
+        </p>
       ) : null}
       {hint.kind === 'install' || (hint.kind === 'pair' && !token) ? (
         <p className="muted small">

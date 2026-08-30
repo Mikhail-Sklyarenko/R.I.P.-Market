@@ -161,13 +161,26 @@ const baseEnMessages = {
     emptyPrivateSteamAction: 'Steam privacy settings',
     emptySyncTitle: 'Could not load inventory',
     emptySyncMessage:
-      'Steam did not respond or is temporarily unavailable. Retry sync — contact support if it keeps failing.',
+      'Steam did not answer from our server. Retry sync — or list directly from Steam inventory with the extension.',
     emptyTradableTitle: 'No items to sell',
     emptyTradableMessage:
       'No tradable CS2 items found, or they are already listed. Refresh from Steam or check the linked Steam account.',
     emptyTradableStep1: 'Make sure items are tradable (no trade ban / hold).',
     emptyTradableStep2: 'Confirm your Steam inventory is public.',
     emptyTradableStep3: 'Tap Refresh from Steam.',
+    steamPathBlockedTitle: 'Steam is blocking server requests',
+    steamPathBlockedBody:
+      'This is not a privacy setting. List from Steam inventory: the extension shows a blue Sell on each card.',
+    steamPathSyncTitle: 'Server inventory did not refresh',
+    steamPathSyncBody:
+      'While Steam is rate-limiting us, the reliable path is CS2 inventory in Steam plus the extension.',
+    steamPathStuckTitle: 'Inventory loading is taking too long',
+    steamPathStuckBody:
+      'Do not wait on endless skeletons. Open Steam inventory — the extension works on top of the Steam page.',
+    steamPathStaleTitle: 'Inventory data is outdated',
+    steamPathStaleBody:
+      'Showing the last copy. For fresh items or a new listing, open Steam inventory with the extension.',
+    steamPathOpenSteam: 'List from Steam inventory',
     onboarding: {
       title: 'First sale',
       lead: 'Four steps — then your listing goes live in the catalog.',
@@ -234,7 +247,8 @@ const baseEnMessages = {
     listTitle: 'List item',
     editTitle: 'Edit listing',
     price: 'Price ($)',
-    steamPrice: 'Steam price:',
+    steamPrice: 'Steam (lowest):',
+    steamMedian: 'Steam median:',
     steamLoading: 'Loading Steam price…',
     steamMissingCreate:
       'Steam price unavailable — enter a price yourself. You can still list the item.',
@@ -256,6 +270,8 @@ const baseEnMessages = {
     commission: 'Fee',
     submit: 'List item',
     submitLots: 'List {{lots}}',
+    submitBlockedBan: 'Cannot list',
+    retry: 'Retry',
     save: 'Save',
     publishing: 'Publishing…',
     saving: 'Saving…',
@@ -780,16 +796,23 @@ const baseEnMessages = {
   extensionAwareSell: {
     connectedTitle: 'Extension ready for auto-send',
     connectedBody:
-      'When someone buys, the extension sends the trade offer itself. Confirm in Steam Guard if Steam asks.',
-    pairTitle: 'Connect the extension for auto-send',
+      'When someone buys, the extension sends the trade offer itself. Confirm in Steam Guard if Steam asks. You can also list via the blue Sell button on Steam.',
+    pairTitle: 'Connect the extension — one click',
     pairBody:
-      'Pair once — after a purchase the offer goes out without copying Trade URLs. Manual send stays as fallback.',
+      'The site is already open. Tap “Connect extension” below — no Chrome settings. Then list here or directly in Steam inventory.',
     installTitle: 'Install the extension for auto-send',
     installBody:
-      'List here as usual. With the Chrome extension, deals auto-send from Steam when a buyer pays.',
+      'List here as usual. With the Chrome extension, deals auto-send from Steam when a buyer pays — and Steam inventory gets a blue Sell button.',
   },
   extensionAwareCommerce: {
     accountLink: 'Open account to connect the extension',
+  },
+  oneGesturePair: {
+    title: 'Connect the R.I.P extension — one click',
+    body: 'The extension is already installed. Pair it with your account so auto-send and Steam Sell work.',
+    connect: 'Connect extension',
+    connecting: 'Connecting…',
+    dismiss: 'Later',
   },
   buyRequestFlowStep: {
     request: {

@@ -1,5 +1,6 @@
 import { type FormEvent, useEffect, type ReactNode } from 'react';
 import type { InventoryAsset, InventoryPriceHint, PricingPreview } from '../api/types';
+import { ApiError } from '../api/types';
 import { formatLotCountLabel, useLocale } from '../i18n';
 import { formatUsdFromMinor } from '../utils/format';
 import { formatPaintSeed } from '../utils/item-image';
@@ -12,6 +13,19 @@ import { ErrorAlert } from './ErrorAlert';
 import { LotItemHero } from './LotItemHero';
 import { MoneyDisplay } from './MoneyDisplay';
 import { WearBar } from './WearBar';
+
+function isHardSteamTradeBanError(error: unknown): boolean {
+  if (!(error instanceof ApiError)) {
+    return false;
+  }
+  return (
+    error.code === 'STEAM_VAC_BANNED' || error.code === 'STEAM_GAME_BANNED'
+  );
+}
+
+function isRetryableBanCheckError(error: unknown): boolean {
+  return error instanceof ApiError && error.code === 'STEAM_BAN_CHECK_UNAVAILABLE';
+}
 
 function injectAmount(
   template: string,
@@ -88,6 +102,13 @@ export function InventorySellPanel({
     recommendedInput != null && priceInput.trim() === recommendedInput;
   const steamAge = formatSteamPriceAge(steamPriceFetchedAt, locale);
   const hasSteamPrice = Boolean(priceHint?.steamPriceMinor);
+  const steamMedianMinor =
+    priceHint?.steamMedianPriceMinor != null &&
+    Number(priceHint.steamMedianPriceMinor) > 0 &&
+    Number(priceHint.steamMedianPriceMinor) !==
+      Number(priceHint.steamPriceMinor)
+      ? Number(priceHint.steamMedianPriceMinor)
+      : null;
   const hasMarketPrice = Boolean(priceHint?.minMarketplacePriceMinor);
   const showPriceHints =
     hasSteamPrice ||
@@ -113,6 +134,9 @@ export function InventorySellPanel({
         }
       : preview;
   const busy = submitting || canceling;
+  const hardBan = isHardSteamTradeBanError(sellError);
+  const retryBanCheck = isRetryableBanCheckError(sellError);
+  const submitBlocked = busy || hardBan || !priceMinor || !!priceError;
   const lotsLabel = formatLotCountLabel(listingCount, locale);
 
   useEffect(() => {
@@ -276,6 +300,18 @@ export function InventorySellPanel({
                   </span>
                 ) : null}
 
+                {steamMedianMinor != null ? (
+                  <span
+                    className="inventory-listing-hint"
+                    data-testid="inventory-sell-steam-median"
+                  >
+                    <span className="inventory-listing-hint-label">
+                      {t('sellPanel.steamMedian')}
+                    </span>
+                    <MoneyDisplay minor={steamMedianMinor} />
+                  </span>
+                ) : null}
+
                 {hasMarketPrice ? (
                   <span className="inventory-listing-hint" data-testid="inventory-sell-market-price">
                     <span className="inventory-listing-hint-label">{t('sellPanel.marketFrom')}</span>
@@ -370,18 +406,22 @@ export function InventorySellPanel({
           <button
             type="submit"
             className="button primary inventory-listing-modal-submit"
-            disabled={busy || !priceMinor || !!priceError}
+            disabled={submitBlocked}
             data-testid="submit-listing"
           >
             {submitting
               ? isEdit
                 ? t('sellPanel.saving')
                 : t('sellPanel.publishing')
-              : isEdit
-                ? t('sellPanel.save')
-                : listingCount > 1
-                  ? t('sellPanel.submitLots', { lots: lotsLabel })
-                  : t('sellPanel.submit')}
+              : hardBan
+                ? t('sellPanel.submitBlockedBan')
+                : retryBanCheck
+                  ? t('sellPanel.retry')
+                  : isEdit
+                    ? t('sellPanel.save')
+                    : listingCount > 1
+                      ? t('sellPanel.submitLots', { lots: lotsLabel })
+                      : t('sellPanel.submit')}
           </button>
 
           {isEdit && onCancelListing ? (

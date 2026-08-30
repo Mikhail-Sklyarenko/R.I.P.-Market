@@ -107,7 +107,7 @@ export function AccountTradingOnboarding({
         : t('onboarding.extensionHintInstall'),
       ready: extensionConnected,
       optional: true,
-      actionHref: '#account-extension-section',
+      actionHref: '#connect-extension',
       actionLabel: extensionConnected ? undefined : t('onboarding.extensionAction'),
     });
   }

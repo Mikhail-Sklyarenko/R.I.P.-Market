@@ -731,6 +731,13 @@ export const clientExtraEn = {
     text: 'Add your Trade URL in Steam — you cannot buy or sell skins without it.',
     action: 'Go to settings',
   },
+  oneGesturePair: {
+    title: 'Connect the R.I.P extension — one click',
+    body: 'The extension is already installed. Pair it with your account so auto-send and Steam Sell work.',
+    connect: 'Connect extension',
+    connecting: 'Connecting…',
+    dismiss: 'Later',
+  },
   trc20Address: {
     required: "Enter the recipient's TRC-20 address.",
     mustStartWithT: 'A TRC-20 address must start with T.',
@@ -1217,6 +1224,10 @@ export const clientExtraEn = {
     TRADE_URL_STEAM_MISMATCH:
       'This Trade URL does not belong to your linked Steam account. Copy the link from the same Steam profile settings.',
     STEAM_VAC_BANNED: 'Accounts with a VAC ban cannot trade on this marketplace.',
+    STEAM_GAME_BANNED:
+      'Accounts with a Steam game ban cannot trade on this marketplace.',
+    STEAM_BAN_CHECK_UNAVAILABLE:
+      'Could not verify Steam ban status — this is not a ban. Try again in a minute.',
   },
   userRole: {
     BUYER: 'Buyer',

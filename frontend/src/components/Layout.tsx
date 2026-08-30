@@ -7,6 +7,7 @@ import { CatalogNavLink } from './CatalogBackToResults';
 import { HeaderWalletBalance } from './HeaderWalletBalance';
 import { LanguageSwitcher } from './LanguageSwitcher';
 import { TradeUrlBanner } from './TradeUrlBanner';
+import { OneGestureExtensionPairBanner } from './OneGestureExtensionPairBanner';
 import { UserMenu } from './UserMenu';
 import { NotificationsWidget } from './NotificationsWidget';
 import { SupportWidget } from './SupportWidget';
@@ -63,6 +64,7 @@ export function Layout() {
 
       <main className="app-main">
         {isAuthenticated ? <TradeUrlBanner user={user} /> : null}
+        {isAuthenticated ? <OneGestureExtensionPairBanner /> : null}
         <Outlet />
       </main>
 

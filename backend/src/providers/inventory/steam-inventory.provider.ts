@@ -210,6 +210,69 @@ export class SteamInventoryProvider implements InventoryProvider {
     }
   }
 
+  /**
+   * Slice 4: apply inventory snapshot collected from the seller's Steam tab
+   * (extension browser context) when datacenter Steam sync is blocked.
+   */
+  async applyBrowserAssistAssets(
+    ownerId: string,
+    steamId: string,
+    items: ParsedSteamAsset[],
+    options?: { complete?: boolean },
+  ): Promise<SyncResult> {
+    const startedAt = Date.now();
+    if (!isRealSteamId(steamId)) {
+      throw new AppException(
+        ErrorCode.STEAM_NOT_LINKED,
+        'Link your real Steam account before syncing inventory',
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+    if (items.length === 0) {
+      throw new AppException(
+        ErrorCode.VALIDATION_ERROR,
+        'Browser assist requires at least one inventory asset',
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+
+    await this.upsertParsedAssets(ownerId, items);
+    const complete = options?.complete === true;
+    if (complete) {
+      await this.markMissingAssetsRemoved(
+        ownerId,
+        items.map((item) => item.assetExternalId),
+      );
+      await cleanupOrphanItemDefinitions(this.prisma);
+    }
+
+    const run = await this.syncCache.recordRun({
+      userId: ownerId,
+      steamId,
+      status: complete
+        ? InventorySyncStatus.SUCCESS
+        : InventorySyncStatus.PARTIAL,
+      itemCount: items.length,
+    });
+
+    const result = this.toSyncResult(
+      run,
+      false,
+      false,
+      complete
+        ? 'Инвентарь обновлён из вкладки Steam (расширение).'
+        : 'Частичный снимок из вкладки Steam — полный sync при следующем обновлении.',
+    );
+    this.recordMetrics(
+      complete ? 'SUCCESS' : 'PARTIAL',
+      startedAt,
+      steamId,
+      items.length,
+      false,
+    );
+    return result;
+  }
+
   private async upsertParsedAssets(ownerId: string, items: ParsedSteamAsset[]) {
     const existingAssets = await this.prisma.inventoryAsset.findMany({
       where: { ownerId },

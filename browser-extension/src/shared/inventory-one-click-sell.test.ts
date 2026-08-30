@@ -102,8 +102,8 @@ describe('inventory-one-click-sell', () => {
     ).toBe('not_tradable');
 
     expect(
-      resolveInventorySellAction({ connected: true, steam: steamOk }).kind,
-    ).toBe('list');
+      resolveInventorySellAction({ connected: true, steam: steamOk }),
+    ).toMatchObject({ kind: 'list', label: 'Продать' });
   });
 
   it('parses usd input and builds commission preview', () => {

@@ -10,6 +10,8 @@ import {
   siteAccountUrl,
   siteSellInventoryUrl,
   listVisibleInventoryItemHolders,
+  countVisibleCs2InventoryItemHolders,
+  listPaintableCs2InventoryCells,
 } from './steam-inventory-page.js';
 import { resolveInventoryLayerView } from './inventory-layer.js';
 
@@ -122,7 +124,9 @@ describe('site urls + layer view', () => {
     expect(siteSellInventoryUrl('https://p2pcs.ru/api/v1')).toBe(
       'https://p2pcs.ru/sell/inventory',
     );
-    expect(siteAccountUrl(null)).toContain('/account');
+    expect(siteAccountUrl(null)).toBe('https://p2pcs.ru/account');
+    expect(siteAccountUrl(null)).not.toContain('localhost');
+    expect(siteAccountUrl(undefined)).toBe('https://p2pcs.ru/account');
     expect(buildCs2InventoryHash()).toBe('#730_2');
   });
 
@@ -130,32 +134,38 @@ describe('site urls + layer view', () => {
     const connected = resolveInventoryLayerView({
       connected: true,
       sellUrl: 'https://p2pcs.ru/sell/inventory',
+      listingsUrl: 'https://p2pcs.ru/deals?tab=listings',
       accountUrl: 'https://p2pcs.ru/account',
       itemHolderCount: 10,
     });
     expect(connected.connection).toBe('connected');
-    expect(connected.ctaHref).toContain('/sell/inventory');
-    expect(connected.body).toMatch(/Safety|Управлять|lock/i);
+    expect(connected.ctaHref).toContain('/deals?tab=listings');
+    expect(connected.ctaLabel).toMatch(/объявлен/i);
+    expect(connected.secondaryCta?.href).toContain('/sell/inventory');
+    expect(connected.body).toMatch(/Hold|Управлять|lock/i);
 
     const disconnected = resolveInventoryLayerView({
       connected: false,
       sellUrl: 'https://p2pcs.ru/sell/inventory',
+      listingsUrl: 'https://p2pcs.ru/deals?tab=listings',
       accountUrl: 'https://p2pcs.ru/account',
       itemHolderCount: 0,
     });
     expect(disconnected.connection).toBe('disconnected');
     expect(disconnected.ctaHref).toContain('/account');
-    expect(disconnected.body).toMatch(/soft gate|Подключите/i);
+    expect(disconnected.secondaryCta).toBeNull();
+    expect(disconnected.body).toMatch(/подключ/i);
 
     const safe = resolveInventoryLayerView({
       connected: true,
       siteSafeMode: true,
       sellUrl: 'https://p2pcs.ru/sell/inventory',
+      listingsUrl: 'https://p2pcs.ru/deals?tab=listings',
       accountUrl: 'https://p2pcs.ru/account',
       itemHolderCount: 3,
     });
     expect(safe.connection).toBe('safe_mode');
-    expect(safe.body).toMatch(/недоступен|нестабилен|popup/i);
+    expect(safe.body).toMatch(/API/i);
   });
 });
 
@@ -163,7 +173,7 @@ describe('listVisibleInventoryItemHolders', () => {
   it('does not pull holders from hidden inventory pages', () => {
     document.body.innerHTML = `
       <div id="inventories">
-        <div class="inventory_ctn" style="display: block">
+        <div id="inventory_730_2" class="inventory_ctn" style="display: block">
           <div class="inventory_page" style="display: block">
             <div class="itemHolder"><div class="item" id="item730_2_1"></div></div>
             <div class="itemHolder"><div class="item" id="item730_2_2"></div></div>
@@ -180,5 +190,99 @@ describe('listVisibleInventoryItemHolders', () => {
     expect(
       holders.every((h) => h.querySelector('#item730_2_3') == null),
     ).toBe(true);
+  });
+
+  it('finds CS2 holders when Steam omits inline display:block (modern DOM)', () => {
+    document.body.innerHTML = `
+      <div id="inventories">
+        <div id="inventory_440_2" class="inventory_ctn" style="display: none">
+          <div class="inventory_page">
+            <div class="itemHolder"><div class="item" id="item440_2_9"></div></div>
+          </div>
+        </div>
+        <div id="inventory_730_2" class="inventory_ctn">
+          <div class="inventory_page">
+            <div class="itemHolder"><div class="item" id="item730_2_11"></div></div>
+            <div class="itemHolder"><div class="item" id="item730_2_12"></div></div>
+            <div class="itemHolder disabled"><div class="item" id="item730_2_13"></div></div>
+          </div>
+          <div class="inventory_page" style="display: none">
+            <div class="itemHolder"><div class="item" id="item730_2_99"></div></div>
+          </div>
+        </div>
+      </div>
+    `;
+    const holders = listVisibleInventoryItemHolders(document, {
+      getComputedStyle: undefined,
+    });
+    expect(holders).toHaveLength(2);
+    expect(holders.map((h) => h.querySelector('.item')?.id).sort()).toEqual([
+      'item730_2_11',
+      'item730_2_12',
+    ]);
+    expect(countVisibleCs2InventoryItemHolders(document, {
+      getComputedStyle: undefined,
+    })).toBe(2);
+  });
+
+  it('falls back to any CS2 cell under inventories when page chrome is atypical', () => {
+    document.body.innerHTML = `
+      <div id="inventories">
+        <div class="custom_steam_inv">
+          <div class="itemHolder"><div class="item" id="item730_2_77"></div></div>
+        </div>
+      </div>
+    `;
+    const holders = listVisibleInventoryItemHolders(document, {
+      getComputedStyle: undefined,
+    });
+    expect(holders).toHaveLength(1);
+    expect(holders[0]?.querySelector('#item730_2_77')).toBeTruthy();
+  });
+
+  it('lists paintable cells item-first with asset ids', () => {
+    document.body.innerHTML = `
+      <div id="inventories">
+        <div id="inventory_730_2" class="inventory_ctn">
+          <div class="inventory_page">
+            <div class="itemHolder"><div class="item" id="item730_2_501"></div></div>
+            <div class="itemHolder"><div class="item" id="item730_2_502"></div></div>
+          </div>
+        </div>
+      </div>
+    `;
+    const cells = listPaintableCs2InventoryCells(document, {
+      getComputedStyle: undefined,
+    });
+    expect(cells.map((c) => c.assetId).sort()).toEqual(['501', '502']);
+    expect(cells.every((c) => c.holder.contains(c.item))).toBe(true);
+  });
+
+  it('finds modern 730_16_* cells without inventory_730_2 container', () => {
+    document.body.innerHTML = `
+      <div id="inventories">
+        <div class="inventory_ctn">
+          <div class="inventory_page">
+            <div class="itemHolder"><div class="item" id="730_16_50620552134"></div></div>
+            <div class="itemHolder"><div class="item" id="730_16_50620545708"></div></div>
+            <div class="itemHolder"><div class="item" id="730_2_111"></div></div>
+          </div>
+        </div>
+      </div>
+    `;
+    const cells = listPaintableCs2InventoryCells(document, {
+      getComputedStyle: undefined,
+    });
+    expect(cells.map((c) => c.assetId).sort()).toEqual([
+      '111',
+      '50620545708',
+      '50620552134',
+    ]);
+    expect(cells.find((c) => c.assetId === '50620552134')?.contextId).toBe(16);
+    expect(
+      countVisibleCs2InventoryItemHolders(document, {
+        getComputedStyle: undefined,
+      }),
+    ).toBe(3);
   });
 });

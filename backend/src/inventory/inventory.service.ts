@@ -16,11 +16,16 @@ import type {
   InventoryProvider,
   SyncResult,
 } from '../providers/inventory/inventory-provider.interface';
+import { SteamInventoryProvider } from '../providers/inventory/steam-inventory.provider';
+import type { ParsedSteamAsset } from '../providers/inventory/steam-inventory.parser';
 import { getProvidersConfig } from '../providers/config';
 import { resolveSuggestedListPrice } from './suggested-list-price.util';
+import { isRealSteamId } from '../common/steam-id.util';
 
 export type InventoryPriceHint = {
   steamPriceMinor: number | null;
+  /** Steam market median when known from a live priceoverview fetch. */
+  steamMedianPriceMinor: number | null;
   buffPriceMinor: number | null;
   csfloatPriceMinor: number | null;
   minMarketplacePriceMinor: string | null;
@@ -65,6 +70,7 @@ export class InventoryService {
     @Inject(INVENTORY_PROVIDER)
     private readonly inventoryProvider: InventoryProvider,
     private readonly steamMarketPrice: SteamMarketPriceService,
+    private readonly steamInventoryProvider: SteamInventoryProvider,
   ) {}
 
   async getUserInventory(
@@ -77,13 +83,8 @@ export class InventoryService {
     }
 
     const force = options?.forceRefresh === true;
-    if (force && options?.role && !['SELLER', 'ADMIN'].includes(options.role)) {
-      throw new AppException(
-        ErrorCode.FORBIDDEN,
-        'Only sellers and admins can force inventory refresh',
-        HttpStatus.FORBIDDEN,
-      );
-    }
+    // Any authenticated owner may force-refresh their own inventory.
+    // Gating by SELLER blocked first-sale onboarding (FORBIDDEN on «Обновить из Steam»).
 
     if (!force) {
       const soft = await this.tryServeCachedInventory(ownerId);
@@ -378,6 +379,107 @@ export class InventoryService {
     return toJsonSafe(asset);
   }
 
+  /**
+   * Slice 4: extension pushes a Steam-tab inventory snapshot when server sync is blocked.
+   */
+  async applyExtensionBrowserAssist(
+    userId: string,
+    input: {
+      steamId: string;
+      assets: Array<{
+        assetId: string;
+        marketHashName: string;
+        classId?: string;
+        instanceId?: string;
+        tradable?: boolean;
+        marketable?: boolean;
+        tradeLockUntil?: string | null;
+        floatValue?: string | null;
+        paintSeed?: number | null;
+        wear?: string | null;
+        iconUrl?: string | null;
+      }>;
+      complete?: boolean;
+    },
+  ): Promise<SyncResult> {
+    if (getProvidersConfig().inventory !== 'steam') {
+      throw new AppException(
+        ErrorCode.VALIDATION_ERROR,
+        'Browser assist sync requires Steam inventory provider',
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+
+    const user = await this.prisma.user.findUnique({ where: { id: userId } });
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+    if (!user.steamId || !isRealSteamId(user.steamId)) {
+      throw new AppException(
+        ErrorCode.STEAM_NOT_LINKED,
+        'Link your Steam account before syncing inventory',
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+    if (user.steamId !== input.steamId) {
+      throw new AppException(
+        ErrorCode.FORBIDDEN,
+        'SteamID does not match the paired account',
+        HttpStatus.FORBIDDEN,
+      );
+    }
+
+    const parsed: ParsedSteamAsset[] = [];
+    for (const asset of input.assets) {
+      const marketHashName = asset.marketHashName?.trim();
+      const assetId = asset.assetId?.trim();
+      if (!marketHashName || !assetId) {
+        continue;
+      }
+      let tradeLockUntil: Date | null = null;
+      if (asset.tradeLockUntil) {
+        const parsedDate = new Date(asset.tradeLockUntil);
+        if (!Number.isNaN(parsedDate.getTime())) {
+          tradeLockUntil = parsedDate;
+        }
+      }
+      parsed.push({
+        assetExternalId: assetId,
+        marketHashName,
+        iconUrl: asset.iconUrl?.trim() || null,
+        tradable: asset.tradable !== false,
+        marketable: asset.marketable !== false,
+        tradeLockUntil,
+        floatValue: asset.floatValue ?? null,
+        paintSeed:
+          asset.paintSeed != null && Number.isFinite(asset.paintSeed)
+            ? Math.floor(asset.paintSeed)
+            : null,
+        wear: asset.wear ?? null,
+        stickers: [],
+        inspectLinkTemplate: null,
+        inspectLinkPayload: null,
+        classExternalId: asset.classId?.trim() || '0',
+        instanceExternalId: asset.instanceId?.trim() || '0',
+      });
+    }
+
+    if (parsed.length === 0) {
+      throw new AppException(
+        ErrorCode.VALIDATION_ERROR,
+        'No valid assets in browser assist payload',
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+
+    return this.steamInventoryProvider.applyBrowserAssistAssets(
+      userId,
+      input.steamId,
+      parsed,
+      { complete: input.complete === true },
+    );
+  }
+
   async getPriceHints(
     marketHashNames: string[],
     options: PriceHintFetchOptions = {},
@@ -420,6 +522,7 @@ export class InventoryService {
       const bid = bestBids.get(name);
       const base = {
         steamPriceMinor: steamPrices[name]?.priceMinor ?? null,
+        steamMedianPriceMinor: steamPrices[name]?.medianPriceMinor ?? null,
         buffPriceMinor: null,
         csfloatPriceMinor: null,
         minMarketplacePriceMinor: marketplacePrices.get(name) ?? null,

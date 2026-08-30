@@ -162,13 +162,26 @@ const baseRuMessages = {
     emptyPrivateSteamAction: 'Настройки приватности Steam',
     emptySyncTitle: 'Не удалось загрузить инвентарь',
     emptySyncMessage:
-      'Steam не ответил или временно недоступен. Повторите синхронизацию — если не помогло, напишите в поддержку.',
+      'Steam не ответил с нашего сервера. Можно повторить синхронизацию — или выставить прямо из Steam-инвентаря через расширение.',
     emptyTradableTitle: 'Нет предметов для продажи',
     emptyTradableMessage:
       'В CS2 не найдено tradable предметов или они уже выставлены. Обновите синхронизацию или проверьте другой аккаунт Steam.',
     emptyTradableStep1: 'Убедитесь, что предметы tradable (без trade ban / hold).',
     emptyTradableStep2: 'Проверьте, что инвентарь Steam открыт.',
     emptyTradableStep3: 'Нажмите «Обновить из Steam».',
+    steamPathBlockedTitle: 'Steam блокирует запросы с сервера',
+    steamPathBlockedBody:
+      'Это не настройки приватности. Выставьте предметы из Steam-инвентаря: расширение покажет синюю «Продать» на карточках.',
+    steamPathSyncTitle: 'Инвентарь с сервера не обновился',
+    steamPathSyncBody:
+      'Пока Steam режет ответы, надёжный путь — открыть CS2-инвентарь в Steam и выставить через расширение.',
+    steamPathStuckTitle: 'Загрузка инвентаря затянулась',
+    steamPathStuckBody:
+      'Не ждите бесконечные скелетоны. Откройте Steam-инвентарь — расширение работает поверх страницы Steam.',
+    steamPathStaleTitle: 'Данные инвентаря устарели',
+    steamPathStaleBody:
+      'Показана последняя копия. Для свежих предметов или новой выставки откройте Steam-инвентарь с расширением.',
+    steamPathOpenSteam: 'Выставить из Steam-инвентаря',
     onboarding: {
       title: 'Первая продажа',
       lead: 'Четыре шага — и лот появится в каталоге.',
@@ -235,7 +248,8 @@ const baseRuMessages = {
     listTitle: 'Выставить лот',
     editTitle: 'Изменить лот',
     price: 'Цена ($)',
-    steamPrice: 'Цена Steam:',
+    steamPrice: 'Steam (lowest):',
+    steamMedian: 'Средняя Steam:',
     steamLoading: 'Загружаем цену Steam…',
     steamMissingCreate:
       'Цена Steam недоступна — укажите цену вручную, лот всё равно можно выставить.',
@@ -258,6 +272,8 @@ const baseRuMessages = {
     commission: 'Комиссия',
     submit: 'Выставить лот',
     submitLots: 'Выставить {{lots}}',
+    submitBlockedBan: 'Выставить нельзя',
+    retry: 'Повторить',
     save: 'Сохранить',
     publishing: 'Публикация…',
     saving: 'Сохранение…',
@@ -1111,6 +1127,13 @@ const baseRuMessages = {
     action: 'Перейти в настройки',
     text: 'Укажите Trade URL в Steam — без него нельзя продавать и покупать скины.',
   },
+  oneGesturePair: {
+    title: 'Подключите расширение R.I.P — один клик',
+    body: 'Расширение уже установлено. Подключите его к аккаунту, чтобы автоотправка обменов и «Продать» в Steam работали.',
+    connect: 'Подключить расширение',
+    connecting: 'Подключаем…',
+    dismiss: 'Позже',
+  },
   trc20Address: {
     invalid: 'Некорректный TRC-20 адрес.',
     mustStartWithT: 'TRC-20 адрес должен начинаться с T.',
@@ -1192,6 +1215,10 @@ const baseRuMessages = {
     TRADE_URL_STEAM_MISMATCH:
       'Trade URL не принадлежит привязанному Steam-аккаунту. Скопируйте ссылку из настроек Steam того же профиля.',
     STEAM_VAC_BANNED: 'Аккаунт с VAC-баном не может торговать на площадке.',
+    STEAM_GAME_BANNED:
+      'Аккаунт с игровым баном Steam не может торговать на площадке.',
+    STEAM_BAN_CHECK_UNAVAILABLE:
+      'Не удалось проверить статус банов Steam — это не бан. Повторите через минуту.',
   },
   userRole: {
     BUYER: 'Покупатель',
@@ -1336,13 +1363,13 @@ const baseRuMessages = {
   extensionAwareSell: {
     connectedTitle: 'Расширение готово к автоотправке',
     connectedBody:
-      'Когда купят — расширение само отправит trade offer. Подтвердите в Steam Guard, если Steam попросит.',
-    pairTitle: 'Подключите расширение для автоотправки',
+      'Когда купят — расширение само отправит trade offer. Подтвердите в Steam Guard, если Steam попросит. Выставлять можно и здесь, и синей «Продать» в Steam.',
+    pairTitle: 'Подключите расширение — один клик',
     pairBody:
-      'Подключите один раз — после покупки offer уйдёт без копирования Trade URL. Ручная отправка остаётся fallback.',
+      'Сайт уже открыт. Нажмите «Подключить расширение» ниже — без настроек Chrome. После этого выставляйте на сайте или прямо в Steam-инвентаре.',
     installTitle: 'Установите расширение для автоотправки',
     installBody:
-      'Выставляйте лоты здесь как обычно. С Chrome-расширением сделки уходят из Steam сами, когда покупатель платит.',
+      'Выставляйте лоты здесь как обычно. С Chrome-расширением сделки уходят из Steam сами, когда покупатель платит — и появляется синяя «Продать» в инвентаре Steam.',
   },
   extensionAwareCommerce: {
     accountLink: 'Открыть аккаунт, чтобы подключить расширение',

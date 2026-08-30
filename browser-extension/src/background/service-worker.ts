@@ -48,6 +48,7 @@ import {
   type SiteLinkSnapshot,
 } from '../shared/offline-safe-mode.js';
 import { recordTwoMinuteFirstList } from '../shared/two-minute-onboarding.js';
+import { humanizeListingApiError } from '../shared/listing-api-errors.js';
 import {
   buildSupportBridgePack,
   buildSupportBridgeUrl,
@@ -93,6 +94,10 @@ import {
   type PlatformInventoryAssetRow,
 } from '../shared/inventory-enrichment-data.js';
 import type { InventoryItemPlatformFacts } from '../shared/inventory-item-enrichment.js';
+import {
+  loadCs2EnrichmentFactsInPageMain,
+  type PageEnrichmentLoadResult,
+} from '../shared/steam-inventory-page-enrichment.js';
 import { chunkMarketHashNames } from '../shared/inventory-price-intel.js';
 import type { InventoryPriceHintLike } from '../shared/inventory-price-intel.js';
 import {
@@ -947,6 +952,14 @@ async function readListingApiError(
   return new ExtensionApiError(path, response.status, `HTTP ${response.status}`);
 }
 
+function listingUserError(apiError: ExtensionApiError): string {
+  return humanizeListingApiError({
+    code: apiError.code,
+    message: apiError.message,
+    status: apiError.status,
+  });
+}
+
 async function createInventoryLotFromRuntime(params: {
   steamAssetId: string;
   priceMinor: number;
@@ -957,6 +970,7 @@ async function createInventoryLotFromRuntime(params: {
   lotUrl?: string;
   listingsUrl?: string;
   error?: string;
+  errorCode?: string;
 }> {
   const gate = await assertSiteMutationsAllowed();
   if (!gate.ok) {
@@ -1001,7 +1015,11 @@ async function createInventoryLotFromRuntime(params: {
           inventoryResponse,
         );
         await invalidateSessionOnAuthError(apiError);
-        return { ok: false, error: apiError.message };
+        return {
+          ok: false,
+          error: listingUserError(apiError),
+          errorCode: apiError.code,
+        };
       }
       const inventoryBody = (await inventoryResponse.json()) as {
         assets?: Array<{ id?: string; assetExternalId?: string }>;
@@ -1037,7 +1055,11 @@ async function createInventoryLotFromRuntime(params: {
         checkResponse,
       );
       await invalidateSessionOnAuthError(apiError);
-      return { ok: false, error: apiError.message };
+      return {
+        ok: false,
+        error: listingUserError(apiError),
+        errorCode: apiError.code,
+      };
     }
 
     const checkedAsset = (await checkResponse.json()) as Parameters<
@@ -1063,7 +1085,11 @@ async function createInventoryLotFromRuntime(params: {
     if (!createResponse.ok) {
       const apiError = await readListingApiError('/lots', createResponse);
       await invalidateSessionOnAuthError(apiError);
-      return { ok: false, error: apiError.message };
+      return {
+        ok: false,
+        error: listingUserError(apiError),
+        errorCode: apiError.code,
+      };
     }
 
     const lot = (await createResponse.json()) as { id?: string };
@@ -1109,7 +1135,7 @@ async function loadInventoryIdMap(
   if (!inventoryResponse.ok) {
     const apiError = await readListingApiError('/inventory', inventoryResponse);
     await invalidateSessionOnAuthError(apiError);
-    return { ok: false, byExternalId: new Map(), error: apiError.message };
+    return { ok: false, byExternalId: new Map(), error: listingUserError(apiError) };
   }
   const inventoryBody = (await inventoryResponse.json()) as {
     assets?: Array<{ id?: string; assetExternalId?: string }>;
@@ -1256,7 +1282,7 @@ async function createInventoryLotsBatchFromRuntime(params: {
           for (const id of chunkIds) {
             failed.push({
               steamAssetId: steamById.get(id) ?? id,
-              error: apiError.message,
+              error: listingUserError(apiError),
             });
           }
           continue;
@@ -1362,6 +1388,7 @@ async function updateInventoryLotPriceFromRuntime(params: {
   priceMinor?: string;
   listingsUrl?: string;
   error?: string;
+  errorCode?: string;
 }> {
   const gate = await assertSiteMutationsAllowed();
   if (!gate.ok) {
@@ -1408,7 +1435,12 @@ async function updateInventoryLotPriceFromRuntime(params: {
         response,
       );
       await invalidateSessionOnAuthError(apiError);
-      return { ok: false, error: apiError.message, listingsUrl };
+      return {
+        ok: false,
+        error: listingUserError(apiError),
+        listingsUrl,
+        errorCode: apiError.code,
+      };
     }
     const lot = (await response.json()) as { id?: string; priceMinor?: string };
     return {
@@ -1436,6 +1468,7 @@ async function cancelInventoryLotFromRuntime(params: {
   lotId?: string;
   listingsUrl?: string;
   error?: string;
+  errorCode?: string;
 }> {
   const gate = await assertSiteMutationsAllowed();
   if (!gate.ok) {
@@ -1479,7 +1512,12 @@ async function cancelInventoryLotFromRuntime(params: {
         response,
       );
       await invalidateSessionOnAuthError(apiError);
-      return { ok: false, error: apiError.message, listingsUrl };
+      return {
+        ok: false,
+        error: listingUserError(apiError),
+        listingsUrl,
+        errorCode: apiError.code,
+      };
     }
     return { ok: true, lotId, listingsUrl };
   } catch (error) {
@@ -1606,6 +1644,7 @@ async function manualCreateOfferFromRuntime(orderId: string): Promise<{
 
 function handleTradeVerificationRuntimeMessage(
   message: Record<string, unknown>,
+  sender: chrome.runtime.MessageSender,
   sendResponse: (response: unknown) => void,
 ): boolean {
   if (message?.type === TRADE_VERIFICATION_RUNTIME.GET_ACTIVE_TRADES) {
@@ -1754,6 +1793,125 @@ function handleTradeVerificationRuntimeMessage(
           hints: {},
         }),
       );
+    return true;
+  }
+
+  if (message?.type === TRADE_VERIFICATION_RUNTIME.GET_INVENTORY_PAGE_FACTS) {
+    const tabId = sender.tab?.id;
+    const steamIdHint =
+      typeof message.steamId === 'string' ? message.steamId.trim() : null;
+    if (tabId == null) {
+      sendResponse({
+        ok: false,
+        error: 'Inventory tab not found',
+        facts: [],
+        source: 'empty',
+      });
+      return false;
+    }
+    void (async () => {
+      try {
+        const [injection] = await chrome.scripting.executeScript({
+          target: { tabId },
+          world: 'MAIN',
+          args: [steamIdHint && /^\d{17}$/.test(steamIdHint) ? steamIdHint : null],
+          func: loadCs2EnrichmentFactsInPageMain,
+        });
+        const result = injection?.result as PageEnrichmentLoadResult | undefined;
+        if (!result) {
+          sendResponse({
+            ok: false,
+            error: 'Steam page enrichment returned empty',
+            facts: [],
+            source: 'empty',
+          });
+          return;
+        }
+        sendResponse({
+          ok: result.facts.length > 0,
+          ...result,
+        });
+      } catch (error: unknown) {
+        sendResponse({
+          ok: false,
+          error:
+            error instanceof Error
+              ? error.message
+              : 'Steam page enrichment failed',
+          facts: [],
+          source: 'empty',
+        });
+      }
+    })();
+    return true;
+  }
+
+  if (message?.type === TRADE_VERIFICATION_RUNTIME.BROWSER_ASSIST_INVENTORY_SYNC) {
+    void (async () => {
+      try {
+        const state = await getSessionState();
+        if (!state?.accessToken || !state.apiBaseUrl) {
+          sendResponse({ ok: false, error: 'Extension not connected' });
+          return;
+        }
+        const steamId =
+          typeof message.steamId === 'string' ? message.steamId.trim() : '';
+        const assets = Array.isArray(message.assets) ? message.assets : [];
+        if (!/^\d{17}$/.test(steamId) || assets.length === 0) {
+          sendResponse({
+            ok: false,
+            error: 'Browser assist requires steamId and assets',
+          });
+          return;
+        }
+        const base = state.apiBaseUrl.replace(/\/$/, '');
+        const response = await fetch(`${base}/extension/inventory/browser-assist`, {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${state.accessToken}`,
+            Accept: 'application/json',
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            steamId,
+            assets,
+            complete: message.complete === true,
+          }),
+        });
+        const body = (await response.json().catch(() => null)) as {
+          ok?: boolean;
+          itemCount?: number;
+          status?: string;
+          warning?: string | null;
+          message?: string;
+          error?: string;
+        } | null;
+        if (!response.ok) {
+          sendResponse({
+            ok: false,
+            error:
+              body?.message ||
+              body?.error ||
+              `Browser assist failed (${response.status})`,
+          });
+          return;
+        }
+        sendResponse({
+          ok: true,
+          itemCount: body?.itemCount ?? assets.length,
+          status: body?.status ?? null,
+          warning: body?.warning ?? null,
+        });
+      } catch (error: unknown) {
+        sendResponse({
+          ok: false,
+          error:
+            error instanceof Error
+              ? error.message
+              : 'Browser assist sync failed',
+        });
+      }
+    })();
     return true;
   }
 
@@ -2172,8 +2330,8 @@ chrome.runtime.onMessageExternal.addListener((message, _sender, sendResponse) =>
   return false;
 });
 
-chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
-  if (handleTradeVerificationRuntimeMessage(message, sendResponse)) {
+chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+  if (handleTradeVerificationRuntimeMessage(message, sender, sendResponse)) {
     return true;
   }
   if (message?.type === 'RIP_MARKET_STATUS') {

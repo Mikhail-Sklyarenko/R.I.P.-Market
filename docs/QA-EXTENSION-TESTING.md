@@ -3,11 +3,17 @@
 Подробное руководство по ручному тестированию **автоотправки trade offer** на staging **p2pcs.ru**.
 
 **Сайт:** https://p2pcs.ru  
-**Версия расширения:** **0.6.26** (актуальный пакет I1–I5 — см. [QA-EXTENSION-I1-I5-2026-08.md](./QA-EXTENSION-I1-I5-2026-08.md))  
+**Версия расширения:** **0.6.37** (Slice 4 — [QA-SLICE4-DRAFT-MEDIAN-ASSIST.md](./QA-SLICE4-DRAFT-MEDIAN-ASSIST.md); Slice 3 сайт — [QA-SLICE3-SITE-STEAM-PATH.md](./QA-SLICE3-SITE-STEAM-PATH.md); Slice 2 — [QA-SLICE2-INVENTORY-TRUST-0.6.36.md](./QA-SLICE2-INVENTORY-TRUST-0.6.36.md); Slice 1 — [QA-SLICE1-HONEST-LIST-0.6.35.md](./QA-SLICE1-HONEST-LIST-0.6.35.md))  
 **Дата:** август 2026
 
 > Этот документ — базовый happy path автоотправки оффера.  
-> Полный чеклист (inventory, guided buyer, quiet notify, feature flags): **[QA-EXTENSION-I1-I5-2026-08.md](./QA-EXTENSION-I1-I5-2026-08.md)**.
+> **Slice 4 (draft / median / browser-assist):** [QA-SLICE4-DRAFT-MEDIAN-ASSIST.md](./QA-SLICE4-DRAFT-MEDIAN-ASSIST.md).  
+> **Slice 3 (Steam path / modal state / one-gesture pair на сайте):** [QA-SLICE3-SITE-STEAM-PATH.md](./QA-SLICE3-SITE-STEAM-PATH.md).  
+> **Slice 2 (hold / sell preview / pair vs offline):** [QA-SLICE2-INVENTORY-TRUST-0.6.36.md](./QA-SLICE2-INVENTORY-TRUST-0.6.36.md).  
+> **Slice 1 (честный list / VAC / account URL):** [QA-SLICE1-HONEST-LIST-0.6.35.md](./QA-SLICE1-HONEST-LIST-0.6.35.md).  
+> **Полный отчёт для тестировщика (0.6.34):** [QA-EXTENSION-TESTER-REPORT-0.6.34.md](./QA-EXTENSION-TESTER-REPORT-0.6.34.md).  
+> Чеклист I1–I5: [QA-EXTENSION-I1-I5-2026-08.md](./QA-EXTENSION-I1-I5-2026-08.md).  
+> Инвентарь 0.6.34 (`730_16_*`): [QA-INVENTORY-OVERLAY-0.6.34.md](./QA-INVENTORY-OVERLAY-0.6.34.md).
 
 Общие сценарии staging (каталог, кошелёк, споры): [QA-STAGING-p2pcs.md](./QA-STAGING-p2pcs.md).
 

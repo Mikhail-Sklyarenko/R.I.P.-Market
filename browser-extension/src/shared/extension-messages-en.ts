@@ -60,18 +60,18 @@ export const extensionMessagesEn: ExtensionMessageTree = {
     emptyBody: 'No deals need action right now.',
   },
   safeMode: {
-    offlineTitle: 'Site unreachable · safe mode',
+    offlineTitle: 'Server link lost · safe mode',
     offlineBody:
-      'Showing last known deals. Warnings stay on; listing and sending offers via the platform are paused until the site is back.',
-    degradedTitle: 'Unstable link to the site',
+      'The site page may still load in the browser, but the deals API is unreachable. Showing cache; listing and sending offers are paused until the link recovers.',
+    degradedTitle: 'Unstable link to the server',
     degradedBody:
       'Cached deals on screen. List / send are paused — confirm Guard or Accept only in Steam if the offer is already verified.',
     cacheLine: 'Deal cache · {{when}}',
-    cacheEmpty: 'No cached deals yet — refresh when the site is back.',
+    cacheEmpty: 'No cached deals yet — refresh when the API is back.',
     hint: 'Safe mode: platform list and send are paused.',
-    waitCta: 'Waiting for site link',
+    waitCta: 'Waiting for server link',
     blockMessage:
-      'Site unreachable or unstable — listing and sending offers are paused (safe mode).',
+      'Deals API unreachable or unstable — listing and sending offers are paused (safe mode).',
   },
   cta: {
     openDispute: 'Open dispute',
@@ -126,7 +126,8 @@ export const extensionMessagesEn: ExtensionMessageTree = {
     revokedTitle: 'Session expired',
     revokedDetail: 'Reconnect the extension on the account page.',
     offTitle: 'Not connected to the site',
-    offDetail: 'Open the site → Account → “Connect extension”.',
+    offDetail:
+      'The site may already be open — go to Account → “Connect extension” (this is not a Chrome setting).',
     steamUnknown: 'Steam: unknown',
     mismatchTitle: 'Site connected · wrong Steam',
     mismatchDetail: 'Steam does not match',
@@ -360,7 +361,7 @@ export const extensionMessagesEn: ExtensionMessageTree = {
     stepInventory: 'Open CS2 inventory',
     hintInventory: 'Steam Community → Inventory → Counter-Strike 2.',
     stepList: 'Trial list',
-    hintList: 'Pick a skin → “Sell on R.I.P”. Guard later only in Mobile.',
+    hintList: 'Pick a skin → blue “Sell” on the card. Guard later only in Mobile.',
     ctaPair: 'Open account on site',
     ctaInventory: 'Open CS2 inventory',
     ctaList: 'List your first skin',
@@ -368,7 +369,7 @@ export const extensionMessagesEn: ExtensionMessageTree = {
     dismiss: 'Later',
     trialTitle: 'Trial list (~30 sec)',
     trialBody:
-      'Pick any listable skin and tap “Sell on R.I.P”. This checks the path — not play money.',
+      'On a skin card in the grid, tap blue “Sell” (not Steam’s green Sell on the right). This checks the path — not play money.',
     trialDismiss: 'Hide tip',
   },
   overlay: {
@@ -379,5 +380,7 @@ export const extensionMessagesEn: ExtensionMessageTree = {
   },
   inventory: {
     layerBrand: 'R.I.P Market',
+    steamEnrichmentDegraded:
+      'Some Steam float/prices are still loading — blue “Sell” on cards is already available.',
   },
 };

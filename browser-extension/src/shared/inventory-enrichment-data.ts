@@ -7,6 +7,7 @@ import {
   buildInventoryUrl,
   type InventoryResponseBody,
 } from './steam-inventory-loader.js';
+import { fetchWithRetry } from './steam-fetch-retry.js';
 
 /**
  * Extended Steam inventory response fields needed for D2 card enrichment.
@@ -80,24 +81,43 @@ export function parseInventoryEnrichmentPage(
   });
 }
 
+/**
+ * Loads CS2 Steam facts for inventory card enrichment.
+ * Retries transient Steam failures (500/502/503/504/429) — same policy as task inventory load.
+ */
 export async function fetchCs2InventoryEnrichmentFacts(
   steamId: string,
   fetchImpl: typeof fetch = fetch,
 ): Promise<Map<string, InventoryItemSteamFacts>> {
+  if (!/^\d{17}$/.test(steamId)) {
+    throw new Error('Invalid SteamID64 for inventory enrichment');
+  }
+
   const merged = new Map<string, InventoryItemSteamFacts>();
   let startAssetId: string | undefined;
 
   for (let page = 0; page < 20; page += 1) {
-    const response = await fetchImpl(buildInventoryUrl(steamId, startAssetId), {
-      credentials: 'include',
-      headers: {
-        Referer: `https://steamcommunity.com/profiles/${steamId}/inventory/`,
-      },
-    });
+    const response = await fetchWithRetry(
+      () =>
+        fetchImpl(buildInventoryUrl(steamId, startAssetId), {
+          credentials: 'include',
+          headers: {
+            Accept: 'application/json',
+            Referer: `https://steamcommunity.com/profiles/${steamId}/inventory/`,
+          },
+        }),
+      { attempts: 3, baseDelayMs: 900 },
+    );
     if (!response.ok) {
       throw new Error(`Inventory HTTP ${response.status}`);
     }
     const body = (await response.json()) as EnrichmentInventoryBody;
+    if (body.success === 15) {
+      throw new Error('Steam inventory is private');
+    }
+    if (body.success === 0) {
+      throw new Error(body.error?.trim() || 'Steam inventory unavailable');
+    }
     for (const item of parseInventoryEnrichmentPage(body)) {
       merged.set(item.assetId, item);
     }
@@ -116,6 +136,8 @@ export type PlatformInventoryAssetRow = {
   status?: string;
   activeLotId?: string | null;
   listedPriceMinor?: string | null;
+  itemDefinition?: { marketHashName?: string | null } | null;
+  marketHashName?: string | null;
 };
 
 export function buildPlatformFactsMap(params: {
@@ -140,9 +162,14 @@ export function buildPlatformFactsMap(params: {
     const deal = params.dealOrderByAssetId.get(externalId);
     const task = tradeTaskOrderByAssetId.get(externalId);
     const reserved = asset.status === 'RESERVED';
+    const marketHashName =
+      asset.itemDefinition?.marketHashName?.trim() ||
+      asset.marketHashName?.trim() ||
+      null;
     map.set(externalId, {
       inventoryAssetId: asset.id?.trim() || null,
       assetStatus: asset.status?.trim() || null,
+      marketHashName,
       listed,
       lotId: asset.activeLotId ?? null,
       listedPriceMinor: asset.listedPriceMinor ?? null,
@@ -171,6 +198,7 @@ export function buildPlatformFactsMap(params: {
     map.set(assetId, {
       inventoryAssetId: null,
       assetStatus: 'RESERVED',
+      marketHashName: null,
       listed: false,
       lotId: null,
       listedPriceMinor: null,
@@ -193,6 +221,7 @@ export function buildPlatformFactsMap(params: {
     map.set(assetId, {
       inventoryAssetId: null,
       assetStatus: null,
+      marketHashName: null,
       listed: false,
       lotId: null,
       listedPriceMinor: null,

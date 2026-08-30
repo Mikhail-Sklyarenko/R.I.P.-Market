@@ -20,6 +20,7 @@ import type {
   InventorySyncMeta,
   PricingPreview,
 } from '../api/types';
+import { ApiError } from '../api/types';
 import { useAuth } from '../auth/AuthContext';
 import { useLocale } from '../i18n';
 import { EmptyState } from '../components/EmptyState';
@@ -28,6 +29,7 @@ import { InventoryAssetCard } from '../components/InventoryAssetCard';
 import { InventoryGridSkeleton } from '../components/InventoryGridSkeleton';
 import { InventorySellPanel } from '../components/InventorySellPanel';
 import { InventorySellerOnboarding } from '../components/InventorySellerOnboarding';
+import { InventorySteamPathBanner } from '../components/InventorySteamPathBanner';
 import { PageHeader } from '../components/PageHeader';
 import { SellerSaleInfo } from '../components/SellerSaleInfo';
 import { ExtensionAwareCommerceHint } from '../components/ExtensionAwareCommerceHint';
@@ -70,6 +72,18 @@ import {
   resolveInventoryEmptyKind,
 } from '../utils/inventory-empty-state';
 import {
+  INVENTORY_LOADING_STUCK_MS,
+  resolveInventorySteamPathReason,
+} from '../utils/inventory-steam-path';
+import {
+  isListingRequestCurrent,
+  nextListingRequestGeneration,
+} from '../utils/inventory-listing-request';
+import {
+  CS2_STEAM_INVENTORY_URL,
+  STEAM_INVENTORY_PRIVACY_URL,
+} from '../utils/steam-inventory-links';
+import {
   isSellerOnboardingMarkedComplete,
   markSellerOnboardingComplete,
 } from '../utils/seller-onboarding';
@@ -109,9 +123,11 @@ export function InventoryPage() {
   const [pricesError, setPricesError] = useState<unknown>(null);
   const [hasListedBefore, setHasListedBefore] = useState(isSellerOnboardingMarkedComplete);
   const [onboardingDismissed, setOnboardingDismissed] = useState(false);
+  const [emptyWaitMs, setEmptyWaitMs] = useState(0);
   const priceHintsRef = useRef<Record<string, InventoryPriceHint>>({});
   const priceHintsGenerationRef = useRef(0);
   const steamPriceMissingRef = useRef<string[]>([]);
+  const listingRequestGenRef = useRef(0);
   priceHintsRef.current = priceHints;
   steamPriceMissingRef.current = steamPriceMissing;
 
@@ -514,11 +530,33 @@ export function InventoryPage() {
       }
       return;
     }
+    let cancelled = false;
+    const requestId = listingRequestGenRef.current;
     setPriceError(null);
     getPricingPreview(priceMinor)
-      .then(setPreview)
-      .catch((err: unknown) => setSellError(err));
-  }, [priceMinor, priceInput, t]);
+      .then((next) => {
+        if (
+          cancelled ||
+          !isListingRequestCurrent(requestId, listingRequestGenRef.current)
+        ) {
+          return;
+        }
+        setPreview(next);
+      })
+      .catch(() => {
+        if (
+          cancelled ||
+          !isListingRequestCurrent(requestId, listingRequestGenRef.current)
+        ) {
+          return;
+        }
+        // Preview failures must not leak into listing error (T13/T14).
+        setPreview(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [priceMinor, priceInput, selectedAssetId, t]);
 
   useEffect(() => {
     if (!selectedAssetId) {
@@ -557,6 +595,58 @@ export function InventoryPage() {
   });
   const inventoryEmptyMessages = inventoryEmptyKindMessageKeys(inventoryEmptyKind);
 
+  const waitingOnEmptyInventory =
+    steamLinked &&
+    tradeUrlReady &&
+    assets.length === 0 &&
+    (loading || backgroundSyncing);
+
+  useEffect(() => {
+    if (!waitingOnEmptyInventory) {
+      setEmptyWaitMs(0);
+      return;
+    }
+    const started = Date.now();
+    setEmptyWaitMs(0);
+    const timer = window.setInterval(() => {
+      setEmptyWaitMs(Date.now() - started);
+    }, 1_000);
+    return () => window.clearInterval(timer);
+  }, [waitingOnEmptyInventory]);
+
+  const pageErrorCode =
+    error instanceof ApiError ? error.code : null;
+
+  const steamPathReason = resolveInventorySteamPathReason({
+    errorCode: sync?.errorCode ?? pageErrorCode,
+    stale: Boolean(sync?.stale),
+    assetsCount: assets.length,
+    loading,
+    backgroundSyncing,
+    syncPollTimedOut,
+    emptyWaitMs,
+  });
+
+  const showSteamPathEmpty =
+    Boolean(steamPathReason) &&
+    steamLinked &&
+    tradeUrlReady &&
+    assets.length === 0 &&
+    !loading &&
+    !backgroundSyncing;
+
+  const showSteamPathStuck =
+    steamPathReason === 'loading_stuck' && waitingOnEmptyInventory;
+
+  const showSteamPathCompact =
+    Boolean(steamPathReason) &&
+    steamLinked &&
+    tradeUrlReady &&
+    assets.length > 0 &&
+    (steamPathReason === 'stale_cache' ||
+      steamPathReason === 'steam_blocked' ||
+      steamPathReason === 'sync_failed');
+
   const resetInventoryFilters = useCallback(() => {
     setSearch('');
     setStatusFilter('all');
@@ -594,11 +684,17 @@ export function InventoryPage() {
     if (!canOpenInventorySellPanel(asset)) {
       return;
     }
+    listingRequestGenRef.current = nextListingRequestGeneration(
+      listingRequestGenRef.current,
+    );
     setSelectedAssetId(asset.id);
     setBulkListCount(1);
     setSellError(null);
     setPriceError(null);
     setPriceDirty(false);
+    setSubmitting(false);
+    setCanceling(false);
+    setPreview(null);
 
     if (canEditListedAsset(asset)) {
       const listedMinor = asset.listedPriceMinor
@@ -619,13 +715,18 @@ export function InventoryPage() {
   }
 
   const clearSelection = useCallback(() => {
+    listingRequestGenRef.current = nextListingRequestGeneration(
+      listingRequestGenRef.current,
+    );
     setSelectedAssetId(null);
     setBulkListCount(1);
     setSellError(null);
     setCanceling(false);
+    setSubmitting(false);
     setPriceDirty(false);
     setPriceError(null);
     setPriceInput('');
+    setPreview(null);
   }, []);
 
   useEffect(() => {
@@ -653,6 +754,9 @@ export function InventoryPage() {
       return;
     }
 
+    const requestId = nextListingRequestGeneration(listingRequestGenRef.current);
+    listingRequestGenRef.current = requestId;
+
     if (canEditListedAsset(selectedAsset)) {
       const lotId = selectedAsset.activeLotId;
       if (!lotId) {
@@ -663,6 +767,9 @@ export function InventoryPage() {
       setSellError(null);
       try {
         const updated = await updateLotPrice(token, lotId, priceMinor);
+        if (!isListingRequestCurrent(requestId, listingRequestGenRef.current)) {
+          return;
+        }
         setAssets((previous) =>
           previous.map((asset) =>
             asset.id === selectedAsset.id
@@ -673,12 +780,18 @@ export function InventoryPage() {
               : asset,
           ),
         );
+        setSubmitting(false);
         clearSelection();
         await loadInventory(false);
       } catch (err: unknown) {
+        if (!isListingRequestCurrent(requestId, listingRequestGenRef.current)) {
+          return;
+        }
         setSellError(err);
       } finally {
-        setSubmitting(false);
+        if (isListingRequestCurrent(requestId, listingRequestGenRef.current)) {
+          setSubmitting(false);
+        }
       }
       return;
     }
@@ -696,6 +809,9 @@ export function InventoryPage() {
     setSellError(null);
     try {
       const freshAssets = await getInventory(token);
+      if (!isListingRequestCurrent(requestId, listingRequestGenRef.current)) {
+        return;
+      }
       const freshTargets = targetIds
         .map((id) => freshAssets.assets.find((asset) => asset.id === id))
         .filter((asset): asset is InventoryAsset => Boolean(asset));
@@ -727,15 +843,25 @@ export function InventoryPage() {
         await createLot(token, freshAsset.id, priceMinor);
       }
 
+      if (!isListingRequestCurrent(requestId, listingRequestGenRef.current)) {
+        return;
+      }
+
+      setSubmitting(false);
       setSelectedAssetId(null);
       setBulkListCount(1);
       markSellerOnboardingComplete();
       setHasListedBefore(true);
       navigate('/deals?tab=listings&listed=1');
     } catch (err: unknown) {
+      if (!isListingRequestCurrent(requestId, listingRequestGenRef.current)) {
+        return;
+      }
       setSellError(err);
     } finally {
-      setSubmitting(false);
+      if (isListingRequestCurrent(requestId, listingRequestGenRef.current)) {
+        setSubmitting(false);
+      }
     }
   }
 
@@ -743,16 +869,26 @@ export function InventoryPage() {
     if (!token || !selectedAsset?.activeLotId) {
       return;
     }
+    const requestId = nextListingRequestGeneration(listingRequestGenRef.current);
+    listingRequestGenRef.current = requestId;
     setCanceling(true);
     setSellError(null);
     try {
       await cancelLot(token, selectedAsset.activeLotId);
+      if (!isListingRequestCurrent(requestId, listingRequestGenRef.current)) {
+        return;
+      }
       clearSelection();
       await loadInventory(false);
     } catch (err: unknown) {
+      if (!isListingRequestCurrent(requestId, listingRequestGenRef.current)) {
+        return;
+      }
       setSellError(err);
     } finally {
-      setCanceling(false);
+      if (isListingRequestCurrent(requestId, listingRequestGenRef.current)) {
+        setCanceling(false);
+      }
     }
   }
 
@@ -864,6 +1000,18 @@ export function InventoryPage() {
 
       <ErrorAlert error={error} />
 
+      {error &&
+      steamPathReason &&
+      steamLinked &&
+      tradeUrlReady &&
+      assets.length === 0 ? (
+        <InventorySteamPathBanner
+          reason={steamPathReason}
+          retrying={refreshing}
+          onRetry={() => void loadInventory(true)}
+        />
+      ) : null}
+
       {!showSellerOnboarding && !steamLinked && requiresSteamLink ? (
         <div className="card inventory-readiness-banner" data-testid="steam-link-required">
           <p>{t('inventory.steamRequiredBanner')}</p>
@@ -886,15 +1034,26 @@ export function InventoryPage() {
         </div>
       ) : null}
 
-      {loading && steamLinked && tradeUrlReady ? (
+      {loading && steamLinked && tradeUrlReady && !showSteamPathStuck ? (
         <div className="inventory-workspace">
           <div className="inventory-main">
             <p className="muted small" data-testid="inventory-loading-hint">
               {t('inventory.loadingHint')}
+              {emptyWaitMs >= INVENTORY_LOADING_STUCK_MS / 2
+                ? ` · ${Math.floor(emptyWaitMs / 1000)}s`
+                : ''}
             </p>
             <InventoryGridSkeleton />
           </div>
         </div>
+      ) : null}
+
+      {showSteamPathStuck && steamPathReason ? (
+        <InventorySteamPathBanner
+          reason={steamPathReason}
+          retrying={refreshing}
+          onRetry={() => void loadInventory(true)}
+        />
       ) : null}
 
       {steamLinked &&
@@ -902,7 +1061,14 @@ export function InventoryPage() {
       !loading &&
       !error &&
       assets.length === 0 &&
-      !backgroundSyncing ? (
+      !backgroundSyncing &&
+      (showSteamPathEmpty && steamPathReason ? (
+        <InventorySteamPathBanner
+          reason={steamPathReason}
+          retrying={refreshing}
+          onRetry={() => void loadInventory(true)}
+        />
+      ) : (
         <EmptyState
           title={t(inventoryEmptyMessages.titleKey)}
           message={t(inventoryEmptyMessages.messageKey)}
@@ -916,20 +1082,32 @@ export function InventoryPage() {
               : undefined
           }
           action={
-            <button
-              type="button"
-              className="button primary"
-              disabled={refreshing}
-              data-testid="inventory-empty-refresh"
-              onClick={() => void loadInventory(true)}
-            >
-              {refreshing ? t('inventory.refreshing') : t('inventory.refresh')}
-            </button>
+            inventoryEmptyKind === 'syncFailed' ? (
+              <a
+                className="button primary"
+                href={CS2_STEAM_INVENTORY_URL}
+                target="_blank"
+                rel="noreferrer noopener"
+                data-testid="inventory-empty-steam-path"
+              >
+                {t('inventory.steamPathOpenSteam')}
+              </a>
+            ) : (
+              <button
+                type="button"
+                className="button primary"
+                disabled={refreshing}
+                data-testid="inventory-empty-refresh"
+                onClick={() => void loadInventory(true)}
+              >
+                {refreshing ? t('inventory.refreshing') : t('inventory.refresh')}
+              </button>
+            )
           }
           secondaryAction={
             inventoryEmptyKind === 'private' ? (
               <a
-                href="https://steamcommunity.com/my/edit/settings"
+                href={STEAM_INVENTORY_PRIVACY_URL}
                 className="button secondary"
                 target="_blank"
                 rel="noreferrer noopener"
@@ -938,9 +1116,15 @@ export function InventoryPage() {
                 {t('inventory.emptyPrivateSteamAction')}
               </a>
             ) : inventoryEmptyKind === 'syncFailed' ? (
-              <Link to="/support" className="button secondary" data-testid="inventory-empty-support">
-                {t('support.title')}
-              </Link>
+              <button
+                type="button"
+                className="button secondary"
+                disabled={refreshing}
+                data-testid="inventory-empty-refresh"
+                onClick={() => void loadInventory(true)}
+              >
+                {refreshing ? t('inventory.refreshing') : t('inventory.refresh')}
+              </button>
             ) : (
               <Link to="/catalog" className="button secondary" data-testid="inventory-empty-catalog">
                 {t('orders.toCatalog')}
@@ -948,7 +1132,7 @@ export function InventoryPage() {
             )
           }
         />
-      ) : null}
+      ))}
 
       {steamLinked &&
       tradeUrlReady &&
@@ -956,6 +1140,14 @@ export function InventoryPage() {
       assets.length > 0 ? (
         <div className="inventory-workspace">
           <div className="inventory-main">
+            {showSteamPathCompact && steamPathReason ? (
+              <InventorySteamPathBanner
+                reason={steamPathReason}
+                compact
+                retrying={refreshing}
+                onRetry={() => void loadInventory(true)}
+              />
+            ) : null}
             {backgroundSyncing ? (
               <p
                 className="muted small inventory-price-inline"
@@ -1162,6 +1354,7 @@ export function InventoryPage() {
           >
             <div className="inventory-listing-overlay-dialog">
               <InventorySellPanel
+                key={selectedAsset.id}
                 mode={sellPanelMode}
                 asset={selectedAsset}
                 priceHint={selectedPriceHint}

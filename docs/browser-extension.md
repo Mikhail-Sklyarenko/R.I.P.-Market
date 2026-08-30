@@ -74,9 +74,13 @@ Staging **p2pcs.ru** already ships with this ID in the frontend build.
 
 **Seller inventory layer (D1):** content script on `steamcommunity.com/*/inventory*` mounts a non-invasive R.I.P host bar **only when CS2 (app 730) is active** (hash `#730_2` or active game tab). Native Steam item cells are not rewritten — overlays append on top. Connected → CTA to site sales; disconnected → pair on Account.
 
-**Inventory card enrichment (D2):** each visible CS2 `.itemHolder` gets float + wear bar + paint seed meta, plus badges — Tradable / Marketable / Trade-lock countdown / **На R.I.P** (active lot + price) / **В сделке**. Steam facts from `inventory/{steamid}/730/2`; platform badges via extension session (`GET /inventory` + active trades). Never mutates Steam item nodes beyond an overlay child.
+**Inventory card enrichment (D2):** discovers CS2 cells via legacy `item730_*` **and** modern Steam ids `730_2_*` / `730_16_*` (Trade Protected). Overlay mounts inside `.item` with **Продать** / bulk checkboxes. Context 16 is shown honestly (not tradable until unlock). Selected rail uses `#iteminfo*_item_market_actions`.
 
-**Inventory price intel (D3):** connected session loads `POST /inventory/price-hints` for visible market hash names. Card strip: **R.I.P ~$X** (Steam−5% recommended, or listed price) + Steam guide secondary + «на R.I.P от …» when marketplace min exists + **вам ~$Y** after 5% commission (same math as `/lots/pricing-preview`). Disconnected → no price strip (float/badges still work).
+**Inventory price intel (D3):** connected session loads `POST /inventory/price-hints` for visible market hash names. Card strip: **R.I.P ~$X** (Steam−5% recommended, or listed price) + Steam guide secondary + «на R.I.P от …» when marketplace min exists + **вам ~$Y** after 5% commission (same math as `/lots/pricing-preview`). Live Steam fetch may also expose **median** (`steamMedianPriceMinor`) as «Средняя Steam» when it differs from lowest. Disconnected → no price strip (float/badges still work).
+
+**Sell draft restore (T6 / Slice 4):** bulk selection + typed sell price persist in `sessionStorage` for the Steam inventory tab; F5 restores with a host chip. Closing the tab clears the draft.
+
+**Browser-assist inventory sync (Slice 4):** host CTA **«Обновить сайт из вкладки»** posts a paired snapshot to `POST /extension/inventory/browser-assist` so site inventory can recover when datacenter Steam sync is blocked.
 
 **One-click sell (D4):** each eligible CS2 card shows **«Продать на R.I.P»**. Mini-panel: price (prefilled Steam−5% or best bid) → live commission / «вам» preview → confirm → extension `POST /lots` (resolves platform inventory UUID via `GET /inventory`, `POST /inventory/:id/check`). Success toast + **Открыть лот** / **Мои объявления**. Safety: blocks trade-lock / not tradable / in-deal; already listed → **Открыть лот**; disconnected → soft gate to Account pair. Never mutates Steam item nodes beyond overlay/panel.
 

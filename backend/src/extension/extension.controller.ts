@@ -37,6 +37,7 @@ import { ExtensionTradeAckService } from './extension-trade-ack.service';
 import { isExtensionTradeAcknowledgmentEnabled } from './extension-trade-ack.config';
 import { InventoryService } from '../inventory/inventory.service';
 import { ExtensionSuggestedPricesDto } from './dto/extension-suggested-prices.dto';
+import { ExtensionBrowserAssistInventoryDto } from './dto/extension-browser-assist-inventory.dto';
 
 @ApiTags('extension')
 @Controller('extension')
@@ -357,6 +358,34 @@ export class ExtensionController {
         cacheOnly: dto.cacheOnly === true,
       },
     );
+  }
+
+  @ApiBearerAuth()
+  @ApiHeader({ name: 'Authorization', required: true })
+  @UseGuards(ExtensionSessionGuard)
+  @Post('inventory/browser-assist')
+  @HttpCode(HttpStatus.OK)
+  async browserAssistInventory(
+    @CurrentExtensionAuth() auth: { sessionId: string; userId: string },
+    @Body() dto: ExtensionBrowserAssistInventoryDto,
+  ) {
+    this.ensureEnabled();
+    this.rateLimit.assertSignedRequestAllowed(auth.sessionId);
+    const result = await this.inventoryService.applyExtensionBrowserAssist(
+      auth.userId,
+      {
+        steamId: dto.steamId,
+        assets: dto.assets,
+        complete: dto.complete === true,
+      },
+    );
+    return {
+      ok: true,
+      itemCount: result.itemCount,
+      status: result.status,
+      warning: result.warning ?? null,
+      stale: result.stale,
+    };
   }
 
   @ApiBearerAuth()

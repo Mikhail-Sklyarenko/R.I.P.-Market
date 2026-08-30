@@ -37,6 +37,8 @@ export type InventoryItemPlatformFacts = {
   inventoryAssetId: string | null;
   /** Platform inventory status when known (AVAILABLE / LISTED / RESERVED…). */
   assetStatus: string | null;
+  /** Market hash name from platform item definition when known. */
+  marketHashName: string | null;
   listed: boolean;
   lotId: string | null;
   listedPriceMinor: string | null;
@@ -126,9 +128,9 @@ export function formatTradeLockLabel(
   const days = Math.ceil(remainingMs / 86_400_000);
   if (days <= 1) {
     const hours = Math.max(1, Math.ceil(remainingMs / 3_600_000));
-    return `Trade-lock ~${hours} ч`;
+    return `Hold · ${hours} ч`;
   }
-  return `Trade-lock ~${days} дн`;
+  return `Hold · ${days} дн`;
 }
 
 export function formatMoneyMinor(amountMinor: string | null | undefined): string | null {
@@ -186,25 +188,21 @@ export function resolveInventoryBadges(params: {
       label: lockLabel,
       tone: 'warn',
     });
-  } else if (params.steam.tradable) {
-    badges.push({
-      kind: 'tradable',
-      label: 'Tradable',
-      tone: 'ok',
-    });
-  } else {
+  } else if (!params.steam.tradable) {
+    // Product: only surface blockers — green "Tradable/Marketable" noise
+    // loses to competitors who keep the card chrome for float + sell.
     badges.push({
       kind: 'not_tradable',
-      label: 'Не tradable',
+      label: 'Нельзя обменять',
       tone: 'muted',
     });
   }
 
-  if (params.steam.marketable && !lockLabel) {
+  if (!params.steam.marketable && !lockLabel) {
     badges.push({
       kind: 'marketable',
-      label: 'Marketable',
-      tone: 'info',
+      label: 'Нельзя на Steam Market',
+      tone: 'muted',
     });
   }
 
@@ -262,15 +260,80 @@ export function buildInventoryItemEnrichmentView(params: {
   };
 }
 
-/** Steam inventory cell id: item730_2_{assetId} */
-export function parseAssetIdFromItemElementId(
+/** Steam inventory cell id forms (CS2 app 730):
+ * - legacy: item730_2_{assetId} / item730_16_{assetId}
+ * - modern (2026): 730_2_{assetId} / 730_16_{assetId}
+ * Context 16 = Trade Protected inventory bucket.
+ */
+export const CS2_INVENTORY_APP_ID = 730;
+export const CS2_TRADE_PROTECTED_CONTEXT_ID = 16;
+
+export type ParsedCs2InventoryItemId = {
+  appId: number;
+  contextId: number;
+  assetId: string;
+};
+
+/**
+ * CSS selector for CS2 inventory `.item` nodes (legacy + modern Steam DOM).
+ * Prefer scoping under #inventories / active ctn in callers.
+ */
+export const CS2_INVENTORY_ITEM_SELECTOR =
+  '.item[id^="item730_"], .item[id^="730_"]';
+
+export function parseCs2InventoryItemElementId(
   elementId: string | null | undefined,
-): string | null {
+): ParsedCs2InventoryItemId | null {
   if (!elementId) {
     return null;
   }
-  const match = elementId.match(/^item730_2_(\d+)$/i);
-  return match?.[1] ?? null;
+  const legacy = elementId.match(/^item(730)_(\d+)_(\d+)$/i);
+  if (legacy?.[2] && legacy[3]) {
+    return {
+      appId: CS2_INVENTORY_APP_ID,
+      contextId: Number(legacy[2]),
+      assetId: legacy[3],
+    };
+  }
+  const modern = elementId.match(/^(730)_(\d+)_(\d+)$/i);
+  if (modern?.[2] && modern[3]) {
+    return {
+      appId: CS2_INVENTORY_APP_ID,
+      contextId: Number(modern[2]),
+      assetId: modern[3],
+    };
+  }
+  return null;
+}
+
+export function parseAssetIdFromItemElementId(
+  elementId: string | null | undefined,
+): string | null {
+  return parseCs2InventoryItemElementId(elementId)?.assetId ?? null;
+}
+
+export function isTradeProtectedCs2Context(contextId: number): boolean {
+  return contextId === CS2_TRADE_PROTECTED_CONTEXT_ID;
+}
+
+/** Resolve a CS2 .item node for a known asset id across id formats. */
+export function queryCs2InventoryItemByAssetId(
+  root: ParentNode,
+  assetId: string,
+): Element | null {
+  const trimmed = assetId.trim();
+  if (!trimmed) {
+    return null;
+  }
+  return (
+    root.querySelector(`#item730_2_${trimmed}`) ??
+    root.querySelector(`#item730_16_${trimmed}`) ??
+    root.querySelector(`#730_2_${trimmed}`) ??
+    root.querySelector(`#730_16_${trimmed}`) ??
+    root.querySelector(
+      `.item[id="item730_2_${trimmed}"], .item[id="item730_16_${trimmed}"], .item[id="730_2_${trimmed}"], .item[id="730_16_${trimmed}"]`,
+    )
+  );
 }
 
 export function readSteamIdFromDocumentHtml(html: string): string | null {
@@ -286,4 +349,71 @@ export function readSteamIdFromDocumentHtml(html: string): string | null {
     }
   }
   return null;
+}
+
+function delayMs(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+/**
+ * Vanity /id/ inventory pages often inject g_steamID after first paint.
+ * Poll briefly before falling back to profile redirect.
+ */
+export async function waitForSteamIdInDocument(params: {
+  getHtml: () => string;
+  timeoutMs?: number;
+  intervalMs?: number;
+}): Promise<string | null> {
+  const timeoutMs = params.timeoutMs ?? 2500;
+  const intervalMs = params.intervalMs ?? 100;
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    const id = readSteamIdFromDocumentHtml(params.getHtml());
+    if (id) {
+      return id;
+    }
+    await delayMs(intervalMs);
+  }
+  return readSteamIdFromDocumentHtml(params.getHtml());
+}
+
+/**
+ * Resolve SteamID64 for the open inventory page (profiles path, g_steamID, or /my/profile/).
+ */
+export async function resolveInventoryPageSteamId(params: {
+  pathname: string;
+  getHtml: () => string;
+  fetchImpl?: typeof fetch;
+  waitTimeoutMs?: number;
+  waitIntervalMs?: number;
+}): Promise<string | null> {
+  const fromPath = params.pathname.match(/\/profiles\/(\d{17})/);
+  if (fromPath?.[1]) {
+    return fromPath[1];
+  }
+
+  const immediate = readSteamIdFromDocumentHtml(params.getHtml());
+  if (immediate) {
+    return immediate;
+  }
+
+  const waited = await waitForSteamIdInDocument({
+    getHtml: params.getHtml,
+    timeoutMs: params.waitTimeoutMs ?? 2500,
+    intervalMs: params.waitIntervalMs ?? 100,
+  });
+  if (waited) {
+    return waited;
+  }
+
+  const fetchImpl = params.fetchImpl ?? fetch;
+  try {
+    const response = await fetchImpl('https://steamcommunity.com/my/profile/', {
+      credentials: 'include',
+      redirect: 'follow',
+    });
+    return response.url.match(/profiles\/(\d{17})/)?.[1] ?? null;
+  } catch {
+    return null;
+  }
 }

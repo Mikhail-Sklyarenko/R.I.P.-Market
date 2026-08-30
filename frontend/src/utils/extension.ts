@@ -2,6 +2,10 @@ import { enMessages } from '../i18n/messages/en.ts';
 import { ruMessages } from '../i18n/messages/ru.ts';
 import { translate } from '../i18n/translate.ts';
 import type { Locale } from '../i18n/types.ts';
+import {
+  CS2_STEAM_INVENTORY_URL,
+  STEAM_INVENTORY_PRIVACY_URL,
+} from './steam-inventory-links';
 
 const messagesByLocale = {
   ru: ruMessages,
@@ -195,13 +199,13 @@ export function getOfferErrorAction(
       };
     case 'INVENTORY_PRIVATE':
       return {
-        href: 'https://steamcommunity.com/my/edit/settings',
+        href: STEAM_INVENTORY_PRIVACY_URL,
         labelKey: 'extensionTaskCta.openSteamPrivacy',
       };
     case 'INVENTORY_RATE_LIMITED':
     case 'INVENTORY_NOT_LOADED':
       return {
-        href: 'https://steamcommunity.com/my/inventory/#730_2',
+        href: CS2_STEAM_INVENTORY_URL,
         labelKey: 'extensionTaskCta.openSteamInventory',
       };
     case 'SESSION_REVOKED':

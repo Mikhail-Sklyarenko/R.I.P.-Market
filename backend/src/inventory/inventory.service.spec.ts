@@ -30,10 +30,15 @@ describe('InventoryService', () => {
     syncInventory: jest.fn(),
   };
 
+  const steamInventoryProvider = {
+    applyBrowserAssistAssets: jest.fn(),
+  };
+
   const service = new InventoryService(
     prisma as never,
     inventoryProvider as never,
     steamMarketPrice as never,
+    steamInventoryProvider as never,
   );
 
   beforeEach(() => {

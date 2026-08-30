@@ -158,12 +158,21 @@ describe('offline-safe-mode (H4)', () => {
         nowMs: now,
       }),
       'ru',
+      { paired: true },
     );
     expect(banner?.tone).toBe('error');
     expect(banner?.title).toMatch(/безопасный режим/i);
+    expect(banner?.title).toMatch(/сервер/i);
     expect(banner?.cacheLine).toMatch(/кэш/i);
     expect(buildSafeModeBanner(buildSiteLinkSnapshot({ mode: 'live' }))).toBe(
       null,
     );
+    expect(
+      buildSafeModeBanner(
+        buildSiteLinkSnapshot({ mode: 'offline', nowMs: now }),
+        'ru',
+        { paired: false },
+      ),
+    ).toBeNull();
   });
 });

@@ -68,8 +68,13 @@ export async function syncUiTradeFlowFromAuthConfig(
 export const syncExtensionFlagsFromAuthConfig = syncUiTradeFlowFromAuthConfig;
 
 export async function isExtensionInventoryLayerEnabled(): Promise<boolean> {
-  const stored = await chrome.storage.local.get(INVENTORY_LAYER_ENABLED_KEY);
-  return isRemoteFlagOn(stored[INVENTORY_LAYER_ENABLED_KEY]);
+  try {
+    const stored = await chrome.storage.local.get(INVENTORY_LAYER_ENABLED_KEY);
+    return isRemoteFlagOn(stored[INVENTORY_LAYER_ENABLED_KEY]);
+  } catch {
+    // Orphaned content script — keep layer on so DOM paint still works.
+    return true;
+  }
 }
 
 export async function isExtensionGuidedBuyerEnabled(): Promise<boolean> {

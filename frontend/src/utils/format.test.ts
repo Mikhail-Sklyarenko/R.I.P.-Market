@@ -35,6 +35,21 @@ describe('format utils', () => {
     assert.equal(formatTradeStatus('CONFIRMED', 'en'), 'Trade confirmed');
   });
 
+  it('formats ban-check API errors without calling them VAC', () => {
+    assert.match(
+      formatApiErrorMessage('STEAM_BAN_CHECK_UNAVAILABLE', 'ru'),
+      /не бан/i,
+    );
+    assert.match(
+      formatApiErrorMessage('STEAM_GAME_BANNED', 'ru'),
+      /игровым баном/i,
+    );
+    assert.match(
+      formatApiErrorMessage('STEAM_BAN_CHECK_UNAVAILABLE', 'en'),
+      /not a ban/i,
+    );
+  });
+
   it('formats API error messages in English', () => {
     assert.equal(
       formatApiErrorMessage('INSUFFICIENT_BALANCE', 'en'),

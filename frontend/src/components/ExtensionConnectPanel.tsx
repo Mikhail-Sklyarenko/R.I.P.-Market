@@ -7,6 +7,7 @@ import {
   pairExtension,
   type ExtensionRuntimeStatus,
 } from '../utils/extension';
+import { CS2_STEAM_INVENTORY_URL } from '../utils/steam-inventory-links';
 
 type ExtensionConnectPanelProps = {
   token: string;
@@ -145,7 +146,7 @@ export function ExtensionConnectPanel({
         <p className="muted small" data-testid="extension-onboarding-next">
           {t('extension.nextInventory')}{' '}
           <a
-            href="https://steamcommunity.com/my/inventory/#730_2"
+            href={CS2_STEAM_INVENTORY_URL}
             target="_blank"
             rel="noreferrer"
           >

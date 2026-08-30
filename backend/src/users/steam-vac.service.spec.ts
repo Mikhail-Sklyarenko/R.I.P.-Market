@@ -1,6 +1,8 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { SteamVacService } from './steam-vac.service';
 import * as steamHttp from '../common/steam/steam-http.client';
+import { AppException } from '../common/errors/app.exception';
+import { ErrorCode } from '../common/errors/error-codes';
 
 jest.mock('../common/steam/steam-http.client', () => ({
   steamFetch: jest.fn(),
@@ -48,15 +50,17 @@ describe('SteamVacService', () => {
     ).resolves.toBeUndefined();
   });
 
-  it('fails closed when VAC check is required without API key', async () => {
+  it('fails closed with UNAVAILABLE when ban check is required without API key', async () => {
     delete process.env.STEAM_WEB_API_KEY;
     process.env.VAC_CHECK_REQUIRED = 'true';
     await expect(
       service.assertCanTrade({ steamId: '76561198000000000' }),
-    ).rejects.toThrow(/STEAM_WEB_API_KEY/);
+    ).rejects.toMatchObject({
+      code: ErrorCode.STEAM_BAN_CHECK_UNAVAILABLE,
+    });
   });
 
-  it('throws when Steam reports a VAC ban', async () => {
+  it('throws STEAM_VAC_BANNED when Steam reports a VAC ban', async () => {
     process.env.STEAM_WEB_API_KEY = 'test-key';
     steamFetch.mockResolvedValue({
       ok: true,
@@ -73,10 +77,30 @@ describe('SteamVacService', () => {
 
     await expect(
       service.assertCanTrade({ steamId: '76561198000000000' }),
-    ).rejects.toThrow('VAC ban');
+    ).rejects.toMatchObject({ code: ErrorCode.STEAM_VAC_BANNED });
   });
 
-  it('fails closed on Steam API errors when check is required', async () => {
+  it('throws STEAM_GAME_BANNED when Steam reports game bans without VAC', async () => {
+    process.env.STEAM_WEB_API_KEY = 'test-key';
+    steamFetch.mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        players: [
+          {
+            SteamId: '76561198000000000',
+            VACBanned: false,
+            NumberOfGameBans: 1,
+          },
+        ],
+      }),
+    } as Response);
+
+    await expect(
+      service.assertCanTrade({ steamId: '76561198000000000' }),
+    ).rejects.toMatchObject({ code: ErrorCode.STEAM_GAME_BANNED });
+  });
+
+  it('fails with STEAM_BAN_CHECK_UNAVAILABLE on Steam API errors when required', async () => {
     process.env.STEAM_WEB_API_KEY = 'test-key';
     process.env.VAC_CHECK_REQUIRED = 'true';
     steamFetch.mockResolvedValue({
@@ -84,8 +108,45 @@ describe('SteamVacService', () => {
       status: 500,
     } as Response);
 
+    try {
+      await service.assertCanTrade({ steamId: '76561198000000000' });
+      fail('expected AppException');
+    } catch (error) {
+      expect(error).toBeInstanceOf(AppException);
+      expect((error as AppException).code).toBe(
+        ErrorCode.STEAM_BAN_CHECK_UNAVAILABLE,
+      );
+      expect((error as AppException).message).toMatch(/ban status/i);
+    }
+  });
+
+  it('does not cache unavailable failures as bans', async () => {
+    process.env.STEAM_WEB_API_KEY = 'test-key';
+    process.env.VAC_CHECK_REQUIRED = 'true';
+    steamFetch
+      .mockResolvedValueOnce({ ok: false, status: 503 } as Response)
+      .mockResolvedValueOnce({ ok: false, status: 503 } as Response)
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          players: [
+            {
+              SteamId: '76561198000000000',
+              VACBanned: false,
+              NumberOfGameBans: 0,
+            },
+          ],
+        }),
+      } as Response);
+
     await expect(
       service.assertCanTrade({ steamId: '76561198000000000' }),
-    ).rejects.toThrow(/Unable to verify VAC/);
+    ).rejects.toMatchObject({
+      code: ErrorCode.STEAM_BAN_CHECK_UNAVAILABLE,
+    });
+
+    await expect(
+      service.assertCanTrade({ steamId: '76561198000000000' }),
+    ).resolves.toBeUndefined();
   });
 });

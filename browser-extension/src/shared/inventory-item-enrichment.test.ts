@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import {
   buildInventoryItemEnrichmentView,
   formatTradeLockLabel,
@@ -6,9 +6,12 @@ import {
   parseWearFromMarketHashName,
   readSteamIdFromDocumentHtml,
   resolveInventoryBadges,
+  resolveInventoryPageSteamId,
+  waitForSteamIdInDocument,
 } from './inventory-item-enrichment.js';
 import {
   buildPlatformFactsMap,
+  fetchCs2InventoryEnrichmentFacts,
   parseInventoryEnrichmentPage,
 } from './inventory-enrichment-data.js';
 
@@ -20,6 +23,10 @@ describe('inventory-item-enrichment', () => {
     expect(parseAssetIdFromItemElementId('item730_2_27123456789')).toBe(
       '27123456789',
     );
+    expect(parseAssetIdFromItemElementId('730_16_50620552134')).toBe(
+      '50620552134',
+    );
+    expect(parseAssetIdFromItemElementId('730_2_111')).toBe('111');
     expect(parseAssetIdFromItemElementId('tradeofferid_1')).toBeNull();
   });
 
@@ -33,7 +40,7 @@ describe('inventory-item-enrichment', () => {
     const now = Date.parse('2026-08-26T12:00:00.000Z');
     expect(
       formatTradeLockLabel('2026-08-28T12:00:00.000Z', now),
-    ).toBe('Trade-lock ~2 дн');
+    ).toBe('Hold · 2 дн');
     expect(formatTradeLockLabel('2026-08-26T10:00:00.000Z', now)).toBeNull();
   });
 
@@ -47,6 +54,7 @@ describe('inventory-item-enrichment', () => {
       platform: {
         inventoryAssetId: 'uuid-1',
         assetStatus: 'LISTED',
+        marketHashName: 'AK-47 | Redline (Field-Tested)',
         listed: true,
         lotId: 'lot-1',
         listedPriceMinor: '12500',
@@ -59,7 +67,20 @@ describe('inventory-item-enrichment', () => {
     });
     expect(badges[0]?.kind).toBe('listed');
     expect(badges[0]?.label).toContain('$125.00');
-    expect(badges.some((b) => b.kind === 'tradable')).toBe(true);
+    // Healthy tradable/marketable states stay quiet — card chrome is for float + sell.
+    expect(badges.some((b) => b.kind === 'tradable')).toBe(false);
+    expect(badges.some((b) => b.kind === 'marketable')).toBe(false);
+  });
+
+  it('surfaces only blocker badges when item cannot trade', () => {
+    const badges = resolveInventoryBadges({
+      steam: {
+        tradable: false,
+        marketable: false,
+        tradeLockUntil: null,
+      },
+    });
+    expect(badges.map((b) => b.kind)).toEqual(['not_tradable', 'marketable']);
   });
 
   it('builds enrichment view with float meta', () => {
@@ -140,5 +161,89 @@ describe('inventory-enrichment-data', () => {
     expect(map.get('a1')?.hasActiveTradeTask).toBe(false);
     expect(map.get('a1')?.lotUrl).toContain('/lots/lot-9');
     expect(map.get('a2')?.inActiveDeal).toBe(true);
+  });
+
+  it('retries transient Steam 500 then loads enrichment', async () => {
+    let attempts = 0;
+    const fetchImpl = vi.fn(async () => {
+      attempts += 1;
+      if (attempts < 3) {
+        return {
+          ok: false,
+          status: 500,
+          headers: { get: () => null },
+          json: async () => ({}),
+        } as unknown as Response;
+      }
+      return {
+        ok: true,
+        status: 200,
+        headers: { get: () => null },
+        json: async () => ({
+          success: 1,
+          assets: [{ assetid: '42', classid: '1', instanceid: '0' }],
+          descriptions: [
+            {
+              classid: '1',
+              instanceid: '0',
+              market_hash_name: 'AK-47 | Redline (Field-Tested)',
+              tradable: 1,
+              marketable: 1,
+            },
+          ],
+        }),
+      } as unknown as Response;
+    });
+
+    const map = await fetchCs2InventoryEnrichmentFacts(
+      '76561198000000000',
+      fetchImpl as typeof fetch,
+    );
+    expect(attempts).toBe(3);
+    expect(map.get('42')?.wear).toBe('FT');
+  });
+
+  it('rejects invalid steam id before fetch', async () => {
+    await expect(
+      fetchCs2InventoryEnrichmentFacts('animehuylove', fetch),
+    ).rejects.toThrow(/Invalid SteamID64/);
+  });
+});
+
+describe('inventory page steam id resolve', () => {
+  it('prefers profiles path', async () => {
+    const id = await resolveInventoryPageSteamId({
+      pathname: '/profiles/76561198111111111/inventory',
+      getHtml: () => '',
+      fetchImpl: vi.fn() as unknown as typeof fetch,
+    });
+    expect(id).toBe('76561198111111111');
+  });
+
+  it('waits for g_steamID on vanity pages', async () => {
+    let html = '';
+    window.setTimeout(() => {
+      html = 'var g_steamID = "76561198222222222";';
+    }, 40);
+    const id = await waitForSteamIdInDocument({
+      getHtml: () => html,
+      timeoutMs: 500,
+      intervalMs: 20,
+    });
+    expect(id).toBe('76561198222222222');
+  });
+
+  it('falls back to my/profile redirect', async () => {
+    const fetchImpl = vi.fn(async () => ({
+      url: 'https://steamcommunity.com/profiles/76561198333333333/',
+    })) as unknown as typeof fetch;
+    const id = await resolveInventoryPageSteamId({
+      pathname: '/id/animehuylove/inventory',
+      getHtml: () => '',
+      fetchImpl,
+      waitTimeoutMs: 30,
+      waitIntervalMs: 10,
+    });
+    expect(id).toBe('76561198333333333');
   });
 });

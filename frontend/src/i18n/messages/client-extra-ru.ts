@@ -745,6 +745,13 @@ export const clientExtraRu = {
     text: 'Укажите Trade URL в Steam — без него нельзя продавать и покупать скины.',
     action: 'Перейти в настройки',
   },
+  oneGesturePair: {
+    title: 'Подключите расширение R.I.P — один клик',
+    body: 'Расширение уже установлено. Подключите его к аккаунту, чтобы автоотправка обменов и «Продать» в Steam работали.',
+    connect: 'Подключить расширение',
+    connecting: 'Подключаем…',
+    dismiss: 'Позже',
+  },
   trc20Address: {
     required: 'Укажите TRC-20 адрес получателя.',
     mustStartWithT: 'TRC-20 адрес должен начинаться с T.',
@@ -1238,6 +1245,10 @@ export const clientExtraRu = {
     TRADE_URL_STEAM_MISMATCH:
       'Trade URL не принадлежит привязанному Steam-аккаунту. Скопируйте ссылку из настроек Steam того же профиля.',
     STEAM_VAC_BANNED: 'Аккаунт с VAC-баном не может торговать на площадке.',
+    STEAM_GAME_BANNED:
+      'Аккаунт с игровым баном Steam не может торговать на площадке.',
+    STEAM_BAN_CHECK_UNAVAILABLE:
+      'Не удалось проверить статус банов Steam — это не бан. Повторите через минуту.',
   },
   userRole: {
     BUYER: 'Покупатель',

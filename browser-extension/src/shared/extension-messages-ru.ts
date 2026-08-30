@@ -59,18 +59,18 @@ export const extensionMessagesRu: ExtensionMessageTree = {
     emptyBody: 'Нет сделок, которые требуют действия прямо сейчас.',
   },
   safeMode: {
-    offlineTitle: 'Сайт недоступен · безопасный режим',
+    offlineTitle: 'Связь с сервером потеряна · безопасный режим',
     offlineBody:
-      'Показываем последние известные сделки. Предупреждения работают; выставка и отправка офферов с площадки отключены, пока связь не восстановится.',
-    degradedTitle: 'Связь с сайтом нестабильна',
+      'Сайт в браузере может открываться, но API сделок недоступен. Показываем кэш; выставка и отправка офферов с площадки отключены, пока связь не восстановится.',
+    degradedTitle: 'Связь с сервером нестабильна',
     degradedBody:
-      'Кэш сделок на экране. List / send временно выключены — примите Guard или Accept только в Steam, если оффер уже проверен.',
+      'Кэш сделок на экране. List / send временно выключены — Guard или Accept только в Steam, если оффер уже проверен.',
     cacheLine: 'Кэш сделок · {{when}}',
-    cacheEmpty: 'Кэша сделок пока нет — обновите, когда сайт оживёт.',
+    cacheEmpty: 'Кэша сделок пока нет — обновите, когда API оживёт.',
     hint: 'Безопасный режим: list и send с площадки отключены.',
-    waitCta: 'Ждём связь с сайтом',
+    waitCta: 'Ждём связь с сервером',
     blockMessage:
-      'Сайт недоступен или связь нестабильна — выставка и отправка офферов временно отключены (безопасный режим).',
+      'API сделок недоступен или связь нестабильна — выставка и отправка офферов временно отключены (безопасный режим).',
   },
   cta: {
     openDispute: 'Открыть спор',
@@ -127,7 +127,8 @@ export const extensionMessagesRu: ExtensionMessageTree = {
     revokedTitle: 'Сессия истекла',
     revokedDetail: 'Подключите расширение снова на странице аккаунта.',
     offTitle: 'Не подключено к сайту',
-    offDetail: 'Откройте сайт → Аккаунт → «Подключить расширение».',
+    offDetail:
+      'Сайт может быть открыт — откройте Аккаунт → «Подключить расширение» (это не настройка Chrome).',
     steamUnknown: 'Steam: неизвестно',
     mismatchTitle: 'Сайт подключён · другой Steam',
     mismatchDetail: 'Steam не совпадает',
@@ -363,7 +364,7 @@ export const extensionMessagesRu: ExtensionMessageTree = {
     stepInventory: 'Открыть инвентарь CS2',
     hintInventory: 'Steam Community → Inventory → Counter-Strike 2.',
     stepList: 'Пробный list',
-    hintList: 'Выберите скин → «Продать на R.I.P». Guard потом только в Mobile.',
+    hintList: 'Выберите скин → синяя «Продать» на карточке. Guard потом только в Mobile.',
     ctaPair: 'Открыть аккаунт на сайте',
     ctaInventory: 'Открыть инвентарь CS2',
     ctaList: 'Выставить первый скин',
@@ -371,7 +372,7 @@ export const extensionMessagesRu: ExtensionMessageTree = {
     dismiss: 'Позже',
     trialTitle: 'Пробный list (~30 сек)',
     trialBody:
-      'Выберите любой listable скин и нажмите «Продать на R.I.P». Это проверка пути — не тест-деньги.',
+      'На карточке скина в сетке нажмите синюю «Продать» (не зелёную кнопку Steam справа). Это проверка пути — не тест-деньги.',
     trialDismiss: 'Скрыть подсказку',
   },
   overlay: {
@@ -382,5 +383,7 @@ export const extensionMessagesRu: ExtensionMessageTree = {
   },
   inventory: {
     layerBrand: 'R.I.P Market',
+    steamEnrichmentDegraded:
+      'Часть float/цен Steam ещё подгружается — синяя «Продать» на карточках уже доступна.',
   },
 };

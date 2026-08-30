@@ -59,6 +59,7 @@ import {
   twoMinuteOnboardingHtml,
   withAutoComplete,
 } from '../shared/two-minute-onboarding.js';
+import { siteAccountUrl } from '../shared/steam-inventory-page.js';
 
 const connectionEl = document.getElementById('connection');
 const opsHealthEl = document.getElementById('ops-health');
@@ -76,6 +77,8 @@ const languageSelectEl = document.getElementById(
 let activeLocale: ExtensionLocale = 'ru';
 let t = createExtensionT(activeLocale);
 let activeSiteLink: SiteLinkSnapshot = defaultSiteLinkSnapshot();
+/** True when extension has a pair session — distinct from site page being open. */
+let activePaired = false;
 const disconnectBtn = document.getElementById('disconnect') as HTMLButtonElement;
 const openSiteBtn = document.getElementById('open-site') as HTMLButtonElement;
 const refreshHealthBtn = document.getElementById('refresh-health') as HTMLButtonElement;
@@ -103,7 +106,11 @@ type ExtensionStatus = {
 function withSafeModeCta(
   cta: ResolvedNextAction,
 ): ResolvedNextAction {
-  return applySafeModeToNextAction(cta, activeSiteLink.safeMode, activeLocale);
+  return applySafeModeToNextAction(
+    cta,
+    activePaired && activeSiteLink.safeMode,
+    activeLocale,
+  );
 }
 
 function escapeHtml(value: string): string {
@@ -556,10 +563,9 @@ async function handleTwoMinutePrimary(kind: string): Promise<void> {
   }
   if (kind === 'open_account') {
     const status = await fetchStatus();
-    const safeUrl = status.apiBaseUrl
-      ? `${status.apiBaseUrl.replace(/\/api\/v1\/?$/, '')}/account`
-      : 'http://localhost:5173/account';
-    void chrome.tabs.create({ url: safeUrl });
+    void chrome.tabs.create({
+      url: siteAccountUrl(status.apiBaseUrl),
+    });
   }
 }
 
@@ -568,7 +574,9 @@ function renderSafeModeBanner(): void {
   if (!safeModeBannerEl) {
     return;
   }
-  const view = buildSafeModeBanner(activeSiteLink, activeLocale);
+  const view = buildSafeModeBanner(activeSiteLink, activeLocale, {
+    paired: activePaired,
+  });
   if (!view) {
     safeModeBannerEl.hidden = true;
     safeModeBannerEl.innerHTML = '';
@@ -788,6 +796,7 @@ async function render(): Promise<void> {
 
   disconnectBtn.hidden = !status.connected;
   refreshTradesBtn.hidden = !status.connected;
+  activePaired = Boolean(status.connected);
 
   const home = buildHomeDashboard({
     connected: status.connected,
@@ -811,10 +820,9 @@ async function render(): Promise<void> {
 
 openSiteBtn.addEventListener('click', () => {
   void fetchStatus().then((status) => {
-    const safeUrl = status.apiBaseUrl
-      ? `${status.apiBaseUrl.replace(/\/api\/v1\/?$/, '')}/account`
-      : 'http://localhost:5173/account';
-    void chrome.tabs.create({ url: safeUrl });
+    void chrome.tabs.create({
+      url: siteAccountUrl(status.apiBaseUrl),
+    });
   });
 });
 

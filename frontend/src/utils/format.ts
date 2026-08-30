@@ -110,6 +110,10 @@ export const ERROR_MESSAGES: Record<string, string> = {
     'Trade URL не принадлежит привязанному Steam-аккаунту. Скопируйте ссылку из настроек Steam того же профиля.',
   STEAM_VAC_BANNED:
     'Аккаунт с VAC-баном не может торговать на площадке.',
+  STEAM_GAME_BANNED:
+    'Аккаунт с игровым баном Steam не может торговать на площадке.',
+  STEAM_BAN_CHECK_UNAVAILABLE:
+    'Не удалось проверить статус банов Steam — это не бан. Повторите через минуту.',
 };
 
 /** Locale-aware API error formatter — falls back to raw code if no translation exists. */
