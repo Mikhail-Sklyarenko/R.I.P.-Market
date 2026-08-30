@@ -15,6 +15,12 @@ import { UserOrExtensionAuthGuard } from './guards/user-or-extension-auth.guard'
     forwardRef(() => UsersModule),
   ],
   providers: [ExtensionSecurityService, UserOrExtensionAuthGuard],
-  exports: [ExtensionSecurityService, UserOrExtensionAuthGuard],
+  // Re-export UsersModule so host modules (Inventory/Lots) can DI UsersService
+  // when Nest instantiates UserOrExtensionAuthGuard in their context.
+  exports: [
+    ExtensionSecurityService,
+    UserOrExtensionAuthGuard,
+    forwardRef(() => UsersModule),
+  ],
 })
 export class ExtensionSecurityModule {}
