@@ -122,9 +122,20 @@ export async function pairExtension(
     if (response?.ok) {
       return { ok: true, sessionId: response.sessionId };
     }
+    const rawError = String(
+      response?.error ?? t('extension.pairFailedGeneric', locale),
+    );
+    const mapped =
+      rawError.includes('window is not defined') ||
+      rawError.includes('document is not defined')
+        ? t('extension.pairSwGlitch', locale)
+        : rawError === 'Failed to fetch' ||
+            /NetworkError|Load failed|network request failed/i.test(rawError)
+          ? t('extension.pairNetworkError', locale)
+          : rawError;
     return {
       ok: false,
-      error: response?.error ?? t('extension.pairFailedGeneric', locale),
+      error: mapped,
     };
   } catch (error) {
     const raw = error instanceof Error ? error.message : t('extension.connectionError', locale);
@@ -132,7 +143,13 @@ export async function pairExtension(
       raw.includes('Receiving end does not exist') ||
       raw.includes('Could not establish connection')
         ? t('extension.notFoundHint', locale)
-        : raw;
+        : raw.includes('window is not defined') ||
+            raw.includes('document is not defined')
+          ? t('extension.pairSwGlitch', locale)
+          : raw === 'Failed to fetch' ||
+              /NetworkError|Load failed|network request failed/i.test(raw)
+            ? t('extension.pairNetworkError', locale)
+            : raw;
     return {
       ok: false,
       error: friendly,

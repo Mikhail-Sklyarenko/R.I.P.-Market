@@ -3,10 +3,20 @@
 Подробное руководство по ручному тестированию **автоотправки trade offer** на staging **p2pcs.ru**.
 
 **Сайт:** https://p2pcs.ru  
-**Версия расширения:** **0.6.38** (Deal Shield 1a–1e — [QA-DEAL-SHIELD-0.6.38.md](./QA-DEAL-SHIELD-0.6.38.md); Slice 4 — [QA-SLICE4-DRAFT-MEDIAN-ASSIST.md](./QA-SLICE4-DRAFT-MEDIAN-ASSIST.md); Slice 3 сайт — [QA-SLICE3-SITE-STEAM-PATH.md](./QA-SLICE3-SITE-STEAM-PATH.md); Slice 2 — [QA-SLICE2-INVENTORY-TRUST-0.6.36.md](./QA-SLICE2-INVENTORY-TRUST-0.6.36.md); Slice 1 — [QA-SLICE1-HONEST-LIST-0.6.35.md](./QA-SLICE1-HONEST-LIST-0.6.35.md))
+**Версия расширения:** **0.6.45** (полный отчёт тестировщику — [QA-TESTER-REPORT-0.6.38.md](./QA-TESTER-REPORT-0.6.38.md); Deal Shield — [QA-DEAL-SHIELD-0.6.38.md](./QA-DEAL-SHIELD-0.6.38.md); Slice 4 — [QA-SLICE4-DRAFT-MEDIAN-ASSIST.md](./QA-SLICE4-DRAFT-MEDIAN-ASSIST.md); Slice 3 сайт — [QA-SLICE3-SITE-STEAM-PATH.md](./QA-SLICE3-SITE-STEAM-PATH.md); Slice 2 — [QA-SLICE2-INVENTORY-TRUST-0.6.36.md](./QA-SLICE2-INVENTORY-TRUST-0.6.36.md); Slice 1 — [QA-SLICE1-HONEST-LIST-0.6.35.md](./QA-SLICE1-HONEST-LIST-0.6.35.md))
 **Дата:** август 2026
 
+> **0.6.45:** quiet inventory card overlay — одна цена + CTA; Steam/вам/meta на hover; токены p2pcs.  
+> **0.6.44:** popup quiet redesign под токены p2pcs — один фокус, wizard compact, health/trust в «Дополнительно».  
+> **0.6.43:** two-minute onboarding storage не бросает при `Extension context invalidated` (после reload расширения).  
+> **0.6.42:** фикс `querySelector('#730_2_*')` — SyntaxError на id, начинающихся с цифры; имена/overlay снова находят DOM.  
+> **0.6.41:** inventory host bar + bulk modal под дизайн p2pcs; названия скинов в множественной продаже.  
+> **0.6.40:** MAIN-world inventory enrichment вынесен из service worker в `page-scripts/` (фикс `window is not defined` при pair).  
+> **0.6.39:** Vite modulepreload + static i18n; понятные ошибки сети/pair.
+
 > Этот документ — базовый happy path автоотправки оффера.  
+> **Полный отчёт за пакет 0.6.38 (простыми словами):** [QA-TESTER-REPORT-0.6.38.md](./QA-TESTER-REPORT-0.6.38.md).  
+> **Deal Shield (1a–1e):** [QA-DEAL-SHIELD-0.6.38.md](./QA-DEAL-SHIELD-0.6.38.md).  
 > **Slice 4 (draft / median / browser-assist):** [QA-SLICE4-DRAFT-MEDIAN-ASSIST.md](./QA-SLICE4-DRAFT-MEDIAN-ASSIST.md).  
 > **Slice 3 (Steam path / modal state / one-gesture pair на сайте):** [QA-SLICE3-SITE-STEAM-PATH.md](./QA-SLICE3-SITE-STEAM-PATH.md).  
 > **Slice 2 (hold / sell preview / pair vs offline):** [QA-SLICE2-INVENTORY-TRUST-0.6.36.md](./QA-SLICE2-INVENTORY-TRUST-0.6.36.md).  

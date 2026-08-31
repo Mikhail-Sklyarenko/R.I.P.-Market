@@ -170,6 +170,7 @@ export function CatalogPage() {
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState<unknown>(null);
+  const [loadRetryKey, setLoadRetryKey] = useState(0);
   const [search, setSearch] = useState('');
   const [sort, setSort] = useState<SortOption>('newest');
   const [minPrice, setMinPrice] = useState('');
@@ -542,7 +543,7 @@ export function CatalogPage() {
     return () => {
       cancelled = true;
     };
-  }, [baseQuery, baseQueryKey, loadedPage]);
+  }, [baseQuery, baseQueryKey, loadedPage, loadRetryKey]);
 
   useEffect(() => {
     if (filtersActive) {
@@ -1015,6 +1016,21 @@ export function CatalogPage() {
 
         <div className={`catalog-main${isRefreshing ? ' is-refreshing' : ''}`}>
           <ErrorAlert error={error} />
+          {error ? (
+            <p className="catalog-error-actions">
+              <button
+                type="button"
+                className="button secondary sm"
+                data-testid="catalog-retry"
+                onClick={() => {
+                  setError(null);
+                  setLoadRetryKey((key) => key + 1);
+                }}
+              >
+                {t('errorAlert.retry')}
+              </button>
+            </p>
+          ) : null}
 
           {isRefreshing ? (
             <div className="catalog-refresh-indicator" role="status" aria-live="polite">

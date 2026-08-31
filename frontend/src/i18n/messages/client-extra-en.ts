@@ -71,6 +71,9 @@ export const clientExtraEn = {
   },
   errorAlert: {
     genericMessage: 'Something went wrong. Please try again.',
+    networkMessage:
+      'No connection to the R.I.P server. Check your internet/VPN, then tap Retry.',
+    retry: 'Retry',
     codeLabel: 'Code: {{code}}',
     requestIdLabel: 'Request ID: {{id}}',
   },
@@ -101,6 +104,10 @@ export const clientExtraEn = {
     connect: 'Connect extension',
     notInstalled: 'Install the R.I.P Market extension and reload the page.',
     pairFailedGeneric: 'Failed to connect the extension',
+    pairSwGlitch:
+      'Extension glitch. Reload it on chrome://extensions (0.6.39+), then connect again.',
+    pairNetworkError:
+      'Cannot reach the R.I.P server. Check your network/VPN and reload the page.',
     connectionError: 'Connection error',
     notFoundHint:
       'Extension not found. Build browser-extension/dist, load it in Chrome (Load unpacked), and check VITE_EXTENSION_ID=gmmlnkjdbcoojbhndjcfehojknjamaoj in frontend/.env.',

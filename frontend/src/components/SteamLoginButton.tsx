@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useLocation } from 'react-router-dom';
+import { ApiError } from '../api/types';
 import { useLocale } from '../i18n';
 import { startSteamLogin } from '../utils/start-steam-login';
 
@@ -30,8 +31,21 @@ function SteamMark({ className }: { className?: string }) {
   );
 }
 
+function isNetworkFailure(error: unknown): boolean {
+  if (error instanceof TypeError) {
+    return true;
+  }
+  if (!(error instanceof Error)) {
+    return false;
+  }
+  return /Failed to fetch|NetworkError|Load failed|network request failed/i.test(
+    error.message,
+  );
+}
+
 /**
  * Primary Steam sign-in control — matches R.I.P. Market primary CTA styling.
+ * On API outage shows a clear retryable error (never redirects to mock login).
  */
 export function SteamLoginButton({
   returnPath,
@@ -43,39 +57,68 @@ export function SteamLoginButton({
   const { t } = useLocale();
   const location = useLocation();
   const [loading, setLoading] = useState(false);
+  const [errorHint, setErrorHint] = useState<string | null>(null);
 
   async function handleClick() {
     if (loading) {
       return;
     }
     setLoading(true);
+    setErrorHint(null);
     const path =
       returnPath ?? `${location.pathname}${location.search}${location.hash}`;
     try {
       await startSteamLogin(path);
-    } catch {
+    } catch (error) {
       setLoading(false);
+      if (isNetworkFailure(error)) {
+        setErrorHint(t('errorAlert.networkMessage'));
+      } else if (error instanceof ApiError) {
+        setErrorHint(error.message || t('auth.steamLoginFailed'));
+      } else {
+        setErrorHint(t('auth.steamLoginFailed'));
+      }
     }
   }
 
   return (
-    <button
-      type="button"
-      className={[
-        'button',
-        'primary',
-        size === 'sm' ? 'sm' : '',
-        'steam-login-button',
-        className ?? '',
-      ]
-        .filter(Boolean)
-        .join(' ')}
-      disabled={loading}
-      data-testid={testId}
-      onClick={() => void handleClick()}
-    >
-      <SteamMark className="steam-login-button-icon" />
-      <span>{loading ? t('auth.steamRedirect') : (label ?? t('auth.steamLogin'))}</span>
-    </button>
+    <div className="steam-login-control">
+      <button
+        type="button"
+        className={[
+          'button',
+          'primary',
+          size === 'sm' ? 'sm' : '',
+          'steam-login-button',
+          className ?? '',
+        ]
+          .filter(Boolean)
+          .join(' ')}
+        disabled={loading}
+        data-testid={testId}
+        title={errorHint ?? undefined}
+        aria-describedby={errorHint ? `${testId}-error` : undefined}
+        onClick={() => void handleClick()}
+      >
+        <SteamMark className="steam-login-button-icon" />
+        <span>
+          {loading
+            ? t('auth.steamRedirect')
+            : errorHint
+              ? t('auth.steamLoginRetry')
+              : (label ?? t('auth.steamLogin'))}
+        </span>
+      </button>
+      {errorHint ? (
+        <p
+          id={`${testId}-error`}
+          className="steam-login-error"
+          role="alert"
+          data-testid={`${testId}-error`}
+        >
+          {errorHint}
+        </p>
+      ) : null}
+    </div>
   );
 }

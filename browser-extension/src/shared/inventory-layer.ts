@@ -13,6 +13,8 @@ export type InventoryLayerSecondaryCta = {
 export type InventoryLayerView = {
   title: string;
   body: string;
+  /** Short status chip next to the brand. */
+  statusLabel: string;
   ctaLabel: string;
   ctaHref: string;
   /** Optional secondary link (e.g. site inventory when primary is listings). */
@@ -33,9 +35,10 @@ export function resolveInventoryLayerView(params: {
 }): InventoryLayerView {
   if (params.connected && params.siteSafeMode) {
     return {
-      title: 'R.I.P Market · безопасный режим',
-      body: 'API сделок недоступен или нестабилен (сайт в браузере может открываться). Кэш в popup; выставка и send отключены. Guard / Accept — только в Steam.',
-      ctaLabel: 'Открыть объявления',
+      title: 'R.I.P Market',
+      statusLabel: 'Безопасный режим',
+      body: 'Связь с сервером нестабильна. Просмотр доступен, выставка временно отключена.',
+      ctaLabel: 'Мои объявления',
       ctaHref: params.listingsUrl,
       secondaryCta: {
         label: 'Инвентарь на сайте',
@@ -48,8 +51,9 @@ export function resolveInventoryLayerView(params: {
 
   if (params.connected) {
     return {
-      title: 'R.I.P Market · CS2',
-      body: 'Цены, bid, «Продать» / «Управлять». Hold / сделка / задача обмена блокируют list.',
+      title: 'R.I.P Market',
+      statusLabel: 'Подключено',
+      body: 'Цены и кнопки на карточках. Выставляйте по одному или несколько сразу.',
       ctaLabel: 'Мои объявления',
       ctaHref: params.listingsUrl,
       secondaryCta: {
@@ -62,8 +66,9 @@ export function resolveInventoryLayerView(params: {
   }
 
   return {
-    title: 'R.I.P Market · CS2',
-    body: 'Float и wear уже на карточках. Сайт может быть открыт — подключите расширение в Аккаунте, иначе выставить нельзя.',
+    title: 'R.I.P Market',
+    statusLabel: 'Не подключено',
+    body: 'Подключите расширение в Аккаунте на сайте — тогда можно выставлять предметы.',
     ctaLabel: 'Подключить на сайте',
     ctaHref: params.accountUrl,
     secondaryCta: null,

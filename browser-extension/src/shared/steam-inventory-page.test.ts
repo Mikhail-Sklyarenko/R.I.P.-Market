@@ -142,7 +142,8 @@ describe('site urls + layer view', () => {
     expect(connected.ctaHref).toContain('/deals?tab=listings');
     expect(connected.ctaLabel).toMatch(/объявлен/i);
     expect(connected.secondaryCta?.href).toContain('/sell/inventory');
-    expect(connected.body).toMatch(/Hold|Управлять|lock/i);
+    expect(connected.body).toMatch(/Выставляйте|карточ/i);
+    expect(connected.statusLabel).toMatch(/Подключ/i);
 
     const disconnected = resolveInventoryLayerView({
       connected: false,
@@ -165,7 +166,7 @@ describe('site urls + layer view', () => {
       itemHolderCount: 3,
     });
     expect(safe.connection).toBe('safe_mode');
-    expect(safe.body).toMatch(/API/i);
+    expect(safe.body).toMatch(/нестабильн|отключен/i);
   });
 });
 

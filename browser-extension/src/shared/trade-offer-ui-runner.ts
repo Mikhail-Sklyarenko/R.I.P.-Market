@@ -100,7 +100,7 @@ export async function runTradeOfferAutofillInMainWorld(
     target: { tabId },
     world: 'MAIN',
     func: (draftArg: TradeOfferDraftPayload) => {
-      const ripApi = (window as unknown as WindowWithRIP).__ripMarketTradeOffer;
+      const ripApi = (globalThis as unknown as WindowWithRIP).__ripMarketTradeOffer;
       if (!ripApi?.prepareAndSelectItem) {
         return Promise.resolve({
           ok: false as const,
@@ -125,7 +125,7 @@ export async function runTradeOfferAutofillInMainWorld(
     target: { tabId },
     world: 'MAIN',
     func: () => {
-      const win = window as unknown as WindowWithRIP;
+      const win = globalThis as unknown as WindowWithRIP;
       const ripApi = win.__ripMarketTradeOffer;
       if (!ripApi?.submitAndWaitForSend) {
         return {
@@ -154,7 +154,7 @@ export async function runTradeOfferAutofillInMainWorld(
     target: { tabId },
     world: 'MAIN',
     func: () => {
-      const win = window as unknown as WindowWithRIP;
+      const win = globalThis as unknown as WindowWithRIP;
       const pending = win.__ripMarketPendingSend;
       if (!pending) {
         return Promise.resolve({

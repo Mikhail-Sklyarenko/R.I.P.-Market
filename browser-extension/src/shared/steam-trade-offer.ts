@@ -91,7 +91,9 @@ export async function sendTradeOfferViaPageScript(
       }
 
       function getSessionId(): string | null {
-        const match = document.cookie.match(/sessionid=([^;]+)/);
+        const doc = (globalThis as typeof globalThis & { document?: { cookie?: string } })
+          .document;
+        const match = doc?.cookie?.match(/sessionid=([^;]+)/);
         return match?.[1] ?? null;
       }
 

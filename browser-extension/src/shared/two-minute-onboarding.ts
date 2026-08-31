@@ -2,6 +2,7 @@
  * H5: Two-minute onboarding — Install → Pair → Steam inventory → trial list.
  * Pure view-model + chrome.storage helpers for popup / inventory / SW.
  */
+import { withExtensionContext } from './extension-context.js';
 import {
   createExtensionT,
   DEFAULT_EXTENSION_LOCALE,
@@ -271,15 +272,15 @@ export function twoMinuteOnboardingHtml(
   view: TwoMinuteOnboardingView,
   escapeHtml: (value: string) => string,
 ): string {
-  const steps = view.steps
+  const current =
+    view.steps.find((step) => step.current) ??
+    view.steps.find((step) => !step.ready) ??
+    view.steps[view.steps.length - 1];
+
+  const track = view.steps
     .map(
-      (step) => `<li class="two-min-step" data-ready="${step.ready ? '1' : '0'}" data-current="${step.current ? '1' : '0'}" data-key="${escapeHtml(step.key)}">
-        <span class="two-min-mark" aria-hidden="true">${step.ready ? '✓' : step.current ? '→' : '·'}</span>
-        <div class="two-min-copy">
-          <span class="two-min-label">${escapeHtml(step.label)}</span>
-          <p class="two-min-hint">${escapeHtml(step.hint)}</p>
-        </div>
-      </li>`,
+      (step) =>
+        `<span data-ready="${step.ready ? '1' : '0'}" data-current="${step.current ? '1' : '0'}"></span>`,
     )
     .join('');
 
@@ -288,29 +289,40 @@ export function twoMinuteOnboardingHtml(
       ? ''
       : `<button type="button" class="primary" data-two-min-primary="${escapeHtml(view.primary.kind)}">${escapeHtml(view.primary.label)}</button>`;
 
+  const focusLabel = current ? escapeHtml(current.label) : escapeHtml(view.title);
+  const focusHint = current ? escapeHtml(current.hint) : '';
+
   return `
     <div class="two-min-head">
       <p class="two-min-title">${escapeHtml(view.title)}</p>
       <p class="two-min-progress">${escapeHtml(view.progressLabel)}</p>
     </div>
-    <p class="two-min-lead">${escapeHtml(view.lead)}</p>
-    <ol class="two-min-list">${steps}</ol>
+    <div class="two-min-track" aria-hidden="true">${track}</div>
+    <div class="two-min-focus">
+      <p class="two-min-focus-label">${focusLabel}</p>
+      ${focusHint ? `<p class="two-min-focus-hint">${focusHint}</p>` : ''}
+    </div>
     <div class="two-min-actions">
       ${primary}
-      <button type="button" class="secondary" data-two-min-dismiss>${escapeHtml(view.dismissLabel)}</button>
+      <button type="button" class="ghost" data-two-min-dismiss>${escapeHtml(view.dismissLabel)}</button>
     </div>
   `;
 }
 
 export async function getTwoMinuteOnboardingState(): Promise<TwoMinuteOnboardingState> {
-  const stored = await chrome.storage.local.get(TWO_MINUTE_ONBOARDING_KEY);
-  return parseTwoMinuteOnboardingState(stored[TWO_MINUTE_ONBOARDING_KEY]);
+  const result = await withExtensionContext(async () => {
+    const stored = await chrome.storage.local.get(TWO_MINUTE_ONBOARDING_KEY);
+    return parseTwoMinuteOnboardingState(stored[TWO_MINUTE_ONBOARDING_KEY]);
+  }, defaultTwoMinuteOnboardingState());
+  return result.value;
 }
 
 export async function setTwoMinuteOnboardingState(
   state: TwoMinuteOnboardingState,
 ): Promise<void> {
-  await chrome.storage.local.set({ [TWO_MINUTE_ONBOARDING_KEY]: state });
+  await withExtensionContext(async () => {
+    await chrome.storage.local.set({ [TWO_MINUTE_ONBOARDING_KEY]: state });
+  }, undefined);
 }
 
 export async function recordTwoMinuteInventoryVisit(): Promise<TwoMinuteOnboardingState> {

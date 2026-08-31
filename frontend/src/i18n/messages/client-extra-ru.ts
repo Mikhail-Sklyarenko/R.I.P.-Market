@@ -77,6 +77,9 @@ export const clientExtraRu = {
   },
   errorAlert: {
     genericMessage: 'Что-то пошло не так. Попробуйте ещё раз.',
+    networkMessage:
+      'Нет связи с сервером R.I.P. Проверьте интернет / VPN и нажмите «Повторить».',
+    retry: 'Повторить',
     codeLabel: 'Код: {{code}}',
     requestIdLabel: 'ID запроса: {{id}}',
   },
@@ -107,6 +110,10 @@ export const clientExtraRu = {
     connect: 'Подключить расширение',
     notInstalled: 'Установите расширение R.I.P Market и перезагрузите страницу.',
     pairFailedGeneric: 'Не удалось подключить расширение',
+    pairSwGlitch:
+      'Сбой расширения. Перезагрузите его на chrome://extensions (версия 0.6.39+) и нажмите «Подключить» снова.',
+    pairNetworkError:
+      'Нет связи с сервером R.I.P. Проверьте интернет / VPN и обновите страницу.',
     connectionError: 'Ошибка подключения',
     notFoundHint:
       'Расширение не найдено. Соберите browser-extension/dist, загрузите в Chrome (Load unpacked) и проверьте VITE_EXTENSION_ID=gmmlnkjdbcoojbhndjcfehojknjamaoj во frontend/.env.',

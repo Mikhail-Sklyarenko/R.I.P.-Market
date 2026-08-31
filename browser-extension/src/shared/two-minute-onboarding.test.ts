@@ -1,7 +1,8 @@
-import { describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   defaultTwoMinuteOnboardingState,
   dismissTwoMinuteWizard,
+  getTwoMinuteOnboardingState,
   isTwoMinuteComplete,
   markFirstList,
   markInventoryVisited,
@@ -9,6 +10,8 @@ import {
   resolveCurrentTwoMinuteStep,
   resolveTrialListHintView,
   resolveTwoMinuteOnboardingView,
+  setTwoMinuteOnboardingState,
+  twoMinuteOnboardingHtml,
   withAutoComplete,
 } from './two-minute-onboarding.js';
 
@@ -54,7 +57,21 @@ describe('two-minute-onboarding (H5)', () => {
     expect(view.steps[0]?.ready).toBe(true);
     expect(view.steps[1]?.current).toBe(true);
     expect(view.primary.kind).toBe('open_account');
-    expect(view.progressLabel).toMatch(/1 из 4/);
+    expect(view.progressLabel).toMatch(/1\s*\/\s*4/);
+  });
+
+  it('renders compact focus HTML for the current step only', () => {
+    const view = resolveTwoMinuteOnboardingView({
+      connected: false,
+      state: defaultTwoMinuteOnboardingState(),
+      locale: 'ru',
+    });
+    const html = twoMinuteOnboardingHtml(view, (value) => value);
+    expect(html).toContain('two-min-focus-label');
+    expect(html).toContain('Подключить к сайту');
+    expect(html).toContain('two-min-track');
+    expect(html).not.toContain('two-min-list');
+    expect(html).not.toContain('Расширение установлено');
   });
 
   it('points to inventory then trial list after pair', () => {
@@ -123,5 +140,35 @@ describe('two-minute-onboarding (H5)', () => {
         state: markFirstList(state),
       }).visible,
     ).toBe(false);
+  });
+
+  describe('storage under invalidated extension context', () => {
+    beforeEach(() => {
+      vi.stubGlobal('chrome', {
+        runtime: { id: 'rip-test' },
+        storage: {
+          local: {
+            get: vi.fn(async () => {
+              throw new Error('Extension context invalidated.');
+            }),
+            set: vi.fn(async () => {
+              throw new Error('Extension context invalidated.');
+            }),
+          },
+        },
+      });
+    });
+
+    it('returns default state instead of throwing on get', async () => {
+      await expect(getTwoMinuteOnboardingState()).resolves.toEqual(
+        defaultTwoMinuteOnboardingState(),
+      );
+    });
+
+    it('no-ops set instead of throwing', async () => {
+      await expect(
+        setTwoMinuteOnboardingState(defaultTwoMinuteOnboardingState()),
+      ).resolves.toBeUndefined();
+    });
   });
 });

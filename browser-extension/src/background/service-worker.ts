@@ -95,7 +95,6 @@ import {
 } from '../shared/inventory-enrichment-data.js';
 import type { InventoryItemPlatformFacts } from '../shared/inventory-item-enrichment.js';
 import {
-  loadCs2EnrichmentFactsInPageMain,
   type PageEnrichmentLoadResult,
 } from '../shared/steam-inventory-page-enrichment.js';
 import { chunkMarketHashNames } from '../shared/inventory-price-intel.js';
@@ -132,6 +131,12 @@ import {
   saveLastSessionDiag,
   type SessionHealth,
 } from '../shared/session-health.js';
+import {
+  getStoredExtensionLocale,
+  normalizeExtensionLocale,
+  setStoredExtensionLocale,
+} from '../shared/extension-i18n.js';
+import { humanizePairError } from '../shared/humanize-pair-error.js';
 
 const POLL_ALARM = 'rip-market-poll-tasks';
 const ACTIVE_TRADES_ALARM = 'rip-market-poll-active-trades';
@@ -182,12 +187,13 @@ export async function pairExtension(params: {
   apiBaseUrl?: string;
   locale?: string;
 }): Promise<{ ok: true; sessionId: string } | { ok: false; error: string }> {
+  const pairLocale = params.locale
+    ? normalizeExtensionLocale(params.locale)
+    : await getStoredExtensionLocale();
   try {
     await disconnectExtension();
     if (params.locale) {
-      const { normalizeExtensionLocale, setStoredExtensionLocale } =
-        await import('../shared/extension-i18n.js');
-      await setStoredExtensionLocale(normalizeExtensionLocale(params.locale));
+      await setStoredExtensionLocale(pairLocale);
     }
     const keys = await ensureDeviceKeys();
     const apiBaseUrl = params.apiBaseUrl?.replace(/\/$/, '') ?? getDefaultApiBaseUrl();
@@ -219,9 +225,10 @@ export async function pairExtension(params: {
     void pollActiveTrades();
     return { ok: true, sessionId: session.sessionId };
   } catch (error) {
+    const raw = error instanceof Error ? error.message : 'Pairing failed';
     return {
       ok: false,
-      error: error instanceof Error ? error.message : 'Pairing failed',
+      error: humanizePairError(raw, pairLocale),
     };
   }
 }
@@ -591,9 +598,6 @@ async function assertSiteMutationsAllowed(): Promise<{
   if (!link.safeMode) {
     return { ok: true };
   }
-  const { getStoredExtensionLocale } = await import(
-    '../shared/extension-i18n.js'
-  );
   return {
     ok: false,
     error: safeModeBlockMessage(await getStoredExtensionLocale()),
@@ -1818,11 +1822,35 @@ function handleTradeVerificationRuntimeMessage(
     }
     void (async () => {
       try {
+        await chrome.scripting.executeScript({
+          target: { tabId },
+          world: 'MAIN',
+          files: ['page-scripts/inventory-enrichment.js'],
+        });
         const [injection] = await chrome.scripting.executeScript({
           target: { tabId },
           world: 'MAIN',
           args: [steamIdHint && /^\d{17}$/.test(steamIdHint) ? steamIdHint : null],
-          func: loadCs2EnrichmentFactsInPageMain,
+          func: (hint: string | null) => {
+            type EnrichmentApi = {
+              loadCs2EnrichmentFacts: (
+                steamIdHint: string | null,
+              ) => Promise<PageEnrichmentLoadResult>;
+            };
+            const api = (
+              globalThis as typeof globalThis & {
+                __ripMarketInventoryEnrichment?: EnrichmentApi;
+              }
+            ).__ripMarketInventoryEnrichment;
+            if (!api?.loadCs2EnrichmentFacts) {
+              return Promise.resolve({
+                facts: [],
+                source: 'empty' as const,
+                error: 'Enrichment page script not ready',
+              });
+            }
+            return api.loadCs2EnrichmentFacts(hint);
+          },
         });
         const result = injection?.result as PageEnrichmentLoadResult | undefined;
         if (!result) {
@@ -2282,8 +2310,6 @@ chrome.runtime.onMessageExternal.addListener((message, _sender, sendResponse) =>
   }
   if (message?.type === 'RIP_MARKET_SET_LOCALE') {
     void (async () => {
-      const { normalizeExtensionLocale, setStoredExtensionLocale } =
-        await import('../shared/extension-i18n.js');
       const locale = normalizeExtensionLocale(message.locale);
       await setStoredExtensionLocale(locale);
       sendResponse({ ok: true, locale });

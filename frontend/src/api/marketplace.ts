@@ -1,6 +1,6 @@
-import { apiRequest, createIdempotencyKey } from './client';
+import { apiRequest, createIdempotencyKey } from './client.ts';
+import { loadAuthConfig } from './auth-config.ts';
 import type {
-  AuthConfig,
   AuthResponse,
   LedgerEntry,
   ListLotsParams,
@@ -34,7 +34,7 @@ import {
 export { createIdempotencyKey };
 
 export function getAuthConfig() {
-  return apiRequest<AuthConfig>('/auth/config');
+  return loadAuthConfig();
 }
 
 export function getAuthMe(token: string) {

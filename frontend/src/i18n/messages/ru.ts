@@ -576,6 +576,8 @@ const baseRuMessages = {
   auth: {
     steamLogin: 'Войти через Steam',
     steamRedirect: 'Переход в Steam…',
+    steamLoginFailed: 'Не удалось начать вход через Steam. Попробуйте ещё раз.',
+    steamLoginRetry: 'Повторить вход',
     sellRequiredTitle: 'Требуется авторизация',
     sellRequiredSubtitle:
       'Войдите через Steam, чтобы продавать предметы и управлять инвентарём.',
@@ -1101,8 +1103,11 @@ const baseRuMessages = {
     title: 'Как пройдёт сделка',
   },
   errorAlert: {
-    codeLabel: 'Код: {{code}}',
     genericMessage: 'Что-то пошло не так. Попробуйте ещё раз.',
+    networkMessage:
+      'Нет связи с сервером R.I.P. Проверьте интернет / VPN и нажмите «Повторить».',
+    retry: 'Повторить',
+    codeLabel: 'Код: {{code}}',
     requestIdLabel: 'ID запроса: {{id}}',
   },
   escrow: {

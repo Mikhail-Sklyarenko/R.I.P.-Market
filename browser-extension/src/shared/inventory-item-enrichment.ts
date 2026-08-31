@@ -59,8 +59,10 @@ export type InventoryItemEnrichmentView = {
   tradeLockLabel: string | null;
   badges: InventoryBadge[];
   metaLine: string | null;
-  /** D3: R.I.P / Steam / net lines for the card footer. */
+  /** Verbose primary (legacy / a11y). */
   pricePrimary: string | null;
+  /** Quiet grid amount without brand prefix. */
+  priceCompact: string | null;
   priceSecondary: string | null;
   priceNet: string | null;
   /** D5: best bid chip (demand), never framed as instant cash. */
@@ -254,6 +256,7 @@ export function buildInventoryItemEnrichmentView(params: {
     badges,
     metaLine: metaParts.length > 0 ? metaParts.join(' · ') : null,
     pricePrimary: price.primaryLine,
+    priceCompact: price.compactPrimaryLine,
     priceSecondary: price.secondaryLine,
     priceNet: price.netLine,
     priceBid: price.bidLine,
@@ -325,14 +328,9 @@ export function queryCs2InventoryItemByAssetId(
   if (!trimmed) {
     return null;
   }
-  return (
-    root.querySelector(`#item730_2_${trimmed}`) ??
-    root.querySelector(`#item730_16_${trimmed}`) ??
-    root.querySelector(`#730_2_${trimmed}`) ??
-    root.querySelector(`#730_16_${trimmed}`) ??
-    root.querySelector(
-      `.item[id="item730_2_${trimmed}"], .item[id="item730_16_${trimmed}"], .item[id="730_2_${trimmed}"], .item[id="730_16_${trimmed}"]`,
-    )
+  // Attribute selectors only: `#730_2_*` / bare digit-start IDs throw in querySelector.
+  return root.querySelector(
+    `.item[id="item730_2_${trimmed}"], .item[id="item730_16_${trimmed}"], .item[id="730_2_${trimmed}"], .item[id="730_16_${trimmed}"]`,
   );
 }
 

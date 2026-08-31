@@ -42,6 +42,7 @@ describe('inventory-price-intel', () => {
     });
     expect(view.recommendedListMinor).toBe(1250);
     expect(view.primaryLine).toBe('R.I.P ~$12.50');
+    expect(view.compactPrimaryLine).toBe('~$12.50');
     expect(view.secondaryLine).toContain('Steam $13.16');
     expect(view.secondaryLine).toContain('на R.I.P от $11.00');
     expect(view.netLine).toBe('вам ~$11.88');
@@ -58,6 +59,7 @@ describe('inventory-price-intel', () => {
       },
     });
     expect(view.primaryLine).toBe('Bid $17.00');
+    expect(view.compactPrimaryLine).toBe('Bid $17.00');
     expect(view.bidLine).toBe('bid $17.00 · ×2');
     expect(view.netLine).toBe('вам ~$16.15');
   });
@@ -72,6 +74,7 @@ describe('inventory-price-intel', () => {
       listedPriceMinor: '1800',
     });
     expect(view.primaryLine).toBe('R.I.P $18.00');
+    expect(view.compactPrimaryLine).toBe('$18.00');
     expect(view.netLine).toBe('вам ~$17.10');
     expect(view.bidLine).toBeNull();
   });
@@ -81,6 +84,7 @@ describe('inventory-price-intel', () => {
       hint: { steamPriceMinor: null, minMarketplacePriceMinor: '900' },
     });
     expect(view.primaryLine).toBe('R.I.P от $9.00');
+    expect(view.compactPrimaryLine).toBe('от $9.00');
     expect(view.netLine).toBeNull();
   });
 

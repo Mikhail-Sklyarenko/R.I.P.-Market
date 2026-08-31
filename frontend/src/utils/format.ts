@@ -247,12 +247,12 @@ export function getSteamCallbackActions(
   // is reachable from the header anyway, and the user came here to log in.
   if (errorCode === 'STEAM_ALREADY_LINKED') {
     return [
-      { label: t('steamCallback.otherAccountAction', locale), href: '/login' },
+      { label: t('steamCallback.otherAccountAction', locale), href: '/' },
       { label: t('steamCallback.accountAction', locale), href: '/account' },
     ];
   }
 
-  return [{ label: t('steamCallback.loginAction', locale), href: '/login' }];
+  return [{ label: t('steamCallback.loginAction', locale), href: '/' }];
 }
 
 export const MOCK_TRADE_ENABLED = viteEnv?.VITE_ENABLE_MOCK_TRADE !== 'false';

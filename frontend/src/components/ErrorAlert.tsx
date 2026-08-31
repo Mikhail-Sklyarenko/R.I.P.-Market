@@ -18,6 +18,7 @@ function resolveError(
   error: unknown,
   locale: Locale,
   genericMessage: string,
+  networkMessage: string,
 ): {
   message: string;
   code?: string;
@@ -32,7 +33,12 @@ function resolveError(
     requestId = error.requestId;
     message = formatApiErrorMessage(error.code, locale) ?? error.message;
   } else if (error instanceof Error) {
-    message = error.message;
+    const raw = error.message;
+    message =
+      raw === 'Failed to fetch' ||
+      /NetworkError|Load failed|network request failed/i.test(raw)
+        ? networkMessage
+        : raw;
   }
 
   return { message, code, requestId };
@@ -51,7 +57,12 @@ export function ErrorAlert({
   }
 
   const resolved = error
-    ? resolveError(error, locale, t('errorAlert.genericMessage'))
+    ? resolveError(
+        error,
+        locale,
+        t('errorAlert.genericMessage'),
+        t('errorAlert.networkMessage'),
+      )
     : null;
   const alertClass =
     variant === 'info'

@@ -3,6 +3,7 @@ import {
   buildBulkProgress,
   buildBulkSellItem,
   canSelectForBulkSell,
+  formatBulkListingPreview,
   isFungibleSteamFacts,
   MAX_BULK_LISTING_COUNT,
   planBulkSellOperations,
@@ -30,6 +31,24 @@ describe('inventory-bulk-sell', () => {
     paintSeed: 661,
     wear: 'FT',
   };
+
+  it('formats unique skin names for the confirm modal', () => {
+    const preview = formatBulkListingPreview(
+      [
+        'AK-47 | Redline (Field-Tested)',
+        'Glock-18 | Water Elemental (Minimal Wear)',
+        'AK-47 | Redline (Field-Tested)',
+        'USP-S | Kill Confirmed (Factory New)',
+      ],
+      2,
+    );
+    expect(preview.uniqueCount).toBe(3);
+    expect(preview.lines).toEqual([
+      'AK-47 | Redline (Field-Tested)',
+      'Glock-18 | Water Elemental (Minimal Wear)',
+    ]);
+    expect(preview.moreCount).toBe(1);
+  });
 
   it('detects fungible vs differentiated', () => {
     expect(isFungibleSteamFacts(fungibleSteam)).toBe(true);

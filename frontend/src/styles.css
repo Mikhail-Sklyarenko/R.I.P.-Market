@@ -434,6 +434,16 @@ textarea {
   justify-content: center;
 }
 
+.auth-required-actions .steam-login-control {
+  align-items: stretch;
+  width: 100%;
+  max-width: none;
+}
+
+.auth-required-actions .steam-login-error {
+  text-align: center;
+}
+
 .account-card {
   width: min(100%, 560px);
 }
@@ -596,6 +606,22 @@ a.button.primary {
   min-height: 32px;
   padding: 6px 10px;
   font-size: var(--font-size-xs);
+}
+
+.steam-login-control {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 4px;
+  max-width: min(100%, 280px);
+}
+
+.steam-login-error {
+  margin: 0;
+  font-size: var(--font-size-xs);
+  line-height: 1.35;
+  color: var(--color-danger);
+  text-align: right;
 }
 
 .steam-login-button {
@@ -5087,6 +5113,10 @@ a.button.primary {
   margin: 0 0 var(--space-4);
   font-size: var(--font-size-sm);
   color: var(--color-text-muted);
+}
+
+.catalog-error-actions {
+  margin: 0 0 var(--space-4);
 }
 
 .catalog-lot-price {

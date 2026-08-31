@@ -20,7 +20,7 @@ export async function loadInventoryViaPageScript(
         if (steamIdArg && /^\d{17}$/.test(steamIdArg)) {
           return steamIdArg;
         }
-        const win = window as unknown as { g_steamID?: string };
+        const win = globalThis as typeof globalThis & { g_steamID?: string };
         if (win.g_steamID && /^\d{17}$/.test(win.g_steamID)) {
           return win.g_steamID;
         }

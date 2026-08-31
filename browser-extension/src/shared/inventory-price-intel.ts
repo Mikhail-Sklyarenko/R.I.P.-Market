@@ -31,7 +31,10 @@ export type InventoryPriceIntelView = {
   bestBidQuantity: number | null;
   /** Seller receive after 5% platform fee on the list/recommended price. */
   sellerReceiveMinor: number | null;
+  /** Verbose primary (sell panel / accessibility). */
   primaryLine: string | null;
+  /** Quiet grid: amount only, no brand prefix. */
+  compactPrimaryLine: string | null;
   secondaryLine: string | null;
   netLine: string | null;
   /** Compact bid chip for overlay (honest demand, not “instant sell”). */
@@ -125,14 +128,19 @@ export function resolveInventoryPriceIntel(params: {
     listMinor != null ? calculateSellerReceiveMinor(listMinor) : null;
 
   let primaryLine: string | null = null;
+  let compactPrimaryLine: string | null = null;
   if (listedMinor != null) {
     primaryLine = `R.I.P ${formatUsdFromMinor(listedMinor)}`;
+    compactPrimaryLine = formatUsdFromMinor(listedMinor);
   } else if (bestBidMinor != null) {
     primaryLine = `Bid ${formatUsdFromMinor(bestBidMinor)}`;
+    compactPrimaryLine = `Bid ${formatUsdFromMinor(bestBidMinor)}`;
   } else if (recommendedListMinor != null) {
     primaryLine = `R.I.P ~${formatUsdFromMinor(recommendedListMinor)}`;
+    compactPrimaryLine = `~${formatUsdFromMinor(recommendedListMinor)}`;
   } else if (ripMinAskMinor != null) {
     primaryLine = `R.I.P от ${formatUsdFromMinor(ripMinAskMinor)}`;
+    compactPrimaryLine = `от ${formatUsdFromMinor(ripMinAskMinor)}`;
   }
 
   const secondaryParts: string[] = [];
@@ -168,6 +176,7 @@ export function resolveInventoryPriceIntel(params: {
     bestBidQuantity,
     sellerReceiveMinor,
     primaryLine,
+    compactPrimaryLine,
     secondaryLine,
     netLine,
     bidLine,

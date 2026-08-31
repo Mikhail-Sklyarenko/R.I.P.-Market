@@ -574,6 +574,8 @@ const baseEnMessages = {
   auth: {
     steamLogin: 'Sign in with Steam',
     steamRedirect: 'Redirecting to Steam…',
+    steamLoginFailed: 'Could not start Steam sign-in. Try again.',
+    steamLoginRetry: 'Retry sign-in',
     sellRequiredTitle: 'Sign-in required',
     sellRequiredSubtitle:
       'Sign in with Steam to sell items and manage your inventory.',

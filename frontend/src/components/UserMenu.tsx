@@ -1,27 +1,21 @@
 import { useEffect, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { getAuthConfig } from '../api/marketplace';
 import { useAuth } from '../auth/AuthContext';
 import { useLocale } from '../i18n';
 import { SteamLoginButton } from './SteamLoginButton';
 import { hasLinkedSteamId } from '../utils/steam-id';
 import { getUserAvatarUrl, getUserInitials } from '../utils/user-avatar';
 
+/**
+ * Guest CTA is always Steam — never `/login?dev=1`.
+ * Mock login remains QA-only via explicit URL; API outages must not send customers there.
+ */
 export function UserMenu() {
   const { t } = useLocale();
   const { user, token, logout } = useAuth();
   const navigate = useNavigate();
   const [open, setOpen] = useState(false);
-  const [steamLoginAvailable, setSteamLoginAvailable] = useState<boolean | null>(
-    null,
-  );
   const menuRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    getAuthConfig()
-      .then((config) => setSteamLoginAvailable(Boolean(config.steamLoginAvailable)))
-      .catch(() => setSteamLoginAvailable(false));
-  }, []);
 
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
@@ -36,26 +30,8 @@ export function UserMenu() {
   }, [open]);
 
   if (!token || !user) {
-    if (steamLoginAvailable === null) {
-      return (
-        <button
-          type="button"
-          className="button primary sm steam-login-button"
-          disabled
-          aria-label={t('nav.loginLoading')}
-          data-testid="nav-login-loading"
-        >
-          <span>…</span>
-        </button>
-      );
-    }
-    if (steamLoginAvailable) {
-      return <SteamLoginButton testId="nav-login-steam" label={t('nav.login')} />;
-    }
     return (
-      <Link to="/login?dev=1" className="button primary sm" data-testid="nav-login">
-        {t('nav.login')}
-      </Link>
+      <SteamLoginButton testId="nav-login-steam" label={t('nav.login')} />
     );
   }
 

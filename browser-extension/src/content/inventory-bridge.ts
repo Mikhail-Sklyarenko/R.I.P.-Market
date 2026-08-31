@@ -38,6 +38,7 @@ import {
   buildBulkProgress,
   buildBulkSellItem,
   canSelectForBulkSell,
+  formatBulkListingPreview,
   planBulkSellOperations,
   toggleBulkSelection,
   validateBulkSelectionForSubmit,
@@ -60,6 +61,7 @@ import {
 import { resolveInventoryLayerView } from '../shared/inventory-layer.js';
 import { getStoredSiteLinkSnapshot } from '../shared/offline-safe-mode.js';
 import {
+  defaultTwoMinuteOnboardingState,
   getTwoMinuteOnboardingState,
   persistDismissTrialListHint,
   recordTwoMinuteFirstList,
@@ -330,140 +332,243 @@ function ensureStyles(): void {
       display: block;
       margin: 10px 0 14px;
       padding: 0;
-      font-family: "Segoe UI", system-ui, sans-serif;
+      font-family: "Segoe UI", system-ui, -apple-system, sans-serif;
       z-index: 20;
       position: relative;
+      --rip-bg: rgba(24, 28, 38, 0.96);
+      --rip-bg-deep: #0b0d12;
+      --rip-border: rgba(255, 255, 255, 0.1);
+      --rip-text: #f4f4f5;
+      --rip-muted: #94a3b8;
+      --rip-link: #7dd3fc;
+      --rip-primary-from: #0284c7;
+      --rip-primary-to: #2563eb;
+      --rip-success: #86efac;
+      --rip-success-bg: rgba(34, 197, 94, 0.16);
+      --rip-warn: #fde047;
+      --rip-warn-bg: rgba(234, 179, 8, 0.14);
+      --rip-danger: #fecaca;
+      --rip-danger-bg: rgba(239, 68, 68, 0.14);
     }
     #${HOST_ID} .rip-inv-bar {
       display: flex;
-      flex-wrap: wrap;
-      gap: 10px 14px;
-      align-items: center;
-      padding: 12px 14px;
-      border-radius: 10px;
-      background: #12161e;
-      border: 1px solid #2f3542;
-      color: #e8e8e8;
+      flex-direction: column;
+      gap: 12px;
+      padding: 14px 16px;
+      border-radius: 14px;
+      background:
+        linear-gradient(145deg, rgba(2, 132, 199, 0.08), transparent 42%),
+        var(--rip-bg);
+      border: 1px solid var(--rip-border);
+      color: var(--rip-text);
       font-size: 13px;
-      line-height: 1.35;
-      box-shadow: 0 6px 18px rgba(0, 0, 0, 0.28);
+      line-height: 1.4;
+      box-shadow:
+        0 10px 28px rgba(0, 0, 0, 0.35),
+        inset 0 1px 0 rgba(255, 255, 255, 0.04);
     }
     #${HOST_ID} .rip-inv-bar[data-connection="disconnected"] {
-      border-color: #8f6b3d;
-      background: #1c1810;
+      border-color: rgba(234, 179, 8, 0.35);
+      background:
+        linear-gradient(145deg, rgba(234, 179, 8, 0.1), transparent 50%),
+        var(--rip-bg);
     }
-
     #${HOST_ID} .rip-inv-bar[data-connection="safe_mode"] {
-      border-color: rgba(143, 107, 61, 0.65);
-      background: rgba(143, 107, 61, 0.16);
+      border-color: rgba(234, 179, 8, 0.4);
+      background:
+        linear-gradient(145deg, rgba(234, 179, 8, 0.12), transparent 50%),
+        var(--rip-bg);
+    }
+    #${HOST_ID} .rip-inv-bar-top {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px 14px;
+      align-items: center;
+      justify-content: space-between;
+    }
+    #${HOST_ID} .rip-inv-identity {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      align-items: center;
+      min-width: 0;
+    }
+    #${HOST_ID} .rip-inv-brand {
+      color: var(--rip-link);
+      font-weight: 750;
+      font-size: 14px;
+      letter-spacing: 0.01em;
+      white-space: nowrap;
+    }
+    #${HOST_ID} .rip-inv-status {
+      display: inline-flex;
+      align-items: center;
+      padding: 3px 9px;
+      border-radius: 999px;
+      font-size: 11px;
+      font-weight: 650;
+      line-height: 1.2;
+      border: 1px solid transparent;
+    }
+    #${HOST_ID} .rip-inv-status[data-connection="connected"] {
+      color: var(--rip-success);
+      background: var(--rip-success-bg);
+      border-color: rgba(134, 239, 172, 0.28);
+    }
+    #${HOST_ID} .rip-inv-status[data-connection="disconnected"],
+    #${HOST_ID} .rip-inv-status[data-connection="safe_mode"] {
+      color: var(--rip-warn);
+      background: var(--rip-warn-bg);
+      border-color: rgba(253, 224, 71, 0.28);
+    }
+    #${HOST_ID} .rip-inv-meta {
+      color: var(--rip-muted);
+      font-size: 12px;
+      white-space: nowrap;
+    }
+    #${HOST_ID} .rip-inv-body {
+      margin: 0;
+      color: var(--rip-muted);
+      font-size: 12.5px;
+      max-width: 62ch;
+    }
+    #${HOST_ID} .rip-inv-bar-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      align-items: center;
+    }
+    #${HOST_ID} .rip-inv-cta,
+    #${HOST_ID} .rip-inv-cta-secondary,
+    #${HOST_ID} .rip-inv-bulk-toggle {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      padding: 8px 12px;
+      border-radius: 9px;
+      font-weight: 650;
+      font-size: 12px;
+      line-height: 1.2;
+      white-space: nowrap;
+      cursor: pointer;
+      text-decoration: none !important;
+      transition: filter 0.12s ease, border-color 0.12s ease, background 0.12s ease;
+    }
+    #${HOST_ID} .rip-inv-cta {
+      border: none;
+      background: linear-gradient(135deg, var(--rip-primary-from), var(--rip-primary-to));
+      color: #fff !important;
+      box-shadow: 0 0 0 1px color-mix(in srgb, var(--rip-primary-from) 35%, transparent);
+    }
+    #${HOST_ID} .rip-inv-cta:hover { filter: brightness(1.07); }
+    #${HOST_ID} .rip-inv-cta-secondary,
+    #${HOST_ID} button.rip-inv-cta-secondary {
+      border: 1px solid var(--rip-border);
+      background: rgba(15, 23, 42, 0.65);
+      color: #e2e8f0;
+    }
+    #${HOST_ID} .rip-inv-cta-secondary:hover {
+      border-color: rgba(125, 211, 252, 0.35);
+      color: #fff;
+    }
+    #${HOST_ID} .rip-inv-bulk-toggle {
+      border: 1px solid rgba(125, 211, 252, 0.28);
+      background: rgba(14, 165, 233, 0.1);
+      color: var(--rip-link);
+    }
+    #${HOST_ID} .rip-inv-bulk-toggle[data-active="1"] {
+      border-color: transparent;
+      background: linear-gradient(135deg, var(--rip-primary-from), var(--rip-primary-to));
+      color: #fff;
+    }
+    #${HOST_ID} .rip-inv-draft-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 5px 10px;
+      border-radius: 999px;
+      background: rgba(15, 23, 42, 0.9);
+      border: 1px solid rgba(125, 211, 252, 0.28);
+      color: var(--rip-link);
+      font-size: 11px;
+      font-weight: 600;
+    }
+    #${HOST_ID} .rip-inv-draft-chip button {
+      border: 0;
+      background: transparent;
+      color: var(--rip-muted);
+      cursor: pointer;
+      font-size: 11px;
+      padding: 0;
     }
 
     #${HOST_ID} .rip-inv-hold {
       margin-top: 8px;
       padding: 10px 12px;
-      border-radius: 10px;
-      border: 1px solid rgba(240, 210, 154, 0.45);
-      background: rgba(28, 24, 16, 0.95);
-      color: #f0d29a;
+      border-radius: 12px;
+      border: 1px solid rgba(253, 224, 71, 0.32);
+      background: var(--rip-warn-bg);
+      color: #fef3c7;
       font-size: 12px;
       line-height: 1.4;
     }
     #${HOST_ID} .rip-inv-hold-title {
       margin: 0 0 4px;
       font-weight: 700;
-      color: #ffe2a8;
+      color: #fde047;
     }
     #${HOST_ID} .rip-inv-hold-body {
       margin: 0 0 8px;
-      color: #d8c9a4;
+      color: #f5e6b8;
     }
     #${HOST_ID} .rip-inv-hold-actions {
       display: flex;
       flex-wrap: wrap;
       gap: 8px;
     }
-    #${HOST_ID} .rip-inv-cta-secondary {
-      display: inline-flex;
-      align-items: center;
-      padding: 7px 10px;
-      border-radius: 8px;
-      border: 1px solid #3a4250;
-      background: transparent;
-      color: #c5cad3;
-      text-decoration: none;
-      font-size: 12px;
-      font-weight: 600;
-    }
-    #${HOST_ID} .rip-inv-cta-secondary:hover {
-      border-color: #5a6578;
-      color: #fff;
-    }
 
-    #${HOST_ID} .rip-inv-brand {
-      color: #8eb7ff;
-      font-weight: 700;
-      white-space: nowrap;
-    }
-    #${HOST_ID} .rip-inv-body {
-      flex: 1 1 220px;
-      color: #a8adb8;
-      margin: 0;
-    }
     #${HOST_ID} .rip-inv-steam-warn {
-      flex: 1 1 100%;
       margin: 0;
-      padding: 6px 8px;
-      border-radius: 6px;
-      background: rgba(143, 107, 61, 0.18);
-      border: 1px solid rgba(143, 107, 61, 0.45);
-      color: #d4b896;
+      padding: 8px 10px;
+      border-radius: 10px;
+      background: var(--rip-warn-bg);
+      border: 1px solid rgba(253, 224, 71, 0.28);
+      color: #f5e6b8;
       font-size: 12px;
       line-height: 1.35;
     }
     #${HOST_ID} .rip-inv-reload {
-      flex: 1 1 100%;
       margin: 0;
-      padding: 8px 10px;
-      border-radius: 8px;
-      background: rgba(143, 61, 61, 0.2);
-      border: 1px solid rgba(180, 80, 80, 0.55);
-      color: #ffc9c9;
+      padding: 10px 12px;
+      border-radius: 10px;
+      background: var(--rip-danger-bg);
+      border: 1px solid rgba(248, 113, 113, 0.35);
+      color: var(--rip-danger);
       font-size: 12px;
       line-height: 1.4;
       font-weight: 600;
     }
     #${HOST_ID} .rip-inv-reload button {
       margin-left: 8px;
-      padding: 4px 10px;
-      border-radius: 6px;
-      border: 1px solid #c97a7a;
-      background: #5a3030;
+      padding: 5px 10px;
+      border-radius: 8px;
+      border: 1px solid rgba(248, 113, 113, 0.45);
+      background: rgba(127, 29, 29, 0.55);
       color: #fff;
       font-weight: 700;
       cursor: pointer;
     }
-    #${HOST_ID} .rip-inv-meta {
-      color: #7d8494;
-      font-size: 12px;
-      white-space: nowrap;
-    }
-    #${HOST_ID} .rip-inv-cta {
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      padding: 8px 12px;
-      border-radius: 8px;
-      background: #5b8def;
-      color: #fff !important;
-      text-decoration: none !important;
-      font-weight: 600;
-      font-size: 12px;
-      white-space: nowrap;
-    }
-    #${HOST_ID} .rip-inv-cta:hover { filter: brightness(1.06); }
 
     .itemHolder {
       position: relative !important;
+      --rip-primary-from: #0284c7;
+      --rip-primary-to: #2563eb;
+      --rip-link: #7dd3fc;
+      --rip-success: #86efac;
+      --rip-warn: #fde047;
+      --rip-danger: #fecaca;
+      --rip-muted: #94a3b8;
+      --rip-text: #f4f4f5;
     }
     /* Mount on Steam's .item — it fills the holder and otherwise covers sibling overlays. */
     .itemHolder .item[id^="item730_"],
@@ -483,27 +588,29 @@ function ensureStyles(): void {
       justify-content: space-between;
       pointer-events: none;
       z-index: 1000 !important;
-      font-family: "Segoe UI", system-ui, sans-serif;
+      font-family: Inter, "Segoe UI", system-ui, sans-serif;
       border-radius: 2px;
       overflow: hidden;
     }
-    .itemHolder:hover .${OVERLAY_CLASS} {
-      box-shadow: inset 0 0 0 1px rgba(91, 141, 239, 0.85);
+    .itemHolder:hover .${OVERLAY_CLASS},
+    .itemHolder .item.activeInfo .${OVERLAY_CLASS} {
+      box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--rip-link) 55%, transparent);
     }
     .itemHolder .rip-item-badges {
       display: flex;
       flex-wrap: wrap;
       gap: 2px;
       padding: 3px;
+      min-height: 0;
       pointer-events: auto;
     }
     .itemHolder .rip-item-badge {
       display: inline-flex;
       align-items: center;
       padding: 2px 5px;
-      border-radius: 3px;
+      border-radius: 4px;
       font-size: 9px;
-      font-weight: 700;
+      font-weight: 600;
       line-height: 1.25;
       border: 1px solid transparent;
       text-decoration: none !important;
@@ -514,46 +621,62 @@ function ensureStyles(): void {
       text-shadow: 0 1px 1px rgba(0,0,0,0.55);
     }
     .itemHolder .rip-item-badge--accent {
-      background: rgba(45, 98, 210, 0.95); color: #fff; border-color: #3d7cff;
+      background: color-mix(in srgb, var(--rip-primary-to) 88%, transparent);
+      color: #fff;
+      border-color: color-mix(in srgb, var(--rip-link) 45%, transparent);
     }
     .itemHolder .rip-item-badge--ok {
-      background: rgba(47, 111, 70, 0.92); color: #b8f0c6; border-color: #2f6f46;
+      background: rgba(34, 197, 94, 0.88);
+      color: #ecfdf5;
+      border-color: rgba(134, 239, 172, 0.45);
     }
     .itemHolder .rip-item-badge--warn {
-      background: rgba(160, 96, 28, 0.95); color: #ffe2b0; border-color: #c07a2a;
+      background: rgba(234, 179, 8, 0.88);
+      color: #1c1917;
+      border-color: rgba(253, 224, 71, 0.45);
     }
     .itemHolder .rip-item-badge--info {
-      background: rgba(61, 95, 143, 0.92); color: #c9dcff; border-color: #3d5f8f;
+      background: rgba(2, 132, 199, 0.88);
+      color: #e0f2fe;
+      border-color: rgba(125, 211, 252, 0.4);
     }
     .itemHolder .rip-item-badge--muted {
-      background: rgba(40, 44, 52, 0.92); color: #c7ccd6; border-color: #4a4f5a;
+      background: rgba(30, 41, 59, 0.92);
+      color: var(--rip-muted);
+      border-color: rgba(255, 255, 255, 0.1);
     }
     .itemHolder .rip-item-footer {
       display: grid;
-      gap: 2px;
-      padding: 4px;
-      background: linear-gradient(180deg, rgba(8, 10, 14, 0) 0%, rgba(8, 10, 14, 0.88) 28%, rgba(8, 10, 14, 0.96) 100%);
+      gap: 3px;
+      padding: 5px 4px 4px;
+      background: linear-gradient(
+        180deg,
+        rgba(11, 13, 18, 0) 0%,
+        rgba(11, 13, 18, 0.72) 22%,
+        rgba(11, 13, 18, 0.94) 100%
+      );
     }
     .itemHolder .rip-item-wear-track {
       position: relative;
-      height: 3px;
+      height: 2px;
       border-radius: 999px;
       background: linear-gradient(90deg, #6ecf6e 0%, #7fd67f 7%, #5fd0d5 15%, #ffb454 38%, #ff6b57 45%, #ff6b57 100%);
       overflow: hidden;
+      opacity: 0.9;
     }
     .itemHolder .rip-item-wear-pointer {
       position: absolute;
       top: -1px;
       width: 2px;
-      height: 5px;
+      height: 4px;
       background: #fff;
       box-shadow: 0 0 2px #000;
       transform: translateX(-50%);
     }
     .itemHolder .rip-item-meta {
-      color: #f2f4f8;
+      color: var(--rip-muted);
       font-size: 9px;
-      font-weight: 600;
+      font-weight: 500;
       line-height: 1.2;
       white-space: nowrap;
       overflow: hidden;
@@ -561,17 +684,27 @@ function ensureStyles(): void {
       text-shadow: 0 1px 2px rgba(0,0,0,0.8);
     }
     .itemHolder .rip-item-price {
-      color: #d6e6ff;
-      font-size: 10px;
-      font-weight: 800;
+      color: var(--rip-text);
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: -0.01em;
       line-height: 1.15;
       white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis;
       text-shadow: 0 1px 2px rgba(0,0,0,0.75);
     }
+    .itemHolder .rip-item-detail {
+      display: none;
+      gap: 1px;
+    }
+    .itemHolder:hover .rip-item-detail,
+    .itemHolder .item.activeInfo .rip-item-detail,
+    .itemHolder[data-rip-bulk-selected="1"] .rip-item-detail {
+      display: grid;
+    }
     .itemHolder .rip-item-price-sub {
-      color: #a8adb8;
+      color: var(--rip-muted);
       font-size: 8px;
       line-height: 1.15;
       white-space: nowrap;
@@ -579,7 +712,7 @@ function ensureStyles(): void {
       text-overflow: ellipsis;
     }
     .itemHolder .rip-item-price-net {
-      color: #8fe6a4;
+      color: var(--rip-success);
       font-size: 8px;
       font-weight: 600;
       line-height: 1.15;
@@ -588,9 +721,9 @@ function ensureStyles(): void {
       text-overflow: ellipsis;
     }
     .itemHolder .rip-item-price-bid {
-      color: #ffd28a;
+      color: var(--rip-warn);
       font-size: 8px;
-      font-weight: 700;
+      font-weight: 600;
       line-height: 1.15;
       white-space: nowrap;
       overflow: hidden;
@@ -600,32 +733,33 @@ function ensureStyles(): void {
       display: inline-flex;
       align-items: center;
       justify-content: center;
-      margin-top: 3px;
+      margin-top: 2px;
       padding: 5px 6px;
-      border-radius: 4px;
-      border: 1px solid #3d7cff;
-      background: linear-gradient(180deg, #5b8def 0%, #3d6fd4 100%);
+      border-radius: 6px;
+      border: 1px solid transparent;
+      background: linear-gradient(135deg, var(--rip-primary-from), var(--rip-primary-to));
       color: #fff;
       font-size: 10px;
-      font-weight: 800;
+      font-weight: 600;
       letter-spacing: 0.01em;
       line-height: 1.15;
       cursor: pointer;
       pointer-events: auto;
       width: 100%;
       box-sizing: border-box;
-      box-shadow: 0 1px 2px rgba(0,0,0,0.45);
-      text-shadow: 0 1px 1px rgba(0,0,0,0.35);
+      box-shadow:
+        0 0 0 1px color-mix(in srgb, var(--rip-primary-from) 35%, transparent),
+        0 1px 2px rgba(0,0,0,0.35);
     }
     .itemHolder .rip-item-sell:hover {
-      filter: brightness(1.08);
-      border-color: #7aa6ff;
+      filter: brightness(1.06);
     }
     .itemHolder .rip-item-sell--muted {
-      background: rgba(60, 64, 74, 0.95);
-      border-color: #4a4f5a;
-      color: #d0d4dc;
+      background: rgba(30, 41, 59, 0.95);
+      border-color: rgba(255, 255, 255, 0.1);
+      color: var(--rip-muted);
       box-shadow: none;
+      font-weight: 600;
     }
     .itemHolder .rip-item-sell--link {
       text-decoration: none !important;
@@ -638,54 +772,36 @@ function ensureStyles(): void {
       pointer-events: auto;
       width: 18px;
       height: 18px;
-      accent-color: #5b8def;
+      accent-color: var(--rip-primary-to);
       cursor: pointer;
     }
     .itemHolder[data-rip-bulk-selected="1"] {
-      outline: 2px solid #5b8def;
+      outline: 2px solid var(--rip-link);
       outline-offset: -2px;
     }
     .itemHolder[data-rip-bulk-selected="1"] .${OVERLAY_CLASS} {
-      box-shadow: inset 0 0 0 1px rgba(91, 141, 239, 0.55);
+      box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--rip-link) 45%, transparent);
     }
 
     #${HOST_ID} .rip-inv-draft-chip {
       display: inline-flex;
       align-items: center;
       gap: 6px;
-      padding: 4px 8px;
+      padding: 5px 10px;
       border-radius: 999px;
-      background: #1e293b;
-      border: 1px solid #334155;
-      color: #93c5fd;
+      background: rgba(15, 23, 42, 0.9);
+      border: 1px solid rgba(125, 211, 252, 0.28);
+      color: var(--rip-link);
       font-size: 11px;
       font-weight: 600;
     }
     #${HOST_ID} .rip-inv-draft-chip button {
       border: 0;
       background: transparent;
-      color: #94a3b8;
+      color: var(--rip-muted);
       cursor: pointer;
       font-size: 11px;
       padding: 0;
-    }
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      padding: 8px 12px;
-      border-radius: 8px;
-      border: 1px solid #3a4250;
-      background: #1a2030;
-      color: #e8e8e8;
-      font-weight: 600;
-      font-size: 12px;
-      cursor: pointer;
-      white-space: nowrap;
-    }
-    #${HOST_ID} .rip-inv-bulk-toggle[data-active="1"] {
-      background: #5b8def;
-      border-color: #5b8def;
-      color: #fff;
     }
 
     #${HOST_ID} .rip-inv-coach {
@@ -864,42 +980,48 @@ function ensureStyles(): void {
       flex-wrap: wrap;
       gap: 8px 10px;
       align-items: center;
-      padding: 10px 12px;
-      border-radius: 12px;
-      background: #12161e;
-      border: 1px solid #2f3542;
-      color: #e8e8e8;
-      font-family: "Segoe UI", system-ui, sans-serif;
+      padding: 12px 14px;
+      border-radius: 14px;
+      background: rgba(24, 28, 38, 0.96);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      color: #f4f4f5;
+      font-family: "Segoe UI", system-ui, -apple-system, sans-serif;
       font-size: 13px;
-      box-shadow: 0 12px 32px rgba(0, 0, 0, 0.45);
-      max-width: min(640px, calc(100vw - 24px));
+      box-shadow: 0 14px 36px rgba(0, 0, 0, 0.5);
+      max-width: min(680px, calc(100vw - 24px));
+      backdrop-filter: blur(8px);
     }
     #${BULK_BAR_ID} .rip-bulk-count {
-      font-weight: 700;
-      color: #8eb7ff;
+      font-weight: 750;
+      color: #7dd3fc;
     }
     #${BULK_BAR_ID} .rip-bulk-meta {
-      color: #a8adb8;
+      color: #94a3b8;
       font-size: 12px;
+      max-width: 280px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
     }
     #${BULK_BAR_ID} .rip-bulk-btn {
       display: inline-flex;
       align-items: center;
       justify-content: center;
       padding: 8px 12px;
-      border-radius: 8px;
+      border-radius: 9px;
       border: none;
       font-size: 12px;
-      font-weight: 600;
+      font-weight: 650;
       cursor: pointer;
     }
     #${BULK_BAR_ID} .rip-bulk-btn--primary {
-      background: #5b8def;
+      background: linear-gradient(135deg, #0284c7, #2563eb);
       color: #fff;
     }
     #${BULK_BAR_ID} .rip-bulk-btn--secondary {
-      background: #2a303c;
-      color: #e8e8e8;
+      background: rgba(15, 23, 42, 0.85);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      color: #e2e8f0;
     }
     #${BULK_BAR_ID} .rip-bulk-btn:disabled {
       opacity: 0.55;
@@ -913,17 +1035,52 @@ function ensureStyles(): void {
       display: flex;
       align-items: center;
       justify-content: center;
-      background: rgba(0, 0, 0, 0.55);
-      font-family: "Segoe UI", system-ui, sans-serif;
+      background: rgba(11, 13, 18, 0.72);
+      font-family: "Segoe UI", system-ui, -apple-system, sans-serif;
+      backdrop-filter: blur(2px);
     }
     #${SELL_PANEL_ID} .rip-sell-card {
-      width: min(400px, calc(100vw - 24px));
-      background: #12161e;
-      border: 1px solid #2f3542;
+      width: min(440px, calc(100vw - 24px));
+      background:
+        linear-gradient(160deg, rgba(2, 132, 199, 0.1), transparent 40%),
+        rgba(24, 28, 38, 0.98);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 16px;
+      padding: 18px;
+      color: #f4f4f5;
+      box-shadow: 0 20px 48px rgba(0, 0, 0, 0.55);
+    }
+    #${SELL_PANEL_ID} .rip-sell-eyebrow {
+      margin: 0 0 6px;
+      font-size: 11px;
+      font-weight: 650;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      color: #7dd3fc;
+    }
+    #${SELL_PANEL_ID} .rip-sell-name-list {
+      list-style: none;
+      margin: 0 0 12px;
+      padding: 10px 12px;
       border-radius: 12px;
-      padding: 16px;
-      color: #e8e8e8;
-      box-shadow: 0 16px 40px rgba(0, 0, 0, 0.45);
+      background: rgba(15, 23, 42, 0.72);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      display: grid;
+      gap: 6px;
+      max-height: 168px;
+      overflow: auto;
+    }
+    #${SELL_PANEL_ID} .rip-sell-name-list li {
+      margin: 0;
+      font-size: 12.5px;
+      line-height: 1.35;
+      color: #e2e8f0;
+      word-break: break-word;
+    }
+    #${SELL_PANEL_ID} .rip-sell-name-more {
+      margin: -4px 0 12px;
+      font-size: 11px;
+      color: #94a3b8;
     }
     #${SELL_PANEL_ID} .rip-sell-hero {
       display: flex;
@@ -934,18 +1091,18 @@ function ensureStyles(): void {
     #${SELL_PANEL_ID} .rip-sell-thumb {
       width: 72px;
       height: 72px;
-      border-radius: 8px;
+      border-radius: 10px;
       object-fit: contain;
-      background: #0d1016;
-      border: 1px solid #2f3542;
+      background: #0b0d12;
+      border: 1px solid rgba(255, 255, 255, 0.08);
       flex-shrink: 0;
     }
     #${SELL_PANEL_ID} .rip-sell-thumb-ph {
       width: 72px;
       height: 72px;
-      border-radius: 8px;
-      background: #0d1016;
-      border: 1px dashed #3a4250;
+      border-radius: 10px;
+      background: #0b0d12;
+      border: 1px dashed rgba(255, 255, 255, 0.12);
       flex-shrink: 0;
     }
     #${SELL_PANEL_ID} .rip-sell-hero-text {
@@ -954,13 +1111,13 @@ function ensureStyles(): void {
     }
     #${SELL_PANEL_ID} .rip-sell-title {
       margin: 0 0 4px;
-      font-size: 16px;
-      font-weight: 700;
-      color: #8eb7ff;
+      font-size: 17px;
+      font-weight: 750;
+      color: #7dd3fc;
     }
     #${SELL_PANEL_ID} .rip-sell-item {
       margin: 0;
-      color: #a8adb8;
+      color: #94a3b8;
       font-size: 13px;
       line-height: 1.35;
       word-break: break-word;
@@ -1055,12 +1212,16 @@ function ensureStyles(): void {
       cursor: wait;
     }
     #${SELL_PANEL_ID} .rip-sell-btn--primary {
-      background: #5b8def;
+      background: linear-gradient(135deg, #0284c7, #2563eb);
       color: #fff;
     }
     #${SELL_PANEL_ID} .rip-sell-btn--secondary {
-      background: #2a303c;
-      color: #e8e8e8;
+      background: rgba(15, 23, 42, 0.9);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      color: #e2e8f0;
+    }
+    #${SELL_PANEL_ID} .rip-sell-preview strong {
+      color: #86efac;
     }
     #${SELL_PANEL_ID} .rip-sell-success {
       margin: 0 0 12px;
@@ -1452,8 +1613,9 @@ function renderOverlayHtml(
     connected: boolean;
   },
 ): string {
+  // Status only — brand lives in the host bar, not on every cell.
   const badges = view.badges
-    .slice(0, 3)
+    .slice(0, 2)
     .map((badge) => {
       const href =
         badge.kind === 'listed'
@@ -1476,8 +1638,8 @@ function renderOverlayHtml(
   const meta = view.metaLine
     ? `<div class="rip-item-meta">${escapeHtml(view.metaLine)}</div>`
     : '';
-  const pricePrimary = view.pricePrimary
-    ? `<div class="rip-item-price">${escapeHtml(view.pricePrimary)}</div>`
+  const priceCompact = view.priceCompact
+    ? `<div class="rip-item-price">${escapeHtml(view.priceCompact)}</div>`
     : '';
   const priceSecondary = view.priceSecondary
     ? `<div class="rip-item-price-sub">${escapeHtml(view.priceSecondary)}</div>`
@@ -1486,8 +1648,14 @@ function renderOverlayHtml(
     ? `<div class="rip-item-price-net">${escapeHtml(view.priceNet)}</div>`
     : '';
   const priceBid =
-    view.priceBid && view.pricePrimary !== view.priceBid
+    view.priceBid && view.priceCompact !== view.priceBid
       ? `<div class="rip-item-price-bid">${escapeHtml(view.priceBid)}</div>`
+      : '';
+
+  const detailParts = [meta, priceSecondary, priceBid, priceNet].filter(Boolean);
+  const detail =
+    detailParts.length > 0
+      ? `<div class="rip-item-detail">${detailParts.join('')}</div>`
       : '';
 
   const selectBox =
@@ -1508,16 +1676,14 @@ function renderOverlayHtml(
     }
   }
 
-  // Brand chip when Steam enrichment has not arrived yet — card still reads as ours.
-  const brandChip =
-    badges.length === 0
-      ? `<span class="rip-item-badge rip-item-badge--accent">R.I.P</span>`
-      : '';
+  const badgesBlock = badges
+    ? `<div class="rip-item-badges">${badges}</div>`
+    : `<div class="rip-item-badges" aria-hidden="true"></div>`;
 
   return `
     ${selectBox}
-    <div class="rip-item-badges">${brandChip}${badges}</div>
-    <div class="rip-item-footer">${wear}${meta}${pricePrimary}${priceBid}${priceSecondary}${priceNet}${sellCta}</div>
+    ${badgesBlock}
+    <div class="rip-item-footer">${wear}${priceCompact}${detail}${sellCta}</div>
   `;
 }
 
@@ -1866,7 +2032,7 @@ async function submitSellFromPanel(
       return;
     }
 
-    void recordTwoMinuteFirstList();
+    void recordTwoMinuteFirstList().catch(() => undefined);
 
     if (sellDraftPriceByAsset?.assetId === ctx.assetId) {
       sellDraftPriceByAsset = null;
@@ -2374,7 +2540,7 @@ async function renderHostBar(): Promise<void> {
   }
   lastSiteSafeMode = siteLinkSafeMode;
   if (connected && !extensionContextInvalidated) {
-    void recordTwoMinuteInventoryVisit();
+    void recordTwoMinuteInventoryVisit().catch(() => undefined);
   }
   const view = resolveInventoryLayerView({
     connected: connected && !extensionContextInvalidated,
@@ -2408,9 +2574,11 @@ async function renderHostBar(): Promise<void> {
     locale,
   });
   const coach = resolveCoachMarkView({ state: onboardingState, locale });
-  const twoMinState = await getTwoMinuteOnboardingState();
+  const twoMinState = extensionContextInvalidated
+    ? defaultTwoMinuteOnboardingState()
+    : await getTwoMinuteOnboardingState();
   const trial = resolveTrialListHintView({
-    connected,
+    connected: connected && !extensionContextInvalidated,
     checklistReady: checklist.allReady,
     state: twoMinState,
     locale,
@@ -2437,7 +2605,7 @@ async function renderHostBar(): Promise<void> {
 
   const bulkToggle = connected && !lastSiteSafeMode
     ? `<button type="button" class="rip-inv-bulk-toggle" data-rip-bulk-toggle data-active="${bulkMode ? '1' : '0'}">${
-        bulkMode ? 'Мульти: вкл' : 'Множественная продажа'
+        bulkMode ? 'Мультивыбор · вкл' : 'Выбрать несколько'
       }</button>`
     : '';
 
@@ -2452,7 +2620,7 @@ async function renderHostBar(): Promise<void> {
     connected && !extensionContextInvalidated && !lastSiteSafeMode
       ? `<button type="button" class="rip-inv-cta-secondary" data-rip-browser-assist ${
           browserAssistBusy ? 'disabled' : ''
-        }>${browserAssistBusy ? 'Обновляем сайт…' : 'Обновить сайт из вкладки'}</button>`
+        }>${browserAssistBusy ? 'Синхронизация…' : 'Синхронизировать с сайтом'}</button>`
       : '';
 
   const coachHtml = coach.visible
@@ -2542,14 +2710,21 @@ async function renderHostBar(): Promise<void> {
     ${coachHtml}
     ${trialHtml}
     <div class="rip-inv-bar" data-connection="${view.connection}">
-      <span class="rip-inv-brand">${escapeHtml(view.title)}</span>
+      <div class="rip-inv-bar-top">
+        <div class="rip-inv-identity">
+          <span class="rip-inv-brand">${escapeHtml(view.title)}</span>
+          <span class="rip-inv-status" data-connection="${view.connection}">${escapeHtml(view.statusLabel)}</span>
+        </div>
+        <span class="rip-inv-meta">на экране · ${view.itemHolderCount}</span>
+      </div>
       <p class="rip-inv-body">${escapeHtml(view.body)}</p>
-      <span class="rip-inv-meta">на экране: ${view.itemHolderCount}</span>
-      ${draftChip}
-      ${bulkToggle}
-      ${browserAssistBtn}
-      <a class="rip-inv-cta" href="${escapeHtml(view.ctaHref)}" target="_blank" rel="noreferrer">${escapeHtml(view.ctaLabel)}</a>
-      ${secondaryCtaHtml}
+      <div class="rip-inv-bar-actions">
+        ${draftChip}
+        ${bulkToggle}
+        ${browserAssistBtn}
+        <a class="rip-inv-cta" href="${escapeHtml(view.ctaHref)}" target="_blank" rel="noreferrer">${escapeHtml(view.ctaLabel)}</a>
+        ${secondaryCtaHtml}
+      </div>
       ${reloadHtml}
       ${steamWarnHtml}
     </div>
@@ -2598,7 +2773,9 @@ async function renderHostBar(): Promise<void> {
   host
     .querySelector('[data-rip-trial-dismiss]')
     ?.addEventListener('click', () => {
-      void persistDismissTrialListHint().then(() => scheduleHostRender());
+      void persistDismissTrialListHint()
+        .then(() => scheduleHostRender())
+        .catch(() => undefined);
     });
 
   host
@@ -2640,6 +2817,16 @@ function renderBulkBar(): void {
   const plan = planBulkSellOperations(collectBulkItemsFromSelection());
   const count = plan.selectedCount;
   const submitError = validateBulkSelectionForSubmit(plan.plannedCount);
+  const namePreview = formatBulkListingPreview(
+    plan.operations.flatMap((op) => op.items.map((entry) => entry.marketHashName)),
+    2,
+  );
+  const namesHint =
+    namePreview.lines.length > 0
+      ? namePreview.moreCount > 0
+        ? `${namePreview.lines.join(' · ')} · +${namePreview.moreCount}`
+        : namePreview.lines.join(' · ')
+      : plan.summaryLine || plan.modeLabel;
   let bar = document.getElementById(BULK_BAR_ID);
   if (!bar) {
     bar = document.createElement('div');
@@ -2648,7 +2835,7 @@ function renderBulkBar(): void {
   }
   bar.innerHTML = `
     <span class="rip-bulk-count">Выбрано: ${count}</span>
-    <span class="rip-bulk-meta">${escapeHtml(plan.summaryLine || plan.modeLabel)}</span>
+    <span class="rip-bulk-meta" title="${escapeHtml(namesHint)}">${escapeHtml(namesHint)}</span>
     <button type="button" class="rip-bulk-btn rip-bulk-btn--primary" data-rip-bulk-sell ${submitError ? 'disabled' : ''}>Выставить</button>
     <button type="button" class="rip-bulk-btn rip-bulk-btn--secondary" data-rip-bulk-clear>Очистить</button>
     <button type="button" class="rip-bulk-btn rip-bulk-btn--secondary" data-rip-bulk-exit>Выйти</button>
@@ -2692,12 +2879,26 @@ function openBulkSellPanel(): void {
       plan.operations.flatMap((op) => op.items.map((entry) => entry.marketHashName)),
     ),
   ];
+  const namePreview = formatBulkListingPreview(names, 8);
   const primaryName = names[0] ?? 'предметы';
   const hint =
     (primaryName && priceHintsCache?.byName[primaryName]) || null;
   const defaultMinor = resolveDefaultListPriceMinor(hint);
   const defaultValue =
     defaultMinor != null ? formatUsdInputFromMinor(defaultMinor) : '';
+  const namesListHtml =
+    namePreview.lines.length > 0
+      ? `<ul class="rip-sell-name-list" data-testid="rip-bulk-name-list">
+          ${namePreview.lines
+            .map((name) => `<li>${escapeHtml(name)}</li>`)
+            .join('')}
+        </ul>
+        ${
+          namePreview.moreCount > 0
+            ? `<p class="rip-sell-name-more">и ещё ${namePreview.moreCount}</p>`
+            : ''
+        }`
+      : '';
 
   const panel = document.createElement('div');
   panel.id = SELL_PANEL_ID;
@@ -2705,9 +2906,11 @@ function openBulkSellPanel(): void {
   panel.setAttribute('aria-modal', 'true');
   panel.innerHTML = `
     <div class="rip-sell-card">
+      <p class="rip-sell-eyebrow">R.I.P Market</p>
       <p class="rip-sell-title">Множественная продажа</p>
       <p class="rip-sell-item">${escapeHtml(String(plan.plannedCount))} шт · ${escapeHtml(plan.modeLabel)}</p>
       <p class="rip-sell-preview">${escapeHtml(plan.summaryLine)}</p>
+      ${namesListHtml}
       <label class="rip-sell-label" for="rip-sell-price">Цена за штуку ($)</label>
       <input id="rip-sell-price" class="rip-sell-input" type="text" inputmode="decimal" autocomplete="off" value="${escapeHtml(defaultValue)}" placeholder="0.00" />
       <p class="rip-sell-preview" data-rip-sell-commission></p>
@@ -2790,7 +2993,7 @@ async function submitBulkSellFromPanel(
     const created = response?.created ?? [];
     const failed = response?.failed ?? [];
     if (created.length > 0) {
-      void recordTwoMinuteFirstList();
+      void recordTwoMinuteFirstList().catch(() => undefined);
     }
     const progress = buildBulkProgress({
       total,

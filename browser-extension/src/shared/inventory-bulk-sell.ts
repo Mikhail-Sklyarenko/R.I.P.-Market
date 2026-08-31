@@ -56,6 +56,29 @@ export type BulkSellProgress = {
   label: string;
 };
 
+/** Unique skin names for confirm UI (cap list, show “и ещё N”). */
+export function formatBulkListingPreview(
+  names: string[],
+  maxVisible = 6,
+): { lines: string[]; moreCount: number; uniqueCount: number } {
+  const unique: string[] = [];
+  const seen = new Set<string>();
+  for (const raw of names) {
+    const name = raw.trim();
+    if (!name || seen.has(name)) {
+      continue;
+    }
+    seen.add(name);
+    unique.push(name);
+  }
+  const lines = unique.slice(0, Math.max(1, maxVisible));
+  return {
+    lines,
+    moreCount: Math.max(0, unique.length - lines.length),
+    uniqueCount: unique.length,
+  };
+}
+
 /** Same rules as backend `isFungibleInventoryAsset` (float/seed/wear block bulk). */
 export function isFungibleSteamFacts(
   steam: Pick<BulkSellSteamFacts, 'floatValue' | 'paintSeed' | 'wear'>,

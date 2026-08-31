@@ -10,6 +10,7 @@ const isolatedScriptEntries = [
   'content/trade-offers-list-bridge',
   'content/inventory-bridge',
   'page-scripts/trade-offer-ui',
+  'page-scripts/inventory-enrichment',
 ] as const;
 
 async function bundleIsolatedScripts(): Promise<void> {
@@ -33,6 +34,10 @@ export default defineConfig({
   build: {
     outDir: 'dist',
     emptyOutDir: true,
+    // MV3 service workers have no `window`/`document`. Vite's modulepreload
+    // helper uses both and surfaces as "window is not defined" on pair.
+    modulePreload: false,
+    target: 'chrome109',
     rollupOptions: {
       input: {
         'background/service-worker': resolve(

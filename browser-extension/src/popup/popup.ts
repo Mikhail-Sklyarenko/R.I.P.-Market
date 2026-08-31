@@ -73,7 +73,8 @@ const buyerInboxEl = document.getElementById('buyer-inbox');
 const sellerTradesEl = document.getElementById('seller-trades');
 const recentReceiptsEl = document.getElementById('recent-receipts');
 const popupLeadEl = document.querySelector('.lead');
-const popupHintEl = document.querySelector('.hint');
+const popupHintEl = document.getElementById('pair-hint');
+const toolbarEl = document.getElementById('toolbar');
 const languageSelectEl = document.getElementById(
   'extension-locale',
 ) as HTMLSelectElement | null;
@@ -182,11 +183,22 @@ function renderConnection(connection: ConnectionDashboard): void {
   if (!connectionEl) {
     return;
   }
+  const showSteam =
+    Boolean(connection.steamLabel) &&
+    connection.steamLabel !== connection.detail &&
+    !(connection.tone === 'ok' && connection.steamAligned);
   connectionEl.className = `connection ${connection.tone}`;
   connectionEl.innerHTML = `
-    <p class="connection-title">${escapeHtml(connection.title)}</p>
-    <p class="connection-detail">${escapeHtml(connection.detail)}</p>
-    <p class="connection-steam">${escapeHtml(connection.steamLabel)}</p>
+    <span class="connection-dot" aria-hidden="true"></span>
+    <div class="connection-copy">
+      <p class="connection-title">${escapeHtml(connection.title)}</p>
+      <p class="connection-detail">${escapeHtml(connection.detail)}</p>
+      ${
+        showSteam
+          ? `<p class="connection-steam">${escapeHtml(connection.steamLabel)}</p>`
+          : ''
+      }
+    </div>
   `;
 }
 
@@ -570,9 +582,9 @@ async function loadTrades(): Promise<TradeVerificationResult[]> {
   return cached.trades ?? [];
 }
 
-async function renderTwoMinuteOnboarding(connected: boolean): Promise<void> {
+async function renderTwoMinuteOnboarding(connected: boolean): Promise<boolean> {
   if (!twoMinEl) {
-    return;
+    return false;
   }
   const stored = await getTwoMinuteOnboardingState();
   const state = withAutoComplete(stored, connected);
@@ -587,7 +599,7 @@ async function renderTwoMinuteOnboarding(connected: boolean): Promise<void> {
   if (!view.visible) {
     twoMinEl.hidden = true;
     twoMinEl.innerHTML = '';
-    return;
+    return false;
   }
   twoMinEl.hidden = false;
   twoMinEl.innerHTML = twoMinuteOnboardingHtml(view, escapeHtml);
@@ -603,6 +615,7 @@ async function renderTwoMinuteOnboarding(connected: boolean): Promise<void> {
     ?.addEventListener('click', () => {
       void persistDismissTwoMinuteWizard().then(() => render());
     });
+  return true;
 }
 
 async function handleTwoMinutePrimary(kind: string): Promise<void> {
@@ -766,6 +779,9 @@ async function applyChromeLocale(): Promise<void> {
   if (advancedSummary) {
     advancedSummary.textContent = t('popup.advanced');
   }
+  document.querySelectorAll('.advanced-block-title').forEach((el, index) => {
+    el.textContent = index === 0 ? t('popup.healthTitle') : t('popup.trustTitle');
+  });
   const quietLabel = document.querySelector('label[for="quiet-notify-enabled"]');
   if (quietLabel) {
     const input = quietLabel.querySelector('input');
@@ -851,6 +867,9 @@ async function render(): Promise<void> {
   disconnectBtn.hidden = !status.connected;
   refreshTradesBtn.hidden = !status.connected;
   activePaired = Boolean(status.connected);
+  if (popupHintEl) {
+    popupHintEl.hidden = status.connected;
+  }
 
   const home = buildHomeDashboard({
     connected: status.connected,
@@ -859,7 +878,9 @@ async function render(): Promise<void> {
     trades,
     locale: activeLocale,
   });
-  await renderTwoMinuteOnboarding(status.connected);
+  const wizardVisible = await renderTwoMinuteOnboarding(status.connected);
+  toolbarEl?.classList.toggle('toolbar--wizard', wizardVisible);
+  toolbarEl?.classList.toggle('toolbar--paired', status.connected);
   renderSafeModeBanner();
   renderHome(home);
   renderOpsHealth(opsView);

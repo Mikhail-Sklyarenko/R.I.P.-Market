@@ -4,6 +4,7 @@ import {
   formatTradeLockLabel,
   parseAssetIdFromItemElementId,
   parseWearFromMarketHashName,
+  queryCs2InventoryItemByAssetId,
   readSteamIdFromDocumentHtml,
   resolveInventoryBadges,
   resolveInventoryPageSteamId,
@@ -28,6 +29,25 @@ describe('inventory-item-enrichment', () => {
     );
     expect(parseAssetIdFromItemElementId('730_2_111')).toBe('111');
     expect(parseAssetIdFromItemElementId('tradeofferid_1')).toBeNull();
+  });
+
+  it('finds items by asset id including digit-start Steam ids', () => {
+    document.body.innerHTML = `
+      <div class="item" id="item730_2_27123456789"></div>
+      <div class="item" id="730_2_50586843203"></div>
+      <div class="item" id="730_16_50620546465"></div>
+    `;
+    expect(queryCs2InventoryItemByAssetId(document, '27123456789')?.id).toBe(
+      'item730_2_27123456789',
+    );
+    expect(queryCs2InventoryItemByAssetId(document, '50586843203')?.id).toBe(
+      '730_2_50586843203',
+    );
+    expect(queryCs2InventoryItemByAssetId(document, '50620546465')?.id).toBe(
+      '730_16_50620546465',
+    );
+    expect(queryCs2InventoryItemByAssetId(document, 'missing')).toBeNull();
+    expect(queryCs2InventoryItemByAssetId(document, '  ')).toBeNull();
   });
 
   it('reads steam id from page html', () => {
@@ -105,6 +125,7 @@ describe('inventory-item-enrichment', () => {
     expect(view.metaLine).toContain('FT');
     expect(view.metaLine).toContain('seed 661');
     expect(view.pricePrimary).toBe('R.I.P ~$19.00');
+    expect(view.priceCompact).toBe('~$19.00');
     expect(view.priceNet).toContain('вам');
   });
 });
