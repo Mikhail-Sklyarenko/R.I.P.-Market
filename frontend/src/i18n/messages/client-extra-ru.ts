@@ -735,6 +735,9 @@ export const clientExtraRu = {
       'У покупателя не указан Trade URL. Попросите добавить его в настройках аккаунта.',
     instructionsTitle: 'Инструкция',
     tradeOfferInputLabel: 'Ссылка или ID trade offer',
+    offerLinkPromptTitle: 'Уже отправили обмен в Steam?',
+    offerLinkPromptBody:
+      'Если offer уже ушёл (в том числе после Guard), вставьте его ID или ссылку — покупатель увидит «Сделка R.I.P» вместо «не наша сделка».',
     savingTrade: 'Сохраняем…',
     saveOffer: 'Сохранить предложение',
     offerLabel: 'Предложение обмена:',

@@ -76,6 +76,12 @@ export function OrderTradeSellerPanel({
     !needsManualFallback;
   const showManualForm = (!extensionHandling || !hasOfferSaved) && !isDeliveryCheck;
   const showPrimaryManual = needsManualFallback && showManualForm && !hasOfferSaved;
+  const showOfferLinkPrompt =
+    extensionMode &&
+    !hasOfferSaved &&
+    !isDeliveryCheck &&
+    !showPrimaryManual &&
+    Boolean(extensionHandling || needsManualFallback);
   const itemMarketHashName =
     order.lot.inventoryAsset.itemDefinition.marketHashName ?? null;
 
@@ -157,6 +163,35 @@ export function OrderTradeSellerPanel({
           {t('orderTradePanel.waitingMessage')}
         </p>
       )}
+
+      {showOfferLinkPrompt ? (
+        <div
+          className="seller-offer-link-prompt"
+          data-testid="seller-offer-link-prompt"
+        >
+          <strong>{t('orderTradePanel.offerLinkPromptTitle')}</strong>
+          <p className="muted small">{t('orderTradePanel.offerLinkPromptBody')}</p>
+          <label className="field">
+            <span className="field-label">{t('orderTradePanel.tradeOfferInputLabel')}</span>
+            <input
+              type="text"
+              value={offerInput}
+              onChange={(event) => onOfferInputChange(event.target.value)}
+              placeholder="9336569013 или https://steamcommunity.com/tradeoffer/…"
+              data-testid="trade-offer-input-prominent"
+            />
+          </label>
+          <button
+            type="button"
+            className="button primary"
+            disabled={savingOffer || !offerInput.trim()}
+            data-testid="save-trade-offer-prominent"
+            onClick={onSaveTradeReference}
+          >
+            {savingOffer ? t('orderTradePanel.savingTrade') : t('orderTradePanel.saveOffer')}
+          </button>
+        </div>
+      ) : null}
 
       <ItemPreview
         item={order.lot.inventoryAsset}

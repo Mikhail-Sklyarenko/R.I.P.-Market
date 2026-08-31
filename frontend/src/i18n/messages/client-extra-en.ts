@@ -721,6 +721,9 @@ export const clientExtraEn = {
     buyerTradeUrlMissing: "The buyer hasn't set a Trade URL. Ask them to add it in account settings.",
     instructionsTitle: 'Instructions',
     tradeOfferInputLabel: 'Trade offer link or ID',
+    offerLinkPromptTitle: 'Already sent the trade in Steam?',
+    offerLinkPromptBody:
+      'If the offer is already out (including after Guard), paste its ID or link so the buyer sees “R.I.P deal” instead of “not our trade”.',
     savingTrade: 'Saving…',
     saveOffer: 'Save offer',
     offerLabel: 'Trade offer:',

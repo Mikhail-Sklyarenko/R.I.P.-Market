@@ -88,6 +88,10 @@ import {
   recordInterceptedOffer,
   TRADE_OFFER_INTERCEPTED_MESSAGE,
 } from '../shared/trade-offer-sent-cache.js';
+import {
+  flushPendingOfferLinks,
+  tryLinkCapturedOffer,
+} from '../shared/offer-link-recovery.js';
 import { loadCs2InventoryFromCookies } from '../shared/steam-cookie-client.js';
 import {
   buildPlatformFactsMap,
@@ -474,6 +478,58 @@ async function buildAuthenticatedClient(): Promise<{
   return { client, state: freshState };
 }
 
+async function runPendingOfferLinkRecovery(
+  client: ExtensionApiClient,
+  trades: TradeVerificationResult[],
+): Promise<void> {
+  const gate = await assertSiteMutationsAllowed();
+  if (!gate.ok) {
+    return;
+  }
+
+  const result = await flushPendingOfferLinks({ client, trades });
+  if (result?.linked) {
+    await pollActiveTrades({ force: true });
+  }
+}
+
+async function runOfferLinkAfterCapture(params: {
+  offerId: string;
+  assetId?: string;
+  buyerTradeUrl?: string;
+  source: 'intercept' | 'manual_create';
+}): Promise<void> {
+  const gate = await assertSiteMutationsAllowed();
+  if (!gate.ok) {
+    return;
+  }
+
+  const auth = await buildAuthenticatedClient();
+  if (!auth) {
+    return;
+  }
+
+  let trades = await getActiveTradesCache().then((cache) => cache?.trades ?? []);
+  if (trades.length === 0) {
+    trades = await pollActiveTrades({ force: true });
+  }
+
+  const result = await tryLinkCapturedOffer({
+    client: auth.client,
+    trades,
+    offer: {
+      offerId: params.offerId,
+      assetId: params.assetId ?? null,
+      buyerTradeUrl: params.buyerTradeUrl ?? null,
+    },
+    source: params.source,
+  });
+
+  if (result.linked) {
+    await pollActiveTrades({ force: true });
+  }
+}
+
 export async function pollActiveTrades(options?: {
   force?: boolean;
 }): Promise<TradeVerificationResult[]> {
@@ -533,6 +589,9 @@ export async function pollActiveTrades(options?: {
     });
     void syncPollSchedule({ trades }).catch((error) => {
       console.warn('[rip-market] poll schedule sync failed', error);
+    });
+    void runPendingOfferLinkRecovery(auth.client, trades).catch((error) => {
+      console.warn('[rip-market] offer link recovery failed', error);
     });
     return trades;
   } catch (error) {
@@ -1607,37 +1666,56 @@ async function manualCreateOfferFromRuntime(orderId: string): Promise<{
     return { ok: false, error: sent.message || sent.code };
   }
 
-  // Best-effort: ack + try to advance an existing create_offer task to OFFER_SENT.
+  // Best-effort: link offer to order (primary) + task progress fallback.
   try {
     const auth = await buildAuthenticatedClient();
     if (auth) {
+      let trades = await getActiveTradesCache().then((cache) => cache?.trades ?? []);
+      if (trades.length === 0) {
+        trades = await pollActiveTrades({ force: true });
+      }
+
+      const linked = await tryLinkCapturedOffer({
+        client: auth.client,
+        trades,
+        offer: {
+          offerId: sent.offerId,
+          assetId: candidate.assetId,
+          buyerTradeUrl: candidate.buyerTradeUrl,
+        },
+        source: 'manual_create',
+      });
+
+      if (!linked.linked) {
+        try {
+          const tasks = await auth.client.pollTasks(10);
+          const task = tasks.find((entry) => entry.orderId === candidate.orderId);
+          if (task) {
+            await auth.client.reportTaskProgress({
+              taskId: task.id,
+              phase: 'OFFER_SENT',
+              idempotencyKey: `progress:${task.id}:OFFER_SENT:manual`,
+              offerId: sent.offerId,
+              details: {
+                source: 'manual_create',
+                confirmPending: Boolean(sent.confirmPending),
+              },
+            });
+          }
+        } catch (error) {
+          console.warn('[rip-market] manual create task progress failed', error);
+        }
+      }
+
       await auth.client.acknowledgeTrade({
         orderId: candidate.orderId,
         type: 'SELLER_ACK_SENT',
         offerId: sent.offerId,
         idempotencyKey: `ack:${candidate.orderId}:SELLER_ACK_SENT:manual`,
-      });
-      try {
-        const tasks = await auth.client.pollTasks(10);
-        const task = tasks.find((entry) => entry.orderId === candidate.orderId);
-        if (task) {
-          await auth.client.reportTaskProgress({
-            taskId: task.id,
-            phase: 'OFFER_SENT',
-            idempotencyKey: `progress:${task.id}:OFFER_SENT:manual`,
-            offerId: sent.offerId,
-            details: {
-              source: 'manual_create',
-              confirmPending: Boolean(sent.confirmPending),
-            },
-          });
-        }
-      } catch {
-        // Linking via task is best-effort; order page paste remains available.
-      }
+      }).catch(() => undefined);
     }
-  } catch {
-    // Ack failure should not hide a successful Steam send.
+  } catch (error) {
+    console.warn('[rip-market] manual create offer link failed', error);
   }
 
   await pollActiveTrades().catch(() => undefined);
@@ -2016,7 +2094,19 @@ function handleTradeVerificationRuntimeMessage(
         : undefined,
       draftId: message.draftId ? String(message.draftId) : undefined,
     })
-      .then((cached) => sendResponse({ ok: Boolean(cached), offerId: cached?.offerId }))
+      .then(async (cached) => {
+        if (cached?.offerId) {
+          await runOfferLinkAfterCapture({
+            offerId: cached.offerId,
+            assetId: cached.assetId,
+            buyerTradeUrl: message.buyerTradeUrl
+              ? String(message.buyerTradeUrl)
+              : undefined,
+            source: 'intercept',
+          });
+        }
+        sendResponse({ ok: Boolean(cached), offerId: cached?.offerId });
+      })
       .catch(() => sendResponse({ ok: false }));
     return true;
   }
@@ -2183,6 +2273,10 @@ async function pollAndProcessTasksInner(): Promise<void> {
       processingTasks.delete(task.id);
     }
   }
+
+  void pollActiveTrades({ force: true }).catch((error) => {
+    console.warn('[rip-market] post-task active trades refresh failed', error);
+  });
 }
 
 export async function sendHeartbeat(): Promise<void> {

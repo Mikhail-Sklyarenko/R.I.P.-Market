@@ -150,6 +150,24 @@ export class ExtensionTradeTaskService {
           { executionPhase: null },
           { executionPhase: TradeTaskExecutionPhase.ACKED },
           { executionPhase: TradeTaskExecutionPhase.OFFER_DRAFTED },
+          {
+            AND: [
+              {
+                executionPhase: {
+                  in: [
+                    TradeTaskExecutionPhase.CONFIRM_PENDING,
+                    TradeTaskExecutionPhase.OFFER_SUBMITTED,
+                    TradeTaskExecutionPhase.ITEM_SELECTED,
+                  ],
+                },
+              },
+              {
+                order: {
+                  tradeOperation: { externalOfferId: null },
+                },
+              },
+            ],
+          },
         ],
         expiresAt: { gt: now },
         AND: [
@@ -256,7 +274,23 @@ export class ExtensionTradeTaskService {
         },
       },
     });
+
+    const task = await this.prisma.tradeTask.findUnique({
+      where: { id: params.taskId },
+    });
+
     if (existing) {
+      if (
+        existing.phase === TradeTaskExecutionPhase.OFFER_SENT &&
+        params.phase === TradeTaskExecutionPhase.OFFER_SENT &&
+        task
+      ) {
+        await this.ensureOfferLinkedAfterSent({
+          taskId: task.id,
+          orderId: task.orderId,
+          offerId: params.offerId,
+        });
+      }
       return {
         ok: true,
         phase: existing.phase,
@@ -264,9 +298,6 @@ export class ExtensionTradeTaskService {
       };
     }
 
-    const task = await this.prisma.tradeTask.findUnique({
-      where: { id: params.taskId },
-    });
     if (!task) {
       throw new AppException(
         ErrorCode.EXTENSION_TASK_NOT_FOUND,
@@ -837,6 +868,43 @@ export class ExtensionTradeTaskService {
     }
 
     return { assetId, floatValue };
+  }
+
+  /**
+   * OFFER_SENT can commit while reconcile fails; idempotent retries must re-link.
+   */
+  private async ensureOfferLinkedAfterSent(params: {
+    taskId: string;
+    orderId: string;
+    offerId?: string | null;
+  }): Promise<void> {
+    const offerId = params.offerId?.trim();
+    if (!offerId || !isValidSteamOfferId(offerId)) {
+      return;
+    }
+
+    const order = await this.prisma.order.findUnique({
+      where: { id: params.orderId },
+      select: {
+        sellerId: true,
+        tradeOperation: { select: { externalOfferId: true } },
+      },
+    });
+    if (!order?.sellerId) {
+      return;
+    }
+    if (order.tradeOperation?.externalOfferId === offerId) {
+      return;
+    }
+
+    await this.tradeReferenceReconcileService.reconcile({
+      orderId: params.orderId,
+      sellerId: order.sellerId,
+      offerId,
+      idempotencyKey: `task-offer-sent:${params.taskId}:${offerId}`,
+      source: 'EXTENSION',
+      actorUserId: order.sellerId,
+    });
   }
 
   private ensurePhaseTransition(

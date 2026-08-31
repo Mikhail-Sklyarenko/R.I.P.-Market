@@ -3,20 +3,54 @@ import { describe, it } from 'node:test';
 import { isSellerManualFallbackNeeded } from './manual-fallback.ts';
 
 describe('isSellerManualFallbackNeeded', () => {
-  it('is false while auto-offer is still in progress', () => {
+  it('is false while auto-offer is still drafting', () => {
     assert.equal(
       isSellerManualFallbackNeeded({
         status: 'WAITING_TRADE',
         tradeOperation: { externalOfferId: null },
         tradeTask: {
           status: 'IN_PROGRESS',
-          executionPhase: 'ITEM_SELECTED',
+          executionPhase: 'OFFER_DRAFTED',
           lastErrorCode: null,
           attemptCount: 1,
           maxAttempts: 5,
         },
       }),
       false,
+    );
+  });
+
+  it('is true while waiting for Steam Guard confirm', () => {
+    assert.equal(
+      isSellerManualFallbackNeeded({
+        status: 'WAITING_TRADE',
+        tradeOperation: { externalOfferId: null },
+        tradeTask: {
+          status: 'DISPATCHED',
+          executionPhase: 'CONFIRM_PENDING',
+          lastErrorCode: 'CONFIRM_PENDING',
+          attemptCount: 1,
+          maxAttempts: 5,
+        },
+      }),
+      true,
+    );
+  });
+
+  it('is true when task says OFFER_SENT but offer id missing on order', () => {
+    assert.equal(
+      isSellerManualFallbackNeeded({
+        status: 'WAITING_TRADE',
+        tradeOperation: { externalOfferId: null },
+        tradeTask: {
+          status: 'ACKED',
+          executionPhase: 'OFFER_SENT',
+          lastErrorCode: null,
+          attemptCount: 1,
+          maxAttempts: 5,
+        },
+      }),
+      true,
     );
   });
 

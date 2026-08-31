@@ -1,4 +1,4 @@
-import { TradeTaskStatus } from '@prisma/client';
+import { TradeTaskExecutionPhase, TradeTaskStatus } from '@prisma/client';
 import { ExtensionTradeTaskService } from './extension-trade-task.service';
 
 describe('ExtensionTradeTaskService', () => {
@@ -14,6 +14,7 @@ describe('ExtensionTradeTaskService', () => {
       create: jest.fn(),
     },
     tradeOperation: { update: jest.fn() },
+    order: { findUnique: jest.fn() },
     extensionSession: {
       findUnique: jest.fn(),
     },
@@ -90,18 +91,37 @@ describe('ExtensionTradeTaskService', () => {
     }
   });
 
-  it('marks task as ACKED idempotently', async () => {
+  it('re-reconciles offer on idempotent OFFER_SENT retry when still unlinked', async () => {
+    prisma.tradeTaskStatusEvent.findUnique.mockResolvedValue({
+      phase: TradeTaskExecutionPhase.OFFER_SENT,
+    });
     prisma.tradeTask.findUnique.mockResolvedValue({
       id: 'task-1',
-      status: TradeTaskStatus.DISPATCHED,
       orderId: 'order-1',
+      status: TradeTaskStatus.ACKED,
+      executionPhase: TradeTaskExecutionPhase.OFFER_SENT,
       tradeOperationId: 'trade-1',
+      attemptCount: 0,
+      maxAttempts: 5,
     });
-    await service.ackTask('task-1', { ok: true });
-    expect(prisma.tradeTask.update).toHaveBeenCalledWith(
+    prisma.order.findUnique.mockResolvedValue({
+      sellerId: 'seller-1',
+      tradeOperation: { externalOfferId: null },
+    });
+
+    const result = await service.reportTaskProgress({
+      taskId: 'task-1',
+      phase: TradeTaskExecutionPhase.OFFER_SENT,
+      idempotencyKey: 'progress:task-1:OFFER_SENT',
+      offerId: '9336569013',
+    });
+
+    expect(result.phase).toBe(TradeTaskExecutionPhase.OFFER_SENT);
+    expect(reconcile.reconcile).toHaveBeenCalledWith(
       expect.objectContaining({
-        where: { id: 'task-1' },
-        data: expect.objectContaining({ status: TradeTaskStatus.ACKED }),
+        orderId: 'order-1',
+        sellerId: 'seller-1',
+        offerId: '9336569013',
       }),
     );
   });

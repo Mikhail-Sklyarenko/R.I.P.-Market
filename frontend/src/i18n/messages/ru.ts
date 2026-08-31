@@ -976,6 +976,9 @@ const baseRuMessages = {
     floatLabel: 'Float',
     stickersLabel: 'Стикеры',
     tradeOfferInputLabel: 'Ссылка или ID trade offer',
+    offerLinkPromptTitle: 'Уже отправили обмен в Steam?',
+    offerLinkPromptBody:
+      'Если offer уже ушёл (в том числе после Guard), вставьте его ID или ссылку — покупатель увидит «Сделка R.I.P» вместо «не наша сделка».',
     waitingMessage: 'Отправьте trade offer покупателю и сохраните ссылку на предложение ниже.',
     yourStep: 'Ваш шаг',
   },

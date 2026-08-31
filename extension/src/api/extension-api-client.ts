@@ -220,6 +220,24 @@ export class ExtensionApiClient {
     });
   }
 
+  async submitTradeReference(params: {
+    orderId: string;
+    offerId: string;
+    idempotencyKey: string;
+  }): Promise<{
+    orderId: string;
+    externalOfferId: string;
+    applied: boolean;
+    idempotent: boolean;
+    disputed: boolean;
+  }> {
+    return this.signedPost(`/extension/orders/${params.orderId}/trade-reference`, {
+      orderId: params.orderId,
+      offerId: params.offerId,
+      idempotencyKey: params.idempotencyKey,
+    });
+  }
+
   private async signedPost<T>(
     path: string,
     payload: Record<string, unknown>,

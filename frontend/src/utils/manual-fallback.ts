@@ -17,6 +17,8 @@ export const PRIMARY_MANUAL_FALLBACK_ERROR_CODES = new Set([
   'SESSION_REVOKED',
 ]);
 
+export const STUCK_AUTO_SEND_PHASES = new Set(['CONFIRM_PENDING']);
+
 /**
  * True when the seller should be guided through the manual send path now
  * (not buried under “waiting for auto-send”).
@@ -52,6 +54,14 @@ export function isSellerManualFallbackNeeded(order: {
     return true;
   }
   if (task.executionPhase === 'OFFER_FAILED') {
+    return true;
+  }
+
+  const phase = task.executionPhase?.trim();
+  if (phase === 'OFFER_SENT' && !order.tradeOperation?.externalOfferId) {
+    return true;
+  }
+  if (phase && STUCK_AUTO_SEND_PHASES.has(phase)) {
     return true;
   }
 
