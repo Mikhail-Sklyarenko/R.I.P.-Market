@@ -72,7 +72,9 @@ EOF
 # rather than set once on the server block.
 echo "==> security header snippet ($HEADERS_SNIPPET)"
 mkdir -p "$(dirname "$HEADERS_SNIPPET")"
-cat >"$HEADERS_SNIPPET" <<'EOF'
+# Unquoted EOF: inject DOMAIN so connect-src allows apex + www (belt for any
+# client that still hits www before the canonical redirect).
+cat >"$HEADERS_SNIPPET" <<EOF
 # Managed by scripts/configure-nginx-staging.sh — do not edit by hand.
 # Include this in every location that sets add_header of its own.
 
@@ -83,7 +85,7 @@ add_header X-Content-Type-Options "nosniff" always;
 add_header X-Frame-Options "DENY" always;
 add_header Referrer-Policy "strict-origin-when-cross-origin" always;
 add_header Permissions-Policy "camera=(), microphone=(), geolocation=(), payment=()" always;
-add_header Content-Security-Policy "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https://*.steamstatic.com; font-src 'self' data:; connect-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self' https://steamcommunity.com; frame-ancestors 'none'; upgrade-insecure-requests" always;
+add_header Content-Security-Policy "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https://*.steamstatic.com; font-src 'self' data:; connect-src 'self' https://${DOMAIN} https://www.${DOMAIN}; object-src 'none'; base-uri 'self'; form-action 'self' https://steamcommunity.com; frame-ancestors 'none'; upgrade-insecure-requests" always;
 EOF
 
 echo "==> site config ($SITE_AVAILABLE)"
@@ -134,16 +136,34 @@ server {
         try_files \$uri =404;
     }
 
+    # Always land on the apex host — frontend API base is https://${DOMAIN}/api/v1
+    # and CSP connect-src 'self' blocks cross-host fetches from www.
     location / {
-        return 301 https://\$host\$request_uri;
+        return 301 https://${DOMAIN}\$request_uri;
     }
+}
+
+# Canonical host only. www is redirected below so Steam login / API fetch never
+# hit a www origin with a hardcoded apex API URL.
+server {
+    listen 443 ssl;
+    listen [::]:443 ssl;
+    http2 on;
+    server_name www.${DOMAIN};
+
+    ssl_certificate ${CERT_DIR}/fullchain.pem;
+    ssl_certificate_key ${CERT_DIR}/privkey.pem;
+    include /etc/letsencrypt/options-ssl-nginx.conf;
+    ssl_dhparam /etc/letsencrypt/ssl-dhparams.pem;
+
+    return 301 https://${DOMAIN}\$request_uri;
 }
 
 server {
     listen 443 ssl;
     listen [::]:443 ssl;
     http2 on;
-    server_name ${DOMAIN} www.${DOMAIN};
+    server_name ${DOMAIN};
 
     ssl_certificate ${CERT_DIR}/fullchain.pem;
     ssl_certificate_key ${CERT_DIR}/privkey.pem;

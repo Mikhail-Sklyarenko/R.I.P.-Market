@@ -1,17 +1,12 @@
-import { ApiError } from './types.ts';
+import { emitAuthUnauthorized } from '../utils/api-auth-error.ts';
+import { rememberSteamReturnPath } from '../utils/steam-return-path.ts';
+import { getApiBaseUrl } from './base-url.ts';
 import {
   isRetryableHttpStatus,
   isRetryableNetworkError,
   sleep,
 } from './network.ts';
-import { emitAuthUnauthorized } from '../utils/api-auth-error.ts';
-import { rememberSteamReturnPath } from '../utils/steam-return-path.ts';
-
-const viteEnv =
-  typeof import.meta !== 'undefined' && import.meta.env
-    ? import.meta.env
-    : undefined;
-const API_BASE = viteEnv?.VITE_API_BASE_URL ?? 'http://localhost:3000/api/v1';
+import { ApiError } from './types.ts';
 
 export function createIdempotencyKey(prefix: string): string {
   return `${prefix}-${crypto.randomUUID()}`;
@@ -71,7 +66,7 @@ async function apiRequestOnce<T>(
 
   let response: Response;
   try {
-    response = await fetch(`${API_BASE}${path}`, {
+    response = await fetch(`${getApiBaseUrl()}${path}`, {
       method,
       headers,
       body: options.body !== undefined ? JSON.stringify(options.body) : undefined,
