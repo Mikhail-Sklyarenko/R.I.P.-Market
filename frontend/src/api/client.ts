@@ -145,6 +145,4 @@ export async function apiRequest<T>(
   throw lastError;
 }
 
-export function getApiBaseUrl(): string {
-  return API_BASE;
-}
+export { getApiBaseUrl, getConfiguredApiBaseUrl } from './base-url.ts';
