@@ -41,4 +41,22 @@ describe('trade-offer-observed-item', () => {
     const observed = parseObservedItemFromTradePage('seller');
     expect(observed?.assetId).toBe('11223344556');
   });
+
+  it('parses seller slot item from Steam item730_2_* id without data-assetid', () => {
+    document.body.innerHTML =
+      '<div id="your_slots"><div class="itemHolder"><div class="item app730 context2" id="item730_2_27123456789" title="MAG-7 | Firestarter (Battle-Scarred)"></div></div></div>';
+
+    const observed = parseObservedItemFromTradePage('seller');
+    expect(observed).toEqual({
+      assetId: '27123456789',
+      marketHashName: 'MAG-7 | Firestarter (Battle-Scarred)',
+    });
+  });
+
+  it('does not treat inventory-grid items as offer slots', () => {
+    document.body.innerHTML =
+      '<div id="inventories"><div id="inventory_730_2"><div class="item" id="item730_2_111" data-assetid="111"></div></div></div><div id="your_slots"></div>';
+
+    expect(parseObservedItemFromTradePage('seller')).toBeNull();
+  });
 });

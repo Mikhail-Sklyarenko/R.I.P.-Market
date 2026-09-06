@@ -19,6 +19,7 @@ import {
  * | accepted     | seller_still_holds | **DISPUTE** | `DELIVERY_INVENTORY_MISMATCH` |
  * | accepted     | unknown             | on     | **CONFIRM** | `OFFER_ACCEPTED_INVENTORY_UNKNOWN` |
  * | pending      | confirmed           | on     | DISPUTE | DELIVERY_SIGNAL_CONFLICT       |
+ * | pending      | * + buyerAck        | on     | CONFIRM | BUYER_ACK_RECEIVED             |
  * | pending      | pending/holds       | on     | WAIT    | OFFER_PENDING                  |
  * | pending      | unknown             | on     | WAIT    | INVENTORY_PENDING              |
  * | declined     | *                   | on     | FAIL    | OFFER_DECLINED                 |
@@ -113,15 +114,14 @@ function decideLegacy(
       );
     }
 
-    // Mock offer poll always returns pending; buyer ack + inventory still confirm.
-    if (
-      signals.buyerAckReceived &&
-      signals.inventoryDelta === 'confirmed'
-    ) {
+    // Mock / blind offer poll stays pending. Buyer receipt is the close signal.
+    if (signals.buyerAckReceived) {
       return decision(
         'CONFIRM',
         'LEGACY_INVENTORY_CONFIRMED',
-        'BUYER_ACK_INVENTORY_CONFIRMED',
+        signals.inventoryDelta === 'confirmed'
+          ? 'BUYER_ACK_INVENTORY_CONFIRMED'
+          : 'BUYER_ACK_RECEIVED',
         signals.offerStatus,
         signals.inventoryDelta,
         'CONFIRMED',
@@ -204,12 +204,20 @@ function decideDualSignal(
       );
     }
     if (inventory === 'seller_still_holds') {
+      if (signals.buyerAckReceived) {
+        return decision(
+          'CONFIRM',
+          'OFFER_ACCEPTED_INVENTORY_LAG',
+          'BUYER_ACK_RECEIVED',
+          offer,
+          inventory,
+          'CONFIRMED',
+        );
+      }
       return decision(
         'WAIT',
         'OFFER_UNKNOWN',
-        signals.buyerAckReceived
-          ? 'BUYER_ACK_BUT_ITEM_STILL_WITH_SELLER'
-          : 'AWAITING_BUYER_STEAM_ACCEPT',
+        'AWAITING_BUYER_STEAM_ACCEPT',
         offer,
         inventory,
       );
@@ -322,12 +330,22 @@ function decideDualSignal(
   }
 
   if (inventory === 'seller_still_holds') {
+    if (signals.buyerAckReceived) {
+      // Steam inventory/privacy often lags after a real Accept. Buyer attestation
+      // is the product close: they confirm the skin is theirs and release payout.
+      return decision(
+        'CONFIRM',
+        'OFFER_ACCEPTED_INVENTORY_LAG',
+        'BUYER_ACK_RECEIVED',
+        offer,
+        inventory,
+        'CONFIRMED',
+      );
+    }
     return decision(
       'WAIT',
       'OFFER_PENDING',
-      signals.buyerAckReceived
-        ? 'BUYER_ACK_BUT_ITEM_STILL_WITH_SELLER'
-        : 'AWAITING_BUYER_STEAM_ACCEPT',
+      'AWAITING_BUYER_STEAM_ACCEPT',
       offer,
       inventory,
     );
@@ -368,6 +386,17 @@ function decideInventoryOnly(
   signals: DeliveryVerificationSignals,
 ): DeliveryVerificationDecision {
   const inventory = signals.inventoryDelta;
+
+  if (signals.buyerAckReceived && signals.hasOfferId) {
+    return decision(
+      'CONFIRM',
+      'INVENTORY_ONLY_CONFIRMED',
+      'BUYER_ACK_RECEIVED',
+      null,
+      inventory,
+      'CONFIRMED',
+    );
+  }
 
   if (inventory === 'confirmed') {
     return decision(

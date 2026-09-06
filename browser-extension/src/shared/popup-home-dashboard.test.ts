@@ -144,6 +144,48 @@ describe('popup-home-dashboard', () => {
     expect(isTradeActionRequired(trades[0]!)).toBe(false);
   });
 
+  it('keeps open disputes out of the action-required fire alarm', () => {
+    const dispute = baseTrade({
+      orderId: 'dispute-1',
+      role: 'buyer',
+      orderStatus: 'DISPUTE',
+      nextAction: {
+        kind: 'report_issue',
+        title: 'Спор',
+        description: 'открыт',
+      },
+    });
+    expect(isTradeActionRequired(dispute)).toBe(false);
+    const queue = buildActionRequiredQueue({
+      connected: true,
+      health: health('OK'),
+      trades: [dispute],
+    });
+    expect(queue).toHaveLength(0);
+  });
+
+  it('hides snoozed deals from the action queue', () => {
+    const trades = [
+      baseTrade({
+        orderId: 'guard-1',
+        role: 'seller',
+        offerId: '88',
+        nextAction: {
+          kind: 'confirm_guard',
+          title: 'Guard',
+          description: 'Mobile',
+        },
+      }),
+    ];
+    const queue = buildActionRequiredQueue({
+      connected: true,
+      health: health('OK'),
+      trades,
+      snoozedOrderIds: new Set(['guard-1']),
+    });
+    expect(queue).toHaveLength(0);
+  });
+
   it('keeps wait/verifying deals in lists and actionables only in queue', () => {
     const trades = [
       baseTrade({

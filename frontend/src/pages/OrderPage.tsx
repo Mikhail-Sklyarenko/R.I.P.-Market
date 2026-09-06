@@ -35,11 +35,15 @@ import {
 } from '../utils/order-trade';
 import { formatOrderStatus, getOrderNextAction } from '../utils/order-flow';
 import { resolveDealHealth } from '../utils/deal-health';
+import { resolveOrderActionFocus } from '../utils/order-action-focus';
 import {
   buildSupportDebugPack,
   formatSupportDebugPack,
 } from '../utils/support-debug-pack';
-import { buildTradeProblemSupportPath } from '../utils/trade-timeout-escalation';
+import {
+  buildTradeProblemSupportPath,
+  resolveTradeTimeoutView,
+} from '../utils/trade-timeout-escalation';
 import {
   formatExtensionUiTradeFlowLabel,
   getExtensionRuntimeStatus,
@@ -177,6 +181,29 @@ export function OrderPage() {
             (isBuyer && extensionTradeAckEnabled),
         })
       : null;
+  const timeoutView =
+    order && showTradePanels
+      ? resolveTradeTimeoutView({
+          orderCreatedAt: order.createdAt,
+          timeoutMinutes: tradeTimeoutMinutes,
+        })
+      : null;
+  const needsExtensionPair =
+    (isSeller && showTradePanels && extensionTaskPipeline) ||
+    (isBuyer &&
+      showTradePanels &&
+      extensionTradeAckEnabled &&
+      Boolean(order?.tradeOperation?.externalOfferId));
+  const actionFocus = order
+    ? resolveOrderActionFocus({
+        orderStatus: order.status,
+        isMismatch: order.tradeVerification?.status === 'mismatch',
+        dealHealth,
+        timeoutUrgency: timeoutView?.urgency ?? null,
+        extensionConnected: extensionStatus.connected,
+        needsExtensionPair,
+      })
+    : null;
 
   useEffect(() => {
     const watchBuyerPair =
@@ -316,6 +343,7 @@ export function OrderPage() {
     try {
       const result = await acknowledgeOrderTrade(token, order.id, type);
       setOrder(result.order);
+      await load();
     } catch (err) {
       setError(err);
     } finally {
@@ -454,12 +482,15 @@ export function OrderPage() {
             <div className="card order-item-card">
               {asset ? (
                 <>
-                  <ItemPreview
-                    item={asset}
-                    title={asset.itemDefinition.marketHashName}
-                    size="lg"
-                    showAttrs={false}
-                  />
+                  <div className="order-item-media">
+                    <div className="order-item-media-glow" aria-hidden="true" />
+                    <ItemPreview
+                      item={asset}
+                      title={asset.itemDefinition.marketHashName}
+                      size="lg"
+                      showAttrs={false}
+                    />
+                  </div>
                   <p className="order-item-links">
                     <Link
                       to={
@@ -488,7 +519,7 @@ export function OrderPage() {
                   asset.floatValue !== '' ? (
                     <WearBar floatValue={asset.floatValue} />
                   ) : null}
-                  <dl className="lot-attrs-grid meta-list">
+                  <dl className="lot-attrs-grid meta-list order-item-attrs">
                     {category ? (
                       <div>
                         <dt>{t('orderPage.category')}</dt>
@@ -549,7 +580,13 @@ export function OrderPage() {
           </div>
 
           <aside className="order-page-sidebar">
-            <div className="card order-action-card">
+            <div
+              className={`card order-action-card${
+                showTradePanels || order.status === 'DISPUTE'
+                  ? ' order-action-card--active'
+                  : ''
+              }`}
+            >
               <div className="order-action-header">
                 <StatusBadge
                   status={order.status}
@@ -646,7 +683,7 @@ export function OrderPage() {
                 </div>
               ) : null}
 
-              {dealHealth ? (
+              {dealHealth && actionFocus?.showDealHealthInline ? (
                 <DealHealthBanner
                   health={dealHealth}
                   onCopyDebugPack={() => void handleCopyDebugPack()}
@@ -656,49 +693,6 @@ export function OrderPage() {
               {order.status === 'TRADE_CONFIRMED' ||
               order.status === 'SETTLEMENT_HOLD' ? (
                 <PostAcceptTrustPanel order={order} role={role} />
-              ) : null}
-
-              <CopyableDealId id={order.id} testId="order-deal-id" />
-
-              {showTradePanels ? (
-                <TradeTimeoutEscalationPanel
-                  order={order}
-                  role={role}
-                  timeoutMinutes={tradeTimeoutMinutes}
-                  remainingMinutes={timeoutRemainingMinutes}
-                />
-              ) : null}
-
-              <p className="muted small order-support-link">
-                <Link to={`/support?dealId=${encodeURIComponent(order.id)}`}>
-                  {t('orderPage.supportLink')}
-                </Link>
-                {t('orderPage.supportLinkSuffix')}
-              </p>
-
-              {isSeller && showTradePanels && extensionTaskPipeline && token ? (
-                <ExtensionConnectPanel token={token} compact />
-              ) : null}
-
-              {isBuyer && showTradePanels && extensionTradeAckEnabled && token ? (
-                <BuyerExtensionPairCard
-                  order={order}
-                  token={token}
-                  extensionTradeAckEnabled={extensionTradeAckEnabled}
-                  extensionConnected={extensionStatus.connected}
-                  onConnectedChange={(connected) =>
-                    setExtensionStatus((prev) => ({ ...prev, connected }))
-                  }
-                />
-              ) : null}
-
-              {showTradePanels &&
-              extensionTaskPipeline &&
-              canShowDevPanels(user?.role) ? (
-                <p className="muted small" data-testid="extension-ui-trade-hint">
-                  {t('orderPage.extensionTradeModeLabel')}{' '}
-                  {formatExtensionUiTradeFlowLabel(extensionUiTradeFlow, locale)}
-                </p>
               ) : null}
 
               {deliveryCheckMessage ? (
@@ -716,6 +710,7 @@ export function OrderPage() {
                   acknowledging={acknowledging}
                   ackEnabled={extensionTradeAckEnabled}
                   extensionMode={extensionTaskPipeline && Boolean(order.tradeTask)}
+                  focusMode
                   nextActionTitle={undefined}
                   nextActionDescription={undefined}
                   onOfferInputChange={setOfferInput}
@@ -735,6 +730,7 @@ export function OrderPage() {
                   extensionMode={extensionTaskPipeline && Boolean(order.tradeTask)}
                   extensionConnected={extensionStatus.connected}
                   remainingMinutes={timeoutRemainingMinutes}
+                  focusMode
                   nextActionTitle={undefined}
                   nextActionDescription={undefined}
                   onCheckDelivery={() => void handleCheckDelivery()}
@@ -747,63 +743,253 @@ export function OrderPage() {
                 />
               ) : null}
 
-              <div className="order-money-summary" data-testid="order-money-block">
-                {isSeller ? (
-                  <div className="order-money-row">
-                    <span>{t('orderPage.youReceive')}</span>
-                    <MoneyDisplay minor={order.lot.sellerReceiveMinor} strong />
-                  </div>
-                ) : (
-                  <div className="order-money-row">
-                    <span>{t('orderPage.amount')}</span>
-                    <MoneyDisplay minor={order.amountMinor} strong />
-                  </div>
-                )}
-                <div className="order-money-row">
-                  <span>{t('orderPage.onHold')}</span>
-                  <MoneyDisplay
-                    minor={order.hold?.amountMinor ?? order.holdAmountMinor}
-                    strong
-                  />
-                </div>
-                <div className="order-money-row order-money-meta">
-                  <span>{t('orderPage.role')}</span>
-                  <strong data-testid="order-role">
-                    {formatOrderRoleLabel(
-                      isBuyer ? 'buyer' : isSeller ? 'seller' : 'other',
-                      locale,
-                    )}
-                  </strong>
-                </div>
-                <div className="order-money-row order-money-meta">
-                  <span>{t('orderPage.trade')}</span>
-                  <strong data-testid="trade-operation-status">
-                    {formatTradePollStatus(order.tradeOperation, locale)}
-                  </strong>
-                </div>
-                {order.tradeOperation?.externalOfferId ? (
-                  <div className="order-money-row order-money-meta">
-                    <span>{t('orderPage.offerId')}</span>
-                    <strong data-testid="trade-offer-id-summary">
-                      {order.tradeOperation.externalOfferId}
-                    </strong>
-                  </div>
-                ) : null}
-              </div>
-
-              {canBuyerCancel ? (
-                <div className="stack" data-testid="cancel-order-panel">
-                  <button
-                    type="button"
-                    className="button secondary"
-                    disabled={canceling}
-                    data-testid="cancel-order-button"
-                    onClick={() => void handleCancel()}
-                  >
-                    {canceling ? t('orderPage.canceling') : t('orderPage.cancelOrder')}
-                  </button>
-                </div>
+              {showTradePanels &&
+              actionFocus &&
+              actionFocus.timeoutMode !== 'hidden' ? (
+                <TradeTimeoutEscalationPanel
+                  order={order}
+                  role={role}
+                  timeoutMinutes={tradeTimeoutMinutes}
+                  remainingMinutes={timeoutRemainingMinutes}
+                  compact={actionFocus.timeoutMode === 'compact'}
+                />
               ) : null}
+
+              {actionFocus?.extensionPairAboveFold &&
+              isSeller &&
+              showTradePanels &&
+              extensionTaskPipeline &&
+              token ? (
+                <ExtensionConnectPanel token={token} compact />
+              ) : null}
+
+              {actionFocus?.extensionPairAboveFold &&
+              isBuyer &&
+              showTradePanels &&
+              extensionTradeAckEnabled &&
+              token ? (
+                <BuyerExtensionPairCard
+                  order={order}
+                  token={token}
+                  extensionTradeAckEnabled={extensionTradeAckEnabled}
+                  extensionConnected={extensionStatus.connected}
+                  onConnectedChange={(connected) =>
+                    setExtensionStatus((prev) => ({ ...prev, connected }))
+                  }
+                />
+              ) : null}
+
+              {actionFocus?.collapseSecondary ? (
+                <details
+                  className="order-action-more"
+                  data-testid="order-action-more"
+                >
+                  <summary>{t('orderPage.moreForSupport')}</summary>
+                  <div className="order-action-more-body">
+                    {dealHealth && !actionFocus.showDealHealthInline ? (
+                      <DealHealthBanner
+                        health={dealHealth}
+                        onCopyDebugPack={() => void handleCopyDebugPack()}
+                      />
+                    ) : null}
+
+                    {!actionFocus.extensionPairAboveFold &&
+                    isSeller &&
+                    showTradePanels &&
+                    extensionTaskPipeline &&
+                    token ? (
+                      <ExtensionConnectPanel token={token} compact />
+                    ) : null}
+
+                    {!actionFocus.extensionPairAboveFold &&
+                    isBuyer &&
+                    showTradePanels &&
+                    extensionTradeAckEnabled &&
+                    token ? (
+                      <BuyerExtensionPairCard
+                        order={order}
+                        token={token}
+                        extensionTradeAckEnabled={extensionTradeAckEnabled}
+                        extensionConnected={extensionStatus.connected}
+                        onConnectedChange={(connected) =>
+                          setExtensionStatus((prev) => ({ ...prev, connected }))
+                        }
+                      />
+                    ) : null}
+
+                    {showTradePanels &&
+                    extensionTaskPipeline &&
+                    canShowDevPanels(user?.role) ? (
+                      <p
+                        className="muted small"
+                        data-testid="extension-ui-trade-hint"
+                      >
+                        {t('orderPage.extensionTradeModeLabel')}{' '}
+                        {formatExtensionUiTradeFlowLabel(
+                          extensionUiTradeFlow,
+                          locale,
+                        )}
+                      </p>
+                    ) : null}
+
+                    <CopyableDealId id={order.id} testId="order-deal-id" />
+
+                    <div
+                      className="order-money-summary"
+                      data-testid="order-money-block"
+                    >
+                      {isSeller ? (
+                        <div className="order-money-row">
+                          <span>{t('orderPage.youReceive')}</span>
+                          <MoneyDisplay
+                            minor={order.lot.sellerReceiveMinor}
+                            strong
+                          />
+                        </div>
+                      ) : (
+                        <div className="order-money-row">
+                          <span>{t('orderPage.amount')}</span>
+                          <MoneyDisplay minor={order.amountMinor} strong />
+                        </div>
+                      )}
+                      <div className="order-money-row">
+                        <span>{t('orderPage.onHold')}</span>
+                        <MoneyDisplay
+                          minor={
+                            order.hold?.amountMinor ?? order.holdAmountMinor
+                          }
+                          strong
+                        />
+                      </div>
+                      <div className="order-money-row order-money-meta">
+                        <span>{t('orderPage.role')}</span>
+                        <strong data-testid="order-role">
+                          {formatOrderRoleLabel(
+                            isBuyer ? 'buyer' : isSeller ? 'seller' : 'other',
+                            locale,
+                          )}
+                        </strong>
+                      </div>
+                      <div className="order-money-row order-money-meta">
+                        <span>{t('orderPage.trade')}</span>
+                        <strong data-testid="trade-operation-status">
+                          {formatTradePollStatus(order.tradeOperation, locale)}
+                        </strong>
+                      </div>
+                      {order.tradeOperation?.externalOfferId ? (
+                        <div className="order-money-row order-money-meta">
+                          <span>{t('orderPage.offerId')}</span>
+                          <strong data-testid="trade-offer-id-summary">
+                            {order.tradeOperation.externalOfferId}
+                          </strong>
+                        </div>
+                      ) : null}
+                    </div>
+
+                    <p className="muted small order-support-link">
+                      <Link
+                        to={`/support?dealId=${encodeURIComponent(order.id)}`}
+                      >
+                        {t('orderPage.supportLink')}
+                      </Link>
+                      {t('orderPage.supportLinkSuffix')}
+                    </p>
+
+                    {canBuyerCancel ? (
+                      <div className="stack" data-testid="cancel-order-panel">
+                        <button
+                          type="button"
+                          className="button secondary"
+                          disabled={canceling}
+                          data-testid="cancel-order-button"
+                          onClick={() => void handleCancel()}
+                        >
+                          {canceling
+                            ? t('orderPage.canceling')
+                            : t('orderPage.cancelOrder')}
+                        </button>
+                      </div>
+                    ) : null}
+                  </div>
+                </details>
+              ) : (
+                <>
+                  <CopyableDealId id={order.id} testId="order-deal-id" />
+
+                  <p className="muted small order-support-link">
+                    <Link to={`/support?dealId=${encodeURIComponent(order.id)}`}>
+                      {t('orderPage.supportLink')}
+                    </Link>
+                    {t('orderPage.supportLinkSuffix')}
+                  </p>
+
+                  <div
+                    className="order-money-summary"
+                    data-testid="order-money-block"
+                  >
+                    {isSeller ? (
+                      <div className="order-money-row">
+                        <span>{t('orderPage.youReceive')}</span>
+                        <MoneyDisplay
+                          minor={order.lot.sellerReceiveMinor}
+                          strong
+                        />
+                      </div>
+                    ) : (
+                      <div className="order-money-row">
+                        <span>{t('orderPage.amount')}</span>
+                        <MoneyDisplay minor={order.amountMinor} strong />
+                      </div>
+                    )}
+                    <div className="order-money-row">
+                      <span>{t('orderPage.onHold')}</span>
+                      <MoneyDisplay
+                        minor={order.hold?.amountMinor ?? order.holdAmountMinor}
+                        strong
+                      />
+                    </div>
+                    <div className="order-money-row order-money-meta">
+                      <span>{t('orderPage.role')}</span>
+                      <strong data-testid="order-role">
+                        {formatOrderRoleLabel(
+                          isBuyer ? 'buyer' : isSeller ? 'seller' : 'other',
+                          locale,
+                        )}
+                      </strong>
+                    </div>
+                    <div className="order-money-row order-money-meta">
+                      <span>{t('orderPage.trade')}</span>
+                      <strong data-testid="trade-operation-status">
+                        {formatTradePollStatus(order.tradeOperation, locale)}
+                      </strong>
+                    </div>
+                    {order.tradeOperation?.externalOfferId ? (
+                      <div className="order-money-row order-money-meta">
+                        <span>{t('orderPage.offerId')}</span>
+                        <strong data-testid="trade-offer-id-summary">
+                          {order.tradeOperation.externalOfferId}
+                        </strong>
+                      </div>
+                    ) : null}
+                  </div>
+
+                  {canBuyerCancel ? (
+                    <div className="stack" data-testid="cancel-order-panel">
+                      <button
+                        type="button"
+                        className="button secondary"
+                        disabled={canceling}
+                        data-testid="cancel-order-button"
+                        onClick={() => void handleCancel()}
+                      >
+                        {canceling
+                          ? t('orderPage.canceling')
+                          : t('orderPage.cancelOrder')}
+                      </button>
+                    </div>
+                  ) : null}
+                </>
+              )}
 
               {showMockTradePanel ? (
                 <div className="order-dev-panel" data-testid="mock-trade-panel">

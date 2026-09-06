@@ -141,6 +141,28 @@ describe('popup-next-action engine', () => {
     expect(dispute.primary.href).toContain('/support?');
     expect(dispute.primary.href).toContain('evidence=');
     expect(dispute.primary.href).toContain('reason=mismatch');
+
+    const openDispute = resolveTradeNextAction(
+      trade({
+        orderId: 'd2',
+        role: 'buyer',
+        offerId: '9',
+        orderStatus: 'DISPUTE',
+        siteUrl:
+          'p2pcs.ru,https://www.p2pcs.ru,http://31.177.83.107/orders/d2',
+        nextAction: {
+          kind: 'report_issue',
+          title: 'Спор',
+          description: 'open',
+        },
+      }),
+    );
+    expect(openDispute.primary.id).toBe('open_order');
+    expect(openDispute.primary.href).toBe('https://p2pcs.ru/orders/d2');
+    expect(openDispute.overflow[0]?.id).toBe('open_dispute');
+    expect(openDispute.overflow[0]?.href?.startsWith('https://p2pcs.ru/support?')).toBe(
+      true,
+    );
   });
 
   it('uses ack button as primary when that is the next action', () => {

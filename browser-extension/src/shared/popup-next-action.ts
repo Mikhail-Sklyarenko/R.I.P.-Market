@@ -13,6 +13,7 @@ import {
 } from './extension-i18n.js';
 import { buildInFlowDisputeSupportUrl } from './in-flow-dispute.js';
 import type { SessionHealth } from './session-health.js';
+import { sanitizeTradeOrderUrl } from './site-origin.js';
 
 function buildSteamTradeOfferUrl(offerId: string | null | undefined): string | null {
   const id = offerId?.trim();
@@ -116,26 +117,34 @@ export function resolveTradeNextAction(
   const t = createExtensionT(locale);
   const offerUrl = buildSteamTradeOfferUrl(trade.offerId);
   const problemHref = buildProblemSupportUrl(trade);
+  const orderHref = sanitizeTradeOrderUrl(trade.siteUrl, trade.orderId);
+
+  // Dispute already open: open the order (status + support path), not "open dispute" again.
+  if (trade.orderStatus === 'DISPUTE') {
+    return {
+      primary: linkCta('open_order', t('cta.openOrder'), orderHref),
+      overflow: [
+        linkCta('open_dispute', t('cta.openDisputeSupport'), problemHref),
+      ],
+      hint: t('nextAction.hintDisputeOpen'),
+    };
+  }
 
   if (
     trade.verificationStatus === 'mismatch' ||
-    trade.nextAction.kind === 'report_issue' ||
-    trade.orderStatus === 'DISPUTE'
+    trade.nextAction.kind === 'report_issue'
   ) {
     return {
       primary: linkCta('open_dispute', t('cta.openDispute'), problemHref),
-      overflow: [linkCta('open_order', t('cta.openOrder'), trade.siteUrl)],
-      hint:
-        trade.orderStatus === 'DISPUTE'
-          ? t('nextAction.hintDisputeOpen')
-          : t('nextAction.hintMismatch'),
+      overflow: [linkCta('open_order', t('cta.openOrder'), orderHref)],
+      hint: t('nextAction.hintMismatch'),
     };
   }
 
   if (trade.nextAction.kind === 'confirm_guard') {
     return {
-      primary: linkCta('confirm_guard', t('cta.confirmGuard'), trade.siteUrl),
-      overflow: [linkCta('open_order', t('cta.openOrder'), trade.siteUrl)],
+      primary: linkCta('confirm_guard', t('cta.confirmGuard'), orderHref),
+      overflow: [linkCta('open_order', t('cta.openOrder'), orderHref)],
       hint: t('nextAction.hintGuard'),
     };
   }
@@ -150,7 +159,7 @@ export function resolveTradeNextAction(
         runtimeCta('retry_send', t('cta.retryAutoSend'), 'poll_now', trade),
       );
     }
-    overflow.push(linkCta('open_order', t('cta.openOrder'), trade.siteUrl));
+    overflow.push(linkCta('open_order', t('cta.openOrder'), orderHref));
     if (!trade.acknowledgments.sellerAckSent && Boolean(trade.offerId)) {
       overflow.push(
         buttonAckCta(
@@ -182,7 +191,7 @@ export function resolveTradeNextAction(
         ...(trade.buyerTradeUrl
           ? [linkCta('open_trade_url', t('cta.openTradeUrl'), trade.buyerTradeUrl)]
           : []),
-        linkCta('open_order', t('cta.openOrder'), trade.siteUrl),
+        linkCta('open_order', t('cta.openOrder'), orderHref),
       ],
       hint: null,
     };
@@ -191,7 +200,7 @@ export function resolveTradeNextAction(
   if (trade.nextAction.kind === 'accept_in_steam') {
     const primary = offerUrl
       ? linkCta('open_verified_offer', t('cta.openVerifiedOffer'), offerUrl)
-      : linkCta('open_order', t('cta.openOrder'), trade.siteUrl);
+      : linkCta('open_order', t('cta.openOrder'), orderHref);
     const overflow: NextActionCta[] = [];
     if (!trade.acknowledgments.buyerPreAccept && trade.offerId) {
       overflow.push(
@@ -225,7 +234,7 @@ export function resolveTradeNextAction(
         ...(offerUrl
           ? [linkCta('open_verified_offer', t('cta.openOfferSteam'), offerUrl)]
           : []),
-        linkCta('open_order', t('cta.openOrder'), trade.siteUrl),
+        linkCta('open_order', t('cta.openOrder'), orderHref),
         linkCta('problem_support', t('cta.problemSupport'), problemHref),
       ],
       hint: null,
@@ -237,7 +246,7 @@ export function resolveTradeNextAction(
       primary: linkCta(
         'platform_status',
         t('cta.platformStatus'),
-        trade.siteUrl,
+        orderHref,
       ),
       overflow: [
         linkCta('problem_support', t('cta.problemSupport'), problemHref),
@@ -251,7 +260,7 @@ export function resolveTradeNextAction(
     (trade.role === 'buyer' && !trade.offerId)
   ) {
     return {
-      primary: linkCta('wait_seller', t('cta.waitSeller'), trade.siteUrl),
+      primary: linkCta('wait_seller', t('cta.waitSeller'), orderHref),
       overflow: [
         linkCta('problem_support', t('cta.problemSupport'), problemHref),
       ],
@@ -260,7 +269,7 @@ export function resolveTradeNextAction(
   }
 
   return {
-    primary: linkCta('open_order', t('cta.openOrder'), trade.siteUrl),
+    primary: linkCta('open_order', t('cta.openOrder'), orderHref),
     overflow: [],
     hint: null,
   };

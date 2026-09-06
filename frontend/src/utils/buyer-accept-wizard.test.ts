@@ -112,7 +112,18 @@ describe('buyer-accept-wizard', () => {
       ackEnabled: true,
     });
     assert.equal(view?.ack.showPreAccept, true);
-    assert.equal(view?.ack.showReceived, false);
+    assert.equal(view?.ack.showReceived, true);
+  });
+
+  it('surfaces received ack without pre-accept so the buyer can close the deal', () => {
+    const view = resolveBuyerAcceptWizard({
+      order: baseOrder(),
+      role: 'buyer',
+      offerOpenedLocally: false,
+      ackEnabled: false,
+    });
+    assert.equal(view?.ack.showReceived, true);
+    assert.equal(view?.ack.showPreAccept, false);
   });
 
   it('hides acks on mismatch', () => {

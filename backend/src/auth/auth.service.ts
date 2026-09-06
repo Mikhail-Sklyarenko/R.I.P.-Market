@@ -13,6 +13,7 @@ import { SteamAuthProvider } from '../providers/auth/steam-auth.provider';
 import { SteamProfileService } from '../providers/auth/steam-profile.service';
 import { AppException } from '../common/errors/app.exception';
 import { ErrorCode } from '../common/errors/error-codes';
+import { getPublicSiteOriginFromEnv } from '../common/public-site-url.util';
 import { UsersService } from '../users/users.service';
 import { MockLoginDto } from './dto/mock-login.dto';
 import { getApiPublicBaseUrl } from './steam-api-base.util';
@@ -122,9 +123,7 @@ export class AuthService {
     authResponse: Awaited<ReturnType<AuthService['buildAuthResponse']>>,
     extraParams?: Record<string, string>,
   ) {
-    const frontendOrigin =
-      process.env.FRONTEND_ORIGIN ?? 'http://localhost:5173';
-    const origin = frontendOrigin.split(',')[0]?.trim() ?? frontendOrigin;
+    const origin = getPublicSiteOriginFromEnv();
     const params = new URLSearchParams({
       accessToken: authResponse.accessToken,
       userId: authResponse.user.id,

@@ -26,6 +26,8 @@ type OrderTradeSellerPanelProps = {
   onSaveTradeReference: () => void;
   onCheckDelivery?: () => void;
   onAcknowledgeSent?: () => void;
+  /** Order page already shows “what now” — drop duplicate panel chrome. */
+  focusMode?: boolean;
 };
 
 async function copyToClipboard(value: string): Promise<void> {
@@ -46,6 +48,7 @@ export function OrderTradeSellerPanel({
   onSaveTradeReference,
   onCheckDelivery,
   onAcknowledgeSent,
+  focusMode = false,
 }: OrderTradeSellerPanelProps) {
   const { t, locale } = useLocale();
   const [copied, setCopied] = useState(false);
@@ -95,10 +98,16 @@ export function OrderTradeSellerPanel({
   }
 
   return (
-    <div className="card order-trade-panel" data-testid="seller-trade-panel">
-      <h3 className="order-trade-panel-title">{t('orderTradePanel.yourStep')}</h3>
+    <div
+      className={`order-trade-panel${focusMode ? ' order-trade-panel--focus' : ''}`}
+      data-testid="seller-trade-panel"
+      data-focus={focusMode ? 'true' : undefined}
+    >
+      {!focusMode ? (
+        <h3 className="order-trade-panel-title">{t('orderTradePanel.yourStep')}</h3>
+      ) : null}
 
-      {nextActionTitle ? (
+      {!focusMode && nextActionTitle ? (
         <div className="next-action-card" data-testid="order-next-action">
           <strong>{nextActionTitle}</strong>
           {nextActionDescription ? (

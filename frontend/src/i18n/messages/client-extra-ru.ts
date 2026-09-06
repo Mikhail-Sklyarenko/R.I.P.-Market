@@ -281,7 +281,7 @@ export const clientExtraRu = {
     eyebrow: '3 шага до accept',
     title: 'Примите обмен безопасно',
     subtitle:
-      'Откройте именно этот offer, сверьте щит R.I.P на странице Steam и нажмите Accept — статус на сайте обновится сам.',
+      'Откройте именно этот offer, сверьте щит R.I.P на странице Steam, нажмите Accept, затем подтвердите получение здесь.',
     step1Title: 'Откройте нужный offer',
     step1Body: 'Перейдите по ссылке на конкретный trade offer — не в общий список входящих.',
     step2Title: 'Проверьте щит и скин',
@@ -291,14 +291,16 @@ export const clientExtraRu = {
       'Сверьте название, float и SteamID продавца с заказом. Подключите расширение — появится щит сверки.',
     step3Title: 'Accept в Steam и вернитесь',
     step3Body:
-      'Нажмите Accept кнопкой Steam. Расширение не принимает за вас. Вернитесь сюда — статус обновится сам.',
+      'Нажмите Accept кнопкой Steam. Расширение не принимает за вас. Затем подтвердите получение на этой странице.',
     stateDone: 'Готово',
     stateCurrent: 'Сейчас',
     stateUpcoming: 'Далее',
+    stepsSummary: 'Как принять обмен (3 шага)',
     ctaOpenOffer: 'Открыть этот offer в Steam',
     ctaReopenOffer: 'Снова открыть offer для сверки',
     ctaAcceptInSteam: 'Открыть offer и принять в Steam',
-    returnHint: 'После Accept обновите эту вкладку при необходимости — обычно статус меняется сам.',
+    returnHint:
+      'Сначала Accept в Steam, затем подтвердите получение на этой странице — так сделка закрывается.',
     mismatchTitle: 'Не принимайте — mismatch',
     mismatchBody:
       'Offer не совпал с заказом. Не жмите Accept. Откройте поддержку, если нужно разобрать сделку.',
@@ -307,11 +309,15 @@ export const clientExtraRu = {
       'Подтвердите, что на странице Steam тот же скин и продавец, что в заказе. Это не заменяет Accept.',
     preAcceptCta: 'Вижу верное предложение',
     preAcceptDone: 'Отметили: предложение верное. Дальше — Accept кнопкой Steam.',
-    receivedTitle: 'Предмет в инвентаре',
+    receivedTitle: 'Предмет уже у меня',
     receivedBody:
-      'Если скин уже у вас в Steam — отметьте. Это помогает проверке доставки, но не заменяет dual-signal платформы.',
-    receivedCta: 'Предмет в инвентаре',
-    receivedDone: 'Отметили получение. Платформа продолжит сверку доставки сама.',
+      'После Accept в Steam подтвердите здесь. Это закроет сделку и отправит выплату продавцу.',
+    receivedCta: 'Я получил предмет',
+    receivedConfirmBody:
+      'Нажимайте только если скин уже в вашем инвентаре Steam. Продавец получит выплату.',
+    receivedConfirmCta: 'Подтвердить получение',
+    receivedCancel: 'Отмена',
+    receivedDone: 'Получение подтверждено. Сделка закрывается.',
   },
   postAcceptTrust: {
     eyebrow: 'После обмена',
@@ -1084,6 +1090,7 @@ export const clientExtraRu = {
     onHold: 'На hold',
     youReceive: 'Вы получите',
     whatNow: 'Что делать сейчас',
+    moreForSupport: 'Подробнее и поддержка',
     role: 'Роль',
     trade: 'Обмен',
     offerId: 'Offer ID',

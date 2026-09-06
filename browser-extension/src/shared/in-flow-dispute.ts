@@ -9,6 +9,10 @@ import {
   DEFAULT_EXTENSION_LOCALE,
   type ExtensionLocale,
 } from './extension-i18n.js';
+import {
+  resolveSiteOriginFromTradeUrl,
+  sanitizeTradeOrderUrl,
+} from './site-origin.js';
 
 export type InFlowDisputeReason = 'trade_problem' | 'mismatch' | 'timeout';
 
@@ -40,7 +44,11 @@ export type DisputeStatusView = {
 };
 
 function siteOriginFromTradeUrl(siteUrl: string): string {
-  return siteUrl.replace(/\/orders\/[^/?#]+\/?$/, '') || siteUrl;
+  return resolveSiteOriginFromTradeUrl(siteUrl);
+}
+
+function safeOrderHref(trade: Pick<TradeVerificationResult, 'siteUrl' | 'orderId'>): string {
+  return sanitizeTradeOrderUrl(trade.siteUrl, trade.orderId);
 }
 
 export function resolveInFlowDisputeReason(
@@ -176,18 +184,19 @@ export function buildDisputeStatusView(
   }
   const t = createExtensionT(locale);
   const supportHref = buildInFlowDisputeSupportUrl(trade);
-  const orderHref = trade.siteUrl;
+  const orderHref = safeOrderHref(trade);
 
   if (trade.orderStatus === 'DISPUTE') {
+    // Dispute already open — primary job is open the order, not "open dispute" again.
     return {
       phase: 'dispute_open',
       title: t('dispute.openTitle'),
       body: t('dispute.openBody'),
       tone: 'error',
-      primaryLabel: t('cta.openDisputeSupport'),
-      primaryHref: supportHref,
-      secondaryLabel: t('cta.openOrder'),
-      secondaryHref: orderHref,
+      primaryLabel: t('cta.openOrder'),
+      primaryHref: orderHref,
+      secondaryLabel: t('cta.openDisputeSupport'),
+      secondaryHref: supportHref,
     };
   }
 

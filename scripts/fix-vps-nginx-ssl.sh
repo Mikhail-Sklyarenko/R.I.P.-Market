@@ -58,6 +58,11 @@ cd "$APP_DIR/frontend"
 npm run build
 
 sed -i 's|^FRONTEND_ORIGIN=.*|FRONTEND_ORIGIN="https://p2pcs.ru,https://www.p2pcs.ru,http://p2pcs.ru,http://www.p2pcs.ru,http://31.177.83.107"|' "$APP_DIR/backend/.env"
+if grep -q '^PUBLIC_SITE_URL=' "$APP_DIR/backend/.env"; then
+  sed -i 's|^PUBLIC_SITE_URL=.*|PUBLIC_SITE_URL="https://p2pcs.ru"|' "$APP_DIR/backend/.env"
+else
+  echo 'PUBLIC_SITE_URL="https://p2pcs.ru"' >> "$APP_DIR/backend/.env"
+fi
 systemctl restart rip-market-backend
 
 export DEBIAN_FRONTEND=noninteractive

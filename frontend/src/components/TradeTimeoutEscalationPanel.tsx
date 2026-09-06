@@ -15,6 +15,8 @@ type TradeTimeoutEscalationPanelProps = {
   timeoutMinutes: number;
   remainingMinutes: number | null;
   nowMs?: number;
+  /** Compact: one time line + quiet problem link (default full urgency card). */
+  compact?: boolean;
 };
 
 function urgencyMessageKey(urgency: TradeTimeoutUrgency): string {
@@ -52,6 +54,7 @@ export function TradeTimeoutEscalationPanel({
   timeoutMinutes,
   remainingMinutes,
   nowMs,
+  compact = false,
 }: TradeTimeoutEscalationPanelProps) {
   const { t } = useLocale();
 
@@ -88,6 +91,41 @@ export function TradeTimeoutEscalationPanel({
           })
         : t('tradeEscalation.timeLeftMinutes', { minutes });
 
+  const persistSupport = () => {
+    buildTradeProblemSupportPath(
+      {
+        order,
+        role,
+        reason,
+        remainingMinutes: minutes,
+      },
+      { persist: true },
+    );
+  };
+
+  if (compact) {
+    return (
+      <div
+        className="trade-escalation trade-escalation--compact"
+        data-testid="trade-timeout-escalation"
+        data-urgency={view.urgency}
+        data-compact="true"
+      >
+        <span className="muted small" data-testid="trade-timeout-label">
+          {timeLabel}
+        </span>
+        <Link
+          className="link-quiet"
+          to={supportPath}
+          data-testid="trade-problem-cta"
+          onClick={persistSupport}
+        >
+          {t('tradeEscalation.problemCta')}
+        </Link>
+      </div>
+    );
+  }
+
   return (
     <section
       className={`trade-escalation trade-escalation--${view.urgency}`}
@@ -105,17 +143,7 @@ export function TradeTimeoutEscalationPanel({
         className="button secondary"
         to={supportPath}
         data-testid="trade-problem-cta"
-        onClick={() => {
-          buildTradeProblemSupportPath(
-            {
-              order,
-              role,
-              reason,
-              remainingMinutes: minutes,
-            },
-            { persist: true },
-          );
-        }}
+        onClick={persistSupport}
       >
         {t('tradeEscalation.problemCta')}
       </Link>

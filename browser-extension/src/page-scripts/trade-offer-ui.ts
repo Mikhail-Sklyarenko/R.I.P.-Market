@@ -54,6 +54,7 @@ type WindowWithSteam = Window &
     UserYou?: SteamUserYou;
     g_ActiveInventory?: unknown;
     g_ActiveAppId?: number;
+    SelectInventory?: (appId: number, contextId: number) => void;
     MoveItemToTrade?: (element: HTMLElement) => void;
     $J?: SteamJQuery;
     jQuery?: SteamJQuery;
@@ -85,24 +86,104 @@ export function prepareYourInventory(): void {
   clickElement('#inventory_select_your_inventory');
 }
 
-export function ensureCs2InventoryActive(): void {
+function readActiveAppId(win: WindowWithSteam): number | null {
+  if (typeof win.g_ActiveAppId === 'number' && Number.isFinite(win.g_ActiveAppId)) {
+    return win.g_ActiveAppId;
+  }
+  const inventory = win.g_ActiveInventory as
+    | { appid?: number; m_appid?: number }
+    | undefined;
+  const raw = Number(inventory?.appid ?? inventory?.m_appid);
+  return Number.isFinite(raw) ? raw : null;
+}
+
+/**
+ * Steam's inventory switcher. Current tradeoffer UI rarely has
+ * #appselect_you_app_730 — SelectInventory(730, 2) does.
+ */
+export function requestCs2Inventory(): void {
   const win = getSteamWindow();
-  if (win.g_ActiveAppId === CS2_APP_ID) {
-    return;
+  if (typeof win.SelectInventory === 'function') {
+    try {
+      win.SelectInventory(CS2_APP_ID, CS2_CONTEXT);
+    } catch {
+      // Applist not ready yet.
+    }
   }
 
-  const selectors = [
-    '#appselect_you_app_730',
-    '#appselect_you_app_730_option',
-    'div[id^="appselect_you_app_730"]',
+  clickElement('#inventory_select_your_inventory');
+  for (const selector of [
+    '#appselect_you',
+    '#appselect',
+    '#appselect_activeapp',
+    '.appselect_activeapp',
+  ]) {
+    clickElement(selector);
+  }
+
+  const optionIds = [
+    'appselect_option_you_730_2',
+    'appselect_option_you_730_16',
+    'appselect_option_you_730',
+    'appselect_you_app_730',
   ];
-  for (const selector of selectors) {
-    const element = document.querySelector<HTMLElement>(selector);
-    if (element) {
-      element.click();
+  for (const id of optionIds) {
+    const option = document.getElementById(id);
+    if (option) {
+      option.click();
       return;
     }
   }
+
+  const labeled = Array.from(
+    document.querySelectorAll<HTMLElement>(
+      '#appselect_applist .appselect_option, .appselect_option',
+    ),
+  ).find((el) => {
+    if (el.id.includes('_them_')) {
+      return false;
+    }
+    const text = (el.textContent ?? '').toLowerCase();
+    return (
+      text.includes('counter-strike') ||
+      /\bcs2\b/.test(text) ||
+      el.id.includes('730')
+    );
+  });
+  labeled?.click();
+}
+
+export function ensureCs2InventoryActive(): void {
+  requestCs2Inventory();
+}
+
+export function isCs2TradeInventoryReady(assetId?: string): boolean {
+  if (assetId && findAssetElement(CS2_APP_ID, CS2_CONTEXT, assetId)) {
+    return true;
+  }
+  if (assetId && isTradeItemVisibleInDom(assetId)) {
+    return true;
+  }
+
+  const win = getSteamWindow();
+  const inventoryBox =
+    document.getElementById('inventory_730_2') ??
+    document.getElementById('inventory_730_16') ??
+    document.querySelector<HTMLElement>('#inventories [id^="inventory_730"]');
+  if (inventoryBox && inventoryBox.style.display !== 'none') {
+    const hasCells = Boolean(
+      inventoryBox.querySelector('.item, .itemHolder .item, .itemHolder'),
+    );
+    if (hasCells) {
+      return true;
+    }
+  }
+
+  return (
+    readActiveAppId(win) === CS2_APP_ID &&
+    Boolean(win.UserYou) &&
+    Boolean(win.g_ActiveInventory)
+  );
 }
 
 export async function waitForTradePageReady(
@@ -112,21 +193,15 @@ export async function waitForTradePageReady(
   const deadline = Date.now() + timeoutMs;
   while (Date.now() < deadline) {
     prepareYourInventory();
-    ensureCs2InventoryActive();
-
-    const win = getSteamWindow();
-    if (assetId && findAssetElement(CS2_APP_ID, CS2_CONTEXT, assetId)) {
+    requestCs2Inventory();
+    if (isCs2TradeInventoryReady(assetId)) {
       return;
     }
-    if (assetId && isTradeItemVisibleInDom(assetId)) {
-      return;
-    }
-    if (win.UserYou && win.g_ActiveInventory) {
-      return;
-    }
-    await new Promise((resolve) => setTimeout(resolve, 200));
+    await new Promise((resolve) => setTimeout(resolve, 250));
   }
-  throw new Error('Trade page not ready — inventory item not loaded');
+  throw new Error(
+    'CS2 inventory did not load. Select Counter-Strike 2 in the inventory list, then retry.',
+  );
 }
 
 function findAssetElement(
@@ -145,6 +220,7 @@ function findAssetElement(
 function isTradeItemVisibleInDom(assetId: string): boolean {
   return Boolean(
     document.getElementById(`asset_730_2_${assetId}`) ??
+      document.getElementById(`item730_2_${assetId}`) ??
       document.querySelector(`[data-assetid="${assetId}"]`),
   );
 }
@@ -157,6 +233,8 @@ function selectItemViaDom(
   const elementIds = [
     `asset_${appId}_${contextId}_${assetId}`,
     `asset_${appId}_2_${assetId}`,
+    `item${appId}_${contextId}_${assetId}`,
+    `item${appId}_2_${assetId}`,
   ];
   for (const elementId of elementIds) {
     const element = document.getElementById(elementId);
@@ -181,6 +259,8 @@ export function isItemInTradeOffer(assetId: string): boolean {
   const selectors = [
     `#trade_slot_drag_target .item[data-assetid="${assetId}"]`,
     `#your_slots .item[data-assetid="${assetId}"]`,
+    `#your_slots .item[id$="_${assetId}"]`,
+    `#your_slots #item730_2_${assetId}`,
     `#trade_items .item[id$="_${assetId}"]`,
     `.tradeoffer_items_ctn .item[id$="_${assetId}"]`,
   ];
@@ -204,7 +284,7 @@ export function selectItemForTrade(
   assetId: string,
 ): void {
   prepareYourInventory();
-  ensureCs2InventoryActive();
+  requestCs2Inventory();
 
   const win = getSteamWindow();
   const element = findAssetElement(appId, contextId, assetId);

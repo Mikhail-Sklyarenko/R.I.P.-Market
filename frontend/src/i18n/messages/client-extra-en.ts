@@ -275,7 +275,7 @@ export const clientExtraEn = {
     eyebrow: '3 steps to accept',
     title: 'Accept the trade safely',
     subtitle:
-      'Open this exact offer, verify the R.I.P shield on Steam, then Accept — the site status updates itself.',
+      'Open this exact offer, verify the R.I.P shield on Steam, Accept, then confirm receipt here.',
     step1Title: 'Open the right offer',
     step1Body: 'Follow the link to this specific trade offer — not the general incoming inbox.',
     step2Title: 'Check the shield and skin',
@@ -285,14 +285,16 @@ export const clientExtraEn = {
       'Compare name, float, and seller SteamID with the order. Connect the extension for a verification shield.',
     step3Title: 'Accept in Steam and return',
     step3Body:
-      'Press Accept with the Steam button. The extension never accepts for you. Come back here — status updates itself.',
+      'Press Accept with the Steam button. The extension never accepts for you. Then confirm receipt on this page.',
     stateDone: 'Done',
     stateCurrent: 'Now',
     stateUpcoming: 'Next',
+    stepsSummary: 'How to accept (3 steps)',
     ctaOpenOffer: 'Open this offer in Steam',
     ctaReopenOffer: 'Reopen offer to verify',
     ctaAcceptInSteam: 'Open offer and accept in Steam',
-    returnHint: 'After Accept, refresh this tab if needed — usually the status changes on its own.',
+    returnHint:
+      'Accept in Steam first, then confirm receipt on this page — that is what closes the deal.',
     mismatchTitle: 'Do not accept — mismatch',
     mismatchBody:
       'The offer does not match the order. Do not press Accept. Contact support if you need help.',
@@ -301,11 +303,15 @@ export const clientExtraEn = {
       'Confirm the Steam page shows the same skin and seller as the order. This does not replace Accept.',
     preAcceptCta: 'I see the correct offer',
     preAcceptDone: 'Marked: offer looks correct. Next — Accept with the Steam button.',
-    receivedTitle: 'Item is in my inventory',
+    receivedTitle: 'Item is already in my inventory',
     receivedBody:
-      'If the skin is already in your Steam inventory, mark it. This helps delivery checks but does not replace platform dual-signal.',
-    receivedCta: 'Item is in my inventory',
-    receivedDone: 'Receipt marked. The platform will keep verifying delivery on its own.',
+      'After you Accept in Steam, confirm here. That closes the deal and releases the seller payout.',
+    receivedCta: 'I received the item',
+    receivedConfirmBody:
+      'Confirm only if the skin is in your Steam inventory. The seller will be paid.',
+    receivedConfirmCta: 'Confirm receipt',
+    receivedCancel: 'Cancel',
+    receivedDone: 'Receipt confirmed. The deal is closing.',
   },
   postAcceptTrust: {
     eyebrow: 'After the trade',
@@ -1068,6 +1074,7 @@ export const clientExtraEn = {
     onHold: 'On hold',
     youReceive: 'You receive',
     whatNow: 'What to do now',
+    moreForSupport: 'Details & support',
     role: 'Role',
     trade: 'Trade',
     offerId: 'Offer ID',

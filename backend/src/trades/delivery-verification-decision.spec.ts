@@ -140,7 +140,7 @@ describe('decideDeliveryVerification', () => {
     expect(decision.reasonCode).toBe('BUYER_ACK_INVENTORY_CONFIRMED');
   });
 
-  it('waits with clear reason when buyer ack exists but seller still holds item', () => {
+  it('confirms when buyer ack received even if Steam still reports seller holds the item', () => {
     const decision = decideDeliveryVerification(
       baseSignals({
         offerStatus: 'pending',
@@ -148,8 +148,8 @@ describe('decideDeliveryVerification', () => {
         buyerAckReceived: true,
       }),
     );
-    expect(decision.action).toBe('WAIT');
-    expect(decision.reasonCode).toBe('BUYER_ACK_BUT_ITEM_STILL_WITH_SELLER');
+    expect(decision.action).toBe('CONFIRM');
+    expect(decision.reasonCode).toBe('BUYER_ACK_RECEIVED');
   });
 
   it('waits for Steam accept when seller still holds and buyer has not acked', () => {
@@ -201,6 +201,19 @@ describe('decideDeliveryVerification', () => {
     expect(decision.action).toBe('DISPUTE');
     expect(decision.reasonCode).toBe('INVENTORY_UNKNOWN_EXHAUSTED');
     delete process.env.DELIVERY_INVENTORY_UNKNOWN_MAX_CHECKS;
+  });
+
+  it('legacy mode confirms buyer ack even when inventory lag and mock offer stays pending', () => {
+    const decision = decideDeliveryVerification(
+      baseSignals({
+        engineEnabled: false,
+        offerStatus: 'pending',
+        inventoryDelta: 'seller_still_holds',
+        buyerAckReceived: true,
+      }),
+    );
+    expect(decision.action).toBe('CONFIRM');
+    expect(decision.reasonCode).toBe('BUYER_ACK_RECEIVED');
   });
 
   it('legacy mode confirms buyer ack + inventory even when mock offer stays pending', () => {

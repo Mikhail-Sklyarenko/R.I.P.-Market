@@ -3,11 +3,14 @@ import type { TradeVerificationResult } from '@rip-market/extension-orchestrator
 import {
   applyQuietNotifyPlan,
   buildQuietNotifyEvent,
+  buildQuietNotifyFingerprint,
   defaultQuietNotifyState,
+  isSafeNotificationClickUrl,
   muteQuietNotifyOrder,
   planQuietNotifications,
   pruneQuietNotifyFingerprints,
   resolveQuietNotifyKind,
+  snoozeQuietNotifyOrder,
 } from './quiet-notifications.js';
 
 function trade(
@@ -198,5 +201,76 @@ describe('quiet-notifications', () => {
     const pruned = pruneQuietNotifyFingerprints(state, ['b']);
     expect(pruned.fingerprints).toEqual({ b: 'fp-b' });
     expect(pruned.mutedOrderIds).toEqual([]);
+  });
+
+  it('keeps mismatch fingerprint when verification status flickers', () => {
+    const pending = trade({
+      orderId: 'm1',
+      role: 'buyer',
+      offerId: '3',
+      verificationStatus: 'pending',
+      nextAction: {
+        kind: 'report_issue',
+        title: 'Mismatch',
+        description: 'stop',
+      },
+    });
+    const mismatch = {
+      ...pending,
+      verificationStatus: 'mismatch' as const,
+    };
+    expect(buildQuietNotifyFingerprint(pending, 'mismatch')).toBe(
+      buildQuietNotifyFingerprint(mismatch, 'mismatch'),
+    );
+
+    const first = planQuietNotifications({
+      trades: [pending],
+      state: defaultQuietNotifyState(),
+      nowMs: 1_000_000,
+    });
+    expect(first.type).toBe('single');
+    const after = applyQuietNotifyPlan(defaultQuietNotifyState(), first);
+    const second = planQuietNotifications({
+      trades: [mismatch],
+      state: after,
+      nowMs: 1_000_000 + 60_000,
+    });
+    expect(second.type).toBe('none');
+  });
+
+  it('does not re-notify after Later snooze', () => {
+    const guardTrade = trade({
+      orderId: 'order-guard',
+      role: 'seller',
+      offerId: '1',
+      nextAction: {
+        kind: 'confirm_guard',
+        title: 'Guard',
+        description: 'mobile',
+      },
+    });
+    const snoozed = snoozeQuietNotifyOrder(
+      defaultQuietNotifyState(),
+      'order-guard',
+      1_000_000,
+    );
+    const plan = planQuietNotifications({
+      trades: [guardTrade],
+      state: snoozed,
+      nowMs: 1_000_000 + 60_000,
+    });
+    expect(plan.type).toBe('none');
+  });
+
+  it('rejects CORS-blob notification click URLs', () => {
+    expect(
+      isSafeNotificationClickUrl(
+        'https://p2pcs.ru,https://www.p2pcs.ru,http://31.177.83.107/support',
+      ),
+    ).toBe(false);
+    expect(isSafeNotificationClickUrl('https://p2pcs.ru/orders/abc')).toBe(true);
+    expect(isSafeNotificationClickUrl('p2pcs.ru,https://www.p2pcs.ru')).toBe(
+      false,
+    );
   });
 });

@@ -32,7 +32,7 @@ export const extensionMessagesRu: ExtensionMessageTree = {
     trustTitle: 'Доверие',
     quietNotifyLabel: 'Тихие уведомления (сделка / Guard / Accept / Mismatch)',
     quietNotifyNote:
-      'Только при смене статуса сделки — включая новую продажу. Несколько событий → одно групповое. «Скрыть на сделку» глушит эту сделку.',
+      'Только при смене статуса сделки. Несколько событий → одно групповое. «Позже» прячет карточку на 15 минут. «Скрыть на сделку» глушит уведомления до конца сделки.',
     supportEmergency: 'Поддержка · аварийный доступ',
     apiKeyNote:
       'Не для обычной работы. Вставьте ключ только если поддержка R.I.P Market явно попросила — и только на время сбоя Steam.',
@@ -58,6 +58,7 @@ export const extensionMessagesRu: ExtensionMessageTree = {
     receiptsSub: 'Квитанции · комиссия · offer',
     actionTitle: 'Нужно действие',
     actionSub: 'Один главный шаг на карточке',
+    snoozeLater: 'Позже',
     emptyTitle: 'Всё спокойно',
     emptyBody: 'Нет сделок, которые требуют действия прямо сейчас.',
   },
@@ -299,6 +300,17 @@ export const extensionMessagesRu: ExtensionMessageTree = {
     hintBlock: 'Не принимайте этот обмен в Steam',
     hintAccept: 'Примите обмен кнопкой Steam на этой странице',
     hintWait: 'Подождите завершения проверки — Accept пока не торопите',
+  },
+  offerGate: {
+    needCs2Title: 'Выберите CS2',
+    needCs2Body:
+      'В списке инвентаря слева выберите Counter-Strike 2. Расширение само добавит скин сделки.',
+    needItemTitle: 'Добавьте скин в обмен',
+    needItemBody:
+      'Нужный предмет: {{name}}. Кликните его в инвентаре — он должен появиться в «Ваши предметы».',
+    itemReadyTitle: 'Скин в обмене',
+    itemReadyBody:
+      'Сверьте щит справа и нажмите «Предложить обмен» в Steam. Guard подтверждается только в приложении.',
   },
   shield: {
     dealLine: 'Заказ #{{short}} · {{amount}}',

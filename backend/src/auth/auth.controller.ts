@@ -14,6 +14,7 @@ import { CurrentUser } from '../common/current-user.decorator';
 import type { AuthUser } from '../common/auth-user.interface';
 import { AppException } from '../common/errors/app.exception';
 import { ErrorCode } from '../common/errors/error-codes';
+import { getPublicSiteOriginFromEnv } from '../common/public-site-url.util';
 import { getProvidersConfig } from '../providers/config';
 import { getPaymentConfig } from '../providers/payment/payment.config';
 import { isRealSettlementEnabled } from '../settlement/settlement.config';
@@ -133,9 +134,7 @@ export class AuthController {
       );
       return res.redirect(redirectUrl);
     } catch (error) {
-      const frontendOrigin =
-        process.env.FRONTEND_ORIGIN ?? 'http://localhost:5173';
-      const origin = frontendOrigin.split(',')[0]?.trim() ?? frontendOrigin;
+      const origin = getPublicSiteOriginFromEnv();
       const code =
         error instanceof AppException
           ? error.code

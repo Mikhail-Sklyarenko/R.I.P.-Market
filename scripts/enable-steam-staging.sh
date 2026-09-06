@@ -15,6 +15,7 @@ HOST=127.0.0.1
 JWT_SECRET="${JWT_SECRET}"
 JWT_EXPIRES_IN="7d"
 FRONTEND_ORIGIN="https://p2pcs.ru,https://www.p2pcs.ru,http://p2pcs.ru,http://www.p2pcs.ru,http://31.177.83.107"
+PUBLIC_SITE_URL="https://p2pcs.ru"
 
 AUTH_PROVIDER=steam
 INVENTORY_PROVIDER=steam

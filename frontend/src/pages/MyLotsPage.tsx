@@ -190,6 +190,13 @@ export function MyLotsPage({ embedded = false }: MyLotsPageProps) {
             <p className="muted small listing-success-message">{t('lots.listedSuccessMessage')}</p>
           </div>
           <div className="listing-success-actions">
+            <Link
+              to="/sell/inventory"
+              className="button secondary sm"
+              data-testid="listing-success-inventory"
+            >
+              {t('lots.toInventory')}
+            </Link>
             <Link to="/catalog" className="button secondary sm" data-testid="listing-success-catalog">
               {t('lots.listedSuccessCatalog')}
             </Link>

@@ -301,12 +301,16 @@ export class ExtensionTradeAckService {
     type: string;
     offerId?: string | null;
     idempotencyKey: string;
+    /** Website buyer-receipt must work even if the extension ack channel is off. */
+    requireChannelEnabled?: boolean;
   }): Promise<{
     ok: true;
     type: TradeAcknowledgmentType;
     idempotent: boolean;
   }> {
-    this.ensureEnabled();
+    if (params.requireChannelEnabled !== false) {
+      this.ensureEnabled();
+    }
     const type = params.type as TradeAcknowledgmentType;
     if (!ACK_TYPES.has(type)) {
       throw new AppException(
@@ -350,15 +354,15 @@ export class ExtensionTradeAckService {
     });
 
     if (type === 'BUYER_ACK_RECEIVED') {
-      void this.tradeStatusPoller
-        .pollOrderById(order.id, { force: true })
-        .catch((error) => {
-          this.logger.warn(
-            `Immediate trade poll failed after buyer ack for order ${order.id}: ${
-              error instanceof Error ? error.message : 'unknown'
-            }`,
-          );
-        });
+      try {
+        await this.tradeStatusPoller.pollOrderById(order.id, { force: true });
+      } catch (error) {
+        this.logger.warn(
+          `Immediate trade poll failed after buyer ack for order ${order.id}: ${
+            error instanceof Error ? error.message : 'unknown'
+          }`,
+        );
+      }
     }
 
     return { ok: true, type, idempotent: false };

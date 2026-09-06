@@ -16,6 +16,8 @@ export const QUIET_NOTIFY_STORAGE_KEY = 'rip:quietNotifications';
 export const QUIET_NOTIFY_GROUP_THRESHOLD = 2;
 /** Minimum gap between any two Chrome notifications (ms). */
 export const QUIET_NOTIFY_MIN_INTERVAL_MS = 20_000;
+/** Hide a deal from nags after “Later” — long enough to screenshot / finish Steam. */
+export const QUIET_NOTIFY_SNOOZE_MS = 15 * 60 * 1000;
 
 export type QuietNotifyKind =
   | 'confirm_guard'
@@ -40,6 +42,8 @@ export type QuietNotifyState = {
   /** orderId → last notified fingerprint */
   fingerprints: Record<string, string>;
   mutedOrderIds: string[];
+  /** orderId → ISO time until which nags (notify + action card) stay hidden */
+  snoozedUntil: Record<string, string>;
   lastNotifyAt: string | null;
 };
 
@@ -71,6 +75,7 @@ export function defaultQuietNotifyState(): QuietNotifyState {
     enabled: true,
     fingerprints: {},
     mutedOrderIds: [],
+    snoozedUntil: {},
     lastNotifyAt: null,
   };
 }
@@ -92,10 +97,20 @@ export function parseQuietNotifyState(raw: unknown): QuietNotifyState {
   const mutedOrderIds = Array.isArray(record.mutedOrderIds)
     ? record.mutedOrderIds.filter((id): id is string => typeof id === 'string')
     : [];
+  const snoozedUntil =
+    record.snoozedUntil && typeof record.snoozedUntil === 'object'
+      ? Object.fromEntries(
+          Object.entries(record.snoozedUntil as Record<string, unknown>).filter(
+            (entry): entry is [string, string] =>
+              typeof entry[0] === 'string' && typeof entry[1] === 'string',
+          ),
+        )
+      : {};
   return {
     enabled: record.enabled !== false,
     fingerprints,
     mutedOrderIds,
+    snoozedUntil,
     lastNotifyAt:
       typeof record.lastNotifyAt === 'string' ? record.lastNotifyAt : null,
   };
@@ -133,10 +148,15 @@ export function resolveQuietNotifyKind(
 }
 
 export function buildQuietNotifyFingerprint(
-  trade: Pick<TradeVerificationResult, 'orderId' | 'offerId' | 'verificationStatus'>,
+  trade: Pick<TradeVerificationResult, 'orderId' | 'offerId'>,
   kind: QuietNotifyKind,
 ): string {
-  return `${trade.orderId}:${kind}:${trade.offerId ?? ''}:${trade.verificationStatus}`;
+  // Durable kinds: do not include verificationStatus — it flickers pending/partial
+  // and re-fired sticky Chrome notifications every poll.
+  if (kind === 'mismatch' || kind === 'new_deal') {
+    return `${trade.orderId}:${kind}`;
+  }
+  return `${trade.orderId}:${kind}:${trade.offerId ?? ''}`;
 }
 
 function buildEventCopy(
@@ -207,6 +227,7 @@ export function collectQuietNotifyEvents(
   trades: TradeVerificationResult[],
   state: QuietNotifyState,
   locale: ExtensionLocale = DEFAULT_EXTENSION_LOCALE,
+  nowMs = Date.now(),
 ): QuietNotifyEvent[] {
   if (!state.enabled) {
     return [];
@@ -214,6 +235,9 @@ export function collectQuietNotifyEvents(
   const events: QuietNotifyEvent[] = [];
   for (const trade of trades) {
     if (isOrderMuted(state, trade.orderId)) {
+      continue;
+    }
+    if (isOrderSnoozed(state, trade.orderId, nowMs)) {
       continue;
     }
     const event = buildQuietNotifyEvent(trade, locale);
@@ -257,7 +281,12 @@ export function planQuietNotifications(params: {
   const nowMs = params.nowMs ?? Date.now();
   const locale = params.locale ?? DEFAULT_EXTENSION_LOCALE;
   const t = createExtensionT(locale);
-  const events = collectQuietNotifyEvents(params.trades, params.state, locale);
+  const events = collectQuietNotifyEvents(
+    params.trades,
+    params.state,
+    locale,
+    nowMs,
+  );
   if (events.length === 0) {
     return { type: 'none' };
   }
@@ -334,7 +363,16 @@ export function pruneQuietNotifyFingerprints(
     Object.entries(state.fingerprints).filter(([orderId]) => active.has(orderId)),
   );
   const mutedOrderIds = state.mutedOrderIds.filter((id) => active.has(id));
-  return { ...state, fingerprints, mutedOrderIds };
+  const snoozedUntil = Object.fromEntries(
+    Object.entries(state.snoozedUntil).filter(([orderId, until]) => {
+      if (!active.has(orderId)) {
+        return false;
+      }
+      const ms = Date.parse(until);
+      return Number.isFinite(ms) && ms > Date.now();
+    }),
+  );
+  return { ...state, fingerprints, mutedOrderIds, snoozedUntil };
 }
 
 export function muteQuietNotifyOrder(
@@ -360,9 +398,64 @@ export function unmuteQuietNotifyOrder(
   };
 }
 
+export function isOrderSnoozed(
+  state: QuietNotifyState,
+  orderId: string,
+  nowMs = Date.now(),
+): boolean {
+  const until = state.snoozedUntil[orderId];
+  if (!until) {
+    return false;
+  }
+  const ms = Date.parse(until);
+  return Number.isFinite(ms) && ms > nowMs;
+}
+
+export function snoozeQuietNotifyOrder(
+  state: QuietNotifyState,
+  orderId: string,
+  nowMs = Date.now(),
+  durationMs = QUIET_NOTIFY_SNOOZE_MS,
+): QuietNotifyState {
+  return {
+    ...state,
+    snoozedUntil: {
+      ...state.snoozedUntil,
+      [orderId]: new Date(nowMs + durationMs).toISOString(),
+    },
+  };
+}
+
+export function collectSnoozedOrderIds(
+  state: QuietNotifyState,
+  nowMs = Date.now(),
+): Set<string> {
+  return new Set(
+    Object.keys(state.snoozedUntil).filter((orderId) =>
+      isOrderSnoozed(state, orderId, nowMs),
+    ),
+  );
+}
+
 export function setQuietNotifyEnabled(
   state: QuietNotifyState,
   enabled: boolean,
 ): QuietNotifyState {
   return { ...state, enabled };
+}
+
+/** Never open a CORS-list blob or other garbage from a notification click. */
+export function isSafeNotificationClickUrl(url: string): boolean {
+  try {
+    const parsed = new URL(url);
+    if (parsed.protocol !== 'https:' && parsed.protocol !== 'http:') {
+      return false;
+    }
+    if (!parsed.hostname || parsed.hostname.includes(',')) {
+      return false;
+    }
+    return true;
+  } catch {
+    return false;
+  }
 }

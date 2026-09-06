@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useLocale } from '../i18n';
 import type { Order } from '../api/types';
+import { BuyerReceivedAck } from './BuyerReceivedAck';
 import {
   hasBuyerWizardOfferOpened,
   markBuyerWizardOfferOpened,
@@ -16,6 +17,8 @@ type BuyerAcceptWizardProps = {
   ackEnabled?: boolean;
   acknowledging?: boolean;
   remainingMinutes?: number | null;
+  /** Parent already shows the “what now” hero — omit duplicate title chrome. */
+  hideChrome?: boolean;
   onAcknowledgePreAccept?: () => void;
   onAcknowledgeReceived?: () => void;
 };
@@ -44,6 +47,7 @@ export function BuyerAcceptWizard({
   ackEnabled = false,
   acknowledging = false,
   remainingMinutes = null,
+  hideChrome = false,
   onAcknowledgePreAccept,
   onAcknowledgeReceived,
 }: BuyerAcceptWizardProps) {
@@ -73,7 +77,8 @@ export function BuyerAcceptWizard({
     view.ack.showPreAccept && Boolean(onAcknowledgePreAccept) && openedLocally;
   const showReceived =
     view.ack.showReceived && Boolean(onAcknowledgeReceived);
-  const steamLinkIsSecondary = showPreAccept && view.steps[1]?.state === 'current';
+  const steamLinkIsSecondary =
+    (showPreAccept && view.steps[1]?.state === 'current') || showReceived;
   const problemReason = view.blockedByMismatch ? 'mismatch' : 'trade_problem';
   const problemPath = buildTradeProblemSupportPath({
     order,
@@ -84,15 +89,20 @@ export function BuyerAcceptWizard({
 
   return (
     <section
-      className={`buyer-accept-wizard${view.blockedByMismatch ? ' buyer-accept-wizard--blocked' : ''}`}
+      className={`buyer-accept-wizard${view.blockedByMismatch ? ' buyer-accept-wizard--blocked' : ''}${hideChrome ? ' buyer-accept-wizard--focus' : ''}`}
       data-testid="buyer-accept-wizard"
       data-blocked={view.blockedByMismatch ? 'true' : 'false'}
+      data-focus={hideChrome ? 'true' : undefined}
     >
-      <p className="eyebrow">{t('buyerAcceptWizard.eyebrow')}</p>
-      <strong className="buyer-accept-wizard-title">
-        {t('buyerAcceptWizard.title')}
-      </strong>
-      <p className="muted small">{t('buyerAcceptWizard.subtitle')}</p>
+      {!hideChrome ? (
+        <>
+          <p className="eyebrow">{t('buyerAcceptWizard.eyebrow')}</p>
+          <strong className="buyer-accept-wizard-title">
+            {t('buyerAcceptWizard.title')}
+          </strong>
+          <p className="muted small">{t('buyerAcceptWizard.subtitle')}</p>
+        </>
+      ) : null}
 
       {view.blockedByMismatch ? (
         <div className="alert alert-error" data-testid="buyer-accept-wizard-mismatch">
@@ -118,27 +128,57 @@ export function BuyerAcceptWizard({
         </div>
       ) : null}
 
-      <ol className="buyer-accept-wizard-steps">
-        {view.steps.map((step, index) => (
-          <li
-            key={step.id}
-            className={`buyer-accept-wizard-step state-${step.state}`}
-            data-step={step.id}
-            data-state={step.state}
-          >
-            <div className="buyer-accept-wizard-step-head">
-              <span className="buyer-accept-wizard-index">{index + 1}</span>
-              <div>
-                <strong>{t(step.titleKey)}</strong>
-                <span className="buyer-accept-wizard-state">
-                  {stepStateLabel(step.state, t)}
-                </span>
+      {hideChrome ? (
+        <details
+          className="buyer-accept-wizard-steps-more"
+          data-testid="buyer-accept-wizard-steps-more"
+        >
+          <summary>{t('buyerAcceptWizard.stepsSummary')}</summary>
+          <ol className="buyer-accept-wizard-steps">
+            {view.steps.map((step, index) => (
+              <li
+                key={step.id}
+                className={`buyer-accept-wizard-step state-${step.state}`}
+                data-step={step.id}
+                data-state={step.state}
+              >
+                <div className="buyer-accept-wizard-step-head">
+                  <span className="buyer-accept-wizard-index">{index + 1}</span>
+                  <div>
+                    <strong>{t(step.titleKey)}</strong>
+                    <span className="buyer-accept-wizard-state">
+                      {stepStateLabel(step.state, t)}
+                    </span>
+                  </div>
+                </div>
+                <p className="muted small">{t(step.bodyKey)}</p>
+              </li>
+            ))}
+          </ol>
+        </details>
+      ) : (
+        <ol className="buyer-accept-wizard-steps">
+          {view.steps.map((step, index) => (
+            <li
+              key={step.id}
+              className={`buyer-accept-wizard-step state-${step.state}`}
+              data-step={step.id}
+              data-state={step.state}
+            >
+              <div className="buyer-accept-wizard-step-head">
+                <span className="buyer-accept-wizard-index">{index + 1}</span>
+                <div>
+                  <strong>{t(step.titleKey)}</strong>
+                  <span className="buyer-accept-wizard-state">
+                    {stepStateLabel(step.state, t)}
+                  </span>
+                </div>
               </div>
-            </div>
-            <p className="muted small">{t(step.bodyKey)}</p>
-          </li>
-        ))}
-      </ol>
+              <p className="muted small">{t(step.bodyKey)}</p>
+            </li>
+          ))}
+        </ol>
+      )}
 
       {!view.blockedByMismatch && showPreAccept ? (
         <div className="buyer-accept-ack" data-testid="buyer-ack-preaccept-cta">
@@ -179,21 +219,10 @@ export function BuyerAcceptWizard({
       ) : null}
 
       {!view.blockedByMismatch && showReceived ? (
-        <div className="buyer-accept-ack" data-testid="buyer-ack-received-cta">
-          <strong>{t('buyerAcceptWizard.receivedTitle')}</strong>
-          <p className="muted small">{t('buyerAcceptWizard.receivedBody')}</p>
-          <button
-            type="button"
-            className="button primary"
-            disabled={acknowledging}
-            data-testid="buyer-ack-received"
-            onClick={onAcknowledgeReceived}
-          >
-            {acknowledging
-              ? t('orderTradePanel.saving')
-              : t('buyerAcceptWizard.receivedCta')}
-          </button>
-        </div>
+        <BuyerReceivedAck
+          acknowledging={acknowledging}
+          onConfirm={() => onAcknowledgeReceived?.()}
+        />
       ) : null}
 
       {!view.blockedByMismatch && view.ack.receivedDone ? (
@@ -202,13 +231,13 @@ export function BuyerAcceptWizard({
         </p>
       ) : null}
 
-      {!view.blockedByMismatch ? (
+      {!view.blockedByMismatch && !hideChrome ? (
         <p className="muted small" data-testid="buyer-accept-wizard-return-hint">
           {t('buyerAcceptWizard.returnHint')}
         </p>
       ) : null}
 
-      {!view.blockedByMismatch ? (
+      {!view.blockedByMismatch && !hideChrome ? (
         <Link
           className="button ghost sm buyer-accept-problem"
           to={problemPath}

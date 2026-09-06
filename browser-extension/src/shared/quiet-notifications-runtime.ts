@@ -5,11 +5,13 @@ import type { TradeVerificationResult } from '@rip-market/extension-orchestrator
 import {
   applyQuietNotifyPlan,
   defaultQuietNotifyState,
+  isSafeNotificationClickUrl,
   muteQuietNotifyOrder,
   parseQuietNotifyState,
   planQuietNotifications,
   pruneQuietNotifyFingerprints,
   setQuietNotifyEnabled,
+  snoozeQuietNotifyOrder,
   unmuteQuietNotifyOrder,
   QUIET_NOTIFY_STORAGE_KEY,
   type QuietNotifyPlan,
@@ -43,6 +45,7 @@ async function createChromeNotification(params: {
   message: string;
   clickUrl: string;
   muteOrderId?: string | null;
+  requireInteraction?: boolean;
 }): Promise<void> {
   const options = {
     type: 'basic' as const,
@@ -50,7 +53,7 @@ async function createChromeNotification(params: {
     title: params.title,
     message: params.message,
     priority: 1,
-    requireInteraction: params.muteOrderId ? true : false,
+    requireInteraction: params.requireInteraction === true,
     ...(params.muteOrderId
       ? {
           buttons: [
@@ -86,6 +89,7 @@ export async function dispatchQuietNotifyPlan(
       message: plan.event.message,
       clickUrl: plan.event.clickUrl,
       muteOrderId: plan.event.orderId,
+      requireInteraction: plan.event.kind === 'confirm_guard',
     });
     return;
   }
@@ -96,6 +100,7 @@ export async function dispatchQuietNotifyPlan(
     message: plan.message,
     clickUrl: plan.clickUrl,
     muteOrderId: null,
+    requireInteraction: false,
   });
 }
 
@@ -137,12 +142,8 @@ export async function handleQuietNotificationClick(
     | { clickUrl?: string; muteOrderId?: string | null }
     | undefined;
   const url = payload?.clickUrl;
-  if (url) {
+  if (url && isSafeNotificationClickUrl(url)) {
     await chrome.tabs.create({ url });
-  } else {
-    await chrome.action.openPopup().catch(() => {
-      // openPopup may fail if no user gesture — ignore.
-    });
   }
   await chrome.notifications.clear(notificationId);
   await chrome.storage.session.remove(key);
@@ -184,6 +185,14 @@ export async function unmuteQuietNotifyDeal(
   orderId: string,
 ): Promise<QuietNotifyState> {
   const state = unmuteQuietNotifyOrder(await loadQuietNotifyState(), orderId);
+  await saveQuietNotifyState(state);
+  return state;
+}
+
+export async function snoozeQuietNotifyDeal(
+  orderId: string,
+): Promise<QuietNotifyState> {
+  const state = snoozeQuietNotifyOrder(await loadQuietNotifyState(), orderId);
   await saveQuietNotifyState(state);
   return state;
 }

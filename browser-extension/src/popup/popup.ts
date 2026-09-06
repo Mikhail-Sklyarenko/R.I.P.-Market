@@ -29,6 +29,11 @@ import {
   settlementTransparencyHtml,
 } from '../shared/settlement-transparency.js';
 import { isExtensionQuietNotificationsEnabled } from '../shared/extension-flags.js';
+import { collectSnoozedOrderIds } from '../shared/quiet-notifications.js';
+import {
+  loadQuietNotifyState,
+  snoozeQuietNotifyDeal,
+} from '../shared/quiet-notifications-runtime.js';
 import {
   buildDisputeStatusView,
   disputeStatusHtml,
@@ -177,6 +182,15 @@ function bindCardActions(root: ParentNode): void {
       void retrySendFromPopup(button);
     });
   });
+  root.querySelectorAll<HTMLButtonElement>('button[data-snooze-order]').forEach((button) => {
+    button.addEventListener('click', () => {
+      const orderId = button.getAttribute('data-snooze-order');
+      if (!orderId) {
+        return;
+      }
+      void snoozeQuietNotifyDeal(orderId).then(() => render());
+    });
+  });
 }
 
 function renderConnection(connection: ConnectionDashboard): void {
@@ -290,6 +304,11 @@ function renderActionCard(item: ActionRequiredItem): string {
       }
       <p class="next"><strong>${escapeHtml(item.title)}</strong><br />${escapeHtml(item.description)}</p>
       ${renderNextActionBlock(cta)}
+      ${
+        item.orderId
+          ? `<button type="button" class="btn secondary action-snooze" data-snooze-order="${escapeHtml(item.orderId)}">${escapeHtml(t('popup.snoozeLater'))}</button>`
+          : ''
+      }
     </article>
   `;
 }
@@ -871,12 +890,14 @@ async function render(): Promise<void> {
     popupHintEl.hidden = status.connected;
   }
 
+  const quietState = await loadQuietNotifyState();
   const home = buildHomeDashboard({
     connected: status.connected,
     expiresAt: status.expiresAt,
     health,
     trades,
     locale: activeLocale,
+    snoozedOrderIds: collectSnoozedOrderIds(quietState),
   });
   const wizardVisible = await renderTwoMinuteOnboarding(status.connected);
   toolbarEl?.classList.toggle('toolbar--wizard', wizardVisible);

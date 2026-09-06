@@ -219,7 +219,12 @@ const baseEnMessages = {
     listedSuccessTitle: 'Listing published',
     listedSuccessMessage:
       'Your item is live in the catalog. When it sells, send the Steam trade. Track status here or under Deals → Sales.',
+    listedSuccessContinueMessage:
+      'You can list the next item right away — inventory stays open.',
+    listedSuccessBulkMessage:
+      'Published {{count}} listings. You can list the next item right away.',
     listedSuccessCatalog: 'Browse catalog',
+    listedSuccessListings: 'My listings',
     listedSuccessDismiss: 'Got it',
     search: 'Search',
     searchPlaceholder: 'Skin name…',

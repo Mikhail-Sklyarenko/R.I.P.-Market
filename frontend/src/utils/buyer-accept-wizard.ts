@@ -65,11 +65,10 @@ export function resolveBuyerScenarioAck(params: {
     !receivedDone;
 
   const showReceived =
-    params.ackEnabled &&
     !blocked &&
     hasOffer &&
     !receivedDone &&
-    (preAcceptDone ||
+    (status === 'WAITING_TRADE' ||
       status === 'TRADE_CONFIRMED' ||
       status === 'SETTLEMENT_HOLD');
 

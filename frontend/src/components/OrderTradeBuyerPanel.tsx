@@ -12,6 +12,7 @@ import {
   resolveBuyerScenarioAck,
 } from '../utils/buyer-accept-wizard';
 import { buildOrderDealItemLines } from '../utils/deal-shield-item-lines';
+import { BuyerReceivedAck } from './BuyerReceivedAck';
 
 type OrderTradeBuyerPanelProps = {
   order: Order;
@@ -28,6 +29,8 @@ type OrderTradeBuyerPanelProps = {
   onCheckDelivery?: () => void;
   onAcknowledgePreAccept?: () => void;
   onAcknowledgeReceived?: () => void;
+  /** Order page already shows “what now” — drop duplicate panel chrome. */
+  focusMode?: boolean;
 };
 
 export function OrderTradeBuyerPanel({
@@ -44,6 +47,7 @@ export function OrderTradeBuyerPanel({
   onCheckDelivery,
   onAcknowledgePreAccept,
   onAcknowledgeReceived,
+  focusMode = false,
 }: OrderTradeBuyerPanelProps) {
   const { t, locale } = useLocale();
   const hasOfferSaved = Boolean(order.tradeOperation?.externalOfferId);
@@ -69,9 +73,8 @@ export function OrderTradeBuyerPanel({
     blockedByMismatch: order.tradeVerification?.status === 'mismatch',
   });
 
-  // Delivery-check path: received ack is primary here (wizard hidden).
   const showDeliveryReceivedAck =
-    isDeliveryCheck &&
+    !showAcceptWizard &&
     scenarioAck.showReceived &&
     Boolean(onAcknowledgeReceived);
 
@@ -84,10 +87,16 @@ export function OrderTradeBuyerPanel({
     : t('orderTradePanel.openIncomingOffers');
 
   return (
-    <div className="card order-trade-panel" data-testid="buyer-trade-panel">
-      <h3 className="order-trade-panel-title">{t('orderTradePanel.yourStep')}</h3>
+    <div
+      className={`order-trade-panel${focusMode ? ' order-trade-panel--focus' : ''}`}
+      data-testid="buyer-trade-panel"
+      data-focus={focusMode ? 'true' : undefined}
+    >
+      {!focusMode ? (
+        <h3 className="order-trade-panel-title">{t('orderTradePanel.yourStep')}</h3>
+      ) : null}
 
-      {nextActionTitle ? (
+      {!focusMode && nextActionTitle ? (
         <div className="next-action-card" data-testid="order-next-action">
           <strong>{nextActionTitle}</strong>
           {nextActionDescription ? (
@@ -142,6 +151,7 @@ export function OrderTradeBuyerPanel({
           ackEnabled={ackEnabled}
           acknowledging={acknowledging}
           remainingMinutes={remainingMinutes}
+          hideChrome={focusMode}
           onAcknowledgePreAccept={onAcknowledgePreAccept}
           onAcknowledgeReceived={onAcknowledgeReceived}
         />
@@ -160,21 +170,10 @@ export function OrderTradeBuyerPanel({
       ) : null}
 
       {showDeliveryReceivedAck ? (
-        <div className="buyer-accept-ack" data-testid="buyer-ack-received-cta">
-          <strong>{t('buyerAcceptWizard.receivedTitle')}</strong>
-          <p className="muted small">{t('buyerAcceptWizard.receivedBody')}</p>
-          <button
-            type="button"
-            className="button primary"
-            disabled={acknowledging}
-            data-testid="buyer-ack-received"
-            onClick={onAcknowledgeReceived}
-          >
-            {acknowledging
-              ? t('orderTradePanel.saving')
-              : t('buyerAcceptWizard.receivedCta')}
-          </button>
-        </div>
+        <BuyerReceivedAck
+          acknowledging={acknowledging}
+          onConfirm={() => onAcknowledgeReceived?.()}
+        />
       ) : null}
 
       {hasOfferSaved && !isDeliveryCheck && !showAcceptWizard ? (

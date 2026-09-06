@@ -129,8 +129,15 @@ function actionBadge(
 }
 
 export function isTradeActionRequired(
-  trade: Pick<TradeVerificationResult, 'verificationStatus' | 'nextAction'>,
+  trade: Pick<
+    TradeVerificationResult,
+    'verificationStatus' | 'nextAction' | 'orderStatus'
+  >,
 ): boolean {
+  // Support already owns an open dispute — do not nag as “action required”.
+  if (trade.orderStatus === 'DISPUTE') {
+    return false;
+  }
   if (trade.verificationStatus === 'mismatch') {
     return true;
   }
@@ -382,6 +389,7 @@ export function buildActionRequiredQueue(params: {
   health: SessionHealth | null;
   trades: TradeVerificationResult[];
   locale?: ExtensionLocale;
+  snoozedOrderIds?: ReadonlySet<string>;
 }): ActionRequiredItem[] {
   const locale = params.locale ?? DEFAULT_EXTENSION_LOCALE;
   const items: ActionRequiredItem[] = [];
@@ -399,7 +407,11 @@ export function buildActionRequiredQueue(params: {
       items.push(item);
     }
   }
-  return sortActionRequiredItems(items);
+  const snoozed = params.snoozedOrderIds;
+  const visible = snoozed
+    ? items.filter((item) => !item.orderId || !snoozed.has(item.orderId))
+    : items;
+  return sortActionRequiredItems(visible);
 }
 
 /**
@@ -412,6 +424,7 @@ export function buildHomeDashboard(params: {
   health: SessionHealth | null;
   trades: TradeVerificationResult[];
   locale?: ExtensionLocale;
+  snoozedOrderIds?: ReadonlySet<string>;
 }): HomeDashboard {
   const locale = params.locale ?? DEFAULT_EXTENSION_LOCALE;
   const connection = resolveConnectionDashboard({
@@ -425,6 +438,7 @@ export function buildHomeDashboard(params: {
     health: params.health,
     trades: params.trades,
     locale,
+    snoozedOrderIds: params.snoozedOrderIds,
   });
   const actionOrderIds = new Set(
     actionItems

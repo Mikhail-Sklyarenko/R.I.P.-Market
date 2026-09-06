@@ -17,6 +17,9 @@ import { MoneyDisplay } from '../components/MoneyDisplay';
 import { PageHeader } from '../components/PageHeader';
 import { SellerSaleInfo } from '../components/SellerSaleInfo';
 import { parseUsdToMinor } from '../utils/format';
+import {
+  buildInventoryListedPath,
+} from '../utils/post-list-navigation';
 import { canListAsset } from '../utils/seller-flow';
 
 export function CreateLotPage() {
@@ -77,7 +80,7 @@ export function CreateLotPage() {
         return;
       }
       await createLot(token, assetId, priceMinor);
-      navigate('/deals?tab=listings');
+      navigate(buildInventoryListedPath(1));
     } catch (err) {
       setError(err);
     } finally {

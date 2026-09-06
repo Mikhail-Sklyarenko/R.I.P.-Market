@@ -1,5 +1,5 @@
 import { type FormEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import {
   cancelLot,
   createLot,
@@ -87,11 +87,16 @@ import {
   isSellerOnboardingMarkedComplete,
   markSellerOnboardingComplete,
 } from '../utils/seller-onboarding';
+import {
+  parseInventoryListedSuccess,
+  stripListedSuccessParams,
+  type InventoryListedSuccess,
+} from '../utils/post-list-navigation';
 
 export function InventoryPage() {
   const { locale, t } = useLocale();
   const { token, user, updateUser } = useAuth();
-  const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [config, setConfig] = useState<AuthConfig | null>(null);
   const [assets, setAssets] = useState<InventoryAsset[]>([]);
   const [sync, setSync] = useState<InventorySyncMeta | null>(null);
@@ -123,6 +128,9 @@ export function InventoryPage() {
   const [pricesError, setPricesError] = useState<unknown>(null);
   const [hasListedBefore, setHasListedBefore] = useState(isSellerOnboardingMarkedComplete);
   const [onboardingDismissed, setOnboardingDismissed] = useState(false);
+  const [listedSuccess, setListedSuccess] = useState<InventoryListedSuccess | null>(
+    null,
+  );
   const [emptyWaitMs, setEmptyWaitMs] = useState(0);
   const priceHintsRef = useRef<Record<string, InventoryPriceHint>>({});
   const priceHintsGenerationRef = useRef(0);
@@ -747,6 +755,20 @@ export function InventoryPage() {
     setPriceInput(minorToPriceInput(recommendedMinor!));
   }, [sellPanelOpen, sellPanelMode, priceDirty, priceInput, selectedPriceHint]);
 
+  useEffect(() => {
+    const fromUrl = parseInventoryListedSuccess(searchParams);
+    if (!fromUrl) {
+      return;
+    }
+    setListedSuccess(fromUrl);
+    const next = stripListedSuccessParams(searchParams);
+    setSearchParams(next, { replace: true });
+  }, [searchParams, setSearchParams]);
+
+  function dismissListedSuccess() {
+    setListedSuccess(null);
+  }
+
   async function handleSubmitListing(event: FormEvent) {
     event.preventDefault();
     if (!token || !selectedAsset || !priceMinor) {
@@ -848,11 +870,11 @@ export function InventoryPage() {
       }
 
       setSubmitting(false);
-      setSelectedAssetId(null);
-      setBulkListCount(1);
+      clearSelection();
       markSellerOnboardingComplete();
       setHasListedBefore(true);
-      navigate('/deals?tab=listings&listed=1');
+      setListedSuccess({ quantity });
+      await loadInventory(false);
     } catch (err: unknown) {
       if (!isListingRequestCurrent(requestId, listingRequestGenRef.current)) {
         return;
@@ -928,6 +950,43 @@ export function InventoryPage() {
           </button>
         }
       />
+
+      {listedSuccess ? (
+        <section
+          className="card listing-success-banner"
+          data-testid="inventory-listing-success"
+        >
+          <div className="listing-success-copy">
+            <h3 className="listing-success-title">
+              {t('lots.listedSuccessTitle')}
+            </h3>
+            <p className="muted small listing-success-message">
+              {listedSuccess.quantity > 1
+                ? t('lots.listedSuccessBulkMessage', {
+                    count: listedSuccess.quantity,
+                  })
+                : t('lots.listedSuccessContinueMessage')}
+            </p>
+          </div>
+          <div className="listing-success-actions">
+            <Link
+              to="/deals?tab=listings"
+              className="button secondary sm"
+              data-testid="inventory-listing-success-listings"
+            >
+              {t('lots.listedSuccessListings')}
+            </Link>
+            <button
+              type="button"
+              className="button primary sm"
+              data-testid="inventory-listing-success-dismiss"
+              onClick={dismissListedSuccess}
+            >
+              {t('lots.listedSuccessDismiss')}
+            </button>
+          </div>
+        </section>
+      ) : null}
 
       {token ? (
         <ExtensionAwareCommerceHint surface="sell" token={token} />

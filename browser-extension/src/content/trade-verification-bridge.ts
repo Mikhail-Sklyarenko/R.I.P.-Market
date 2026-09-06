@@ -7,11 +7,13 @@ import {
   detectTradePageRole,
   parseObservedItemFromTradePage,
 } from '../shared/trade-offer-observed-item.js';
+import { resolveSellerTradeOfferGate } from '../shared/seller-trade-offer-gate.js';
 import {
   buyerOfferPagePrimaryHint,
   type ObservedOfferSnapshot,
 } from '../shared/trade-offer-guided-gate.js';
 import { buildInFlowDisputeSupportUrl } from '../shared/in-flow-dispute.js';
+import { sanitizeTradeOrderUrl } from '../shared/site-origin.js';
 import {
   createExtensionT,
   getStoredExtensionLocale,
@@ -481,9 +483,11 @@ function renderItemHero(model: DealShieldModel): string {
 function primaryCtaHtml(
   trade: TradeVerificationResult,
   shield: DealShieldModel,
+  sellerGate: ReturnType<typeof resolveSellerTradeOfferGate> | null,
 ): string {
   const status = shield.effectiveStatus;
   const onOfferPage = Boolean(parseOfferIdFromPath(window.location.pathname));
+  const onNewOfferPage = window.location.pathname.includes('/tradeoffer/new');
 
   if (
     status === 'mismatch' ||
@@ -492,20 +496,21 @@ function primaryCtaHtml(
   ) {
     const supportUrl = buildInFlowDisputeSupportUrl(trade);
     const isOpenDispute = trade.orderStatus === 'DISPUTE';
+    const orderHref = sanitizeTradeOrderUrl(trade.siteUrl, trade.orderId);
+    if (isOpenDispute) {
+      return `
+      <p class="primary-hint block">${escapeHtml(t('dispute.openTitle'))}</p>
+      <a class="btn primary" href="${escapeHtml(orderHref)}" target="_blank" rel="noreferrer">${escapeHtml(t('cta.openOrder'))}</a>
+      <a class="btn secondary" href="${escapeHtml(supportUrl)}" target="_blank" rel="noreferrer">${escapeHtml(t('cta.openDisputeSupport'))}</a>`;
+    }
     return `
       <p class="primary-hint block">${
-        isOpenDispute
-          ? escapeHtml(t('dispute.openTitle'))
-          : shield.partner.match === 'mismatch'
-            ? escapeHtml(t('shield.partnerMismatch'))
-            : escapeHtml(t('guided.hintBlock'))
+        shield.partner.match === 'mismatch'
+          ? escapeHtml(t('shield.partnerMismatch'))
+          : escapeHtml(t('guided.hintBlock'))
       }</p>
-      <a class="btn danger" href="${escapeHtml(supportUrl)}" target="_blank" rel="noreferrer">${
-        isOpenDispute
-          ? escapeHtml(t('cta.openDisputeSupport'))
-          : escapeHtml(t('cta.openDispute'))
-      }</a>
-      <a class="btn secondary" href="${escapeHtml(trade.siteUrl)}" target="_blank" rel="noreferrer">${escapeHtml(t('cta.openOrder'))}</a>`;
+      <a class="btn danger" href="${escapeHtml(supportUrl)}" target="_blank" rel="noreferrer">${escapeHtml(t('cta.openDispute'))}</a>
+      <a class="btn secondary" href="${escapeHtml(orderHref)}" target="_blank" rel="noreferrer">${escapeHtml(t('cta.openOrder'))}</a>`;
   }
 
   if (
@@ -552,6 +557,18 @@ function primaryCtaHtml(
 
   if (trade.role === 'buyer') {
     return `<a class="btn primary" href="${STEAM_INCOMING_OFFERS_URL}" target="_blank" rel="noreferrer">Открыть входящие предложения</a>`;
+  }
+
+  if (trade.role === 'seller' && onNewOfferPage && sellerGate) {
+    if (sellerGate === 'need_cs2') {
+      return `<p class="primary-hint wait">${escapeHtml(t('offerGate.needCs2Body'))}</p>`;
+    }
+    if (sellerGate === 'need_item') {
+      return `<p class="primary-hint wait">${escapeHtml(
+        t('offerGate.needItemBody', { name: trade.item.marketHashName }),
+      )}</p>`;
+    }
+    return `<p class="primary-hint accept">${escapeHtml(t('offerGate.itemReadyBody'))}</p>`;
   }
 
   if (trade.nextAction.kind === 'confirm_guard') {
@@ -781,6 +798,12 @@ function buildPanel(context: OfferPageContext): HTMLElement {
   host.id = PANEL_ID;
   const shadow = host.attachShadow({ mode: 'open' });
   const isPreSendPage = window.location.pathname.includes('/tradeoffer/new');
+  const sellerGate =
+    isPreSendPage && rawTrade.role === 'seller'
+      ? resolveSellerTradeOfferGate({
+          expectedAssetId: rawTrade.item.assetExternalId,
+        })
+      : null;
   const shield = buildDealShieldModel({
     trade: rawTrade,
     observed,
@@ -793,11 +816,32 @@ function buildPanel(context: OfferPageContext): HTMLElement {
     overlayLocale,
   );
   const status = shield.effectiveStatus;
-  const headline = shield.headline;
   const steamId = shield.partner.steamId;
   const onOfferPage = Boolean(parseOfferIdFromPath(window.location.pathname));
   const warnings = collectAntiScamWarnings(context);
   const scamBlocks = antiScamHasBlocking(warnings);
+  const headline =
+    sellerGate && status !== 'mismatch' && !scamBlocks
+      ? {
+          need_cs2: {
+            title: t('offerGate.needCs2Title'),
+            subtitle: t('offerGate.needCs2Body'),
+            tone: 'warn' as const,
+          },
+          need_item: {
+            title: t('offerGate.needItemTitle'),
+            subtitle: t('offerGate.needItemBody', {
+              name: trade.item.marketHashName,
+            }),
+            tone: 'warn' as const,
+          },
+          item_ready: {
+            title: t('offerGate.itemReadyTitle'),
+            subtitle: t('offerGate.itemReadyBody'),
+            tone: 'ok' as const,
+          },
+        }[sellerGate]
+      : shield.headline;
 
   const showPreAccept =
     trade.role === 'buyer' &&
@@ -836,14 +880,15 @@ function buildPanel(context: OfferPageContext): HTMLElement {
   const buyerCtaOverride =
     trade.role === 'buyer' && onOfferPage && scamBlocks && status !== 'mismatch'
       ? `<p class="primary-hint block">Сначала устраните anti-scam предупреждения — Accept пока не нажимайте</p>`
-      : primaryCtaHtml(trade, shield);
+      : primaryCtaHtml(trade, shield, sellerGate);
 
-  const preSendBanner = shield.isPreSend
-    ? `<div class="pre-send">
+  const preSendBanner =
+    shield.isPreSend && !sellerGate
+      ? `<div class="pre-send">
         <p class="pre-send-title">${escapeHtml(t('shield.preSendTitle'))}</p>
         <p class="pre-send-body">${escapeHtml(t('shield.preSendBody'))}</p>
       </div>`
-    : '';
+      : '';
 
   shadow.innerHTML = `
     <style>${PANEL_STYLES}</style>

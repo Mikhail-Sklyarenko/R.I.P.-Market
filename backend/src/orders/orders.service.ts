@@ -746,6 +746,7 @@ export class OrdersService {
       type,
       offerId: preflight.tradeOperation?.externalOfferId ?? null,
       idempotencyKey: `ack:${orderId}:${type}`,
+      requireChannelEnabled: type !== 'BUYER_ACK_RECEIVED',
     });
 
     const order = await this.getById(orderId, requesterId);

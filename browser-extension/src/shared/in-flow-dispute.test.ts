@@ -100,8 +100,21 @@ describe('in-flow-dispute', () => {
       }),
     );
     expect(view?.phase).toBe('dispute_open');
-    expect(view?.primaryLabel).toMatch(/спор/i);
-    expect(view?.primaryHref).toContain('/support?');
+    expect(view?.primaryLabel).toMatch(/заказ/i);
+    expect(view?.primaryHref).toContain('/orders/');
+    expect(view?.secondaryHref).toContain('/support?');
+  });
+
+  it('recovers support URL when siteUrl is a CORS blob', () => {
+    const href = buildInFlowDisputeSupportUrl(
+      trade({
+        siteUrl:
+          'p2pcs.ru,https://www.p2pcs.ru,http://31.177.83.107/orders/order-dispute-1',
+      }),
+      { capturedAt: '2026-08-27T01:00:00.000Z' },
+    );
+    expect(href.startsWith('https://p2pcs.ru/support?')).toBe(true);
+    expect(href).not.toContain(',');
   });
 
   it('formats ticket body with evidence snapshot', () => {

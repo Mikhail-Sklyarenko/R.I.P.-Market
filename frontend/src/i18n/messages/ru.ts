@@ -220,7 +220,12 @@ const baseRuMessages = {
     listedSuccessTitle: 'Лот опубликован',
     listedSuccessMessage:
       'Предмет появился в каталоге. Когда купят — отправьте обмен в Steam. Статус смотрите здесь или в «Сделки → Продажи».',
+    listedSuccessContinueMessage:
+      'Можете сразу выставить следующий предмет — инвентарь остаётся открытым.',
+    listedSuccessBulkMessage:
+      'Опубликовано лотов: {{count}}. Можете сразу выставить следующий предмет.',
     listedSuccessCatalog: 'В каталог',
+    listedSuccessListings: 'Мои лоты',
     listedSuccessDismiss: 'Понятно',
     search: 'Поиск',
     searchPlaceholder: 'Название скина…',

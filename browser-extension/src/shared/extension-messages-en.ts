@@ -32,7 +32,7 @@ export const extensionMessagesEn: ExtensionMessageTree = {
     trustTitle: 'Trust',
     quietNotifyLabel: 'Quiet notifications (deal / Guard / Accept / Mismatch)',
     quietNotifyNote:
-      'Only when a deal state changes — including new sales. Multiple events → one group alert. “Mute deal” silences that deal.',
+      'Only when a deal state changes. Multiple events → one group alert. “Later” hides the card for 15 minutes. “Mute deal” silences alerts until the deal ends.',
     supportEmergency: 'Support · emergency access',
     apiKeyNote:
       'Not for everyday use. Paste a key only if R.I.P Market support explicitly asked — and only while Steam is broken.',
@@ -59,6 +59,7 @@ export const extensionMessagesEn: ExtensionMessageTree = {
     receiptsSub: 'Receipts · fee · offer',
     actionTitle: 'Action needed',
     actionSub: 'One primary step per card',
+    snoozeLater: 'Later',
     emptyTitle: 'All quiet',
     emptyBody: 'No deals need action right now.',
   },
@@ -296,6 +297,17 @@ export const extensionMessagesEn: ExtensionMessageTree = {
     hintBlock: 'Do not accept this trade in Steam',
     hintAccept: 'Accept the trade with Steam’s button on this page',
     hintWait: 'Wait for verification to finish — do not rush Accept',
+  },
+  offerGate: {
+    needCs2Title: 'Select CS2',
+    needCs2Body:
+      'In the inventory list on the left, choose Counter-Strike 2. The extension will add the deal skin.',
+    needItemTitle: 'Add the skin to the trade',
+    needItemBody:
+      'Needed item: {{name}}. Click it in your inventory — it should appear under “Your items”.',
+    itemReadyTitle: 'Skin is in the offer',
+    itemReadyBody:
+      'Check the shield, then press “Make Offer” in Steam. Guard is confirmed only in the Steam app.',
   },
   shield: {
     dealLine: 'Order #{{short}} · {{amount}}',

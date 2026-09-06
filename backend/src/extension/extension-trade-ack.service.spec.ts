@@ -34,6 +34,8 @@ describe('ExtensionTradeAckService', () => {
 
   afterEach(() => {
     delete process.env.ENABLE_EXTENSION_TRADE_ACKNOWLEDGMENT;
+    delete process.env.PUBLIC_SITE_URL;
+    delete process.env.FRONTEND_ORIGIN;
   });
 
   it('builds verified result for buyer with linked offer', async () => {
@@ -88,11 +90,69 @@ describe('ExtensionTradeAckService', () => {
     expect(result.role).toBe('buyer');
     expect(result.verificationStatus).toBe('verified');
     expect(result.offerId).toBe('1234567890');
+    expect(result.siteUrl).toBe('http://localhost:5173/orders/order-1');
     expect(
       result.checks.some(
         (check) => check.key === 'offer_id_match' && check.passed,
       ),
     ).toBe(true);
+  });
+
+  it('builds siteUrl from PUBLIC_SITE_URL when FRONTEND_ORIGIN is a CORS list', async () => {
+    process.env.FRONTEND_ORIGIN =
+      'https://p2pcs.ru,https://www.p2pcs.ru,http://p2pcs.ru,http://www.p2pcs.ru,http://31.177.83.107';
+    process.env.PUBLIC_SITE_URL = 'https://p2pcs.ru';
+
+    prisma.order.findUnique.mockResolvedValue({
+      id: 'order-cors',
+      buyerId: 'buyer-1',
+      sellerId: 'seller-1',
+      status: OrderStatus.WAITING_TRADE,
+      createdAt: new Date('2026-08-20T00:00:00.000Z'),
+      amountMinor: 1000n,
+      holdAmountMinor: 1000n,
+      lot: {
+        listingSnapshot: null,
+        inventoryAsset: {
+          assetExternalId: 'asset-1',
+          floatValue: null,
+          wear: 'FT',
+          itemDefinition: {
+            marketHashName: 'AK-47 | Redline (Field-Tested)',
+            iconUrl: null,
+          },
+        },
+      },
+      tradeOperation: {
+        externalOfferId: '1234567890',
+        expectedAssetId: 'asset-1',
+      },
+      hold: { amountMinor: 1000n },
+      buyer: {
+        id: 'buyer-1',
+        username: 'buyer',
+        steamId: '76561198000000001',
+        steamPersonaName: 'Buyer',
+        steamAvatarUrl: null,
+      },
+      seller: {
+        id: 'seller-1',
+        username: 'seller',
+        steamId: '76561198000000002',
+        steamPersonaName: 'Seller',
+        steamAvatarUrl: null,
+      },
+    });
+    prisma.tradeAcknowledgment.findMany.mockResolvedValue([]);
+
+    const result = await service.verifyTrade(
+      'buyer-1',
+      'order-cors',
+      '1234567890',
+    );
+
+    expect(result.siteUrl).toBe('https://p2pcs.ru/orders/order-cors');
+    expect(result.siteUrl).not.toContain(',');
   });
 
   it('marks mismatch when observed asset id differs from snapshot', async () => {
@@ -477,6 +537,44 @@ describe('ExtensionTradeAckService', () => {
     });
 
     expect(result.idempotent).toBe(false);
+    expect(tradeStatusPoller.pollOrderById).toHaveBeenCalledWith('order-1', {
+      force: true,
+    });
+  });
+
+  it('allows website buyer-received ack when extension channel flag is off', async () => {
+    process.env.ENABLE_EXTENSION_TRADE_ACKNOWLEDGMENT = 'false';
+    prisma.tradeAcknowledgment.findUnique.mockResolvedValue(null);
+    prisma.order.findUnique.mockResolvedValue({
+      id: 'order-1',
+      buyerId: 'buyer-1',
+      sellerId: 'seller-1',
+      status: OrderStatus.WAITING_TRADE,
+      createdAt: new Date('2026-08-20T00:00:00.000Z'),
+      lot: {
+        listingSnapshot: null,
+        inventoryAsset: {
+          assetExternalId: 'asset-1',
+          floatValue: null,
+          wear: null,
+          itemDefinition: { marketHashName: 'Revolution Case' },
+        },
+      },
+      tradeOperation: { externalOfferId: '1234567890' },
+      buyer: { id: 'buyer-1', steamId: 'buyer-steam' },
+      seller: { id: 'seller-1', steamId: 'seller-steam' },
+    });
+    prisma.tradeAcknowledgment.create.mockResolvedValue({ id: 'ack-web' });
+
+    const result = await service.acknowledge({
+      userId: 'buyer-1',
+      orderId: 'order-1',
+      type: 'BUYER_ACK_RECEIVED',
+      idempotencyKey: 'ack:order-1:BUYER_ACK_RECEIVED:web',
+      requireChannelEnabled: false,
+    });
+
+    expect(result.ok).toBe(true);
     expect(tradeStatusPoller.pollOrderById).toHaveBeenCalledWith('order-1', {
       force: true,
     });

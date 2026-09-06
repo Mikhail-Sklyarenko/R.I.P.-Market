@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
   installSendInterceptor,
   isItemInTradeOffer,
+  requestCs2Inventory,
   runAutofillFlow,
   selectItemForTrade,
   setTradeNote,
@@ -33,17 +34,37 @@ describe('trade-offer-ui', () => {
     delete (window as { MoveItemToTrade?: unknown }).MoveItemToTrade;
     delete (window as { $J?: unknown }).$J;
     delete (window as { g_ActiveAppId?: unknown }).g_ActiveAppId;
+    delete (window as { SelectInventory?: unknown }).SelectInventory;
   });
 
-  it('waitForTradePageReady resolves when Steam globals appear', async () => {
-    setTimeout(() => {
-      (window as { UserYou?: object; g_ActiveInventory?: object }).UserYou = {
-        findAsset: () => null,
-      };
-      (window as { g_ActiveInventory?: object }).g_ActiveInventory = {};
-    }, 50);
+  it('waitForTradePageReady resolves when CS2 inventory is on the page', async () => {
+    document.body.innerHTML =
+      '<div id="inventory_730_2"><div class="itemHolder"><div class="item"></div></div></div>';
+    (window as { UserYou?: object; g_ActiveAppId?: number }).UserYou = {
+      findAsset: () => null,
+    };
+    (window as { g_ActiveAppId?: number }).g_ActiveAppId = 730;
 
     await expect(waitForTradePageReady(500)).resolves.toBeUndefined();
+  });
+
+  it('waitForTradePageReady does not treat another game inventory as ready', async () => {
+    (window as { UserYou?: object; g_ActiveInventory?: object; g_ActiveAppId?: number }).UserYou =
+      {
+        findAsset: () => null,
+      };
+    (window as { g_ActiveInventory?: object }).g_ActiveInventory = { appid: 440 };
+    (window as { g_ActiveAppId?: number }).g_ActiveAppId = 440;
+
+    await expect(waitForTradePageReady(400)).rejects.toThrow(/CS2 inventory/);
+  });
+
+  it('requestCs2Inventory calls Steam SelectInventory(730, 2)', () => {
+    const selectInventory = vi.fn();
+    (window as { SelectInventory?: typeof selectInventory }).SelectInventory =
+      selectInventory;
+    requestCs2Inventory();
+    expect(selectInventory).toHaveBeenCalledWith(730, 2);
   });
 
   it('selectItemForTrade calls MoveItemToTrade with DOM element from findAsset', () => {

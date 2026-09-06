@@ -3,17 +3,19 @@ export type ObservedTradeOfferItem = {
   marketHashName: string | null;
 };
 
-const SELLER_SLOT_SELECTORS = [
-  '#your_slots .item[data-assetid]',
-  '#trade_slot_drag_target .item[data-assetid]',
-  '#trade_items .item[data-assetid]',
+/** Seller is putting items into the offer on /tradeoffer/new. */
+const SELLER_SLOT_ROOTS = [
+  '#your_slots',
+  '#trade_offer_your_slots',
 ];
 
-const BUYER_RECEIVED_SELECTORS = [
-  '#them_slots .item[data-assetid]',
-  '.tradeoffer_items_ctn .item[data-assetid]',
-  '.tradeoffer_item_list .item[data-assetid]',
-  '.tradeoffer .item[data-assetid]',
+/** Buyer is looking at items they receive (existing offer page). */
+const BUYER_SLOT_ROOTS = [
+  '#them_slots',
+  '#trade_theirs',
+  '.tradeoffer_items.primary',
+  '.tradeoffer_item_list',
+  '.tradeoffer_items_ctn',
 ];
 
 export function parseAssetIdFromElement(element: Element): string | null {
@@ -22,9 +24,10 @@ export function parseAssetIdFromElement(element: Element): string | null {
     return dataAssetId;
   }
 
-  const elementId = element.id?.trim();
-  if (!elementId) {
-    return null;
+  const elementId = element.id?.trim() ?? '';
+  const steamItem = elementId.match(/^(?:item|asset)_?730_\d+_(\d+)/i);
+  if (steamItem?.[1]) {
+    return steamItem[1];
   }
 
   const suffixMatch = elementId.match(/_(\d{8,})$/);
@@ -50,26 +53,52 @@ export function detectTradePageRole(pathname: string): 'buyer' | 'seller' {
   return pathname.includes('/tradeoffer/new') ? 'seller' : 'buyer';
 }
 
-export function parseObservedItemFromTradePage(
-  role: 'buyer' | 'seller',
-): ObservedTradeOfferItem | null {
-  const selectors =
-    role === 'seller' ? SELLER_SLOT_SELECTORS : BUYER_RECEIVED_SELECTORS;
+function isInsideInventoryBrowser(element: Element): boolean {
+  return Boolean(element.closest('#inventories, #inventory_box, .inventory_ctn'));
+}
 
-  for (const selector of selectors) {
-    const element = document.querySelector(selector);
-    if (!element) {
+/**
+ * Items already in the trade offer boxes — not the inventory grid on the left.
+ * Steam often uses `id="item730_2_{assetId}"` without `data-assetid`.
+ */
+export function parseObservedItemsFromTradeSlots(
+  role: 'buyer' | 'seller',
+  root: ParentNode = document,
+): ObservedTradeOfferItem[] {
+  const roots = role === 'seller' ? SELLER_SLOT_ROOTS : BUYER_SLOT_ROOTS;
+  const found: ObservedTradeOfferItem[] = [];
+  const seen = new Set<string>();
+
+  for (const selector of roots) {
+    const container = root.querySelector(selector);
+    if (!container) {
       continue;
     }
-    const assetId = parseAssetIdFromElement(element);
-    if (!assetId) {
-      continue;
+    for (const element of Array.from(container.querySelectorAll('.item'))) {
+      if (isInsideInventoryBrowser(element)) {
+        continue;
+      }
+      const assetId = parseAssetIdFromElement(element);
+      if (!assetId || seen.has(assetId)) {
+        continue;
+      }
+      seen.add(assetId);
+      found.push({
+        assetId,
+        marketHashName: parseMarketHashNameFromElement(element),
+      });
     }
-    return {
-      assetId,
-      marketHashName: parseMarketHashNameFromElement(element),
-    };
+    if (found.length > 0) {
+      return found;
+    }
   }
 
-  return null;
+  return found;
+}
+
+export function parseObservedItemFromTradePage(
+  role: 'buyer' | 'seller',
+  root: ParentNode = document,
+): ObservedTradeOfferItem | null {
+  return parseObservedItemsFromTradeSlots(role, root)[0] ?? null;
 }
