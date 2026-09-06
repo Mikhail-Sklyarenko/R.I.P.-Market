@@ -45,6 +45,19 @@ export function isTabOnBuyerTradeUrl(
   return Boolean(tabKey && buyerKey && tabKey === buyerKey);
 }
 
+/** Live Steam offer page (`/tradeoffer/123…`), not the draft `/tradeoffer/new`. */
+export function isConcreteSteamTradeOfferUrl(url: string | undefined): boolean {
+  if (!url) {
+    return false;
+  }
+  try {
+    const pathname = new URL(url).pathname;
+    return /^\/tradeoffer\/\d+\/?$/i.test(pathname);
+  } catch {
+    return /\/tradeoffer\/\d+/i.test(url);
+  }
+}
+
 function isTradeOfferNewPage(url: string | undefined): boolean {
   return Boolean(url?.includes('/tradeoffer/new'));
 }

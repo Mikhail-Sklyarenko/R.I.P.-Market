@@ -383,6 +383,68 @@ describe('ExtensionTradeAckService', () => {
         },
       },
       tradeOperation: {
+        externalOfferId: null,
+        expectedAssetId: 'asset-1',
+        pollEvents: [],
+      },
+      tasks: [
+        {
+          executionPhase: 'CONFIRM_PENDING',
+          lastErrorCode: 'CONFIRM_PENDING',
+          status: 'DISPATCHED',
+          attemptCount: 0,
+          maxAttempts: 5,
+          statusEvents: [
+            {
+              phase: 'CONFIRM_PENDING',
+              payload: {},
+              reasonCode: 'CONFIRM_PENDING',
+              createdAt: new Date(),
+            },
+          ],
+        },
+      ],
+      hold: { amountMinor: 1000n },
+      buyer: {
+        id: 'buyer-1',
+        username: 'buyer',
+        steamId: '76561198000000001',
+        steamPersonaName: 'Buyer',
+        steamAvatarUrl: null,
+      },
+      seller: {
+        id: 'seller-1',
+        username: 'seller',
+        steamId: '76561198000000002',
+        steamPersonaName: 'Seller',
+        steamAvatarUrl: null,
+      },
+    });
+    const unlinkedGuard = await service.verifyTrade('seller-1', 'order-1', null);
+    expect(unlinkedGuard.nextAction.kind).toBe('confirm_guard');
+    expect(unlinkedGuard.nextAction.description).toMatch(/Не создавайте второй/i);
+
+    prisma.order.findUnique.mockResolvedValue({
+      id: 'order-1',
+      buyerId: 'buyer-1',
+      sellerId: 'seller-1',
+      status: OrderStatus.WAITING_TRADE,
+      createdAt: new Date('2026-08-20T00:00:00.000Z'),
+      amountMinor: 1000n,
+      holdAmountMinor: 1000n,
+      lot: {
+        listingSnapshot: null,
+        inventoryAsset: {
+          assetExternalId: 'asset-1',
+          floatValue: null,
+          wear: 'FT',
+          itemDefinition: {
+            marketHashName: 'AK-47 | Redline (Field-Tested)',
+            iconUrl: null,
+          },
+        },
+      },
+      tradeOperation: {
         externalOfferId: '1234567890',
         expectedAssetId: 'asset-1',
         pollEvents: [{ offerStatus: 'pending' }],

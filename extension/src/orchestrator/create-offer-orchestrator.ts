@@ -8,10 +8,17 @@ import type { PolledTradeTask, SteamInventoryItem } from '../types.js';
 const TRADE_URL_PATTERN =
   /^https:\/\/steamcommunity\.com\/tradeoffer\/new\/\?partner=\d+&token=[\w-]+/i;
 
+/**
+ * Once Steam may already hold an offer (or Guard is waiting), never restart
+ * create_offer — a second /tradeoffer/new pass creates duplicates and false
+ * mismatch alarms for buyers.
+ */
 const NON_RESUMABLE_PHASES = new Set([
   'OFFER_SENT',
   'OFFER_FAILED',
   'CONFIRM_PENDING',
+  'OFFER_SUBMITTED',
+  'ITEM_SELECTED',
 ]);
 
 export class CreateOfferOrchestrator {

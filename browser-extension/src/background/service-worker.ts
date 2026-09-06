@@ -2223,10 +2223,14 @@ async function pollAndProcessTasksInner(): Promise<void> {
   };
   const orchestrator = new CreateOfferOrchestrator(adapter, diagReporter);
 
+  // In-flight / post-submit phases must not re-enter create_offer (duplicate
+  // Steam offers + false mismatch). Backend also stops redistributing these.
   const skipPhases = new Set([
     'OFFER_SENT',
     'OFFER_FAILED',
     'CONFIRM_PENDING',
+    'OFFER_SUBMITTED',
+    'ITEM_SELECTED',
   ]);
 
   for (const task of tasks) {

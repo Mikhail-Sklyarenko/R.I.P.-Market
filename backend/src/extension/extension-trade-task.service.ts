@@ -146,28 +146,14 @@ export class ExtensionTradeTaskService {
           status: OrderStatus.WAITING_TRADE,
         },
         status: { in: [TradeTaskStatus.CREATED, TradeTaskStatus.DISPATCHED] },
+        // Only pre-submit phases. Never redistribute ITEM_SELECTED /
+        // OFFER_SUBMITTED / CONFIRM_PENDING — Steam may already have the offer
+        // (or Guard is pending); a second create_offer pass duplicates offers
+        // and stamps false mismatch on the order. Stuck recovery: TTL reopen.
         OR: [
           { executionPhase: null },
           { executionPhase: TradeTaskExecutionPhase.ACKED },
           { executionPhase: TradeTaskExecutionPhase.OFFER_DRAFTED },
-          {
-            AND: [
-              {
-                executionPhase: {
-                  in: [
-                    TradeTaskExecutionPhase.CONFIRM_PENDING,
-                    TradeTaskExecutionPhase.OFFER_SUBMITTED,
-                    TradeTaskExecutionPhase.ITEM_SELECTED,
-                  ],
-                },
-              },
-              {
-                order: {
-                  tradeOperation: { externalOfferId: null },
-                },
-              },
-            ],
-          },
         ],
         expiresAt: { gt: now },
         AND: [
@@ -729,8 +715,9 @@ export class ExtensionTradeTaskService {
       if (task.attemptCount >= task.maxAttempts) {
         continue;
       }
-      // Never blind-resend after Steam may already have created the offer.
+      // Never blind-resend after Steam may already have the offer (or Guard).
       if (
+        task.executionPhase === TradeTaskExecutionPhase.ITEM_SELECTED ||
         task.executionPhase === TradeTaskExecutionPhase.OFFER_SUBMITTED ||
         task.executionPhase === TradeTaskExecutionPhase.CONFIRM_PENDING ||
         task.executionPhase === TradeTaskExecutionPhase.OFFER_SENT

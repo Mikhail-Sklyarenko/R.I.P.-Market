@@ -305,7 +305,11 @@ async function loadTradeForPage(): Promise<OfferPageContext | null> {
         (entry) =>
           entry.role === 'seller' &&
           entry.orderStatus === 'WAITING_TRADE' &&
-          !entry.offerId,
+          !entry.offerId &&
+          // After submit/Guard, Steam often redirects back to /new. Do not treat
+          // that as "create another offer" — confirm_guard means already in flight.
+          entry.nextAction?.kind !== 'confirm_guard' &&
+          entry.nextAction?.kind !== 'send_manual',
       ) ?? null;
     return trade ? { trade, observed, slots, offerId: null } : null;
   }

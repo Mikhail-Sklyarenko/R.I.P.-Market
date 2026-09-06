@@ -934,6 +934,22 @@ export class ExtensionTradeAckService {
               'Автоотправка не сработала. Откройте Trade URL покупателя, отправьте скин и сохраните ссылку на offer на сайте.',
           };
         }
+        const phase = order.tasks?.[0]?.executionPhase ?? null;
+        // Offer may already be in Steam (Guard) before externalOfferId is linked.
+        // Never tell the seller to craft a second /tradeoffer/new.
+        if (
+          phase === 'ITEM_SELECTED' ||
+          phase === 'OFFER_SUBMITTED' ||
+          phase === 'CONFIRM_PENDING' ||
+          this.isSellerGuardStillNeeded(order)
+        ) {
+          return {
+            kind: 'confirm_guard',
+            title: 'Подтвердите в Steam Guard',
+            description:
+              'Обмен уже уходит в Steam. Не создавайте второй trade offer — подтвердите Guard на телефоне, если Steam просит.',
+          };
+        }
         return {
           kind: 'wait',
           title: 'Отправляем обмен…',

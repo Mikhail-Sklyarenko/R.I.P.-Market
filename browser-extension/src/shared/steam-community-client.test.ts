@@ -21,6 +21,7 @@ vi.mock('./steam-trade-offer.js', () => ({
 
 vi.mock('./trade-offer-ui-runner.js', () => ({
   isTabOnBuyerTradeUrl: vi.fn().mockReturnValue(true),
+  isConcreteSteamTradeOfferUrl: vi.fn().mockReturnValue(false),
   runTradeOfferAutofillInMainWorld: vi.fn().mockResolvedValue({
     ok: true,
     offerId: 'ui-offer',
@@ -154,5 +155,46 @@ describe('SteamCommunityClient.sendTradeOffer', () => {
       offerId: 'ui-offer',
       confirmPending: true,
     });
+  });
+});
+
+describe('SteamCommunityClient.navigateToTradePage', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockChromeStorage();
+  });
+
+  it('opens a new tab instead of navigating away from a live trade offer', async () => {
+    const { navigateTab } = await import('./steam-tab-utils.js');
+    const { isConcreteSteamTradeOfferUrl, isTabOnBuyerTradeUrl } =
+      await import('./trade-offer-ui-runner.js');
+    vi.mocked(isTabOnBuyerTradeUrl).mockReturnValue(false);
+    vi.mocked(isConcreteSteamTradeOfferUrl).mockReturnValue(true);
+    vi.mocked(chrome.tabs.get).mockResolvedValue({
+      id: 7,
+      url: 'https://steamcommunity.com/tradeoffer/9336569013/',
+    } as chrome.tabs.Tab);
+    vi.mocked(chrome.tabs.query).mockResolvedValue([
+      {
+        id: 7,
+        url: 'https://steamcommunity.com/tradeoffer/9336569013/',
+      } as chrome.tabs.Tab,
+    ]);
+    vi.mocked(chrome.tabs.create).mockResolvedValue({
+      id: 99,
+      url: 'https://steamcommunity.com/tradeoffer/new/?partner=123&token=abc',
+    } as chrome.tabs.Tab);
+
+    const client = new SteamCommunityClient();
+    // Seed cache so ensureSteamTab returns the live offer tab.
+    (client as unknown as { cachedTabId: number }).cachedTabId = 7;
+
+    const tabId = await client.navigateToTradePage(
+      'https://steamcommunity.com/tradeoffer/new/?partner=123&token=abc',
+    );
+
+    expect(tabId).toBe(99);
+    expect(chrome.tabs.create).toHaveBeenCalled();
+    expect(navigateTab).not.toHaveBeenCalled();
   });
 });

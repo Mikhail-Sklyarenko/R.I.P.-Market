@@ -15,6 +15,7 @@ import {
 } from './steam-trade-offer.js';
 import type { TradeOfferDraftPayload } from './trade-offer-messages.js';
 import {
+  isConcreteSteamTradeOfferUrl,
   isTabOnBuyerTradeUrl,
   runTradeOfferAutofillInMainWorld,
   type TradeOfferProgressHooks,
@@ -125,26 +126,30 @@ export class SteamCommunityClient {
     return this.openSteamTab();
   }
 
+  private async openBuyerTradeTab(buyerTradeUrl: string): Promise<number | null> {
+    const created = await chrome.tabs.create({
+      url: buyerTradeUrl,
+      active: true,
+    });
+    if (!created.id) {
+      return null;
+    }
+    await waitForTabLoad(created.id);
+    const ready = await waitForTabUrl(created.id, buyerTradeUrl);
+    if (!ready) {
+      return null;
+    }
+    await new Promise((resolve) => setTimeout(resolve, TRADE_PAGE_SETTLE_MS));
+    this.cachedTabId = created.id;
+    return created.id;
+  }
+
   async navigateToTradePage(
     buyerTradeUrl: string,
     options?: { forceNewTab?: boolean },
   ): Promise<number | null> {
     if (options?.forceNewTab) {
-      const created = await chrome.tabs.create({
-        url: buyerTradeUrl,
-        active: true,
-      });
-      if (!created.id) {
-        return null;
-      }
-      await waitForTabLoad(created.id);
-      const ready = await waitForTabUrl(created.id, buyerTradeUrl);
-      if (!ready) {
-        return null;
-      }
-      await new Promise((resolve) => setTimeout(resolve, TRADE_PAGE_SETTLE_MS));
-      this.cachedTabId = created.id;
-      return created.id;
+      return this.openBuyerTradeTab(buyerTradeUrl);
     }
 
     const tabs = await chrome.tabs.query({ url: 'https://steamcommunity.com/*' });
@@ -168,6 +173,14 @@ export class SteamCommunityClient {
       if (!tabId) {
         return null;
       }
+    }
+
+    const tabAfterEnsure = await chrome.tabs.get(tabId).catch(() => null);
+    // Never navigate away from a live /tradeoffer/{id} — that wipes a
+    // successful send/Guard view and Steam may redirect back to /new, which
+    // the shield then treats as fraud.
+    if (isConcreteSteamTradeOfferUrl(tabAfterEnsure?.url)) {
+      return this.openBuyerTradeTab(buyerTradeUrl);
     }
 
     await navigateTab(tabId, buyerTradeUrl, { active: true });

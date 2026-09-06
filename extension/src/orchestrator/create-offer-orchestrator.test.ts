@@ -240,6 +240,34 @@ describe('CreateOfferOrchestrator', () => {
     expect(reporter.reports).toHaveLength(0);
   });
 
+  it('does not resume when task is already OFFER_SUBMITTED', async () => {
+    const adapter = new MockSteamOfferAdapter('happy_path');
+    const sendSpy = vi.spyOn(adapter, 'sendOffer');
+    const reporter = new InMemoryTaskProgressReporter();
+    const orchestrator = new CreateOfferOrchestrator(adapter, reporter);
+
+    await orchestrator.processTask(
+      baseTask({ executionPhase: 'OFFER_SUBMITTED' }),
+    );
+
+    expect(sendSpy).not.toHaveBeenCalled();
+    expect(reporter.reports).toHaveLength(0);
+  });
+
+  it('does not resume when task is already ITEM_SELECTED', async () => {
+    const adapter = new MockSteamOfferAdapter('happy_path');
+    const sendSpy = vi.spyOn(adapter, 'sendOffer');
+    const reporter = new InMemoryTaskProgressReporter();
+    const orchestrator = new CreateOfferOrchestrator(adapter, reporter);
+
+    await orchestrator.processTask(
+      baseTask({ executionPhase: 'ITEM_SELECTED' }),
+    );
+
+    expect(sendSpy).not.toHaveBeenCalled();
+    expect(reporter.reports).toHaveLength(0);
+  });
+
   it('happy path reports OFFER_SENT only with valid offer id', async () => {
     const reporter = new InMemoryTaskProgressReporter();
     const orchestrator = new CreateOfferOrchestrator(

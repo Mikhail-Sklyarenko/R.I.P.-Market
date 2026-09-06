@@ -143,4 +143,23 @@ describe('ExtensionTradeTaskService', () => {
       }),
     );
   });
+
+  it('pollTasks only redistributes pre-submit phases', async () => {
+    prisma.extensionSession.findUnique.mockResolvedValue({ userId: 'seller-1' });
+    prisma.tradeTask.findMany.mockResolvedValue([]);
+
+    await service.pollTasks('session-1', 5);
+
+    expect(prisma.tradeTask.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          OR: [
+            { executionPhase: null },
+            { executionPhase: TradeTaskExecutionPhase.ACKED },
+            { executionPhase: TradeTaskExecutionPhase.OFFER_DRAFTED },
+          ],
+        }),
+      }),
+    );
+  });
 });
