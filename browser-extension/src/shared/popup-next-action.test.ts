@@ -58,9 +58,12 @@ describe('popup-next-action engine', () => {
         },
       }),
     );
-    expect(guard.primary.id).toBe('confirm_guard');
-    expect(guard.primary.label).toMatch(/Steam Mobile/i);
-    expect(guard.primary.mode).toBe('link');
+    expect(guard.primary.id).toBe('open_verified_offer');
+    expect(guard.primary.href).toContain('/tradeoffer/10/');
+    expect(guard.hint).toMatch(/Steam Mobile|Guard/i);
+    expect(guard.overflow.some((item) => item.id === 'refresh_status')).toBe(
+      true,
+    );
 
     const manual = resolveTradeNextAction(
       trade({
@@ -108,7 +111,7 @@ describe('popup-next-action engine', () => {
     expect(accept.primary.id).toBe('open_verified_offer');
     expect(accept.primary.href).toContain('/tradeoffer/55/');
     expect(accept.overflow.some((item) => item.id === 'pre_accept_ack')).toBe(
-      true,
+      false,
     );
 
     const wait = resolveTradeNextAction(
@@ -122,7 +125,24 @@ describe('popup-next-action engine', () => {
         },
       }),
     );
-    expect(wait.primary.id).toBe('wait_seller');
+    expect(wait.primary.id).toBe('refresh_status');
+    expect(wait.primary.mode).toBe('runtime');
+
+    const receivedAfterConfirm = resolveTradeNextAction(
+      trade({
+        orderId: 'b-hold',
+        role: 'buyer',
+        offerId: '77',
+        orderStatus: 'TRADE_CONFIRMED',
+        nextAction: {
+          kind: 'platform_verifying',
+          title: 'Проверяем',
+          description: 'delivery',
+        },
+      }),
+    );
+    expect(receivedAfterConfirm.primary.id).toBe('confirm_received_ack');
+    expect(receivedAfterConfirm.primary.mode).toBe('button');
 
     const dispute = resolveTradeNextAction(
       trade({

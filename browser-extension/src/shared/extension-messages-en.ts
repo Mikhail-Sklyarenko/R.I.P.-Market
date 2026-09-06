@@ -90,9 +90,10 @@ export const extensionMessagesEn: ExtensionMessageTree = {
     openVerifiedOfferSteam: 'Open verified offer in Steam',
     preAcceptAck: 'I see the correct offer',
     problemSupport: 'Trade problem',
-    confirmReceived: 'Item in inventory',
+    confirmReceived: 'Item is mine',
     openOfferSteam: 'Open offer in Steam',
-    platformStatus: 'Trust status on site',
+    platformStatus: 'Status on site',
+    refreshStatus: 'Refresh status',
     waitSeller: 'Waiting for seller',
     open: 'Open',
     openAccount: 'Open account',
@@ -110,9 +111,11 @@ export const extensionMessagesEn: ExtensionMessageTree = {
     hintManualRetry:
       'Auto-send could not finish — retry or open the order.',
     hintAccept: 'Accept only with Steam’s Accept button on this offer page.',
+    hintConfirmReceived: 'Confirm here — no need to return to the site.',
     hintVerifying:
-      'The platform is checking delivery and hold — usually nothing to do.',
+      'The platform is checking delivery — usually nothing to do.',
     hintWaitSeller: 'As soon as the offer appears, an accept button shows here.',
+    hintWaitBuyer: 'Offer is with the buyer. Status updates after they Accept.',
   },
   badge: {
     rePair: 'Connect',

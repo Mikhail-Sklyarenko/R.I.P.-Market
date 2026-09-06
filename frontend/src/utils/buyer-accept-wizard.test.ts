@@ -3,6 +3,7 @@ import { describe, it } from 'node:test';
 import {
   buildSteamTradeOfferUrl,
   resolveBuyerAcceptWizard,
+  resolveBuyerScenarioAck,
 } from './buyer-accept-wizard.ts';
 import type { Order } from '../api/types.ts';
 
@@ -101,29 +102,42 @@ describe('buyer-accept-wizard', () => {
     assert.equal(view?.steps[2]?.state, 'current');
     assert.equal(view?.primary.labelKey, 'buyerAcceptWizard.ctaAcceptInSteam');
     assert.equal(view?.ack.showPreAccept, false);
-    assert.equal(view?.ack.showReceived, true);
+    // Received confirm lives in extension / post-accept panel — not during WAITING_TRADE wizard.
+    assert.equal(view?.ack.showReceived, false);
   });
 
-  it('surfaces pre-accept ack as part of the scenario', () => {
+  it('surfaces pre-accept ack on site only when extension is offline', () => {
     const view = resolveBuyerAcceptWizard({
       order: baseOrder(),
       role: 'buyer',
       offerOpenedLocally: true,
       ackEnabled: true,
+      extensionConnected: false,
     });
     assert.equal(view?.ack.showPreAccept, true);
-    assert.equal(view?.ack.showReceived, true);
+    assert.equal(view?.ack.showReceived, false);
   });
 
-  it('surfaces received ack without pre-accept so the buyer can close the deal', () => {
+  it('hides pre-accept on site when extension is connected', () => {
     const view = resolveBuyerAcceptWizard({
       order: baseOrder(),
       role: 'buyer',
       offerOpenedLocally: false,
-      ackEnabled: false,
+      ackEnabled: true,
+      extensionConnected: true,
     });
-    assert.equal(view?.ack.showReceived, true);
+    assert.equal(view?.ack.showReceived, false);
     assert.equal(view?.ack.showPreAccept, false);
+  });
+
+  it('surfaces received ack after trade is confirmed (order panel, not wizard)', () => {
+    const ack = resolveBuyerScenarioAck({
+      order: baseOrder({ status: 'TRADE_CONFIRMED' }),
+      ackEnabled: true,
+      extensionConnected: true,
+    });
+    assert.equal(ack.showReceived, true);
+    assert.equal(ack.showPreAccept, false);
   });
 
   it('hides acks on mismatch', () => {

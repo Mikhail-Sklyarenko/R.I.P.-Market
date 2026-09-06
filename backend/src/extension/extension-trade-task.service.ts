@@ -495,6 +495,25 @@ export class ExtensionTradeTaskService {
           source: 'EXTENSION',
           actorUserId: offerSentReconcile.sellerId,
         });
+        // Happy path: seller "I sent" is automatic — no site hop required.
+        try {
+          await this.extensionTradeAckService.acknowledge({
+            userId: offerSentReconcile.sellerId,
+            orderId: offerSentReconcile.orderId,
+            type: 'SELLER_ACK_SENT',
+            offerId: offerSentReconcile.offerId,
+            idempotencyKey: `ack:${offerSentReconcile.orderId}:SELLER_ACK_SENT:auto-offer-sent`,
+          });
+        } catch (error) {
+          this.logger.warn(
+            JSON.stringify({
+              event: 'seller_ack_auto_failed',
+              orderId: offerSentReconcile.orderId,
+              message:
+                error instanceof Error ? error.message : 'unknown',
+            }),
+          );
+        }
       } else {
         this.logger.warn(
           JSON.stringify({

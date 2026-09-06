@@ -43,6 +43,8 @@ export function resolveBuyerScenarioAck(params: {
   order: Order;
   ackEnabled: boolean;
   blockedByMismatch?: boolean;
+  /** When extension is connected, pre-accept is handled in Steam — hide site CTA. */
+  extensionConnected?: boolean;
 }): {
   showPreAccept: boolean;
   showReceived: boolean;
@@ -59,6 +61,7 @@ export function resolveBuyerScenarioAck(params: {
   const showPreAccept =
     params.ackEnabled &&
     !blocked &&
+    !params.extensionConnected &&
     status === 'WAITING_TRADE' &&
     hasOffer &&
     !preAcceptDone &&
@@ -68,9 +71,7 @@ export function resolveBuyerScenarioAck(params: {
     !blocked &&
     hasOffer &&
     !receivedDone &&
-    (status === 'WAITING_TRADE' ||
-      status === 'TRADE_CONFIRMED' ||
-      status === 'SETTLEMENT_HOLD');
+    (status === 'TRADE_CONFIRMED' || status === 'SETTLEMENT_HOLD');
 
   return {
     showPreAccept,
@@ -215,6 +216,7 @@ export function resolveBuyerAcceptWizard(params: {
       order: params.order,
       ackEnabled: Boolean(params.ackEnabled),
       blockedByMismatch,
+      extensionConnected: Boolean(params.extensionConnected),
     }),
   };
 }

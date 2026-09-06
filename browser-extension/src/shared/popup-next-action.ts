@@ -1,8 +1,7 @@
 /**
  * E2: Next-action engine — exactly one primary CTA per card.
- * Seller: Guard / retry send / Trade URL
- * Buyer: verified offer / wait seller / dispute
- * Extra actions (ack, support) live in overflow — never compete with primary.
+ * Product rule: confirm where the user already is (Steam / popup).
+ * Site order links stay in overflow — never the happy-path hop after Accept/Guard.
  * H1: labels follow extension locale (ru/en).
  */
 import type { TradeVerificationResult } from '@rip-market/extension-orchestrator';
@@ -43,7 +42,8 @@ export type NextActionCtaId =
   | 'steam_login'
   | 'steam_mismatch'
   | 'inventory_fix'
-  | 'problem_support';
+  | 'problem_support'
+  | 'refresh_status';
 
 export type NextActionAckType =
   | 'SELLER_ACK_SENT'
@@ -107,6 +107,29 @@ function runtimeCta(
   };
 }
 
+function needsBuyerReceivedConfirm(trade: TradeVerificationResult): boolean {
+  if (trade.role !== 'buyer') {
+    return false;
+  }
+  if (trade.acknowledgments.buyerReceived) {
+    return false;
+  }
+  if (!trade.offerId?.trim()) {
+    return false;
+  }
+  if (
+    trade.verificationStatus === 'mismatch' ||
+    trade.nextAction.kind === 'report_issue'
+  ) {
+    return false;
+  }
+  return (
+    trade.nextAction.kind === 'confirm_received' ||
+    trade.orderStatus === 'TRADE_CONFIRMED' ||
+    trade.orderStatus === 'SETTLEMENT_HOLD'
+  );
+}
+
 /**
  * Resolve the single primary CTA (+ optional overflow) for an active trade card.
  */
@@ -142,9 +165,16 @@ export function resolveTradeNextAction(
   }
 
   if (trade.nextAction.kind === 'confirm_guard') {
+    // Guard is on the phone — do not bounce to the site order page.
+    const primary = offerUrl
+      ? linkCta('open_verified_offer', t('cta.openOfferSteam'), offerUrl)
+      : runtimeCta('refresh_status', t('cta.refreshStatus'), 'poll_now', trade);
     return {
-      primary: linkCta('confirm_guard', t('cta.confirmGuard'), orderHref),
-      overflow: [linkCta('open_order', t('cta.openOrder'), orderHref)],
+      primary,
+      overflow: [
+        runtimeCta('refresh_status', t('cta.refreshStatus'), 'poll_now', trade),
+        linkCta('open_order', t('cta.openOrder'), orderHref),
+      ],
       hint: t('nextAction.hintGuard'),
     };
   }
@@ -160,16 +190,6 @@ export function resolveTradeNextAction(
       );
     }
     overflow.push(linkCta('open_order', t('cta.openOrder'), orderHref));
-    if (!trade.acknowledgments.sellerAckSent && Boolean(trade.offerId)) {
-      overflow.push(
-        buttonAckCta(
-          'confirm_sent_ack',
-          t('cta.confirmSent'),
-          'SELLER_ACK_SENT',
-          trade,
-        ),
-      );
-    }
     return {
       primary,
       overflow,
@@ -180,6 +200,7 @@ export function resolveTradeNextAction(
   }
 
   if (trade.nextAction.kind === 'confirm_sent') {
+    // Prefer auto seller ack; keep button only if backend still asks.
     return {
       primary: buttonAckCta(
         'confirm_sent_ack',
@@ -197,32 +218,7 @@ export function resolveTradeNextAction(
     };
   }
 
-  if (trade.nextAction.kind === 'accept_in_steam') {
-    const primary = offerUrl
-      ? linkCta('open_verified_offer', t('cta.openVerifiedOffer'), offerUrl)
-      : linkCta('open_order', t('cta.openOrder'), orderHref);
-    const overflow: NextActionCta[] = [];
-    if (!trade.acknowledgments.buyerPreAccept && trade.offerId) {
-      overflow.push(
-        buttonAckCta(
-          'pre_accept_ack',
-          t('cta.preAcceptAck'),
-          'BUYER_ACK_PRE_ACCEPT',
-          trade,
-        ),
-      );
-    }
-    overflow.push(
-      linkCta('problem_support', t('cta.problemSupport'), problemHref),
-    );
-    return {
-      primary,
-      overflow,
-      hint: t('nextAction.hintAccept'),
-    };
-  }
-
-  if (trade.nextAction.kind === 'confirm_received') {
+  if (needsBuyerReceivedConfirm(trade) || trade.nextAction.kind === 'confirm_received') {
     return {
       primary: buttonAckCta(
         'confirm_received_ack',
@@ -237,18 +233,35 @@ export function resolveTradeNextAction(
         linkCta('open_order', t('cta.openOrder'), orderHref),
         linkCta('problem_support', t('cta.problemSupport'), problemHref),
       ],
-      hint: null,
+      hint: t('nextAction.hintConfirmReceived'),
+    };
+  }
+
+  if (trade.nextAction.kind === 'accept_in_steam') {
+    const primary = offerUrl
+      ? linkCta('open_verified_offer', t('cta.openVerifiedOffer'), offerUrl)
+      : linkCta('open_order', t('cta.openOrder'), orderHref);
+    return {
+      primary,
+      overflow: [
+        linkCta('problem_support', t('cta.problemSupport'), problemHref),
+        linkCta('open_order', t('cta.openOrder'), orderHref),
+      ],
+      hint: t('nextAction.hintAccept'),
     };
   }
 
   if (trade.nextAction.kind === 'platform_verifying') {
+    // Buyer without received ack already handled above. Calm status — poll, not site hop.
     return {
-      primary: linkCta(
-        'platform_status',
-        t('cta.platformStatus'),
-        orderHref,
+      primary: runtimeCta(
+        'refresh_status',
+        t('cta.refreshStatus'),
+        'poll_now',
+        trade,
       ),
       overflow: [
+        linkCta('open_order', t('cta.openOrder'), orderHref),
         linkCta('problem_support', t('cta.problemSupport'), problemHref),
       ],
       hint: t('nextAction.hintVerifying'),
@@ -259,9 +272,27 @@ export function resolveTradeNextAction(
     trade.nextAction.kind === 'wait' ||
     (trade.role === 'buyer' && !trade.offerId)
   ) {
+    if (trade.role === 'seller' && trade.offerId) {
+      return {
+        primary: runtimeCta(
+          'refresh_status',
+          t('cta.refreshStatus'),
+          'poll_now',
+          trade,
+        ),
+        overflow: [linkCta('open_order', t('cta.openOrder'), orderHref)],
+        hint: t('nextAction.hintWaitBuyer'),
+      };
+    }
     return {
-      primary: linkCta('wait_seller', t('cta.waitSeller'), orderHref),
+      primary: runtimeCta(
+        'refresh_status',
+        t('cta.refreshStatus'),
+        'poll_now',
+        trade,
+      ),
       overflow: [
+        linkCta('open_order', t('cta.openOrder'), orderHref),
         linkCta('problem_support', t('cta.problemSupport'), problemHref),
       ],
       hint: t('nextAction.hintWaitSeller'),

@@ -100,6 +100,16 @@ function armManualAcceptAssist(trade: TradeVerificationResult): void {
   if (!offerId || !canShowManualAcceptAssist(trade)) {
     return;
   }
+  // Platform pre-accept should not force a site hop — fire when buyer starts Accept.
+  if (!trade.acknowledgments.buyerPreAccept) {
+    void runtimeRequest<{ ok: boolean }>({
+      type: TRADE_VERIFICATION_RUNTIME.ACK_TRADE,
+      orderId: trade.orderId,
+      ackType: 'BUYER_ACK_PRE_ACCEPT',
+      offerId,
+      idempotencyKey: `ack:${trade.orderId}:BUYER_ACK_PRE_ACCEPT:assist-arm`,
+    } satisfies AckTradeRuntimeRequest).catch(() => undefined);
+  }
   const control = pickSteamAcceptControl(
     findSteamAcceptControls(document),
     preferredSteamAcceptKind(),
@@ -1004,32 +1014,6 @@ function buildPanel(context: OfferPageContext): HTMLElement {
         }[sellerGate]
       : shield.headline;
 
-  const showPreAccept =
-    trade.role === 'buyer' &&
-    trade.orderStatus === 'WAITING_TRADE' &&
-    status !== 'mismatch' &&
-    !scamBlocks &&
-    !trade.acknowledgments.buyerPreAccept &&
-    !trade.acknowledgments.buyerReceived &&
-    Boolean(trade.offerId);
-  const showConfirmReceived =
-    trade.role === 'buyer' &&
-    status !== 'mismatch' &&
-    !scamBlocks &&
-    Boolean(trade.offerId) &&
-    !trade.acknowledgments.buyerReceived &&
-    (trade.orderStatus === 'WAITING_TRADE' ||
-      trade.orderStatus === 'TRADE_CONFIRMED' ||
-      trade.orderStatus === 'SETTLEMENT_HOLD');
-  const showSellerAckSent =
-    trade.role === 'seller' &&
-    trade.orderStatus === 'WAITING_TRADE' &&
-    status !== 'mismatch' &&
-    Boolean(trade.offerId) &&
-    !trade.acknowledgments.sellerAckSent &&
-    trade.nextAction.kind !== 'confirm_guard';
-  const showAckSection = showSellerAckSent || showPreAccept || showConfirmReceived;
-
   const acceptAllowed =
     canShowManualAcceptAssist({
       ...trade,
@@ -1038,10 +1022,33 @@ function buildPanel(context: OfferPageContext): HTMLElement {
     shield.partner.match === 'match' &&
     !scamBlocks;
 
+  const showConfirmReceived =
+    trade.role === 'buyer' &&
+    status !== 'mismatch' &&
+    !scamBlocks &&
+    Boolean(trade.offerId) &&
+    !trade.acknowledgments.buyerReceived &&
+    (trade.orderStatus === 'TRADE_CONFIRMED' ||
+      trade.orderStatus === 'SETTLEMENT_HOLD' ||
+      trade.nextAction.kind === 'confirm_received' ||
+      (acceptAssistUi?.offerId === trade.offerId &&
+        acceptAssistUi.phase === 'done'));
+  // After Accept (or once delivery phase starts) confirm in-extension — not on site.
+  const showPrimaryReceived =
+    showConfirmReceived &&
+    !(
+      acceptAllowed &&
+      acceptAssistUi?.phase !== 'done' &&
+      trade.orderStatus === 'WAITING_TRADE'
+    );
+
   const buyerCtaOverride =
     trade.role === 'buyer' && onOfferPage && scamBlocks && status !== 'mismatch'
       ? `<p class="primary-hint block">Сначала устраните anti-scam предупреждения — Accept пока не нажимайте</p>`
-      : primaryCtaHtml(trade, shield, sellerGate);
+      : showPrimaryReceived
+        ? `<button type="button" class="btn primary accept-cta" data-action="confirm-received">${escapeHtml(t('cta.confirmReceived'))}</button>
+           <p class="primary-hint wait">Можно закрыть Steam — статус обновится сам после подтверждения.</p>`
+        : primaryCtaHtml(trade, shield, sellerGate);
 
   const preSendBanner =
     shield.isPreSend && !sellerGate
@@ -1103,21 +1110,8 @@ function buildPanel(context: OfferPageContext): HTMLElement {
           : ''
       }
       ${renderFailedChecks(trade)}
-      ${
-        showAckSection
-          ? `<details class="ack">
-              <summary>Если статус на сайте не обновился</summary>
-              <div class="ack-body">
-                <p class="ack-note">Эти кнопки не заменяют действие в Steam — только помогают сайту сверить статус.</p>
-                ${showSellerAckSent ? '<button class="secondary" data-action="seller-sent">Я отправил обмен</button>' : ''}
-                ${showPreAccept ? '<button class="secondary" data-action="pre-accept">Вижу предложение</button>' : ''}
-                ${showConfirmReceived ? '<button class="secondary" data-action="confirm-received">Предмет получен</button>' : ''}
-              </div>
-            </details>`
-          : ''
-      }
       <p class="never-auto">${
-        trade.role === 'buyer' && onOfferPage && acceptAllowed
+        trade.role === 'buyer' && onOfferPage && acceptAllowed && !showPrimaryReceived
           ? 'Accept в Steam — только после вашего двойного подтверждения.'
           : 'R.I.P Market никогда не нажимает Accept за вас'
       }</p>

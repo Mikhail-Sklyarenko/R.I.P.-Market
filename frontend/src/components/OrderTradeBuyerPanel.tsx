@@ -71,6 +71,7 @@ export function OrderTradeBuyerPanel({
     order,
     ackEnabled,
     blockedByMismatch: order.tradeVerification?.status === 'mismatch',
+    extensionConnected,
   });
 
   const showDeliveryReceivedAck =

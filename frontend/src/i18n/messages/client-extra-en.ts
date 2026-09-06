@@ -275,7 +275,7 @@ export const clientExtraEn = {
     eyebrow: '3 steps to accept',
     title: 'Accept the trade safely',
     subtitle:
-      'Open this exact offer, verify the R.I.P shield on Steam, Accept, then confirm receipt here.',
+      'Open this offer in Steam, verify the R.I.P shield, and Accept. Confirm “Item is mine” in the extension — no need to bounce back here.',
     step1Title: 'Open the right offer',
     step1Body: 'Follow the link to this specific trade offer — not the general incoming inbox.',
     step2Title: 'Check the shield and skin',
@@ -283,9 +283,9 @@ export const clientExtraEn = {
       'On the Steam page, use the overlay: “Skin matched”, float, SteamID. Do not accept on mismatch.',
     step2BodyManual:
       'Compare name, float, and seller SteamID with the order. Connect the extension for a verification shield.',
-    step3Title: 'Accept in Steam and return',
+    step3Title: 'Accept in Steam',
     step3Body:
-      'Press Accept with the Steam button. The extension never accepts for you. Then confirm receipt on this page.',
+      'Press Accept with the Steam button. The extension never accepts for you. After Accept, tap “Item is mine” in the extension panel — returning here is optional.',
     stateDone: 'Done',
     stateCurrent: 'Now',
     stateUpcoming: 'Next',
@@ -294,7 +294,7 @@ export const clientExtraEn = {
     ctaReopenOffer: 'Reopen offer to verify',
     ctaAcceptInSteam: 'Open offer and accept in Steam',
     returnHint:
-      'Accept in Steam first, then confirm receipt on this page — that is what closes the deal.',
+      'Accept in Steam, then confirm in the extension. This page is for status and support.',
     mismatchTitle: 'Do not accept — mismatch',
     mismatchBody:
       'The offer does not match the order. Do not press Accept. Contact support if you need help.',

@@ -89,9 +89,10 @@ export const extensionMessagesRu: ExtensionMessageTree = {
     openVerifiedOfferSteam: 'Открыть проверенный оффер в Steam',
     preAcceptAck: 'Вижу верное предложение',
     problemSupport: 'Проблема с обменом',
-    confirmReceived: 'Предмет в инвентаре',
+    confirmReceived: 'Предмет у меня',
     openOfferSteam: 'Открыть оффер в Steam',
-    platformStatus: 'Статус доверия на сайте',
+    platformStatus: 'Статус на сайте',
+    refreshStatus: 'Обновить статус',
     waitSeller: 'Ждём продавца',
     open: 'Открыть',
     openAccount: 'Открыть аккаунт',
@@ -111,9 +112,12 @@ export const extensionMessagesRu: ExtensionMessageTree = {
       'Авто-отправка не смогла завершиться — повторите или откройте заказ.',
     hintAccept:
       'Примите только кнопкой Accept в Steam на этой странице оффера.',
+    hintConfirmReceived:
+      'Подтвердите здесь — на сайт возвращаться не нужно.',
     hintVerifying:
-      'Площадка сверяет доставку и hold — обычно ничего делать не нужно.',
+      'Площадка сверяет доставку — обычно ничего делать не нужно.',
     hintWaitSeller: 'Как только оффер появится — здесь будет кнопка принять.',
+    hintWaitBuyer: 'Обмен у покупателя. Статус обновится сам после Accept.',
   },
   badge: {
     rePair: 'Подключить',
