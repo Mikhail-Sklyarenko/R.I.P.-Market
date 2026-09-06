@@ -45,9 +45,14 @@ export function resolveTradeForOfferPage(params: {
     }
   }
 
-  // Single in-flight deal for this role — safe to attach while offer id catches up.
+  // Single in-flight deal for this role — safe to attach while offer id catches up,
+  // but never when observed asset contradicts the lot (stale / wrong Steam tab).
   if (waiting.length === 1) {
     const only = waiting[0]!;
+    const expectedAsset = only.item.assetExternalId?.trim() || null;
+    if (assetId && expectedAsset && assetId !== expectedAsset) {
+      return null;
+    }
     if (!only.offerId?.trim() || (offerId && only.offerId.trim() === offerId)) {
       return only;
     }

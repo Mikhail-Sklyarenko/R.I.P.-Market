@@ -108,4 +108,74 @@ describe('findOfferLinkTarget', () => {
     });
     expect(target?.orderId).toBe('order-b');
   });
+
+  it('refuses single open deal when intercepted asset does not match lot', () => {
+    expect(
+      findOfferLinkTarget(
+        [
+          sellerTrade({
+            orderId: 'order-mp7',
+            item: {
+              marketHashName: 'MP7',
+              floatValue: null,
+              wear: 'BS',
+              iconUrl: null,
+              assetExternalId: '52925932783',
+              stickers: null,
+            },
+          }),
+        ],
+        {
+          offerId: '9348893119',
+          assetId: '50620569346',
+        },
+      ),
+    ).toBeNull();
+  });
+
+  it('links single open deal when asset matches', () => {
+    expect(
+      findOfferLinkTarget(
+        [
+          sellerTrade({
+            orderId: 'order-mp7',
+            item: {
+              marketHashName: 'MP7',
+              floatValue: null,
+              wear: 'BS',
+              iconUrl: null,
+              assetExternalId: '52925932783',
+              stickers: null,
+            },
+          }),
+        ],
+        {
+          offerId: '9350000001',
+          assetId: '52925932783',
+        },
+      )?.orderId,
+    ).toBe('order-mp7');
+  });
+
+  it('does not guess among multiple deals without unique asset/url', () => {
+    expect(
+      findOfferLinkTarget(
+        [
+          sellerTrade({ orderId: 'order-a' }),
+          sellerTrade({
+            orderId: 'order-b',
+            item: {
+              marketHashName: 'B',
+              floatValue: null,
+              wear: null,
+              iconUrl: null,
+              assetExternalId: 'asset-b',
+              stickers: null,
+            },
+          }),
+        ],
+        { offerId: '9336569013' },
+      ),
+    ).toBeNull();
+  });
 });

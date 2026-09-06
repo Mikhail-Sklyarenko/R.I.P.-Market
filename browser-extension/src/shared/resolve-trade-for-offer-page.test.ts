@@ -96,4 +96,27 @@ describe('resolveTradeForOfferPage', () => {
     });
     expect(matched).toBeNull();
   });
+
+  it('does not attach single waiting trade when observed asset mismatches lot', () => {
+    const matched = resolveTradeForOfferPage({
+      offerId: '999',
+      observedAssetId: '50620569346',
+      roleHint: 'buyer',
+      trades: [
+        trade({
+          orderId: 'solo',
+          role: 'buyer',
+          offerId: null,
+          item: {
+            marketHashName: 'MP7',
+            floatValue: null,
+            wear: 'BS',
+            iconUrl: null,
+            assetExternalId: '52925932783',
+          },
+        }),
+      ],
+    });
+    expect(matched).toBeNull();
+  });
 });

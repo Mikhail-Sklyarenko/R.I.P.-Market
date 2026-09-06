@@ -48,31 +48,38 @@ export function findOfferLinkTarget(
   if (candidates.length === 0) {
     return null;
   }
+
+  // When Steam gave us an asset id, only link to that exact lot — never
+  // "single open deal" fallthrough (stale intercept from a prior test order).
+  const assetId = input.assetId?.trim();
+  if (assetId) {
+    candidates = candidates.filter(
+      (trade) => trade.item.assetExternalId?.trim() === assetId,
+    );
+    if (candidates.length === 0) {
+      return null;
+    }
+  }
+
   if (candidates.length === 1) {
     return candidates[0] ?? null;
   }
 
-  const assetId = input.assetId?.trim();
-  if (assetId) {
-    const byAsset = candidates.filter(
-      (trade) => trade.item.assetExternalId?.trim() === assetId,
-    );
-    if (byAsset.length > 0) {
-      candidates = byAsset;
-    }
-  }
-
   const buyerTradeUrl = input.buyerTradeUrl?.trim();
-  if (buyerTradeUrl && candidates.length > 1) {
+  if (buyerTradeUrl) {
     const byUrl = candidates.filter(
       (trade) => trade.buyerTradeUrl?.trim() === buyerTradeUrl,
     );
-    if (byUrl.length > 0) {
+    if (byUrl.length === 1) {
+      return byUrl[0] ?? null;
+    }
+    if (byUrl.length > 1) {
       candidates = byUrl;
     }
   }
 
-  return candidates[0] ?? null;
+  // Ambiguous without a unique asset/url match — do not guess.
+  return null;
 }
 
 export async function linkOfferToOrder(params: {
