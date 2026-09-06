@@ -24,10 +24,16 @@ import { getStoredSiteLinkSnapshot } from '../shared/offline-safe-mode.js';
 import { isExtensionGuidedBuyerEnabled } from '../shared/extension-flags.js';
 import { buildDealShieldModel } from '../shared/deal-shield.js';
 import { buildSteamProfileUrl, isRealSteamId64 } from '../shared/steam-id64.js';
+import {
+  isExtensionContextInvalidatedError,
+  isExtensionContextValid,
+  withExtensionContext,
+} from '../shared/extension-context.js';
 
 const TOOLBAR_ID = 'rip-market-tradeoffers-toolbar';
 const DETAIL_ID = 'rip-market-tradeoffers-detail';
 const STICKY_ID = 'rip-market-anti-scam-sticky';
+const RELOAD_BANNER_ID = 'rip-market-tradeoffers-reload';
 const BADGE_ATTR = 'data-rip-offer-mark';
 const ACCEPT_ASSIST_ATTR = 'data-rip-accept-assist';
 const CONTEXT_ATTR = 'data-rip-offer-context';
@@ -50,6 +56,10 @@ let manualCreateStatus: ManualCreateUiStatus = { kind: 'idle' };
 let listBridgeLocale: ExtensionLocale = DEFAULT_EXTENSION_LOCALE;
 /** I5: accept-assist CTAs; B1 badges stay when false. */
 let guidedBuyerEnabled = true;
+/** After extension reload, stop chrome.* loops and ask for tab refresh. */
+let extensionContextInvalidated = false;
+let listPollTimer: number | null = null;
+let listObserver: MutationObserver | null = null;
 
 function escapeHtml(value: string): string {
   return value
@@ -64,38 +74,56 @@ function isTradeOffersListPage(pathname: string): boolean {
 }
 
 async function runtimeRequest<T>(message: Record<string, unknown>): Promise<T> {
-  return chrome.runtime.sendMessage(message) as Promise<T>;
+  if (!isExtensionContextValid()) {
+    extensionContextInvalidated = true;
+    throw new Error('Extension context invalidated');
+  }
+  try {
+    return (await chrome.runtime.sendMessage(message)) as T;
+  } catch (error) {
+    if (isExtensionContextInvalidatedError(error) || !isExtensionContextValid()) {
+      extensionContextInvalidated = true;
+    }
+    throw error;
+  }
 }
 
 async function loadActiveTrades(): Promise<{
   trades: TradeVerificationResult[];
   siteSafeMode: boolean;
 }> {
-  const refreshed = await runtimeRequest<{
-    ok: boolean;
-    trades?: TradeVerificationResult[];
-    siteLink?: { safeMode?: boolean };
-  }>({
-    type: TRADE_VERIFICATION_RUNTIME.REFRESH_ACTIVE_TRADES,
-  });
-  if (refreshed.ok && refreshed.trades) {
+  const empty = { trades: [] as TradeVerificationResult[], siteSafeMode: true };
+  const result = await withExtensionContext(async () => {
+    const refreshed = await runtimeRequest<{
+      ok: boolean;
+      trades?: TradeVerificationResult[];
+      siteLink?: { safeMode?: boolean };
+    }>({
+      type: TRADE_VERIFICATION_RUNTIME.REFRESH_ACTIVE_TRADES,
+    });
+    if (refreshed.ok && refreshed.trades) {
+      return {
+        trades: refreshed.trades,
+        siteSafeMode: Boolean(refreshed.siteLink?.safeMode),
+      };
+    }
+    const cached = await runtimeRequest<{
+      ok: boolean;
+      trades?: TradeVerificationResult[];
+      siteLink?: { safeMode?: boolean };
+    }>({
+      type: TRADE_VERIFICATION_RUNTIME.GET_ACTIVE_TRADES,
+    });
+    const stored = await getStoredSiteLinkSnapshot();
     return {
-      trades: refreshed.trades,
-      siteSafeMode: Boolean(refreshed.siteLink?.safeMode),
+      trades: cached.ok && cached.trades ? cached.trades : [],
+      siteSafeMode: Boolean(cached.siteLink?.safeMode ?? stored.safeMode),
     };
+  }, empty);
+  if (!result.ok && result.invalidated) {
+    extensionContextInvalidated = true;
   }
-  const cached = await runtimeRequest<{
-    ok: boolean;
-    trades?: TradeVerificationResult[];
-    siteLink?: { safeMode?: boolean };
-  }>({
-    type: TRADE_VERIFICATION_RUNTIME.GET_ACTIVE_TRADES,
-  });
-  const stored = await getStoredSiteLinkSnapshot();
-  return {
-    trades: cached.ok && cached.trades ? cached.trades : [],
-    siteSafeMode: Boolean(cached.siteLink?.safeMode ?? stored.safeMode),
-  };
+  return result.value;
 }
 
 function listTradeOfferElements(): HTMLElement[] {
@@ -303,6 +331,17 @@ function ensureBadgeStyles(): void {
       background: rgba(18,22,30,.96); color: #f0d78a; border: 1px solid rgba(111,93,47,.65);
       font-family: "Segoe UI", system-ui, sans-serif; font-size: 12px; line-height: 1.4;
       box-shadow: 0 10px 28px rgba(0,0,0,.45); pointer-events: none;
+    }
+    .rip-tradeoffers-reload {
+      display: flex; flex-wrap: wrap; gap: 10px; align-items: center;
+      margin: 12px 0 16px; padding: 12px 14px; border-radius: 10px;
+      background: #2a2418; border: 1px solid #8f6f3d; color: #f5e2b0;
+      font-family: "Segoe UI", system-ui, sans-serif; font-size: 13px;
+    }
+    .rip-tradeoffers-reload strong { color: #f0d78a; }
+    .rip-tradeoffers-reload button {
+      border: 1px solid #8f6f3d; border-radius: 8px; padding: 8px 12px;
+      background: #3d3420; color: #f5e2b0; cursor: pointer; font: inherit; font-weight: 600;
     }
   `;
 }
@@ -547,12 +586,62 @@ function showDetail(mark: OfferMark, anchor: HTMLElement): void {
 }
 
 async function getRipOnlyFilter(): Promise<boolean> {
-  const stored = await chrome.storage.local.get(FILTER_STORAGE_KEY);
-  return stored[FILTER_STORAGE_KEY] === true;
+  const result = await withExtensionContext(async () => {
+    const stored = await chrome.storage.local.get(FILTER_STORAGE_KEY);
+    return stored[FILTER_STORAGE_KEY] === true;
+  }, false);
+  if (!result.ok && result.invalidated) {
+    extensionContextInvalidated = true;
+  }
+  return result.value;
 }
 
 async function setRipOnlyFilter(value: boolean): Promise<void> {
-  await chrome.storage.local.set({ [FILTER_STORAGE_KEY]: value });
+  const result = await withExtensionContext(async () => {
+    await chrome.storage.local.set({ [FILTER_STORAGE_KEY]: value });
+  }, undefined);
+  if (!result.ok && result.invalidated) {
+    extensionContextInvalidated = true;
+  }
+}
+
+function stopListBridgeLoops(): void {
+  if (listPollTimer !== null) {
+    window.clearInterval(listPollTimer);
+    listPollTimer = null;
+  }
+  listObserver?.disconnect();
+  listObserver = null;
+}
+
+function showExtensionReloadBanner(): void {
+  ensureBadgeStyles();
+  stopListBridgeLoops();
+  document.getElementById(TOOLBAR_ID)?.remove();
+  document.getElementById(DETAIL_ID)?.remove();
+  document.getElementById(STICKY_ID)?.remove();
+  let banner = document.getElementById(RELOAD_BANNER_ID);
+  if (!banner) {
+    banner = document.createElement('div');
+    banner.id = RELOAD_BANNER_ID;
+    banner.className = 'rip-tradeoffers-reload';
+    const mount =
+      document.querySelector('.profile_leftcol') ??
+      document.querySelector('#mainContents') ??
+      document.querySelector('.responsive_page_template_content') ??
+      document.body;
+    mount.prepend(banner);
+  }
+  banner.innerHTML = `
+    <strong>R.I.P Market обновился</strong>
+    <span>Обновите эту вкладку Steam — иначе бейджи сделок не работают.</span>
+    <button type="button" data-rip-reload-tab>Обновить страницу</button>
+  `;
+  banner
+    .querySelector('[data-rip-reload-tab]')
+    ?.addEventListener('click', () => {
+      window.location.reload();
+    });
 }
 
 function renderManualCreateStatusHtml(): string {
@@ -639,6 +728,14 @@ async function launchManualCreate(orderId: string): Promise<void> {
       };
     }
   } catch (error) {
+    if (
+      isExtensionContextInvalidatedError(error) ||
+      !isExtensionContextValid()
+    ) {
+      extensionContextInvalidated = true;
+      showExtensionReloadBanner();
+      return;
+    }
     manualCreateStatus = {
       kind: 'error',
       message:
@@ -682,59 +779,89 @@ function ensureToolbar(stats: {
 }
 
 async function markAllOffers(): Promise<void> {
-  ensureBadgeStyles();
-  ensureStickyHint();
-  const locale = await getStoredExtensionLocale();
-  listBridgeLocale = locale;
-  guidedBuyerEnabled = await isExtensionGuidedBuyerEnabled();
-  const loaded = await loadActiveTrades();
-  const trades = loaded.trades;
-  const candidates = loaded.siteSafeMode
-    ? []
-    : listManualCreateCandidates(trades, locale);
-  const ripOnly = await getRipOnlyFilter();
-  const cards = listTradeOfferElements();
-  let rip = 0;
-  let mismatch = 0;
-
-  for (const card of cards) {
-    const offerId = parseTradeOfferIdFromElementId(card.id);
-    if (!offerId) {
-      continue;
-    }
-    const mark = classifyOfferMark(offerId, trades);
-    if (isRipOfferMark(mark.kind)) {
-      rip += 1;
-    }
-    if (mark.kind === 'rip_mismatch') {
-      mismatch += 1;
-    }
-    applyCardMark(card, mark, ripOnly, locale);
+  if (extensionContextInvalidated || !isExtensionContextValid()) {
+    extensionContextInvalidated = true;
+    showExtensionReloadBanner();
+    return;
   }
+  try {
+    ensureBadgeStyles();
+    ensureStickyHint();
+    const locale = await getStoredExtensionLocale();
+    listBridgeLocale = locale;
+    guidedBuyerEnabled = await isExtensionGuidedBuyerEnabled();
+    if (extensionContextInvalidated || !isExtensionContextValid()) {
+      showExtensionReloadBanner();
+      return;
+    }
+    const loaded = await loadActiveTrades();
+    if (extensionContextInvalidated) {
+      showExtensionReloadBanner();
+      return;
+    }
+    const trades = loaded.trades;
+    const candidates = loaded.siteSafeMode
+      ? []
+      : listManualCreateCandidates(trades, locale);
+    const ripOnly = await getRipOnlyFilter();
+    if (extensionContextInvalidated) {
+      showExtensionReloadBanner();
+      return;
+    }
+    const cards = listTradeOfferElements();
+    let rip = 0;
+    let mismatch = 0;
 
-  const toolbar = ensureToolbar({
-    total: cards.length,
-    rip,
-    mismatch,
-    candidates,
-  });
-  const checkbox = toolbar.querySelector<HTMLInputElement>('input[data-rip-filter]');
-  if (checkbox) {
-    checkbox.checked = ripOnly;
-    checkbox.onchange = () => {
-      void setRipOnlyFilter(checkbox.checked).then(() => markAllOffers());
-    };
-  }
-  toolbar.querySelectorAll<HTMLButtonElement>('button.manual-cta').forEach((button) => {
-    button.onclick = (event) => {
-      event.preventDefault();
-      event.stopPropagation();
-      const orderId = button.dataset.orderId?.trim();
-      if (orderId) {
-        void launchManualCreate(orderId);
+    for (const card of cards) {
+      const offerId = parseTradeOfferIdFromElementId(card.id);
+      if (!offerId) {
+        continue;
       }
-    };
-  });
+      const mark = classifyOfferMark(offerId, trades);
+      if (isRipOfferMark(mark.kind)) {
+        rip += 1;
+      }
+      if (mark.kind === 'rip_mismatch') {
+        mismatch += 1;
+      }
+      applyCardMark(card, mark, ripOnly, locale);
+    }
+
+    document.getElementById(RELOAD_BANNER_ID)?.remove();
+    const toolbar = ensureToolbar({
+      total: cards.length,
+      rip,
+      mismatch,
+      candidates,
+    });
+    const checkbox = toolbar.querySelector<HTMLInputElement>('input[data-rip-filter]');
+    if (checkbox) {
+      checkbox.checked = ripOnly;
+      checkbox.onchange = () => {
+        void setRipOnlyFilter(checkbox.checked).then(() => markAllOffers());
+      };
+    }
+    toolbar.querySelectorAll<HTMLButtonElement>('button.manual-cta').forEach((button) => {
+      button.onclick = (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        const orderId = button.dataset.orderId?.trim();
+        if (orderId) {
+          void launchManualCreate(orderId);
+        }
+      };
+    });
+  } catch (error) {
+    if (
+      isExtensionContextInvalidatedError(error) ||
+      !isExtensionContextValid()
+    ) {
+      extensionContextInvalidated = true;
+      showExtensionReloadBanner();
+      return;
+    }
+    throw error;
+  }
 }
 
 function watchListDom(): void {
@@ -743,7 +870,12 @@ function watchListDom(): void {
     document.querySelector('#mainContents') ??
     document.body;
   let timer: number | null = null;
-  const observer = new MutationObserver(() => {
+  listObserver?.disconnect();
+  listObserver = new MutationObserver(() => {
+    if (extensionContextInvalidated) {
+      listObserver?.disconnect();
+      return;
+    }
     if (timer !== null) {
       window.clearTimeout(timer);
     }
@@ -751,7 +883,7 @@ function watchListDom(): void {
       void markAllOffers();
     }, 250);
   });
-  observer.observe(root, { childList: true, subtree: true });
+  listObserver.observe(root, { childList: true, subtree: true });
 }
 
 async function mount(): Promise<void> {
@@ -759,10 +891,23 @@ async function mount(): Promise<void> {
     return;
   }
   await markAllOffers();
+  if (extensionContextInvalidated) {
+    return;
+  }
   watchListDom();
-  window.setInterval(() => {
+  listPollTimer = window.setInterval(() => {
     void markAllOffers();
   }, 30_000);
 }
 
-void mount();
+void mount().catch((error) => {
+  if (
+    isExtensionContextInvalidatedError(error) ||
+    !isExtensionContextValid()
+  ) {
+    extensionContextInvalidated = true;
+    showExtensionReloadBanner();
+    return;
+  }
+  console.warn('[rip-market] tradeoffers list bridge failed', error);
+});

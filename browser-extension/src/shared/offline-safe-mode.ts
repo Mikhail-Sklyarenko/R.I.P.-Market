@@ -273,36 +273,51 @@ function escapeHtml(value: string): string {
 }
 
 export async function getStoredSiteLinkSnapshot(): Promise<SiteLinkSnapshot> {
-  const stored = await chrome.storage.local.get(SITE_LINK_STORAGE_KEY);
-  const raw = stored[SITE_LINK_STORAGE_KEY];
-  if (!raw || typeof raw !== 'object') {
+  try {
+    if (typeof chrome === 'undefined' || !chrome.storage?.local?.get) {
+      return defaultSiteLinkSnapshot();
+    }
+    const stored = await chrome.storage.local.get(SITE_LINK_STORAGE_KEY);
+    const raw = stored[SITE_LINK_STORAGE_KEY];
+    if (!raw || typeof raw !== 'object') {
+      return defaultSiteLinkSnapshot();
+    }
+    const record = raw as Partial<SiteLinkSnapshot>;
+    const mode =
+      record.mode === 'live' ||
+      record.mode === 'degraded' ||
+      record.mode === 'offline'
+        ? record.mode
+        : 'offline';
+    return {
+      mode,
+      safeMode: mode !== 'live',
+      fromCache: Boolean(record.fromCache),
+      cacheUpdatedAt:
+        typeof record.cacheUpdatedAt === 'string' ? record.cacheUpdatedAt : null,
+      lastError: typeof record.lastError === 'string' ? record.lastError : null,
+      checkedAt:
+        typeof record.checkedAt === 'string'
+          ? record.checkedAt
+          : new Date().toISOString(),
+    };
+  } catch {
+    // Extension reloaded under this tab — degrade offline, never throw.
     return defaultSiteLinkSnapshot();
   }
-  const record = raw as Partial<SiteLinkSnapshot>;
-  const mode =
-    record.mode === 'live' ||
-    record.mode === 'degraded' ||
-    record.mode === 'offline'
-      ? record.mode
-      : 'offline';
-  return {
-    mode,
-    safeMode: mode !== 'live',
-    fromCache: Boolean(record.fromCache),
-    cacheUpdatedAt:
-      typeof record.cacheUpdatedAt === 'string' ? record.cacheUpdatedAt : null,
-    lastError: typeof record.lastError === 'string' ? record.lastError : null,
-    checkedAt:
-      typeof record.checkedAt === 'string'
-        ? record.checkedAt
-        : new Date().toISOString(),
-  };
 }
 
 export async function setStoredSiteLinkSnapshot(
   snapshot: SiteLinkSnapshot,
 ): Promise<void> {
-  await chrome.storage.local.set({ [SITE_LINK_STORAGE_KEY]: snapshot });
+  try {
+    if (typeof chrome === 'undefined' || !chrome.storage?.local?.set) {
+      return;
+    }
+    await chrome.storage.local.set({ [SITE_LINK_STORAGE_KEY]: snapshot });
+  } catch {
+    // ignore context invalidated / quota
+  }
 }
 
 /** Build + persist site link from poll telemetry (service worker). */

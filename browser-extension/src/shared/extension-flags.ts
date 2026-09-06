@@ -78,13 +78,21 @@ export async function isExtensionInventoryLayerEnabled(): Promise<boolean> {
 }
 
 export async function isExtensionGuidedBuyerEnabled(): Promise<boolean> {
-  const stored = await chrome.storage.local.get(GUIDED_BUYER_ENABLED_KEY);
-  return isRemoteFlagOn(stored[GUIDED_BUYER_ENABLED_KEY]);
+  try {
+    const stored = await chrome.storage.local.get(GUIDED_BUYER_ENABLED_KEY);
+    return isRemoteFlagOn(stored[GUIDED_BUYER_ENABLED_KEY]);
+  } catch {
+    return true;
+  }
 }
 
 export async function isExtensionQuietNotificationsEnabled(): Promise<boolean> {
-  const stored = await chrome.storage.local.get(QUIET_NOTIFICATIONS_ENABLED_KEY);
-  return isRemoteFlagOn(stored[QUIET_NOTIFICATIONS_ENABLED_KEY]);
+  try {
+    const stored = await chrome.storage.local.get(QUIET_NOTIFICATIONS_ENABLED_KEY);
+    return isRemoteFlagOn(stored[QUIET_NOTIFICATIONS_ENABLED_KEY]);
+  } catch {
+    return true;
+  }
 }
 
 export async function setTaskUiTradeFlowOverride(

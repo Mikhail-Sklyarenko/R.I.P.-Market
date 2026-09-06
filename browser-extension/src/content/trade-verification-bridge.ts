@@ -57,6 +57,10 @@ import {
   bumpDealFlowMetric,
   type DealFlowMetricKey,
 } from '../shared/deal-flow-metrics.js';
+import {
+  isExtensionContextInvalidatedError,
+  isExtensionContextValid,
+} from '../shared/extension-context.js';
 
 
 const PANEL_ID = 'rip-market-trade-verification-panel';
@@ -240,7 +244,20 @@ function getItemImageUrl(iconUrl: string | null): string | null {
 }
 
 async function runtimeRequest<T>(message: Record<string, unknown>): Promise<T> {
-  return chrome.runtime.sendMessage(message) as Promise<T>;
+  if (!isExtensionContextValid()) {
+    throw new Error('Extension context invalidated');
+  }
+  try {
+    return (await chrome.runtime.sendMessage(message)) as T;
+  } catch (error) {
+    if (isExtensionContextInvalidatedError(error)) {
+      throw error;
+    }
+    if (!isExtensionContextValid()) {
+      throw new Error('Extension context invalidated');
+    }
+    throw error;
+  }
 }
 
 async function resolveObservedFloat(assetId: string): Promise<string | null> {
@@ -1342,9 +1359,17 @@ function replacePanel(context: OfferPageContext): void {
 }
 
 let refreshInFlight = false;
+let offerPanelContextInvalidated = false;
+let offerPanelObserver: MutationObserver | null = null;
 
 async function refreshPanel(): Promise<void> {
-  if (refreshInFlight) {
+  if (refreshInFlight || offerPanelContextInvalidated) {
+    return;
+  }
+  if (!isExtensionContextValid()) {
+    offerPanelContextInvalidated = true;
+    offerPanelObserver?.disconnect();
+    document.getElementById(PANEL_ID)?.remove();
     return;
   }
   refreshInFlight = true;
@@ -1358,6 +1383,17 @@ async function refreshPanel(): Promise<void> {
     }
     ensureStickyHint();
     replacePanel(context);
+  } catch (error) {
+    if (
+      isExtensionContextInvalidatedError(error) ||
+      !isExtensionContextValid()
+    ) {
+      offerPanelContextInvalidated = true;
+      offerPanelObserver?.disconnect();
+      document.getElementById(PANEL_ID)?.remove();
+      return;
+    }
+    throw error;
   } finally {
     refreshInFlight = false;
   }
@@ -1368,10 +1404,11 @@ function watchTradeOfferDom(): void {
     document.querySelector('#trade_slots') ??
     document.querySelector('.tradeoffer') ??
     document.body;
-  const observer = new MutationObserver(() => {
+  offerPanelObserver?.disconnect();
+  offerPanelObserver = new MutationObserver(() => {
     void refreshPanel();
   });
-  observer.observe(root, { childList: true, subtree: true });
+  offerPanelObserver.observe(root, { childList: true, subtree: true });
 }
 
 async function mountPanel(): Promise<void> {
@@ -1379,15 +1416,27 @@ async function mountPanel(): Promise<void> {
   if (/\/tradeoffers\/?/i.test(window.location.pathname)) {
     return;
   }
-  await ensureOverlayLocale();
-  await refreshGuidedBuyerFlag();
-  const context = await loadTradeForPage();
-  if (!context) {
-    return;
+  try {
+    await ensureOverlayLocale();
+    await refreshGuidedBuyerFlag();
+    const context = await loadTradeForPage();
+    if (!context) {
+      return;
+    }
+    ensureStickyHint();
+    replacePanel(context);
+    watchTradeOfferDom();
+  } catch (error) {
+    if (
+      isExtensionContextInvalidatedError(error) ||
+      !isExtensionContextValid()
+    ) {
+      offerPanelContextInvalidated = true;
+      document.getElementById(PANEL_ID)?.remove();
+      return;
+    }
+    console.warn('[rip-market] trade verification panel failed', error);
   }
-  ensureStickyHint();
-  replacePanel(context);
-  watchTradeOfferDom();
 }
 
 void mountPanel();
