@@ -23,6 +23,10 @@ import {
   type NextActionCta,
   type ResolvedNextAction,
 } from '../shared/popup-next-action.js';
+import {
+  buildDealConfirmBanner,
+} from '../shared/deal-confirm-flow.js';
+import { bumpDealFlowMetric } from '../shared/deal-flow-metrics.js';
 import type { OpsHealthView } from '../shared/extension-ops-health.js';
 import {
   buildSettlementTransparency,
@@ -144,7 +148,11 @@ function roleLabel(role: TradeVerificationResult['role']): string {
 function renderCtaControl(cta: NextActionCta, variant: 'primary' | 'secondary'): string {
   const cls = variant === 'primary' ? 'btn primary' : 'btn secondary';
   if (cta.mode === 'link' && cta.href) {
-    return `<a class="${cls}" href="${escapeHtml(cta.href)}" target="_blank" rel="noreferrer" data-cta-id="${escapeHtml(cta.id)}">${escapeHtml(cta.label)}</a>`;
+    const orderAttr =
+      cta.id === 'open_order' || cta.id === 'platform_status'
+        ? ' data-track-order-link="1"'
+        : '';
+    return `<a class="${cls}" href="${escapeHtml(cta.href)}" target="_blank" rel="noreferrer" data-cta-id="${escapeHtml(cta.id)}"${orderAttr}>${escapeHtml(cta.label)}</a>`;
   }
   if (cta.mode === 'button' && cta.ackType && cta.orderId) {
     return `<button class="${variant === 'primary' ? 'primary' : 'secondary'}" type="button" data-ack="${cta.ackType}" data-order="${escapeHtml(cta.orderId)}" data-offer="${escapeHtml(cta.offerId ?? '')}" data-cta-id="${escapeHtml(cta.id)}">${escapeHtml(cta.label)}</button>`;
@@ -156,7 +164,23 @@ function renderCtaControl(cta: NextActionCta, variant: 'primary' | 'secondary'):
 }
 
 /** E2: one primary CTA; extras only under More. */
-function renderNextActionBlock(resolved: ResolvedNextAction): string {
+const popupMetricOnce = new Set<string>();
+
+function renderNextActionBlock(
+  resolved: ResolvedNextAction,
+  options?: { orderId?: string; bannerHtml?: string },
+): string {
+  if (
+    options?.orderId &&
+    (resolved.primary.id === 'confirm_received_ack' ||
+      resolved.primary.id === 'confirm_sent_ack')
+  ) {
+    const key = `popup-confirm:${options.orderId}:${resolved.primary.id}`;
+    if (!popupMetricOnce.has(key)) {
+      popupMetricOnce.add(key);
+      void bumpDealFlowMetric('popup_confirm_primary');
+    }
+  }
   const primary = renderCtaControl(resolved.primary, 'primary');
   const hint = resolved.hint
     ? `<p class="cta-hint">${escapeHtml(resolved.hint)}</p>`
@@ -168,7 +192,8 @@ function renderNextActionBlock(resolved: ResolvedNextAction): string {
     overflowItems.length > 0
       ? `<details class="card-more"><summary>${escapeHtml(t('common.more'))}</summary>${overflowItems.join('')}</details>`
       : '';
-  return `${hint}${primary}${overflow}`;
+  const banner = options?.bannerHtml ?? '';
+  return `${banner}${hint}${primary}${overflow}`;
 }
 
 function bindCardActions(root: ParentNode): void {
@@ -180,6 +205,11 @@ function bindCardActions(root: ParentNode): void {
   root.querySelectorAll<HTMLButtonElement>('button[data-runtime="poll_now"]').forEach((button) => {
     button.addEventListener('click', () => {
       void retrySendFromPopup(button);
+    });
+  });
+  root.querySelectorAll<HTMLAnchorElement>('[data-track-order-link]').forEach((link) => {
+    link.addEventListener('click', () => {
+      void bumpDealFlowMetric('order_link_clicks');
     });
   });
   root.querySelectorAll<HTMLButtonElement>('button[data-snooze-order]').forEach((button) => {
@@ -303,7 +333,7 @@ function renderActionCard(item: ActionRequiredItem): string {
           : ''
       }
       <p class="next"><strong>${escapeHtml(item.title)}</strong><br />${escapeHtml(item.description)}</p>
-      ${renderNextActionBlock(cta)}
+      ${renderNextActionBlock(cta, { orderId: item.orderId ?? undefined })}
       ${
         item.orderId
           ? `<button type="button" class="btn secondary action-snooze" data-snooze-order="${escapeHtml(item.orderId)}">${escapeHtml(t('popup.snoozeLater'))}</button>`
@@ -411,7 +441,7 @@ function renderBuyerCard(card: BuyerInboxCard): string {
       }
       ${dispute}
       ${settlement}
-      ${renderNextActionBlock(cta)}
+      ${renderNextActionBlock(cta, { orderId: card.orderId })}
     </article>
   `;
 }
@@ -459,16 +489,20 @@ function renderSellerCard(trade: TradeVerificationResult): string {
   const disputeView = buildDisputeStatusView(trade, activeLocale);
   const dispute =
     disputeView != null ? disputeStatusHtml(disputeView, escapeHtml) : '';
+  const confirmBanner = buildDealConfirmBanner(trade, activeLocale);
+  const nextCopy = confirmBanner
+    ? `<p class="next"><strong>${escapeHtml(confirmBanner.title)}</strong><br />${escapeHtml(confirmBanner.body)}</p>`
+    : `<p class="next"><strong>${escapeHtml(trade.nextAction.title)}</strong><br />${escapeHtml(trade.nextAction.description)}</p>`;
 
   return `
     <article class="trade-card ${statusClass}" data-primary-cta="${escapeHtml(cta.primary.id)}">
       <h2>${escapeHtml(trade.item.marketHashName)}</h2>
       <p class="meta">#${escapeHtml(trade.orderShortId)} · ${escapeHtml(roleLabel(trade.role))} · ${escapeHtml(formatMoneyMinor(trade.amountMinor))}</p>
       ${renderShieldStrip(trade)}
-      <p class="next"><strong>${escapeHtml(trade.nextAction.title)}</strong><br />${escapeHtml(trade.nextAction.description)}</p>
+      ${nextCopy}
       ${dispute}
       ${settlement}
-      ${renderNextActionBlock(cta)}
+      ${renderNextActionBlock(cta, { orderId: trade.orderId })}
     </article>
   `;
 }
@@ -520,6 +554,9 @@ async function acknowledgeFromPopup(button: HTMLButtonElement): Promise<void> {
   button.disabled = true;
   const previous = button.textContent;
   button.textContent = 'Сохраняем…';
+  if (ackType === 'BUYER_ACK_RECEIVED') {
+    void bumpDealFlowMetric('received_ack_clicked');
+  }
   const response = await chrome.runtime.sendMessage({
     type: TRADE_VERIFICATION_RUNTIME.ACK_TRADE,
     orderId,

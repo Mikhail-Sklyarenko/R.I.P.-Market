@@ -46,6 +46,17 @@ import {
 } from '../shared/deal-shield.js';
 import { parsePartnerSteamIdFromDocument } from '../shared/parse-trade-partner-steamid.js';
 import { resolveTradeForOfferPage } from '../shared/resolve-trade-for-offer-page.js';
+import {
+  buildDealConfirmBanner,
+  dealConfirmBannerHtml,
+  isDeliveryDualSignalOk,
+  needsBuyerReceivedConfirm,
+  resolveDealConfirmPhase,
+} from '../shared/deal-confirm-flow.js';
+import {
+  bumpDealFlowMetric,
+  type DealFlowMetricKey,
+} from '../shared/deal-flow-metrics.js';
 
 
 const PANEL_ID = 'rip-market-trade-verification-panel';
@@ -82,6 +93,16 @@ type OfferPageContext = {
   offerId: string | null;
 };
 
+/** Avoid spamming chrome.storage on every panel refresh poll. */
+const metricOnceKeys = new Set<string>();
+function bumpMetricOnce(onceKey: string, metric: DealFlowMetricKey): void {
+  if (metricOnceKeys.has(onceKey)) {
+    return;
+  }
+  metricOnceKeys.add(onceKey);
+  void bumpDealFlowMetric(metric);
+}
+
 let acceptAssistUi: AcceptAssistUiState | null = null;
 let lastPanelContext: OfferPageContext | null = null;
 
@@ -110,6 +131,7 @@ function armManualAcceptAssist(trade: TradeVerificationResult): void {
       idempotencyKey: `ack:${trade.orderId}:BUYER_ACK_PRE_ACCEPT:assist-arm`,
     } satisfies AckTradeRuntimeRequest).catch(() => undefined);
   }
+  void bumpDealFlowMetric('accept_assist_armed');
   const control = pickSteamAcceptControl(
     findSteamAcceptControls(document),
     preferredSteamAcceptKind(),
@@ -168,6 +190,7 @@ function confirmManualAcceptAssist(trade: TradeVerificationResult): void {
     phase: 'done',
     lastClickedKind: result.kind,
   };
+  void bumpDealFlowMetric('accept_assist_done');
   rerenderOfferPanel();
   if (!trade.acknowledgments.buyerPreAccept) {
     void runtimeRequest<{ ok: boolean }>({
@@ -715,7 +738,7 @@ const PANEL_STYLES = `
         border: 1px solid var(--rip-border);
         box-shadow: 0 18px 48px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255,255,255,0.03);
         display: grid;
-        gap: 10px;
+        gap: 8px;
       }
       .rip-verified { border-color: rgba(34, 197, 94, 0.35); }
       .rip-mismatch, .rip-scam-block { border-color: rgba(248, 113, 113, 0.4); }
@@ -928,6 +951,27 @@ const PANEL_STYLES = `
       .never-auto {
         margin: 0; font-size: 10px; color: var(--rip-muted); text-align: center; line-height: 1.35;
       }
+      .deal-confirm {
+        margin: 0; padding: 8px 10px; border-radius: 8px;
+        background: rgba(15, 23, 42, 0.55); border: 1px solid var(--rip-border);
+      }
+      .deal-confirm.tone-ok {
+        background: var(--rip-success-bg); border-color: rgba(34, 197, 94, 0.28);
+      }
+      .deal-confirm.tone-warn {
+        background: var(--rip-warn-bg); border-color: rgba(234, 179, 8, 0.28);
+      }
+      .deal-confirm.tone-info {
+        background: var(--rip-info-bg); border-color: rgba(56, 189, 248, 0.22);
+      }
+      .deal-confirm-title {
+        margin: 0 0 2px; font-size: 13px; font-weight: 650; line-height: 1.3; color: var(--rip-text);
+      }
+      .deal-confirm.tone-ok .deal-confirm-title { color: var(--rip-success); }
+      .deal-confirm.tone-warn .deal-confirm-title { color: var(--rip-warn); }
+      .deal-confirm-body {
+        margin: 0; font-size: 11px; color: var(--rip-soft); line-height: 1.35;
+      }
 `;
 
 function buildUnlinkedPanel(context: OfferPageContext): HTMLElement {
@@ -1022,17 +1066,21 @@ function buildPanel(context: OfferPageContext): HTMLElement {
     shield.partner.match === 'match' &&
     !scamBlocks;
 
+  const acceptAssistDone =
+    acceptAssistUi?.offerId === trade.offerId &&
+    acceptAssistUi.phase === 'done';
+  const confirmPhase = resolveDealConfirmPhase(trade, {
+    acceptAssistDone,
+  });
+  const confirmBanner = buildDealConfirmBanner(trade, overlayLocale, {
+    acceptAssistDone,
+  });
+
   const showConfirmReceived =
-    trade.role === 'buyer' &&
+    needsBuyerReceivedConfirm(trade, { acceptAssistDone }) &&
     status !== 'mismatch' &&
-    !scamBlocks &&
-    Boolean(trade.offerId) &&
-    !trade.acknowledgments.buyerReceived &&
-    (trade.orderStatus === 'TRADE_CONFIRMED' ||
-      trade.orderStatus === 'SETTLEMENT_HOLD' ||
-      trade.nextAction.kind === 'confirm_received' ||
-      (acceptAssistUi?.offerId === trade.offerId &&
-        acceptAssistUi.phase === 'done'));
+    !scamBlocks;
+
   // After Accept (or once delivery phase starts) confirm in-extension — not on site.
   const showPrimaryReceived =
     showConfirmReceived &&
@@ -1042,13 +1090,41 @@ function buildPanel(context: OfferPageContext): HTMLElement {
       trade.orderStatus === 'WAITING_TRADE'
     );
 
+  if (
+    trade.role === 'buyer' &&
+    !showConfirmReceived &&
+    isDeliveryDualSignalOk(trade.deliveryProgress) &&
+    !trade.acknowledgments.buyerReceived
+  ) {
+    bumpMetricOnce(
+      `skip-dual:${trade.orderId}`,
+      'received_ack_skipped_dual_signal',
+    );
+  }
+  if (showPrimaryReceived) {
+    bumpMetricOnce(`shown:${trade.orderId}`, 'received_ack_shown');
+  }
+  bumpMetricOnce(
+    `panel:${trade.orderId}:${trade.offerId ?? 'none'}`,
+    'steam_panel_views',
+  );
+
   const buyerCtaOverride =
     trade.role === 'buyer' && onOfferPage && scamBlocks && status !== 'mismatch'
       ? `<p class="primary-hint block">Сначала устраните anti-scam предупреждения — Accept пока не нажимайте</p>`
       : showPrimaryReceived
-        ? `<button type="button" class="btn primary accept-cta" data-action="confirm-received">${escapeHtml(t('cta.confirmReceived'))}</button>
-           <p class="primary-hint wait">Можно закрыть Steam — статус обновится сам после подтверждения.</p>`
+        ? `<button type="button" class="btn primary accept-cta" data-action="confirm-received">${escapeHtml(t('cta.confirmReceived'))}</button>`
         : primaryCtaHtml(trade, shield, sellerGate);
+
+  const dealConfirmHtml =
+    confirmBanner &&
+    trade.role === 'buyer' &&
+    !scamBlocks &&
+    status !== 'mismatch' &&
+    !showPrimaryReceived &&
+    !(acceptAllowed && !acceptAssistDone)
+      ? dealConfirmBannerHtml(confirmBanner, escapeHtml)
+      : '';
 
   const preSendBanner =
     shield.isPreSend && !sellerGate
@@ -1059,7 +1135,12 @@ function buildPanel(context: OfferPageContext): HTMLElement {
       : '';
 
   const showOrderLink =
-    status !== 'mismatch' && shield.partner.match !== 'mismatch';
+    status !== 'mismatch' &&
+    shield.partner.match !== 'mismatch' &&
+    (trade.role === 'seller' ||
+      confirmPhase === 'verifying' ||
+      confirmPhase === 'done' ||
+      trade.orderStatus === 'DISPUTE');
   const partnerToolsOpen =
     status === 'mismatch' || shield.partner.match === 'mismatch';
   const compareForceOpen =
@@ -1069,7 +1150,7 @@ function buildPanel(context: OfferPageContext): HTMLElement {
 
   const moneyLine =
     trade.escrow.status === 'active'
-      ? `<p class="money"><strong>Hold ${formatMoneyMinor(trade.escrow.holdAmountMinor)}</strong> на площадке · не платите в чат Steam</p>`
+      ? `<p class="money"><strong>Hold ${formatMoneyMinor(trade.escrow.holdAmountMinor)}</strong> · не платите в чат Steam</p>`
       : `<p class="money"><strong>Оплата на площадке</strong> · не переводите деньги в чат Steam</p>`;
 
   shadow.innerHTML = `
@@ -1091,6 +1172,7 @@ function buildPanel(context: OfferPageContext): HTMLElement {
             : headline.subtitle,
         )}</p>
       </div>
+      ${dealConfirmHtml}
       ${preSendBanner}
       ${renderItemHero(shield)}
       ${renderPartnerBlock(shield, { expandTools: partnerToolsOpen })}
@@ -1099,7 +1181,7 @@ function buildPanel(context: OfferPageContext): HTMLElement {
         ${buyerCtaOverride}
         ${
           showOrderLink
-            ? `<a class="linkish" href="${escapeHtml(trade.siteUrl)}" target="_blank" rel="noreferrer">${escapeHtml(t('cta.openOrder'))}</a>`
+            ? `<a class="linkish" href="${escapeHtml(trade.siteUrl)}" target="_blank" rel="noreferrer" data-action="open-order">${escapeHtml(t('cta.openOrder'))}</a>`
             : ''
         }
       </div>
@@ -1158,6 +1240,12 @@ function buildPanel(context: OfferPageContext): HTMLElement {
     });
 
   shadow
+    .querySelector<HTMLAnchorElement>('a[data-action="open-order"]')
+    ?.addEventListener('click', () => {
+      void bumpDealFlowMetric('order_link_clicks');
+    });
+
+  shadow
     .querySelector<HTMLButtonElement>('button[data-action="accept-steam"]')
     ?.addEventListener('click', (event) => {
       event.preventDefault();
@@ -1207,6 +1295,7 @@ async function acknowledgeReceived(
 ): Promise<void> {
   button.disabled = true;
   button.textContent = 'Сохраняем…';
+  void bumpDealFlowMetric('received_ack_clicked');
   const response = await runtimeRequest<{ ok: boolean; error?: string }>({
     type: TRADE_VERIFICATION_RUNTIME.ACK_TRADE,
     orderId: trade.orderId,

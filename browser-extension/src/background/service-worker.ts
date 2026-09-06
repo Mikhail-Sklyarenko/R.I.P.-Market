@@ -58,6 +58,10 @@ import {
   type SupportBridgePack,
 } from '../shared/support-bridge.js';
 import {
+  formatDealFlowMetricsForDebug,
+  readDealFlowMetrics,
+} from '../shared/deal-flow-metrics.js';
+import {
   canProceedPastRateLimit,
   noteRateLimitCleared,
   noteRateLimitHit,
@@ -313,7 +317,13 @@ async function buildExtensionDebugPack(params?: {
     siteOrigin: supportSiteOriginFromApiBaseUrl(status.apiBaseUrl),
     pack: supportBridge,
   });
-  const clipboardText = formatSupportBridgeTicketBody(supportBridge);
+  const dealFlowMetrics = await readDealFlowMetrics();
+  const clipboardText = [
+    formatSupportBridgeTicketBody(supportBridge),
+    '',
+    '--- deal-flow metrics ---',
+    formatDealFlowMetricsForDebug(dealFlowMetrics),
+  ].join('\n');
   return {
     pack: {
       version: 1,
@@ -341,6 +351,7 @@ async function buildExtensionDebugPack(params?: {
       opsHealthView: ops.view,
       supportBridge,
       supportUrl,
+      dealFlowMetrics,
     },
     supportBridge,
     clipboardText,

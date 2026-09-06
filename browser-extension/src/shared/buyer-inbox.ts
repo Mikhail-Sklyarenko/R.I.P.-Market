@@ -21,6 +21,10 @@ import {
   buildDealShieldModel,
   dealShieldPartnerSummary,
 } from './deal-shield.js';
+import {
+  buildDealConfirmBanner,
+  needsBuyerReceivedConfirm,
+} from './deal-confirm-flow.js';
 
 /**
  * C4: buyer purchase phases in the extension popup inbox.
@@ -196,13 +200,7 @@ function resolveBuyerAckFlags(trade: TradeVerificationResult): {
     !trade.acknowledgments.buyerPreAccept &&
     !trade.acknowledgments.buyerReceived;
 
-  const showConfirmReceived =
-    Boolean(trade.offerId) &&
-    !trade.acknowledgments.buyerReceived &&
-    (trade.acknowledgments.buyerPreAccept ||
-      trade.orderStatus === 'TRADE_CONFIRMED' ||
-      trade.orderStatus === 'SETTLEMENT_HOLD' ||
-      phase === 'verifying');
+  const showConfirmReceived = needsBuyerReceivedConfirm(trade);
 
   return { showPreAccept, showConfirmReceived };
 }
@@ -291,6 +289,7 @@ export function buildBuyerInboxCard(
           : 'pending';
 
   const shield = buildDealShieldModel({ trade, locale });
+  const confirmBanner = buildDealConfirmBanner(trade, locale);
   const itemCharacteristics =
     shield.item.lines.length > 0
       ? shield.item.lines.map((l) => `${l.label} ${l.value}`).join(' · ')
@@ -303,8 +302,8 @@ export function buildBuyerInboxCard(
     amountMinor: trade.amountMinor,
     phase,
     phaseLabel: t(`buyerPhase.${phase}`),
-    title: trade.nextAction.title,
-    description: trade.nextAction.description,
+    title: confirmBanner?.title ?? trade.nextAction.title,
+    description: confirmBanner?.body ?? trade.nextAction.description,
     tone,
     primary: resolvePrimaryCta(trade, phase, steamOfferUrl, next, locale),
     offerId: trade.offerId,

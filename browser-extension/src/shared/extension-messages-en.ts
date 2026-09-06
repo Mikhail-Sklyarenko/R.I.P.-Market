@@ -117,6 +117,18 @@ export const extensionMessagesEn: ExtensionMessageTree = {
     hintWaitSeller: 'As soon as the offer appears, an accept button shows here.',
     hintWaitBuyer: 'Offer is with the buyer. Status updates after they Accept.',
   },
+  dealConfirm: {
+    acceptTitle: 'Accept the trade in Steam',
+    acceptBody: 'Check the shield, then press Accept. We never accept for you.',
+    receivedTitle: 'Item with you?',
+    receivedBody: 'Confirm here — the site status updates on its own.',
+    verifyingTitle: 'Checking delivery',
+    verifyingBody: 'Matching Steam and inventory. Usually quick.',
+    doneTitle: 'Done',
+    doneBody: 'The platform has the deal. Open the order only if you need it.',
+    guardTitle: 'Confirm in Steam Mobile',
+    guardBody: 'Guard is only in the Steam app. Status updates here by itself.',
+  },
   badge: {
     rePair: 'Connect',
     steam: 'Steam',

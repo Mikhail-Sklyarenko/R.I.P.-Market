@@ -1,8 +1,7 @@
 /**
  * E2: Next-action engine — exactly one primary CTA per card.
  * Product rule: confirm where the user already is (Steam / popup).
- * Site order links stay in overflow — never the happy-path hop after Accept/Guard.
- * H1: labels follow extension locale (ru/en).
+ * P3: shared received-confirm gate + calm overflow (one secondary max).
  */
 import type { TradeVerificationResult } from '@rip-market/extension-orchestrator';
 import {
@@ -13,6 +12,7 @@ import {
 import { buildInFlowDisputeSupportUrl } from './in-flow-dispute.js';
 import type { SessionHealth } from './session-health.js';
 import { sanitizeTradeOrderUrl } from './site-origin.js';
+import { needsBuyerReceivedConfirm } from './deal-confirm-flow.js';
 
 function buildSteamTradeOfferUrl(offerId: string | null | undefined): string | null {
   const id = offerId?.trim();
@@ -107,27 +107,14 @@ function runtimeCta(
   };
 }
 
-function needsBuyerReceivedConfirm(trade: TradeVerificationResult): boolean {
-  if (trade.role !== 'buyer') {
-    return false;
+/** Happy path: at most one overflow action (support preferred). */
+function calmOverflow(items: NextActionCta[]): NextActionCta[] {
+  const support = items.find((item) => item.id === 'problem_support');
+  if (support) {
+    return [support];
   }
-  if (trade.acknowledgments.buyerReceived) {
-    return false;
-  }
-  if (!trade.offerId?.trim()) {
-    return false;
-  }
-  if (
-    trade.verificationStatus === 'mismatch' ||
-    trade.nextAction.kind === 'report_issue'
-  ) {
-    return false;
-  }
-  return (
-    trade.nextAction.kind === 'confirm_received' ||
-    trade.orderStatus === 'TRADE_CONFIRMED' ||
-    trade.orderStatus === 'SETTLEMENT_HOLD'
-  );
+  const order = items.find((item) => item.id === 'open_order');
+  return order ? [order] : items.slice(0, 1);
 }
 
 /**
@@ -142,7 +129,6 @@ export function resolveTradeNextAction(
   const problemHref = buildProblemSupportUrl(trade);
   const orderHref = sanitizeTradeOrderUrl(trade.siteUrl, trade.orderId);
 
-  // Dispute already open: open the order (status + support path), not "open dispute" again.
   if (trade.orderStatus === 'DISPUTE') {
     return {
       primary: linkCta('open_order', t('cta.openOrder'), orderHref),
@@ -159,22 +145,23 @@ export function resolveTradeNextAction(
   ) {
     return {
       primary: linkCta('open_dispute', t('cta.openDispute'), problemHref),
-      overflow: [linkCta('open_order', t('cta.openOrder'), orderHref)],
+      overflow: calmOverflow([
+        linkCta('open_order', t('cta.openOrder'), orderHref),
+      ]),
       hint: t('nextAction.hintMismatch'),
     };
   }
 
   if (trade.nextAction.kind === 'confirm_guard') {
-    // Guard is on the phone — do not bounce to the site order page.
     const primary = offerUrl
       ? linkCta('open_verified_offer', t('cta.openOfferSteam'), offerUrl)
       : runtimeCta('refresh_status', t('cta.refreshStatus'), 'poll_now', trade);
     return {
       primary,
-      overflow: [
+      overflow: calmOverflow([
         runtimeCta('refresh_status', t('cta.refreshStatus'), 'poll_now', trade),
         linkCta('open_order', t('cta.openOrder'), orderHref),
-      ],
+      ]),
       hint: t('nextAction.hintGuard'),
     };
   }
@@ -192,7 +179,7 @@ export function resolveTradeNextAction(
     overflow.push(linkCta('open_order', t('cta.openOrder'), orderHref));
     return {
       primary,
-      overflow,
+      overflow: calmOverflow(overflow),
       hint: trade.buyerTradeUrl
         ? t('nextAction.hintManualWithUrl')
         : t('nextAction.hintManualRetry'),
@@ -200,7 +187,6 @@ export function resolveTradeNextAction(
   }
 
   if (trade.nextAction.kind === 'confirm_sent') {
-    // Prefer auto seller ack; keep button only if backend still asks.
     return {
       primary: buttonAckCta(
         'confirm_sent_ack',
@@ -208,17 +194,17 @@ export function resolveTradeNextAction(
         'SELLER_ACK_SENT',
         trade,
       ),
-      overflow: [
+      overflow: calmOverflow([
         ...(trade.buyerTradeUrl
           ? [linkCta('open_trade_url', t('cta.openTradeUrl'), trade.buyerTradeUrl)]
           : []),
         linkCta('open_order', t('cta.openOrder'), orderHref),
-      ],
+      ]),
       hint: null,
     };
   }
 
-  if (needsBuyerReceivedConfirm(trade) || trade.nextAction.kind === 'confirm_received') {
+  if (needsBuyerReceivedConfirm(trade)) {
     return {
       primary: buttonAckCta(
         'confirm_received_ack',
@@ -226,13 +212,9 @@ export function resolveTradeNextAction(
         'BUYER_ACK_RECEIVED',
         trade,
       ),
-      overflow: [
-        ...(offerUrl
-          ? [linkCta('open_verified_offer', t('cta.openOfferSteam'), offerUrl)]
-          : []),
-        linkCta('open_order', t('cta.openOrder'), orderHref),
+      overflow: calmOverflow([
         linkCta('problem_support', t('cta.problemSupport'), problemHref),
-      ],
+      ]),
       hint: t('nextAction.hintConfirmReceived'),
     };
   }
@@ -240,19 +222,17 @@ export function resolveTradeNextAction(
   if (trade.nextAction.kind === 'accept_in_steam') {
     const primary = offerUrl
       ? linkCta('open_verified_offer', t('cta.openVerifiedOffer'), offerUrl)
-      : linkCta('open_order', t('cta.openOrder'), orderHref);
+      : runtimeCta('refresh_status', t('cta.refreshStatus'), 'poll_now', trade);
     return {
       primary,
-      overflow: [
+      overflow: calmOverflow([
         linkCta('problem_support', t('cta.problemSupport'), problemHref),
-        linkCta('open_order', t('cta.openOrder'), orderHref),
-      ],
+      ]),
       hint: t('nextAction.hintAccept'),
     };
   }
 
   if (trade.nextAction.kind === 'platform_verifying') {
-    // Buyer without received ack already handled above. Calm status — poll, not site hop.
     return {
       primary: runtimeCta(
         'refresh_status',
@@ -260,10 +240,9 @@ export function resolveTradeNextAction(
         'poll_now',
         trade,
       ),
-      overflow: [
-        linkCta('open_order', t('cta.openOrder'), orderHref),
+      overflow: calmOverflow([
         linkCta('problem_support', t('cta.problemSupport'), problemHref),
-      ],
+      ]),
       hint: t('nextAction.hintVerifying'),
     };
   }
@@ -280,7 +259,9 @@ export function resolveTradeNextAction(
           'poll_now',
           trade,
         ),
-        overflow: [linkCta('open_order', t('cta.openOrder'), orderHref)],
+        overflow: calmOverflow([
+          linkCta('open_order', t('cta.openOrder'), orderHref),
+        ]),
         hint: t('nextAction.hintWaitBuyer'),
       };
     }
@@ -291,10 +272,9 @@ export function resolveTradeNextAction(
         'poll_now',
         trade,
       ),
-      overflow: [
-        linkCta('open_order', t('cta.openOrder'), orderHref),
+      overflow: calmOverflow([
         linkCta('problem_support', t('cta.problemSupport'), problemHref),
-      ],
+      ]),
       hint: t('nextAction.hintWaitSeller'),
     };
   }
@@ -306,9 +286,6 @@ export function resolveTradeNextAction(
   };
 }
 
-/**
- * Session / health cards also get one primary CTA.
- */
 export function resolveHealthNextAction(
   health: SessionHealth,
   locale: ExtensionLocale = DEFAULT_EXTENSION_LOCALE,
@@ -368,7 +345,6 @@ export function resolveHealthNextAction(
   };
 }
 
-/** True when primary is the only visible action (overflow may still exist). */
 export function assertSinglePrimary(resolved: ResolvedNextAction): boolean {
   return Boolean(resolved.primary?.label);
 }

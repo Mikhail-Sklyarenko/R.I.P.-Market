@@ -119,6 +119,18 @@ export const extensionMessagesRu: ExtensionMessageTree = {
     hintWaitSeller: 'Как только оффер появится — здесь будет кнопка принять.',
     hintWaitBuyer: 'Обмен у покупателя. Статус обновится сам после Accept.',
   },
+  dealConfirm: {
+    acceptTitle: 'Примите обмен в Steam',
+    acceptBody: 'Сверьте щит и нажмите Accept. Мы не принимаем за вас.',
+    receivedTitle: 'Предмет у вас?',
+    receivedBody: 'Подтвердите здесь — статус на сайте обновится сам.',
+    verifyingTitle: 'Проверяем доставку',
+    verifyingBody: 'Сверяем Steam и инвентарь. Обычно ждать недолго.',
+    doneTitle: 'Готово',
+    doneBody: 'Сделка у площадки. Заказ можно открыть при необходимости.',
+    guardTitle: 'Подтвердите в Steam Mobile',
+    guardBody: 'Guard только в приложении Steam. Здесь статус обновится сам.',
+  },
   badge: {
     rePair: 'Подключить',
     steam: 'Steam',

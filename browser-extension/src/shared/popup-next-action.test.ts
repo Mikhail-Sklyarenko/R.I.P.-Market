@@ -61,9 +61,8 @@ describe('popup-next-action engine', () => {
     expect(guard.primary.id).toBe('open_verified_offer');
     expect(guard.primary.href).toContain('/tradeoffer/10/');
     expect(guard.hint).toMatch(/Steam Mobile|Guard/i);
-    expect(guard.overflow.some((item) => item.id === 'refresh_status')).toBe(
-      true,
-    );
+    expect(guard.overflow.some((item) => item.id === 'open_order')).toBe(true);
+    expect(guard.overflow).toHaveLength(1);
 
     const manual = resolveTradeNextAction(
       trade({
@@ -77,7 +76,8 @@ describe('popup-next-action engine', () => {
       }),
     );
     expect(manual.primary.id).toBe('open_trade_url');
-    expect(manual.overflow.some((item) => item.id === 'retry_send')).toBe(true);
+    expect(manual.overflow.some((item) => item.id === 'open_order')).toBe(true);
+    expect(manual.overflow).toHaveLength(1);
 
     const retryOnly = resolveTradeNextAction(
       trade({
@@ -143,6 +143,45 @@ describe('popup-next-action engine', () => {
     );
     expect(receivedAfterConfirm.primary.id).toBe('confirm_received_ack');
     expect(receivedAfterConfirm.primary.mode).toBe('button');
+
+    const dualSignalSkip = resolveTradeNextAction(
+      trade({
+        orderId: 'b-dual',
+        role: 'buyer',
+        offerId: '78',
+        orderStatus: 'TRADE_CONFIRMED',
+        nextAction: {
+          kind: 'platform_verifying',
+          title: 'Проверяем',
+          description: 'delivery',
+        },
+        deliveryProgress: {
+          offerTone: 'ok',
+          inventoryTone: 'ok',
+          offerStatus: 'accepted',
+          inventoryHint: 'confirmed',
+          outcome: 'CONFIRMED',
+          checkedAt: '2026-09-06T00:00:00.000Z',
+        },
+      }),
+    );
+    expect(dualSignalSkip.primary.id).toBe('refresh_status');
+    expect(dualSignalSkip.primary.id).not.toBe('confirm_received_ack');
+
+    const settlementHold = resolveTradeNextAction(
+      trade({
+        orderId: 'b-hold-done',
+        role: 'buyer',
+        offerId: '79',
+        orderStatus: 'SETTLEMENT_HOLD',
+        nextAction: {
+          kind: 'platform_verifying',
+          title: 'Hold',
+          description: 'settlement',
+        },
+      }),
+    );
+    expect(settlementHold.primary.id).not.toBe('confirm_received_ack');
 
     const dispute = resolveTradeNextAction(
       trade({
