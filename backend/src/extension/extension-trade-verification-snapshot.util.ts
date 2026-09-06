@@ -155,19 +155,56 @@ export function buildExtensionVerificationPayload(params: {
   };
 }
 
+/** Error checks that mean real item/counterparty fraud — safe to stamp on the order. */
+const DURABLE_MISMATCH_ERROR_KEYS = new Set([
+  'item_asset_match',
+  'item_float_match',
+  'partner_steam_match',
+]);
+
+export function isDurableMismatch(params: {
+  status: TradeVerificationStatus;
+  checks?: TradeVerificationCheck[] | null;
+}): boolean {
+  if (params.status !== 'mismatch') {
+    return false;
+  }
+  const checks = params.checks ?? [];
+  return checks.some(
+    (check) =>
+      !check.passed &&
+      check.severity === 'error' &&
+      DURABLE_MISMATCH_ERROR_KEYS.has(check.key),
+  );
+}
+
 export function shouldPersistExtensionVerification(params: {
   status: TradeVerificationStatus;
+  checks?: TradeVerificationCheck[] | null;
   observed?: {
     assetId?: string | null;
     floatValue?: string | null;
     partnerSteamId?: string | null;
   };
 }): boolean {
-  if (params.status === 'mismatch') {
+  // Healthy / recovering states overwrite a prior false mismatch on the order page.
+  if (params.status === 'verified' || params.status === 'partial') {
     return true;
   }
-  const assetId = params.observed?.assetId?.trim();
-  const floatValue = params.observed?.floatValue?.trim();
-  const partnerSteamId = params.observed?.partnerSteamId?.trim();
-  return Boolean(assetId || floatValue || partnerSteamId);
+  if (params.status === 'pending') {
+    const assetId = params.observed?.assetId?.trim();
+    const floatValue = params.observed?.floatValue?.trim();
+    const partnerSteamId = params.observed?.partnerSteamId?.trim();
+    return Boolean(assetId || floatValue || partnerSteamId);
+  }
+
+  // Mismatch: only durable item/partner fraud — not offer-id tab races.
+  if (params.status === 'mismatch') {
+    return isDurableMismatch({
+      status: params.status,
+      checks: params.checks,
+    });
+  }
+
+  return false;
 }

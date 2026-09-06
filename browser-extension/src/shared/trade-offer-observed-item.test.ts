@@ -25,7 +25,7 @@ describe('trade-offer-observed-item', () => {
 
   it('parses buyer received item from trade offer page', () => {
     document.body.innerHTML =
-      '<div class="tradeoffer_items_ctn"><div class="item" data-assetid="99887766554" title="AK-47 | Redline (Field-Tested)"></div></div>';
+      '<div id="them_slots"><div class="item" data-assetid="99887766554" title="AK-47 | Redline (Field-Tested)"></div></div>';
 
     const observed = parseObservedItemFromTradePage('buyer');
     expect(observed).toEqual({

@@ -34,6 +34,7 @@ import {
   isTradeAcknowledgmentEnabled,
   setActiveTradesCache,
 } from '../shared/active-trades-cache.js';
+import { resolveTradeForOfferPage } from '../shared/resolve-trade-for-offer-page.js';
 import {
   parsePollScheduleMode,
   periodsForPollMode,
@@ -695,13 +696,41 @@ async function verifyTradeFromRuntime(params: {
   };
 
   if (params.orderId) {
-    return auth.client.verifyTrade(params.orderId, params.offerId ?? null, observed);
+    // When order is known, verify against its canonical linked offer when present
+    // so a duplicate Steam tab does not paint offer_id warnings.
+    let offerId = params.offerId ?? null;
+    if (cache) {
+      const forOrder = cache.trades.find((trade) => trade.orderId === params.orderId);
+      if (forOrder?.offerId?.trim()) {
+        offerId = forOrder.offerId.trim();
+      }
+    }
+    return auth.client.verifyTrade(params.orderId, offerId, observed);
   }
 
-  if (params.offerId && cache) {
-    const byOffer = cache.trades.find((trade) => trade.offerId === params.offerId);
+  if (params.offerId) {
+    const trades =
+      cache?.trades ??
+      (await auth.client.listActiveTrades().catch(() => [] as TradeVerificationResult[]));
+    const byOffer =
+      resolveTradeForOfferPage({
+        trades,
+        offerId: params.offerId,
+        observedAssetId: params.observedAssetId,
+        roleHint: 'buyer',
+      }) ??
+      resolveTradeForOfferPage({
+        trades,
+        offerId: params.offerId,
+        observedAssetId: params.observedAssetId,
+        roleHint: 'seller',
+      });
     if (byOffer) {
-      return auth.client.verifyTrade(byOffer.orderId, params.offerId, observed);
+      return auth.client.verifyTrade(
+        byOffer.orderId,
+        byOffer.offerId?.trim() || params.offerId,
+        observed,
+      );
     }
   }
 

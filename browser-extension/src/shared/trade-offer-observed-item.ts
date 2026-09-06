@@ -13,9 +13,9 @@ const SELLER_SLOT_ROOTS = [
 const BUYER_SLOT_ROOTS = [
   '#them_slots',
   '#trade_theirs',
+  // Prefer the "their items" column — avoid broad wrappers that include both sides.
+  '.tradeoffer_items.primary .tradeoffer_item_list',
   '.tradeoffer_items.primary',
-  '.tradeoffer_item_list',
-  '.tradeoffer_items_ctn',
 ];
 
 export function parseAssetIdFromElement(element: Element): string | null {

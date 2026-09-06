@@ -45,6 +45,7 @@ import {
   type DealShieldModel,
 } from '../shared/deal-shield.js';
 import { parsePartnerSteamIdFromDocument } from '../shared/parse-trade-partner-steamid.js';
+import { resolveTradeForOfferPage } from '../shared/resolve-trade-for-offer-page.js';
 
 
 const PANEL_ID = 'rip-market-trade-verification-panel';
@@ -273,7 +274,19 @@ async function loadTradeForPage(): Promise<OfferPageContext | null> {
   const trades = active.ok ? active.trades : [];
 
   if (offerId) {
-    const fallback = trades.find((trade) => trade.offerId === offerId) ?? null;
+    const fallback =
+      resolveTradeForOfferPage({
+        trades,
+        offerId,
+        observedAssetId: observed?.assetId,
+        roleHint: 'buyer',
+      }) ??
+      resolveTradeForOfferPage({
+        trades,
+        offerId,
+        observedAssetId: observed?.assetId,
+        roleHint: 'seller',
+      });
     if (!fallback) {
       // B3: still show anti-scam gate for foreign / unlinked offers.
       return { trade: null, observed, slots, offerId };
@@ -288,7 +301,9 @@ async function loadTradeForPage(): Promise<OfferPageContext | null> {
     const reverified = await runtimeRequest<{ ok: boolean; trade?: TradeVerificationResult }>({
       type: TRADE_VERIFICATION_RUNTIME.VERIFY_TRADE,
       orderId: fallback.orderId,
-      offerId,
+      // Prefer the canonical linked offer id when present so we do not stamp
+      // a false offer_id warning from a duplicate Steam tab.
+      offerId: fallback.offerId?.trim() || offerId,
       ...observedPayload,
     });
     return {

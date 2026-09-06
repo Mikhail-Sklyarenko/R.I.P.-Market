@@ -173,6 +173,7 @@ export class ExtensionTradeAckService {
     if (
       !shouldPersistExtensionVerification({
         status: result.verificationStatus,
+        checks: result.checks,
         observed,
       })
     ) {
@@ -257,6 +258,24 @@ export class ExtensionTradeAckService {
     }
 
     if (isExtensionTradeAcknowledgmentEnabled()) {
+      const linkedOfferId = order.tradeOperation?.externalOfferId?.trim() || null;
+      // Canonical offer already linked — ignore duplicate OFFER_SENT with a
+      // different id (post-Guard recreate). Do not stamp false mismatch.
+      if (linkedOfferId && linkedOfferId !== params.offerId.trim()) {
+        this.logger.warn(
+          JSON.stringify({
+            event: 'offer_sent_ignored_duplicate',
+            orderId: params.orderId,
+            linkedOfferId,
+            incomingOfferId: params.offerId,
+          }),
+        );
+        return;
+      }
+      if (linkedOfferId && linkedOfferId === params.offerId.trim()) {
+        return;
+      }
+
       const verification = await this.verifyTrade(
         params.sellerId,
         params.orderId,
@@ -780,14 +799,25 @@ export class ExtensionTradeAckService {
 
     if (observedOfferId) {
       const matchesLinked = !linkedOfferId || linkedOfferId === observedOfferId;
-      checks.push({
-        key: 'offer_id_match',
-        passed: matchesLinked && isValidSteamOfferId(observedOfferId),
-        label: matchesLinked
-          ? 'Этот обмен соответствует заказу'
-          : 'Обмен не совпадает с заказом',
-        severity: matchesLinked ? 'ok' : 'error',
-      });
+      if (matchesLinked) {
+        checks.push({
+          key: 'offer_id_match',
+          passed: isValidSteamOfferId(observedOfferId),
+          label: 'Этот обмен соответствует заказу',
+          severity: isValidSteamOfferId(observedOfferId) ? 'ok' : 'warn',
+        });
+      } else {
+        // Different Steam offer than the one linked to the order.
+        // Warn (open the linked offer) — do NOT flip the whole order to
+        // mismatch; that caused false scam banners when a second/stale
+        // offer tab was verified against an already-linked deal.
+        checks.push({
+          key: 'offer_id_match',
+          passed: false,
+          label: 'Открыт другой обмен — откройте offer, привязанный к заказу',
+          severity: 'warn',
+        });
+      }
     }
 
     return checks;

@@ -1,21 +1,55 @@
 import {
   buildExtensionVerificationPayload,
+  isDurableMismatch,
   mapExtensionVerificationSnapshot,
   shouldPersistExtensionVerification,
 } from './extension-trade-verification-snapshot.util';
 
 describe('extension-trade-verification-snapshot.util', () => {
-  it('persists mismatch always and verified only with observed', () => {
-    expect(
-      shouldPersistExtensionVerification({ status: 'mismatch' }),
-    ).toBe(true);
+  it('persists verified/partial to clear false mismatch; mismatch only when durable', () => {
     expect(
       shouldPersistExtensionVerification({ status: 'verified' }),
+    ).toBe(true);
+    expect(
+      shouldPersistExtensionVerification({ status: 'partial' }),
+    ).toBe(true);
+    expect(
+      shouldPersistExtensionVerification({
+        status: 'mismatch',
+        checks: [
+          {
+            key: 'offer_id_match',
+            passed: false,
+            label: 'Открыт другой обмен',
+            severity: 'warn',
+          },
+        ],
+      }),
     ).toBe(false);
     expect(
       shouldPersistExtensionVerification({
-        status: 'verified',
-        observed: { assetId: 'a1' },
+        status: 'mismatch',
+        checks: [
+          {
+            key: 'item_asset_match',
+            passed: false,
+            label: 'Asset ID не совпадает',
+            severity: 'error',
+          },
+        ],
+      }),
+    ).toBe(true);
+    expect(
+      isDurableMismatch({
+        status: 'mismatch',
+        checks: [
+          {
+            key: 'partner_steam_match',
+            passed: false,
+            label: 'не совпадает',
+            severity: 'error',
+          },
+        ],
       }),
     ).toBe(true);
   });
