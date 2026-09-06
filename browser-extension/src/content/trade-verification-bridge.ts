@@ -341,23 +341,61 @@ function collectAntiScamWarnings(context: OfferPageContext): AntiScamWarning[] {
   });
 }
 
-function renderAntiScamWarnings(warnings: AntiScamWarning[]): string {
-  const actionable = warnings.filter((warning) => warning.id !== 'never_accept_from_chat');
+function renderAntiScamWarnings(
+  warnings: AntiScamWarning[],
+  options?: { compact?: boolean },
+): string {
+  const actionable = warnings.filter(
+    (warning) => warning.id !== 'never_accept_from_chat',
+  );
   if (actionable.length === 0) {
     return '';
   }
-  return `
-    <div class="scam-rules" data-testid="anti-scam-rules">
-      <p class="scam-rules-title">Anti-scam</p>
-      ${actionable
-        .map(
-          (warning) => `
+
+  const blocks = actionable.filter((warning) => warning.severity === 'block');
+  const warns = actionable.filter((warning) => warning.severity === 'warn');
+  const infos = actionable.filter((warning) => warning.severity === 'info');
+
+  const renderCards = (list: AntiScamWarning[]) =>
+    list
+      .map(
+        (warning) => `
         <div class="scam-rule severity-${warning.severity}">
           <p class="scam-rule-title">${escapeHtml(warning.title)}</p>
           <p class="scam-rule-body">${escapeHtml(warning.body)}</p>
         </div>`,
-        )
-        .join('')}
+      )
+      .join('');
+
+  // Blocking risks always stay visible.
+  const critical = renderCards(blocks);
+  if (!options?.compact) {
+    return `
+    <div class="scam-rules" data-testid="anti-scam-rules">
+      ${critical}
+      ${renderCards(warns)}
+      ${renderCards(infos)}
+    </div>`;
+  }
+
+  // Quiet mode: only blocks inline; warns/info go behind details.
+  const soft = [...warns, ...infos];
+  const softHtml =
+    soft.length > 0
+      ? `<details class="more">
+          <summary>Защита · ${soft.length}</summary>
+          <div class="more-body">${renderCards(soft)}</div>
+        </details>`
+      : '';
+
+  if (!critical && !softHtml) {
+    return '';
+  }
+
+  return `
+    <div class="scam-rules" data-testid="anti-scam-rules">
+      ${critical}
+      ${softHtml}
     </div>`;
 }
 
@@ -368,10 +406,12 @@ function ensureStickyHint(): void {
     style.textContent = `
       #${STICKY_ID} {
         position: fixed; left: 12px; right: 12px; bottom: 12px; z-index: 2147483645;
-        max-width: 520px; margin: 0 auto; padding: 10px 14px; border-radius: 10px;
-        background: rgba(18,22,30,.96); color: #f0d78a; border: 1px solid rgba(111,93,47,.65);
-        font-family: "Segoe UI", system-ui, sans-serif; font-size: 12px; line-height: 1.4;
-        box-shadow: 0 10px 28px rgba(0,0,0,.45); pointer-events: none;
+        max-width: 420px; margin: 0 auto; padding: 10px 14px; border-radius: 10px;
+        background: rgba(24, 28, 38, 0.96); color: #fde047;
+        border: 1px solid rgba(234, 179, 8, 0.35);
+        font-family: Inter, system-ui, -apple-system, sans-serif;
+        font-size: 12px; line-height: 1.4;
+        box-shadow: 0 12px 32px rgba(0,0,0,.45); pointer-events: none;
       }
     `;
     document.documentElement.appendChild(style);
@@ -398,15 +438,18 @@ function renderFailedChecks(trade: TradeVerificationResult): string {
     .join('')}</ul>`;
 }
 
-function renderCompareTable(model: DealShieldModel): string {
+function renderCompareSection(
+  model: DealShieldModel,
+  options: { forceOpen: boolean },
+): string {
   const rows = model.compareRows;
   if (rows.length === 0) {
     return '';
   }
 
-  return `
+  const hasProblem = rows.some((row) => row.tone !== 'ok');
+  const table = `
     <div class="compare">
-      <p class="compare-title">${escapeHtml(t('shield.compareTitle'))}</p>
       <div class="compare-head">
         <span></span>
         <span>${escapeHtml(t('shield.expectedCol'))}</span>
@@ -423,9 +466,29 @@ function renderCompareTable(model: DealShieldModel): string {
         )
         .join('')}
     </div>`;
+
+  if (hasProblem || options.forceOpen) {
+    return `
+      <div class="compare-wrap">
+        <p class="section-label">${escapeHtml(t('shield.compareTitle'))}</p>
+        ${table}
+      </div>`;
+  }
+
+  return `
+    <details class="more">
+      <summary>Сверка со Steam · всё совпадает</summary>
+      <div class="more-body">
+        <p class="section-label">${escapeHtml(t('shield.compareTitle'))}</p>
+        ${table}
+      </div>
+    </details>`;
 }
 
-function renderPartnerBlock(model: DealShieldModel): string {
+function renderPartnerBlock(
+  model: DealShieldModel,
+  options: { expandTools: boolean },
+): string {
   const steamId = model.partner.steamId;
   const avatar = model.partner.avatarUrl
     ? `<img class="partner-avatar" src="${escapeHtml(model.partner.avatarUrl)}" alt="" />`
@@ -442,16 +505,7 @@ function renderPartnerBlock(model: DealShieldModel): string {
     ? `<a class="partner-link" href="${escapeHtml(model.partner.profileUrl)}" target="_blank" rel="noreferrer">${escapeHtml(t('shield.openProfile'))}</a>`
     : '';
 
-  return `
-    <div class="partner">
-      <div class="partner-top">
-        ${avatar}
-        <div class="partner-copy">
-          <p class="partner-label">${escapeHtml(model.counterpartyRoleLabel)}</p>
-          <p class="partner-name">${escapeHtml(model.partner.displayName)}</p>
-          <p class="partner-match tone-${matchTone}">${escapeHtml(model.partner.matchLabel)}</p>
-        </div>
-      </div>
+  const tools = `
       <div class="partner-row">
         <span class="partner-id" data-steamid>${
           steamId
@@ -464,21 +518,33 @@ function renderPartnerBlock(model: DealShieldModel): string {
             : ''
         }
         ${profile}
+      </div>`;
+
+  return `
+    <div class="partner">
+      <div class="partner-top">
+        ${avatar}
+        <div class="partner-copy">
+          <p class="partner-label">${escapeHtml(model.counterpartyRoleLabel)}</p>
+          <p class="partner-name">${escapeHtml(model.partner.displayName)}</p>
+          <p class="partner-match tone-${matchTone}">${escapeHtml(model.partner.matchLabel)}</p>
+        </div>
       </div>
+      ${
+        options.expandTools
+          ? tools
+          : steamId
+            ? `<details class="more partner-more">
+                <summary>SteamID и профиль</summary>
+                <div class="more-body">${tools}</div>
+              </details>`
+            : tools
+      }
     </div>`;
 }
 
 function renderItemHero(model: DealShieldModel): string {
   const imageUrl = getItemImageUrl(model.item.iconUrl);
-  const lines =
-    model.item.lines.length > 0
-      ? `<ul class="item-lines">${model.item.lines
-          .map(
-            (line) =>
-              `<li><span class="item-line-label">${escapeHtml(line.label)}</span> ${escapeHtml(line.value)}</li>`,
-          )
-          .join('')}</ul>`
-      : '';
   return `
     <div class="hero">
       ${
@@ -486,7 +552,7 @@ function renderItemHero(model: DealShieldModel): string {
           ? `<img class="preview" src="${escapeHtml(imageUrl)}" alt="" />`
           : `<div class="preview-fallback">CS2</div>`
       }
-      <div>
+      <div class="hero-copy">
         <p class="item-name">${escapeHtml(model.item.marketHashName)}</p>
         <p class="meta">${escapeHtml(
           t('shield.dealLine', {
@@ -494,7 +560,6 @@ function renderItemHero(model: DealShieldModel): string {
             amount: model.amountLabel,
           }),
         )}</p>
-        ${lines}
       </div>
     </div>`;
 }
@@ -579,15 +644,8 @@ function primaryCtaHtml(
   }
 
   if (trade.role === 'seller' && onNewOfferPage && sellerGate) {
-    if (sellerGate === 'need_cs2') {
-      return `<p class="primary-hint wait">${escapeHtml(t('offerGate.needCs2Body'))}</p>`;
-    }
-    if (sellerGate === 'need_item') {
-      return `<p class="primary-hint wait">${escapeHtml(
-        t('offerGate.needItemBody', { name: trade.item.marketHashName }),
-      )}</p>`;
-    }
-    return `<p class="primary-hint accept">${escapeHtml(t('offerGate.itemReadyBody'))}</p>`;
+    // Gate banner already carries the instruction — avoid repeating it.
+    return '';
   }
 
   if (trade.nextAction.kind === 'confirm_guard') {
@@ -615,170 +673,250 @@ function primaryCtaHtml(
 
 const PANEL_STYLES = `
       .panel {
+        --rip-bg: #0b0d12;
+        --rip-elevated: rgba(24, 28, 38, 0.96);
+        --rip-text: #f4f4f5;
+        --rip-muted: #94a3b8;
+        --rip-soft: #a8b0c0;
+        --rip-border: rgba(255, 255, 255, 0.08);
+        --rip-border-strong: rgba(255, 255, 255, 0.12);
+        --rip-link: #7dd3fc;
+        --rip-primary-from: #0284c7;
+        --rip-primary-to: #2563eb;
+        --rip-success: #86efac;
+        --rip-success-bg: rgba(34, 197, 94, 0.14);
+        --rip-warn: #fde047;
+        --rip-warn-bg: rgba(234, 179, 8, 0.12);
+        --rip-danger: #fecaca;
+        --rip-danger-bg: rgba(239, 68, 68, 0.14);
+        --rip-info-bg: rgba(56, 189, 248, 0.1);
+        --rip-radius: 14px;
+        --rip-radius-sm: 10px;
+
         position: fixed; top: 72px; right: 16px; z-index: 2147483646;
-        width: min(400px, calc(100vw - 32px)); border-radius: 14px; padding: 14px;
-        font-family: "Segoe UI", system-ui, sans-serif; color: #e8e8e8; background: #12161e;
-        border: 1px solid #2f3542; box-shadow: 0 16px 48px rgba(0,0,0,.5);
+        width: min(360px, calc(100vw - 28px));
+        padding: 14px;
+        border-radius: var(--rip-radius);
+        font-family: Inter, system-ui, -apple-system, sans-serif;
+        color: var(--rip-text);
+        background:
+          radial-gradient(circle at top right, rgba(56, 189, 248, 0.1), transparent 42%),
+          var(--rip-elevated);
+        border: 1px solid var(--rip-border);
+        box-shadow: 0 18px 48px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255,255,255,0.03);
+        display: grid;
+        gap: 10px;
       }
-      .rip-verified { border-color: #2f6f46; }
-      .rip-mismatch, .rip-scam-block { border-color: #8f3d3d; box-shadow: 0 16px 48px rgba(143,61,61,.35); }
-      .rip-partial { border-color: #6f5d2f; }
+      .rip-verified { border-color: rgba(34, 197, 94, 0.35); }
+      .rip-mismatch, .rip-scam-block { border-color: rgba(248, 113, 113, 0.4); }
+      .rip-partial { border-color: rgba(234, 179, 8, 0.35); }
+
+      .brand {
+        display: flex; align-items: baseline; justify-content: space-between; gap: 8px;
+      }
+      .brand-mark {
+        margin: 0; font-size: 12px; font-weight: 700; letter-spacing: -0.02em; color: var(--rip-text);
+      }
+      .brand-chip {
+        margin: 0; font-size: 10px; color: var(--rip-muted); letter-spacing: 0.04em; text-transform: uppercase;
+      }
+
       .gate-banner {
-        margin: 0 0 12px; padding: 12px; border-radius: 10px;
-        background: #1a2030; border: 1px solid #2a3140;
+        margin: 0; padding: 11px 12px; border-radius: var(--rip-radius-sm);
+        background: rgba(15, 23, 42, 0.72); border: 1px solid var(--rip-border);
       }
-      .gate-banner.ok { background: rgba(47,111,70,.18); border-color: rgba(47,111,70,.45); }
-      .gate-banner.error { background: rgba(143,61,61,.22); border-color: rgba(143,61,61,.55); }
-      .gate-banner.warn { background: rgba(111,93,47,.2); border-color: rgba(111,93,47,.5); }
-      .gate-banner.pending { background: rgba(42,47,58,.55); }
+      .gate-banner.ok {
+        background: var(--rip-success-bg); border-color: rgba(34, 197, 94, 0.35);
+      }
+      .gate-banner.error {
+        background: var(--rip-danger-bg); border-color: rgba(248, 113, 113, 0.4);
+      }
+      .gate-banner.warn {
+        background: var(--rip-warn-bg); border-color: rgba(234, 179, 8, 0.4);
+      }
+      .gate-banner.pending { background: rgba(15, 23, 42, 0.8); }
       .gate-title {
-        margin: 0 0 4px; font-size: 16px; font-weight: 800; line-height: 1.25; letter-spacing: .01em;
+        margin: 0 0 4px; font-size: 15px; font-weight: 700; line-height: 1.25; letter-spacing: -0.01em;
       }
-      .gate-banner.ok .gate-title { color: #8fe6a4; }
-      .gate-banner.error .gate-title { color: #f0a8a8; }
-      .gate-banner.warn .gate-title { color: #f0d78a; }
-      .gate-sub { margin: 0; font-size: 12px; color: #c7ccd6; line-height: 1.4; }
+      .gate-banner.ok .gate-title { color: var(--rip-success); }
+      .gate-banner.error .gate-title { color: var(--rip-danger); }
+      .gate-banner.warn .gate-title { color: var(--rip-warn); }
+      .gate-sub { margin: 0; font-size: 12px; color: var(--rip-soft); line-height: 1.4; }
+
       .hero {
-        display: grid; grid-template-columns: 72px 1fr; gap: 12px;
-        align-items: center; margin-bottom: 10px;
+        display: grid; grid-template-columns: 56px 1fr; gap: 10px; align-items: center;
       }
       .preview {
-        width: 72px; height: 54px; border-radius: 8px; object-fit: contain;
-        background: #0b0e14; border: 1px solid #2a3140;
+        width: 56px; height: 42px; border-radius: 8px; object-fit: contain;
+        background: #0b0d12; border: 1px solid var(--rip-border);
       }
       .preview-fallback {
-        width: 72px; height: 54px; border-radius: 8px; display: grid; place-items: center;
-        background: #0b0e14; border: 1px solid #2a3140; color: #7d8594; font-size: 11px;
+        width: 56px; height: 42px; border-radius: 8px; display: grid; place-items: center;
+        background: #0b0d12; border: 1px solid var(--rip-border); color: var(--rip-muted); font-size: 10px;
       }
-      .item-name { font-size: 13px; font-weight: 700; margin: 0 0 2px; line-height: 1.3; }
-      .meta { font-size: 11px; color: #7d8594; margin: 0; }
-      .escrow {
-        margin: 0 0 10px; padding: 8px 10px; border-radius: 8px;
-        background: rgba(47,111,70,.16); border: 1px solid rgba(47,111,70,.35);
-        font-size: 12px; color: #8fe6a4; line-height: 1.35;
+      .hero-copy { min-width: 0; }
+      .item-name {
+        font-size: 13px; font-weight: 650; margin: 0 0 2px; line-height: 1.3;
+        display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
       }
-      .escrow strong { color: #b8f5c6; }
-      .compare {
-        display: grid; gap: 4px; margin: 0 0 10px;
-        padding: 8px; border-radius: 8px; background: #0b0e14; border: 1px solid #2a3140;
+      .meta { font-size: 11px; color: var(--rip-muted); margin: 0; }
+
+      .money {
+        margin: 0; padding: 8px 10px; border-radius: 8px;
+        background: var(--rip-success-bg); border: 1px solid rgba(34, 197, 94, 0.28);
+        font-size: 12px; color: var(--rip-success); line-height: 1.35;
       }
-      .compare-head, .compare-row {
-        display: grid; grid-template-columns: 72px 1fr 1fr; gap: 6px; align-items: start;
-      }
-      .compare-head { font-size: 10px; color: #7d8594; text-transform: uppercase; letter-spacing: .04em; }
-      .compare-label { font-size: 11px; color: #a8adb8; }
-      .compare-expected, .compare-observed {
-        font-size: 11px; color: #c7ccd6; word-break: break-word; line-height: 1.35;
-      }
-      .tone-ok .compare-observed { color: #8fe6a4; }
-      .tone-error .compare-observed { color: #f0a8a8; font-weight: 700; }
-      .tone-warn .compare-observed { color: #f0d78a; }
+      .money strong { color: #b8f5c6; font-weight: 650; }
+
       .partner {
-        display: grid; gap: 8px; margin: 0 0 10px; padding: 10px;
-        border-radius: 8px; background: #1a2030; border: 1px solid #2a3140;
+        display: grid; gap: 6px; margin: 0; padding: 10px;
+        border-radius: var(--rip-radius-sm);
+        background: rgba(15, 23, 42, 0.55); border: 1px solid var(--rip-border);
       }
       .partner-top { display: flex; gap: 10px; align-items: center; }
       .partner-avatar {
-        width: 40px; height: 40px; border-radius: 50%; object-fit: cover;
-        border: 1px solid #2a3140; background: #0b0e14; flex-shrink: 0;
+        width: 36px; height: 36px; border-radius: 50%; object-fit: cover;
+        border: 1px solid var(--rip-border); background: #0b0d12; flex-shrink: 0;
       }
       .partner-avatar-fallback {
-        width: 40px; height: 40px; border-radius: 50%; display: grid; place-items: center;
-        background: #0b0e14; border: 1px solid #2a3140; color: #a8adb8;
-        font-size: 14px; font-weight: 700; flex-shrink: 0;
+        width: 36px; height: 36px; border-radius: 50%; display: grid; place-items: center;
+        background: #0b0d12; border: 1px solid var(--rip-border); color: var(--rip-soft);
+        font-size: 13px; font-weight: 700; flex-shrink: 0;
       }
       .partner-copy { min-width: 0; flex: 1; }
-      .partner-label { font-size: 10px; color: #7d8594; margin: 0; text-transform: uppercase; letter-spacing: .04em; }
-      .partner-name { font-size: 13px; font-weight: 700; margin: 2px 0; color: #e8e8e8; }
+      .partner-label {
+        font-size: 10px; color: var(--rip-muted); margin: 0;
+        text-transform: uppercase; letter-spacing: 0.04em;
+      }
+      .partner-name { font-size: 13px; font-weight: 650; margin: 2px 0; color: var(--rip-text); }
       .partner-match { font-size: 11px; margin: 0; }
-      .partner-match.tone-ok { color: #8fe6a4; }
-      .partner-match.tone-warn { color: #f0d78a; }
-      .partner-match.tone-error { color: #f0a8a8; font-weight: 700; }
+      .partner-match.tone-ok { color: var(--rip-success); }
+      .partner-match.tone-warn { color: var(--rip-warn); }
+      .partner-match.tone-error { color: var(--rip-danger); font-weight: 700; }
       .partner-row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
       .partner-id {
-        flex: 1; font-size: 12px; font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-        color: #e8e8e8; word-break: break-all; min-width: 120px;
+        flex: 1; font-size: 11px; font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+        color: var(--rip-soft); word-break: break-all; min-width: 100px;
       }
       .partner-link {
-        font-size: 11px; color: #b7d0ff; text-decoration: none;
-        border: 1px solid #3d5f8f; border-radius: 6px; padding: 6px 8px;
+        font-size: 11px; color: var(--rip-link); text-decoration: none;
+        border: 1px solid rgba(125, 211, 252, 0.28); border-radius: 7px; padding: 5px 8px;
       }
-      .partner-link:hover { background: rgba(91,141,239,.16); }
-      .item-lines {
-        margin: 6px 0 0; padding: 0; list-style: none; display: grid; gap: 2px;
-      }
-      .item-lines li { font-size: 11px; color: #a8adb8; margin: 0; }
-      .item-line-label { color: #7d8594; }
-      .pre-send {
-        margin: 0 0 10px; padding: 8px 10px; border-radius: 8px;
-        background: rgba(91,141,239,.12); border: 1px solid rgba(91,141,239,.35);
-      }
-      .pre-send-title { margin: 0 0 4px; font-size: 12px; font-weight: 700; color: #d7e4ff; }
-      .pre-send-body { margin: 0; font-size: 11px; color: #a8adb8; line-height: 1.4; }
-      .compare-title {
-        margin: 0 0 6px; font-size: 10px; letter-spacing: .06em;
-        text-transform: uppercase; color: #7d8594;
-      }
+      .partner-link:hover { background: rgba(56, 189, 248, 0.1); }
       .copy-btn {
-        flex-shrink: 0; border: none; border-radius: 6px; padding: 6px 8px;
-        background: #2a2f3a; color: #e8e8e8; font-size: 11px; cursor: pointer;
+        flex-shrink: 0; border: 1px solid var(--rip-border); border-radius: 7px; padding: 5px 8px;
+        background: rgba(255,255,255,0.04); color: var(--rip-text); font-size: 11px; cursor: pointer;
       }
-      .copy-btn:hover { background: #343b4a; }
-      .checks { margin: 0 0 10px; padding: 0; list-style: none; }
-      .checks li { font-size: 12px; margin: 4px 0; color: #c7ccd6; }
-      .checks li.error { color: #f0a8a8; }
-      .checks li.warn { color: #f0d78a; }
-      .scam-rules { display: grid; gap: 8px; margin: 0 0 10px; }
-      .scam-rules-title {
-        margin: 0; font-size: 10px; letter-spacing: .06em; text-transform: uppercase; color: #7d8594;
+      .copy-btn:hover { background: rgba(255,255,255,0.08); }
+
+      .section-label {
+        margin: 0 0 6px; font-size: 10px; letter-spacing: 0.05em;
+        text-transform: uppercase; color: var(--rip-muted);
       }
+      .compare-wrap { margin: 0; }
+      .compare {
+        display: grid; gap: 4px; margin: 0;
+        padding: 8px; border-radius: 8px;
+        background: rgba(11, 13, 18, 0.7); border: 1px solid var(--rip-border);
+      }
+      .compare-head, .compare-row {
+        display: grid; grid-template-columns: 68px 1fr 1fr; gap: 6px; align-items: start;
+      }
+      .compare-head { font-size: 10px; color: var(--rip-muted); text-transform: uppercase; letter-spacing: 0.04em; }
+      .compare-label { font-size: 11px; color: var(--rip-muted); }
+      .compare-expected, .compare-observed {
+        font-size: 11px; color: var(--rip-soft); word-break: break-word; line-height: 1.35;
+      }
+      .tone-ok .compare-observed { color: var(--rip-success); }
+      .tone-error .compare-observed { color: var(--rip-danger); font-weight: 700; }
+      .tone-warn .compare-observed { color: var(--rip-warn); }
+
+      .checks { margin: 0; padding: 0; list-style: none; display: grid; gap: 4px; }
+      .checks li { font-size: 12px; margin: 0; color: var(--rip-soft); }
+      .checks li.error { color: var(--rip-danger); }
+      .checks li.warn { color: var(--rip-warn); }
+
+      .scam-rules { display: grid; gap: 8px; margin: 0; }
       .scam-rule {
-        padding: 8px 10px; border-radius: 8px; border: 1px solid #2a3140; background: #0b0e14;
+        padding: 8px 10px; border-radius: 8px;
+        border: 1px solid var(--rip-border); background: rgba(11, 13, 18, 0.65);
       }
       .scam-rule.severity-block {
-        background: rgba(143,61,61,.18); border-color: rgba(143,61,61,.5);
+        background: var(--rip-danger-bg); border-color: rgba(248, 113, 113, 0.4);
       }
       .scam-rule.severity-warn {
-        background: rgba(111,93,47,.18); border-color: rgba(111,93,47,.5);
+        background: var(--rip-warn-bg); border-color: rgba(234, 179, 8, 0.35);
       }
-      .scam-rule-title { margin: 0 0 4px; font-size: 12px; font-weight: 700; color: #e8e8e8; }
-      .severity-block .scam-rule-title { color: #f0a8a8; }
-      .severity-warn .scam-rule-title { color: #f0d78a; }
-      .scam-rule-body { margin: 0; font-size: 11px; color: #c7ccd6; line-height: 1.4; }
+      .scam-rule-title { margin: 0 0 3px; font-size: 12px; font-weight: 650; color: var(--rip-text); }
+      .severity-block .scam-rule-title { color: var(--rip-danger); }
+      .severity-warn .scam-rule-title { color: var(--rip-warn); }
+      .scam-rule-body { margin: 0; font-size: 11px; color: var(--rip-soft); line-height: 1.4; }
+
+      .pre-send {
+        margin: 0; padding: 8px 10px; border-radius: 8px;
+        background: var(--rip-info-bg); border: 1px solid rgba(125, 211, 252, 0.28);
+      }
+      .pre-send-title { margin: 0 0 3px; font-size: 12px; font-weight: 650; color: #d7e4ff; }
+      .pre-send-body { margin: 0; font-size: 11px; color: var(--rip-muted); line-height: 1.4; }
+
       .primary-hint {
-        margin: 0 0 10px; padding: 10px 12px; border-radius: 8px;
-        font-size: 13px; font-weight: 700; text-align: center; line-height: 1.35;
+        margin: 0; padding: 10px 12px; border-radius: 8px;
+        font-size: 13px; font-weight: 650; text-align: center; line-height: 1.35;
       }
       .primary-hint.accept {
-        background: rgba(47,111,70,.22); border: 1px solid rgba(47,111,70,.45); color: #8fe6a4;
+        background: var(--rip-success-bg); border: 1px solid rgba(34, 197, 94, 0.35); color: var(--rip-success);
       }
       .primary-hint.wait {
-        background: rgba(91,141,239,.16); border: 1px solid rgba(91,141,239,.35); color: #d7e4ff;
+        background: var(--rip-info-bg); border: 1px solid rgba(125, 211, 252, 0.28); color: #d7e4ff;
       }
       .primary-hint.block {
-        background: rgba(143,61,61,.22); border: 1px solid rgba(143,61,61,.5); color: #f0a8a8;
+        background: var(--rip-danger-bg); border: 1px solid rgba(248, 113, 113, 0.4); color: var(--rip-danger);
       }
-      .actions { display: grid; gap: 8px; }
+
+      .actions { display: grid; gap: 8px; margin: 0; }
       button, a.btn {
         display: block; text-align: center; text-decoration: none; border: none;
-        border-radius: 8px; padding: 10px 12px; font-size: 13px; cursor: pointer;
+        border-radius: 9px; padding: 10px 12px; font-size: 13px; font-weight: 600; cursor: pointer;
       }
-      .primary { background: #5b8def; color: #fff; }
-      .primary.accept-cta { background: #2f6f46; }
-      .primary.accept-cta:hover { background: #3a8556; }
-      .secondary { background: #2a2f3a; color: #e8e8e8; }
-      .danger { background: #8f3d3d; color: #fff; }
+      .primary {
+        background: linear-gradient(135deg, var(--rip-primary-from), var(--rip-primary-to));
+        color: #fff;
+      }
+      .primary.accept-cta { background: #15803d; }
+      .primary.accept-cta:hover { background: #16a34a; }
+      .secondary {
+        background: rgba(255,255,255,0.04); color: var(--rip-text);
+        border: 1px solid var(--rip-border);
+      }
+      .linkish {
+        display: block; text-align: center; font-size: 12px; color: var(--rip-link);
+        text-decoration: none; padding: 2px 0;
+      }
+      .linkish:hover { text-decoration: underline; }
+      .danger { background: #b91c1c; color: #fff; }
       .primary:disabled, .secondary:disabled { opacity: .55; cursor: not-allowed; }
-      details.ack {
-        margin-top: 4px; border-top: 1px solid #2a3140; padding-top: 8px;
+
+      details.more, details.ack {
+        margin: 0; border-top: 1px solid var(--rip-border); padding-top: 8px;
       }
-      details.ack summary {
-        cursor: pointer; font-size: 12px; color: #a8adb8; user-select: none;
+      details.partner-more { border-top: none; padding-top: 0; }
+      details.more summary, details.ack summary {
+        cursor: pointer; font-size: 12px; color: var(--rip-muted); user-select: none;
+        list-style: none;
       }
-      details.ack .ack-body { display: grid; gap: 8px; margin-top: 8px; }
-      details.ack .ack-note { margin: 0; font-size: 11px; color: #7d8594; }
+      details.more summary::-webkit-details-marker,
+      details.ack summary::-webkit-details-marker { display: none; }
+      details.more summary::before,
+      details.ack summary::before {
+        content: "▸"; display: inline-block; margin-right: 6px; color: var(--rip-muted);
+      }
+      details.more[open] summary::before,
+      details.ack[open] summary::before { content: "▾"; }
+      .more-body, .ack-body { display: grid; gap: 8px; margin-top: 8px; }
+      .ack-note { margin: 0; font-size: 11px; color: var(--rip-muted); }
+
       .never-auto {
-        margin: 8px 0 0; font-size: 10px; color: #7d8594; text-align: center;
+        margin: 0; font-size: 10px; color: var(--rip-muted); text-align: center; line-height: 1.35;
       }
 `;
 
@@ -792,11 +930,15 @@ function buildUnlinkedPanel(context: OfferPageContext): HTMLElement {
   shadow.innerHTML = `
     <style>${PANEL_STYLES}</style>
     <div class="panel rip-scam-block">
-      <div class="gate-banner error">
-        <p class="gate-title">Не наша сделка — не принимайте</p>
-        <p class="gate-sub">Offer ${escapeHtml(offerLabel)} не привязан к активному заказу R.I.P Market.</p>
+      <div class="brand">
+        <p class="brand-mark">R.I.P Market</p>
+        <p class="brand-chip">Steam</p>
       </div>
-      ${renderAntiScamWarnings(warnings)}
+      <div class="gate-banner error">
+        <p class="gate-title">Не наша сделка</p>
+        <p class="gate-sub">Offer ${escapeHtml(offerLabel)} не привязан к активному заказу. Не принимайте.</p>
+      </div>
+      ${renderAntiScamWarnings(warnings, { compact: false })}
       <div class="actions">
         <p class="primary-hint block">Не нажимайте Accept в Steam</p>
         <a class="btn secondary" href="${STEAM_INCOMING_OFFERS_URL}" target="_blank" rel="noreferrer">К списку предложений</a>
@@ -909,9 +1051,27 @@ function buildPanel(context: OfferPageContext): HTMLElement {
       </div>`
       : '';
 
+  const showOrderLink =
+    status !== 'mismatch' && shield.partner.match !== 'mismatch';
+  const partnerToolsOpen =
+    status === 'mismatch' || shield.partner.match === 'mismatch';
+  const compareForceOpen =
+    status === 'mismatch' || status === 'partial' || scamBlocks;
+  const quietAntiScam =
+    status !== 'mismatch' && !scamBlocks && shield.partner.match !== 'mismatch';
+
+  const moneyLine =
+    trade.escrow.status === 'active'
+      ? `<p class="money"><strong>Hold ${formatMoneyMinor(trade.escrow.holdAmountMinor)}</strong> на площадке · не платите в чат Steam</p>`
+      : `<p class="money"><strong>Оплата на площадке</strong> · не переводите деньги в чат Steam</p>`;
+
   shadow.innerHTML = `
     <style>${PANEL_STYLES}</style>
     <div class="panel ${statusClass(status)}${scamBlocks ? ' rip-scam-block' : ''}">
+      <div class="brand">
+        <p class="brand-mark">R.I.P Market</p>
+        <p class="brand-chip">${trade.role === 'seller' ? 'Продажа' : 'Покупка'}</p>
+      </div>
       <div class="gate-banner ${scamBlocks && status !== 'mismatch' ? 'error' : headline.tone}">
         <p class="gate-title">${escapeHtml(
           scamBlocks && status !== 'mismatch'
@@ -926,39 +1086,39 @@ function buildPanel(context: OfferPageContext): HTMLElement {
       </div>
       ${preSendBanner}
       ${renderItemHero(shield)}
-      ${renderPartnerBlock(shield)}
-      ${
-        trade.escrow.status === 'active'
-          ? `<p class="escrow"><strong>Деньги на площадке:</strong> hold ${formatMoneyMinor(trade.escrow.holdAmountMinor)}. Не платите продавцу в чат Steam.</p>`
-          : `<p class="escrow"><strong>Оплата на площадке.</strong> Не переводите деньги в чат Steam.</p>`
-      }
-      ${renderAntiScamWarnings(warnings)}
-      ${onOfferPage || isPreSendPage ? renderCompareTable(shield) : ''}
-      ${renderFailedChecks(trade)}
+      ${renderPartnerBlock(shield, { expandTools: partnerToolsOpen })}
+      ${moneyLine}
       <div class="actions">
         ${buyerCtaOverride}
         ${
-          status !== 'mismatch' && shield.partner.match !== 'mismatch'
-            ? `<a class="btn secondary" href="${escapeHtml(trade.siteUrl)}" target="_blank" rel="noreferrer">${escapeHtml(t('cta.openOrder'))}</a>`
-            : ''
-        }
-        ${
-          showAckSection
-            ? `<details class="ack">
-                <summary>Если статус на сайте не обновился</summary>
-                <div class="ack-body">
-                  <p class="ack-note">Эти кнопки не заменяют действие в Steam — только помогают сайту сверить статус.</p>
-                  ${showSellerAckSent ? '<button class="secondary" data-action="seller-sent">Я отправил обмен</button>' : ''}
-                  ${showPreAccept ? '<button class="secondary" data-action="pre-accept">Вижу предложение</button>' : ''}
-                  ${showConfirmReceived ? '<button class="secondary" data-action="confirm-received">Предмет получен</button>' : ''}
-                </div>
-              </details>`
+          showOrderLink
+            ? `<a class="linkish" href="${escapeHtml(trade.siteUrl)}" target="_blank" rel="noreferrer">${escapeHtml(t('cta.openOrder'))}</a>`
             : ''
         }
       </div>
+      ${renderAntiScamWarnings(warnings, { compact: quietAntiScam })}
+      ${
+        onOfferPage || isPreSendPage
+          ? renderCompareSection(shield, { forceOpen: compareForceOpen })
+          : ''
+      }
+      ${renderFailedChecks(trade)}
+      ${
+        showAckSection
+          ? `<details class="ack">
+              <summary>Если статус на сайте не обновился</summary>
+              <div class="ack-body">
+                <p class="ack-note">Эти кнопки не заменяют действие в Steam — только помогают сайту сверить статус.</p>
+                ${showSellerAckSent ? '<button class="secondary" data-action="seller-sent">Я отправил обмен</button>' : ''}
+                ${showPreAccept ? '<button class="secondary" data-action="pre-accept">Вижу предложение</button>' : ''}
+                ${showConfirmReceived ? '<button class="secondary" data-action="confirm-received">Предмет получен</button>' : ''}
+              </div>
+            </details>`
+          : ''
+      }
       <p class="never-auto">${
         trade.role === 'buyer' && onOfferPage && acceptAllowed
-          ? 'Accept в Steam — только после вашего двойного подтверждения. Автоматом не принимаем.'
+          ? 'Accept в Steam — только после вашего двойного подтверждения.'
           : 'R.I.P Market никогда не нажимает Accept за вас'
       }</p>
     </div>
