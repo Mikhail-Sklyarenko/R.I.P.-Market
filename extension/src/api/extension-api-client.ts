@@ -220,6 +220,25 @@ export class ExtensionApiClient {
     });
   }
 
+  async reportSteamOfferPage(params: {
+    orderId: string;
+    offerId: string;
+    lifecycle: 'accepted' | 'invalid';
+    idempotencyKey: string;
+  }): Promise<{
+    ok: true;
+    recorded: boolean;
+    transitioned: boolean;
+    idempotent: boolean;
+  }> {
+    return this.signedPost('/extension/trades/steam-offer-page', {
+      orderId: params.orderId,
+      offerId: params.offerId,
+      lifecycle: params.lifecycle,
+      idempotencyKey: params.idempotencyKey,
+    });
+  }
+
   async submitTradeReference(params: {
     orderId: string;
     offerId: string;

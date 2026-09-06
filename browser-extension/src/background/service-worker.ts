@@ -782,6 +782,42 @@ async function acknowledgeTradeFromRuntime(params: {
   }
 }
 
+async function reportSteamOfferPageFromRuntime(params: {
+  orderId: string;
+  offerId: string;
+  lifecycle: 'accepted' | 'invalid';
+  idempotencyKey: string;
+}): Promise<{
+  ok: boolean;
+  transitioned?: boolean;
+  error?: string;
+}> {
+  const auth = await buildAuthenticatedClient();
+  if (!auth) {
+    return { ok: false, error: 'Расширение не подключено' };
+  }
+
+  try {
+    const result = await auth.client.reportSteamOfferPage({
+      orderId: params.orderId,
+      offerId: params.offerId,
+      lifecycle: params.lifecycle,
+      idempotencyKey: params.idempotencyKey,
+    });
+    await pollActiveTrades({ force: true });
+    return { ok: true, transitioned: result.transitioned };
+  } catch (error) {
+    await invalidateSessionOnAuthError(error);
+    return {
+      ok: false,
+      error:
+        error instanceof Error
+          ? error.message
+          : 'Steam page observation failed',
+    };
+  }
+}
+
 async function loadInventoryPlatformStatus(): Promise<{
   byAssetId: Record<string, InventoryItemPlatformFacts>;
   connected: boolean;
@@ -1854,6 +1890,16 @@ function handleTradeVerificationRuntimeMessage(
         | 'BUYER_ACK_PRE_ACCEPT'
         | 'BUYER_ACK_RECEIVED',
       offerId: message.offerId ? String(message.offerId) : undefined,
+      idempotencyKey: String(message.idempotencyKey ?? ''),
+    }).then(sendResponse);
+    return true;
+  }
+
+  if (message?.type === TRADE_VERIFICATION_RUNTIME.REPORT_STEAM_OFFER_PAGE) {
+    void reportSteamOfferPageFromRuntime({
+      orderId: String(message.orderId ?? ''),
+      offerId: String(message.offerId ?? ''),
+      lifecycle: message.lifecycle === 'invalid' ? 'invalid' : 'accepted',
       idempotencyKey: String(message.idempotencyKey ?? ''),
     }).then(sendResponse);
     return true;

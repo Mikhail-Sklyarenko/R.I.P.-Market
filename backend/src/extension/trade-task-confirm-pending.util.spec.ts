@@ -32,12 +32,33 @@ describe('trade-task-confirm-pending.util', () => {
     ).toBe(true);
   });
 
-  it('keeps confirmPending true until Steam leaves needs_confirmation', () => {
-    expect(extractTradeTaskConfirmPending(guardTask, null)).toBe(true);
+  it('keeps confirmPending only while Steam still needs_confirmation', () => {
     expect(
       extractTradeTaskConfirmPending(guardTask, {
         offerStatus: 'needs_confirmation',
       }),
+    ).toBe(true);
+  });
+
+  it('clears sticky Guard after OFFER_SENT when poll is blind', () => {
+    // Product: after send, unknown/null poll must not freeze UI on Guard
+    // (Steam may already show Trade Accepted while API is lagging).
+    expect(extractTradeTaskConfirmPending(guardTask, null)).toBe(false);
+    expect(
+      extractTradeTaskConfirmPending(guardTask, { offerStatus: 'unknown' }),
+    ).toBe(false);
+  });
+
+  it('keeps Guard while task phase is still CONFIRM_PENDING and poll is blind', () => {
+    expect(
+      extractTradeTaskConfirmPending(
+        {
+          executionPhase: 'CONFIRM_PENDING',
+          lastErrorCode: 'CONFIRM_PENDING',
+          statusEvents: [{ phase: 'CONFIRM_PENDING', payload: {} }],
+        },
+        null,
+      ),
     ).toBe(true);
   });
 

@@ -29,6 +29,10 @@ import {
   isExtensionContextValid,
   withExtensionContext,
 } from '../shared/extension-context.js';
+import {
+  detectSteamOfferPageLifecycle,
+  isPostAcceptSteamLifecycle,
+} from '../shared/steam-offer-page-lifecycle.js';
 
 const TOOLBAR_ID = 'rip-market-tradeoffers-toolbar';
 const DETAIL_ID = 'rip-market-tradeoffers-detail';
@@ -60,6 +64,33 @@ let guidedBuyerEnabled = true;
 let extensionContextInvalidated = false;
 let listPollTimer: number | null = null;
 let listObserver: MutationObserver | null = null;
+const reportedListSteamPageKeys = new Set<string>();
+
+function maybeReportListSteamOfferPage(
+  trade: TradeVerificationResult,
+  card: HTMLElement,
+): void {
+  const offerId = trade.offerId?.trim();
+  if (!offerId) {
+    return;
+  }
+  const page = detectSteamOfferPageLifecycle(card);
+  if (!isPostAcceptSteamLifecycle(page.lifecycle)) {
+    return;
+  }
+  const key = `${trade.orderId}:${offerId}:${page.lifecycle}`;
+  if (reportedListSteamPageKeys.has(key)) {
+    return;
+  }
+  reportedListSteamPageKeys.add(key);
+  void runtimeRequest<{ ok: boolean }>({
+    type: TRADE_VERIFICATION_RUNTIME.REPORT_STEAM_OFFER_PAGE,
+    orderId: trade.orderId,
+    offerId,
+    lifecycle: page.lifecycle === 'invalid' ? 'invalid' : 'accepted',
+    idempotencyKey: `steam-page-list:${trade.orderId}:${offerId}:${page.lifecycle}`,
+  }).catch(() => undefined);
+}
 
 function escapeHtml(value: string): string {
   return value
@@ -817,10 +848,13 @@ async function markAllOffers(): Promise<void> {
       if (!offerId) {
         continue;
       }
-      const mark = classifyOfferMark(offerId, trades);
-      if (isRipOfferMark(mark.kind)) {
-        rip += 1;
-      }
+    const mark = classifyOfferMark(offerId, trades);
+    if (mark.trade) {
+      maybeReportListSteamOfferPage(mark.trade, card);
+    }
+    if (isRipOfferMark(mark.kind)) {
+      rip += 1;
+    }
       if (mark.kind === 'rip_mismatch') {
         mismatch += 1;
       }

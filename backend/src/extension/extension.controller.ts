@@ -334,6 +334,43 @@ export class ExtensionController {
 
   @ApiBearerAuth()
   @ApiHeader({ name: 'Authorization', required: true })
+  @UseGuards(ExtensionSessionGuard, ExtensionSignatureGuard)
+  @Post('trades/steam-offer-page')
+  @HttpCode(HttpStatus.OK)
+  async reportSteamOfferPage(
+    @CurrentExtensionAuth() auth: { userId: string; sessionId: string },
+    @Body() dto: SignedEnvelopeDto,
+  ) {
+    this.assertSignedRateLimit(auth.sessionId);
+    this.ensureTradeAcknowledgmentEnabled();
+    const payload = dto.payload;
+    const orderId = readJsonString(payload.orderId);
+    const offerId = readJsonString(payload.offerId);
+    const lifecycle = readJsonString(payload.lifecycle);
+    const idempotencyKey = readJsonString(payload.idempotencyKey);
+    if (!orderId || !offerId || !lifecycle || !idempotencyKey) {
+      throw new AppException(
+        ErrorCode.VALIDATION_ERROR,
+        'payload.orderId, offerId, lifecycle and idempotencyKey are required',
+      );
+    }
+    if (lifecycle !== 'accepted' && lifecycle !== 'invalid') {
+      throw new AppException(
+        ErrorCode.VALIDATION_ERROR,
+        'payload.lifecycle must be accepted or invalid',
+      );
+    }
+    return this.extensionTradeAckService.reportSteamOfferPage({
+      userId: auth.userId,
+      orderId,
+      offerId,
+      lifecycle,
+      idempotencyKey,
+    });
+  }
+
+  @ApiBearerAuth()
+  @ApiHeader({ name: 'Authorization', required: true })
   @UseGuards(ExtensionSessionGuard)
   @Post('inventory/suggested-prices')
   @HttpCode(HttpStatus.OK)

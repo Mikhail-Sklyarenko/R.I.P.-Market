@@ -3,6 +3,7 @@ export const TRADE_VERIFICATION_RUNTIME = {
   VERIFY_TRADE: 'RIP_MARKET_VERIFY_TRADE',
   ACK_TRADE: 'RIP_MARKET_ACK_TRADE',
   REFRESH_ACTIVE_TRADES: 'RIP_MARKET_REFRESH_ACTIVE_TRADES',
+  REPORT_STEAM_OFFER_PAGE: 'RIP_MARKET_REPORT_STEAM_OFFER_PAGE',
   RESOLVE_ASSET_FLOAT: 'RIP_MARKET_RESOLVE_ASSET_FLOAT',
   GET_INVENTORY_PLATFORM_STATUS: 'RIP_MARKET_GET_INVENTORY_PLATFORM_STATUS',
   GET_INVENTORY_PRICE_HINTS: 'RIP_MARKET_GET_INVENTORY_PRICE_HINTS',
@@ -30,5 +31,13 @@ export type AckTradeRuntimeRequest = {
   orderId: string;
   ackType: 'SELLER_ACK_SENT' | 'BUYER_ACK_PRE_ACCEPT' | 'BUYER_ACK_RECEIVED';
   offerId?: string;
+  idempotencyKey: string;
+};
+
+export type ReportSteamOfferPageRuntimeRequest = {
+  type: typeof TRADE_VERIFICATION_RUNTIME.REPORT_STEAM_OFFER_PAGE;
+  orderId: string;
+  offerId: string;
+  lifecycle: 'accepted' | 'invalid';
   idempotencyKey: string;
 };

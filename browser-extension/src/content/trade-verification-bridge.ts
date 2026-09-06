@@ -61,6 +61,10 @@ import {
   isExtensionContextInvalidatedError,
   isExtensionContextValid,
 } from '../shared/extension-context.js';
+import {
+  detectSteamOfferPageLifecycle,
+  isPostAcceptSteamLifecycle,
+} from '../shared/steam-offer-page-lifecycle.js';
 
 
 const PANEL_ID = 'rip-market-trade-verification-panel';
@@ -105,6 +109,31 @@ function bumpMetricOnce(onceKey: string, metric: DealFlowMetricKey): void {
   }
   metricOnceKeys.add(onceKey);
   void bumpDealFlowMetric(metric);
+}
+
+const reportedSteamPageKeys = new Set<string>();
+
+function maybeReportSteamOfferPage(trade: TradeVerificationResult): void {
+  const offerId = trade.offerId?.trim();
+  if (!offerId) {
+    return;
+  }
+  const page = detectSteamOfferPageLifecycle(document);
+  if (!isPostAcceptSteamLifecycle(page.lifecycle)) {
+    return;
+  }
+  const key = `${trade.orderId}:${offerId}:${page.lifecycle}`;
+  if (reportedSteamPageKeys.has(key)) {
+    return;
+  }
+  reportedSteamPageKeys.add(key);
+  void runtimeRequest<{ ok: boolean }>({
+    type: TRADE_VERIFICATION_RUNTIME.REPORT_STEAM_OFFER_PAGE,
+    orderId: trade.orderId,
+    offerId,
+    lifecycle: page.lifecycle === 'invalid' ? 'invalid' : 'accepted',
+    idempotencyKey: `steam-page:${trade.orderId}:${offerId}:${page.lifecycle}`,
+  }).catch(() => undefined);
 }
 
 let acceptAssistUi: AcceptAssistUiState | null = null;
@@ -1052,7 +1081,7 @@ function buildPanel(context: OfferPageContext): HTMLElement {
   const onOfferPage = Boolean(parseOfferIdFromPath(window.location.pathname));
   const warnings = collectAntiScamWarnings(context);
   const scamBlocks = antiScamHasBlocking(warnings);
-  const headline =
+  let headline =
     sellerGate && status !== 'mismatch' && !scamBlocks
       ? {
           need_cs2: {
@@ -1075,7 +1104,27 @@ function buildPanel(context: OfferPageContext): HTMLElement {
         }[sellerGate]
       : shield.headline;
 
+  const steamPage = detectSteamOfferPageLifecycle(document);
+  const steamPostAccept = isPostAcceptSteamLifecycle(steamPage.lifecycle);
+  if (steamPostAccept) {
+    maybeReportSteamOfferPage(trade);
+    if (status !== 'mismatch' && !scamBlocks) {
+      headline = {
+        title:
+          steamPage.lifecycle === 'accepted'
+            ? 'Обмен в Steam принят'
+            : 'Обмен в Steam уже закрыт',
+        subtitle:
+          trade.role === 'buyer'
+            ? 'Подтвердите «Предмет у меня» здесь — площадка закроет сделку. Accept больше не нужен.'
+            : 'Покупатель принял обмен. Статус на площадке обновится после сверки доставки.',
+        tone: 'ok',
+      };
+    }
+  }
+
   const acceptAllowed =
+    !steamPostAccept &&
     canShowManualAcceptAssist({
       ...trade,
       verificationStatus: status,
@@ -1084,8 +1133,9 @@ function buildPanel(context: OfferPageContext): HTMLElement {
     !scamBlocks;
 
   const acceptAssistDone =
-    acceptAssistUi?.offerId === trade.offerId &&
-    acceptAssistUi.phase === 'done';
+    steamPostAccept ||
+    (acceptAssistUi?.offerId === trade.offerId &&
+      acceptAssistUi.phase === 'done');
   const confirmPhase = resolveDealConfirmPhase(trade, {
     acceptAssistDone,
   });

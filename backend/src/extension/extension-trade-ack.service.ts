@@ -387,6 +387,98 @@ export class ExtensionTradeAckService {
     return { ok: true, type, idempotent: false };
   }
 
+  /**
+   * Product: Steam DOM "Trade Accepted" / closed offer is ground truth for UX
+   * and a delivery signal when GetTradeOffer lags or returns unknown.
+   */
+  async reportSteamOfferPage(params: {
+    userId: string;
+    orderId: string;
+    offerId: string;
+    lifecycle: 'accepted' | 'invalid';
+    idempotencyKey: string;
+  }): Promise<{
+    ok: true;
+    recorded: boolean;
+    transitioned: boolean;
+    idempotent: boolean;
+  }> {
+    const offerId = this.normalizeOfferId(params.offerId);
+    if (!offerId) {
+      throw new AppException(
+        ErrorCode.VALIDATION_ERROR,
+        'Valid offerId is required',
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+
+    const order = await this.loadOrderForUser(params.orderId, params.userId);
+    const linked = order.tradeOperation?.externalOfferId?.trim() ?? null;
+    if (!linked || linked !== offerId) {
+      throw new AppException(
+        ErrorCode.VALIDATION_ERROR,
+        'Offer is not linked to this order',
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+    if (!order.tradeOperation) {
+      throw new AppException(
+        ErrorCode.BAD_REQUEST,
+        'Trade operation not found',
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+
+    const recent = await this.prisma.tradePollEvent.findFirst({
+      where: {
+        tradeOperationId: order.tradeOperation.id,
+        strategy: 'STEAM_PAGE_OBSERVED',
+        error: params.idempotencyKey,
+      },
+      select: { id: true },
+    });
+    if (recent) {
+      return {
+        ok: true,
+        recorded: false,
+        transitioned: false,
+        idempotent: true,
+      };
+    }
+
+    await this.prisma.tradePollEvent.create({
+      data: {
+        tradeOperationId: order.tradeOperation.id,
+        offerStatus: 'accepted',
+        outcome: 'PAGE_OBSERVED',
+        strategy: 'STEAM_PAGE_OBSERVED',
+        error: params.idempotencyKey.slice(0, 180),
+      },
+    });
+
+    let transitioned = false;
+    if (order.status === OrderStatus.WAITING_TRADE) {
+      try {
+        transitioned = await this.tradeStatusPoller.pollOrderById(order.id, {
+          force: true,
+        });
+      } catch (error) {
+        this.logger.warn(
+          `Poll after Steam page observe failed for ${order.id}: ${
+            error instanceof Error ? error.message : 'unknown'
+          }`,
+        );
+      }
+    }
+
+    return {
+      ok: true,
+      recorded: true,
+      transitioned,
+      idempotent: false,
+    };
+  }
+
   async getAcknowledgmentSummary(
     orderId: string,
   ): Promise<TradeAcknowledgmentSummary> {
@@ -1048,6 +1140,26 @@ export class ExtensionTradeAckService {
           title: 'Ждём обмен от продавца',
           description:
             'Обычно 1–2 минуты. Страница обновится сама — ничего нажимать не нужно.',
+        };
+      }
+      const latestOfferStatus = (
+        order.tradeOperation?.pollEvents?.[0]?.offerStatus ?? ''
+      ).toLowerCase();
+      // Steam already accepted (API or page observation) — leave Accept UX.
+      if (latestOfferStatus === 'accepted') {
+        if (!acknowledgments.buyerReceived) {
+          return {
+            kind: 'confirm_received',
+            title: 'Предмет у вас?',
+            description:
+              'Steam уже принял обмен. Подтвердите получение здесь — площадка закроет сделку.',
+          };
+        }
+        return {
+          kind: 'platform_verifying',
+          title: 'Платформа проверяет доставку',
+          description:
+            'Обмен в Steam принят. Сверяем инвентарь — обычно ждать недолго.',
         };
       }
       return {

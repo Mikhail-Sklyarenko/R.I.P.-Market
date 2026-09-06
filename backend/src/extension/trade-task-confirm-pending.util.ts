@@ -51,6 +51,10 @@ export function historicallyNeededSteamGuard(
 /**
  * True while the seller still needs to confirm in Steam Mobile.
  * Clears when Steam reports Active (pending) or a terminal offer state.
+ *
+ * Product rule: do not stick “Ждём Guard” forever when poll is blind (`unknown` /
+ * missing). After `OFFER_SENT`, Guard is either done or only in Steam Mobile —
+ * the next platform CTA is “wait for buyer”, not a false Guard badge after Accept.
  */
 export function extractTradeTaskConfirmPending(
   task: TradeTaskConfirmPendingInput,
@@ -72,8 +76,9 @@ export function extractTradeTaskConfirmPending(
   if (offerStatus === 'needs_confirmation') {
     return true;
   }
-  // No poll yet / unknown — keep waiting for Guard.
-  return true;
+
+  // Blind poll: only keep Guard while the task itself is still CONFIRM_PENDING.
+  return task.executionPhase === 'CONFIRM_PENDING';
 }
 
 export function extractTradeTaskConfirmPendingSince(
