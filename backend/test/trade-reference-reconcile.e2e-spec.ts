@@ -197,7 +197,7 @@ describe('Trade reference reconcile (e2e)', () => {
     );
   });
 
-  it('opens dispute when replacing offer id on same order', async () => {
+  it('keeps the first offer id when a second id arrives on the same order', async () => {
     const { seller, orderId } = await createWaitingTradeOrder('mismatch');
 
     await request(app.getHttpServer())
@@ -207,21 +207,27 @@ describe('Trade reference reconcile (e2e)', () => {
       .send({ offerId: '8301111111' })
       .expect(200);
 
-    await request(app.getHttpServer())
+    const second = await request(app.getHttpServer())
       .patch(`/api/v1/orders/${orderId}/trade-reference`)
       .set('Authorization', `Bearer ${seller.token}`)
       .set('Idempotency-Key', 'mismatch-2')
       .send({ offerId: '8302222222' })
       .expect(200);
 
+    expect(second.body).toMatchObject({
+      externalOfferId: '8301111111',
+      applied: false,
+      idempotent: true,
+      disputed: false,
+    });
+
     const order = await prisma.order.findUnique({
       where: { id: orderId },
       include: { tradeOperation: true },
     });
-    expect(order?.status).toBe(OrderStatus.DISPUTE);
-    expect(order?.tradeOperation?.failReasonCode).toBe(
-      'TRADE_REFERENCE_MISMATCH',
-    );
+    expect(order?.status).toBe(OrderStatus.WAITING_TRADE);
+    expect(order?.tradeOperation?.externalOfferId).toBe('8301111111');
+    expect(order?.tradeOperation?.failReasonCode).toBeNull();
   });
 
   it('accepts extension signed trade reference', async () => {

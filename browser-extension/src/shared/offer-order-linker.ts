@@ -27,6 +27,18 @@ export function findOfferLinkTarget(
     return null;
   }
 
+  // Already linked to this exact offer → treat as target for idempotent link.
+  const alreadyLinked = trades.find(
+    (trade) =>
+      trade.role === 'seller' &&
+      trade.orderStatus === 'WAITING_TRADE' &&
+      normalizeSteamOfferId(trade.offerId) === offerId,
+  );
+  if (alreadyLinked) {
+    return alreadyLinked;
+  }
+
+  // Never attach a second Steam offer to an order that already has one.
   let candidates = trades.filter(
     (trade) =>
       trade.role === 'seller' &&

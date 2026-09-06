@@ -477,14 +477,34 @@ export class ExtensionTradeTaskService {
         : null;
 
     if (offerSentReconcile) {
-      await this.tradeReferenceReconcileService.reconcile({
-        orderId: offerSentReconcile.orderId,
-        sellerId: offerSentReconcile.sellerId,
-        offerId: offerSentReconcile.offerId,
-        idempotencyKey: `task-offer-sent:${task.id}:${offerSentReconcile.offerId}`,
-        source: 'EXTENSION',
-        actorUserId: offerSentReconcile.sellerId,
+      const linked = await this.prisma.tradeOperation.findUnique({
+        where: { orderId: offerSentReconcile.orderId },
+        select: { externalOfferId: true },
       });
+      const linkedOfferId = linked?.externalOfferId?.trim() || null;
+      // Trust gate may ignore a duplicate OFFER_SENT; never reconcile a second id.
+      if (
+        !linkedOfferId ||
+        linkedOfferId === offerSentReconcile.offerId.trim()
+      ) {
+        await this.tradeReferenceReconcileService.reconcile({
+          orderId: offerSentReconcile.orderId,
+          sellerId: offerSentReconcile.sellerId,
+          offerId: offerSentReconcile.offerId,
+          idempotencyKey: `task-offer-sent:${task.id}:${offerSentReconcile.offerId}`,
+          source: 'EXTENSION',
+          actorUserId: offerSentReconcile.sellerId,
+        });
+      } else {
+        this.logger.warn(
+          JSON.stringify({
+            event: 'offer_sent_reconcile_skipped_duplicate',
+            orderId: offerSentReconcile.orderId,
+            linkedOfferId,
+            incomingOfferId: offerSentReconcile.offerId,
+          }),
+        );
+      }
     }
 
     const failedReason =

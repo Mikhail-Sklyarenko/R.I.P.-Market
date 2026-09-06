@@ -146,6 +146,52 @@ export class TradeReferenceReconcileService {
       };
     }
 
+    // Same order already has a canonical Steam offer. A second id is almost
+    // always an extension race (Guard redirect → recreate / double intercept),
+    // not fraud. Keep the first link; never open TRADE_REFERENCE_MISMATCH and
+    // never overwrite the canonical id (strict or not).
+    if (
+      order.tradeOperation.externalOfferId &&
+      order.tradeOperation.externalOfferId !== offerId
+    ) {
+      const canonicalOfferId = order.tradeOperation.externalOfferId;
+      this.logger.warn(
+        JSON.stringify({
+          event: 'trade_reference_duplicate_ignored',
+          orderId: order.id,
+          canonicalOfferId,
+          incomingOfferId: offerId,
+          source: params.source,
+        }),
+      );
+      try {
+        await this.recordAudit({
+          orderId: order.id,
+          actorUserId: params.actorUserId ?? params.sellerId,
+          idempotencyKey: `${idempotencyKey}:dup-ignored`,
+          beforeState: { externalOfferId: canonicalOfferId },
+          afterState: {
+            externalOfferId: canonicalOfferId,
+            ignoredIncomingOfferId: offerId,
+            duplicateIgnored: true,
+            source: params.source,
+          },
+          source: params.source,
+        });
+      } catch (error) {
+        if (!this.isUniqueViolation(error)) {
+          throw error;
+        }
+      }
+      return {
+        orderId: order.id,
+        externalOfferId: canonicalOfferId,
+        applied: false,
+        idempotent: true,
+        disputed: false,
+      };
+    }
+
     const strict = isTradeReferenceReconcileEnabled();
     if (strict) {
       const spoofed = await this.findSpoofedOrder(offerId, order.id);
@@ -158,30 +204,6 @@ export class TradeReferenceReconcileService {
           details: {
             offerId,
             conflictingOrderId: spoofed.orderId,
-          },
-          source: params.source,
-        });
-        return {
-          orderId: order.id,
-          externalOfferId: offerId,
-          applied: false,
-          idempotent: false,
-          disputed: true,
-        };
-      }
-
-      if (
-        order.tradeOperation.externalOfferId &&
-        order.tradeOperation.externalOfferId !== offerId
-      ) {
-        await this.openDisputeForReferenceIssue({
-          order: order as DisputeOrderContext,
-          actorUserId: params.actorUserId ?? params.sellerId,
-          idempotencyKey,
-          reasonCode: 'TRADE_REFERENCE_MISMATCH',
-          details: {
-            previousOfferId: order.tradeOperation.externalOfferId,
-            incomingOfferId: offerId,
           },
           source: params.source,
         });

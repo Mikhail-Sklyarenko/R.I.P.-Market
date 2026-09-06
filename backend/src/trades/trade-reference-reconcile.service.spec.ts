@@ -123,7 +123,7 @@ describe('TradeReferenceReconcileService', () => {
     expect(prisma.tradeOperation.update).not.toHaveBeenCalled();
   });
 
-  it('opens dispute on mismatch when strict reconcile is enabled', async () => {
+  it('keeps canonical offer and does not dispute when a second id arrives', async () => {
     process.env.ENABLE_TRADE_REFERENCE_RECONCILE = 'true';
     prisma.order.findUnique.mockResolvedValue({
       ...baseOrder,
@@ -142,8 +142,15 @@ describe('TradeReferenceReconcileService', () => {
       source: 'MANUAL',
     });
 
-    expect(result.disputed).toBe(true);
+    expect(result).toEqual({
+      orderId: 'order-1',
+      externalOfferId: '8301111111',
+      applied: false,
+      idempotent: true,
+      disputed: false,
+    });
     expect(prisma.tradeOperation.update).not.toHaveBeenCalled();
+    expect(prisma.$transaction).not.toHaveBeenCalled();
   });
 
   it('rejects invalid seller with ORDER_NOT_FOUND', async () => {

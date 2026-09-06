@@ -53,13 +53,23 @@ function sellerTrade(
 }
 
 describe('findOfferLinkTarget', () => {
-  it('returns null when no unlinked seller trades', () => {
+  it('returns already-linked trade when offer id matches (idempotent)', () => {
+    const linked = sellerTrade({
+      orderId: 'order-1',
+      offerId: '9336569013',
+    });
+    expect(
+      findOfferLinkTarget([linked], { offerId: '9336569013' })?.orderId,
+    ).toBe('order-1');
+  });
+
+  it('returns null when linked offer id differs (never re-link)', () => {
     expect(
       findOfferLinkTarget(
         [
           sellerTrade({
             orderId: 'order-1',
-            offerId: '9336569013',
+            offerId: '1111111111',
           }),
         ],
         { offerId: '9336569013' },
