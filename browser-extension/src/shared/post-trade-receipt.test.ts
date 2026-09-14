@@ -4,6 +4,8 @@ import {
   buildPostTradeReceipt,
   buildRecentReceipts,
   canShowPostTradeReceipt,
+  dealsHrefFromOrder,
+  postTradeReceiptHtml,
   resolveCommissionMinor,
   resolveSellerReceiveMinor,
 } from './post-trade-receipt.js';
@@ -91,7 +93,7 @@ describe('post-trade-receipt', () => {
     ).toBeNull();
   });
 
-  it('collects recent receipts in API order', () => {
+  it('collects recent receipts in API order and caps popup length', () => {
     const receipts = buildRecentReceipts([
       trade({ orderId: 'a', orderShortId: 'aaaa' }),
       trade({
@@ -103,5 +105,21 @@ describe('post-trade-receipt', () => {
       trade({ orderId: 'c', orderShortId: 'cccc', role: 'seller' }),
     ]);
     expect(receipts.map((r) => r.orderId)).toEqual(['a', 'c']);
+  });
+
+  it('renders compact expandable receipt markup', () => {
+    const view = buildPostTradeReceipt(trade());
+    expect(view).not.toBeNull();
+    const html = postTradeReceiptHtml(view!, (v) => v, (m) => `$${m}`);
+    expect(html).toContain('<details class="receipt-card"');
+    expect(html).toContain('receipt-summary');
+    expect(html).toContain('Купили · AK-47 | Redline (Field-Tested)');
+    expect(html).toContain('$10000');
+  });
+
+  it('maps order links to the deals hub', () => {
+    expect(dealsHrefFromOrder('https://p2pcs.ru/orders/abc')).toBe(
+      'https://p2pcs.ru/deals',
+    );
   });
 });

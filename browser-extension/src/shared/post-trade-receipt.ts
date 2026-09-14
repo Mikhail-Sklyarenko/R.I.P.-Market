@@ -2,6 +2,7 @@
  * G3: Post-trade receipt — calm summary after COMPLETED
  * (item, price, fee, offerId, order link).
  * H1: copy follows extension locale.
+ * Popup shows compact expandable rows; full history stays on the site.
  */
 import type { TradeVerificationResult } from '@rip-market/extension-orchestrator';
 import {
@@ -9,6 +10,9 @@ import {
   DEFAULT_EXTENSION_LOCALE,
   type ExtensionLocale,
 } from './extension-i18n.js';
+
+/** Max completed receipts in the popup before “all on site”. */
+export const POPUP_RECENT_RECEIPTS_MAX = 5;
 
 export type PostTradeReceiptView = {
   orderId: string;
@@ -113,6 +117,22 @@ export function buildPostTradeReceipt(
   };
 }
 
+/** Deals hub URL from any order deep-link. */
+export function dealsHrefFromOrder(orderHref: string): string {
+  try {
+    const url = new URL(orderHref);
+    url.pathname = '/deals';
+    url.search = '';
+    url.hash = '';
+    return url.toString();
+  } catch {
+    return orderHref;
+  }
+}
+
+/**
+ * Compact expandable receipt for the popup (summary + details on open).
+ */
 export function postTradeReceiptHtml(
   view: PostTradeReceiptView,
   escapeHtml: (value: string) => string,
@@ -122,31 +142,54 @@ export function postTradeReceiptHtml(
     ? `<div class="receipt-row"><span>Steam offer</span><strong>${escapeHtml(view.offerId)}</strong></div>`
     : '';
   return `
-    <article class="receipt-card" data-receipt-order="${escapeHtml(view.orderId)}">
-      <p class="receipt-eyebrow">${escapeHtml(view.eyebrowLabel)}</p>
-      <h2 class="receipt-title">${escapeHtml(view.verbLabel)} · ${escapeHtml(view.itemName)}</h2>
-      <p class="receipt-meta">#${escapeHtml(view.orderShortId)}</p>
-      <div class="receipt-rows">
-        <div class="receipt-row"><span>${escapeHtml(view.priceCaption)}</span><strong>${escapeHtml(formatMoney(view.priceMinor))}</strong></div>
-        <div class="receipt-row"><span>${escapeHtml(view.commissionCaption)}</span><strong>${escapeHtml(formatMoney(view.commissionMinor))}</strong></div>
-        <div class="receipt-row receipt-row-net"><span>${escapeHtml(view.netCaption)}</span><strong>${escapeHtml(formatMoney(view.netMinor))}</strong></div>
-        ${offerRow}
+    <details class="receipt-card" data-receipt-order="${escapeHtml(view.orderId)}">
+      <summary class="receipt-summary">
+        <span class="receipt-summary-copy">
+          <span class="receipt-summary-title">${escapeHtml(view.verbLabel)} · ${escapeHtml(view.itemName)}</span>
+          <span class="receipt-summary-meta">#${escapeHtml(view.orderShortId)}</span>
+        </span>
+        <strong class="receipt-summary-net">${escapeHtml(formatMoney(view.netMinor))}</strong>
+      </summary>
+      <div class="receipt-body">
+        <p class="receipt-eyebrow">${escapeHtml(view.eyebrowLabel)}</p>
+        <div class="receipt-rows">
+          <div class="receipt-row"><span>${escapeHtml(view.priceCaption)}</span><strong>${escapeHtml(formatMoney(view.priceMinor))}</strong></div>
+          <div class="receipt-row"><span>${escapeHtml(view.commissionCaption)}</span><strong>${escapeHtml(formatMoney(view.commissionMinor))}</strong></div>
+          <div class="receipt-row receipt-row-net"><span>${escapeHtml(view.netCaption)}</span><strong>${escapeHtml(formatMoney(view.netMinor))}</strong></div>
+          ${offerRow}
+        </div>
+        <a class="btn secondary" href="${escapeHtml(view.orderHref)}" target="_blank" rel="noreferrer">${escapeHtml(view.openOrderLabel)}</a>
       </div>
-      <a class="btn secondary" href="${escapeHtml(view.orderHref)}" target="_blank" rel="noreferrer">${escapeHtml(view.openOrderLabel)}</a>
-    </article>
+    </details>
   `;
 }
 
 export function buildRecentReceipts(
   trades: TradeVerificationResult[],
   locale: ExtensionLocale = DEFAULT_EXTENSION_LOCALE,
+  limit = POPUP_RECENT_RECEIPTS_MAX,
 ): PostTradeReceiptView[] {
   const out: PostTradeReceiptView[] = [];
   for (const trade of trades) {
+    if (out.length >= limit) {
+      break;
+    }
     const view = buildPostTradeReceipt(trade, locale);
     if (view) {
       out.push(view);
     }
   }
   return out;
+}
+
+export function countCompletedReceipts(
+  trades: TradeVerificationResult[],
+): number {
+  let count = 0;
+  for (const trade of trades) {
+    if (canShowPostTradeReceipt(trade)) {
+      count += 1;
+    }
+  }
+  return count;
 }

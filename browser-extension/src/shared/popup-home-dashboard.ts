@@ -22,6 +22,8 @@ import {
 import type { SessionHealth } from './session-health.js';
 import {
   buildRecentReceipts,
+  countCompletedReceipts,
+  dealsHrefFromOrder,
   type PostTradeReceiptView,
 } from './post-trade-receipt.js';
 
@@ -72,8 +74,12 @@ export type HomeDashboard = {
   actionItems: ActionRequiredItem[];
   buyers: BuyerInboxCard[];
   sellers: TradeVerificationResult[];
-  /** G3: recent COMPLETED deal receipts. */
+  /** G3: recent COMPLETED deal receipts (capped for popup). */
   receipts: PostTradeReceiptView[];
+  /** Total COMPLETED deals available (may exceed receipts.length). */
+  receiptsTotal: number;
+  /** Hub for full deal history on the site. */
+  dealsHref: string | null;
   counts: {
     action: number;
     buyers: number;
@@ -458,6 +464,12 @@ export function buildHomeDashboard(params: {
     .filter((card): card is BuyerInboxCard => card !== null);
 
   const receipts = buildRecentReceipts(params.trades, locale);
+  const receiptsTotal = countCompletedReceipts(params.trades);
+  const siteSample =
+    receipts[0]?.orderHref ??
+    params.trades.find((trade) => trade.siteUrl)?.siteUrl ??
+    null;
+  const dealsHref = siteSample ? dealsHrefFromOrder(siteSample) : null;
 
   const totalActive = params.trades.filter(
     (trade) =>
@@ -470,11 +482,13 @@ export function buildHomeDashboard(params: {
     buyers,
     sellers,
     receipts,
+    receiptsTotal,
+    dealsHref,
     counts: {
       action: actionItems.length,
       buyers: buyers.length,
       sellers: sellers.length,
-      receipts: receipts.length,
+      receipts: receiptsTotal,
       total: totalActive,
     },
     emptyHome:
@@ -482,7 +496,7 @@ export function buildHomeDashboard(params: {
       actionItems.length === 0 &&
       buyers.length === 0 &&
       sellers.length === 0 &&
-      receipts.length === 0 &&
+      receiptsTotal === 0 &&
       (params.health?.code === 'OK' || !params.health),
   };
 }

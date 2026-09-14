@@ -260,6 +260,8 @@ describe('popup-home-dashboard', () => {
     expect(home.buyers).toHaveLength(0);
     expect(home.sellers).toHaveLength(0);
     expect(home.receipts).toHaveLength(1);
+    expect(home.receiptsTotal).toBe(1);
+    expect(home.dealsHref).toBe('https://p2pcs.ru/deals');
     expect(home.receipts[0]?.offerId).toBe('42');
     expect(home.receipts[0]?.commissionMinor).toBe('50');
     expect(home.emptyHome).toBe(false);

@@ -510,7 +510,11 @@ function renderSellerCard(trade: TradeVerificationResult): string {
   `;
 }
 
-function renderRecentReceipts(receipts: PostTradeReceiptView[]): void {
+function renderRecentReceipts(
+  receipts: PostTradeReceiptView[],
+  receiptsTotal: number,
+  dealsHref: string | null,
+): void {
   if (!recentReceiptsEl) {
     return;
   }
@@ -520,18 +524,33 @@ function renderRecentReceipts(receipts: PostTradeReceiptView[]): void {
     return;
   }
 
+  const hiddenCount = Math.max(0, receiptsTotal - receipts.length);
+  const footer =
+    dealsHref && (hiddenCount > 0 || receiptsTotal > 1)
+      ? `<a class="receipts-site-link" href="${escapeHtml(dealsHref)}" target="_blank" rel="noreferrer">${escapeHtml(
+          hiddenCount > 0
+            ? t('popup.receiptsMoreOnSite', { count: hiddenCount })
+            : t('popup.receiptsAllOnSite'),
+        )}</a>`
+      : dealsHref
+        ? `<a class="receipts-site-link" href="${escapeHtml(dealsHref)}" target="_blank" rel="noreferrer">${escapeHtml(t('popup.receiptsAllOnSite'))}</a>`
+        : '';
+
   recentReceiptsEl.hidden = false;
   recentReceiptsEl.innerHTML = `
-    <div class="section-head">
-      <h2 class="section-title">${escapeHtml(t('popup.receiptsTitle'))}</h2>
-      <p class="section-sub">${escapeHtml(t('popup.receiptsSub'))}</p>
-      <span class="section-count">${receipts.length}</span>
-    </div>
-    <div class="receipts-list">
-      ${receipts
-        .map((view) => postTradeReceiptHtml(view, escapeHtml, formatMoneyMinor))
-        .join('')}
-    </div>
+    <details class="receipts-fold" ${receiptsTotal <= 2 ? 'open' : ''}>
+      <summary class="section-head receipts-fold-summary">
+        <h2 class="section-title">${escapeHtml(t('popup.receiptsTitle'))}</h2>
+        <p class="section-sub">${escapeHtml(t('popup.receiptsSub'))}</p>
+        <span class="section-count">${receiptsTotal}</span>
+      </summary>
+      <div class="receipts-list">
+        ${receipts
+          .map((view) => postTradeReceiptHtml(view, escapeHtml, formatMoneyMinor))
+          .join('')}
+      </div>
+      ${footer}
+    </details>
   `;
 }
 
@@ -541,7 +560,7 @@ function renderHome(home: HomeDashboard): void {
   renderActionRequired(home.actionItems);
   renderBuyerInbox(home.buyers);
   renderSellerTrades(home.sellers);
-  renderRecentReceipts(home.receipts);
+  renderRecentReceipts(home.receipts, home.receiptsTotal, home.dealsHref);
 }
 
 async function acknowledgeFromPopup(button: HTMLButtonElement): Promise<void> {
