@@ -21,7 +21,7 @@ export function LotBreadcrumbs({
   weapon,
   categoryLabel,
 }: LotBreadcrumbsProps) {
-  const { t } = useLocale();
+  const { t, locale } = useLocale();
   // Prefer the remembered list (page + filters). Fall back to a sensible catalog slice.
   const catalogRootHref = getCatalogReturnHref('/catalog');
   const weaponCatalogHref = getCatalogReturnHref(buildCatalogHref(weapon));
@@ -34,7 +34,11 @@ export function LotBreadcrumbs({
   }
 
   if (weapon?.trim()) {
-    crumbs.push({ label: weapon.trim(), href: weaponCatalogHref });
+    crumbs.push({
+      label:
+        locale === 'ru' && weapon.trim() === 'Case' ? 'Кейс' : weapon.trim(),
+      href: weaponCatalogHref,
+    });
   }
 
   crumbs.push({ label: marketHashName });
@@ -42,13 +46,20 @@ export function LotBreadcrumbs({
   return (
     <div className="lot-breadcrumbs-block">
       <CatalogBackToResults />
-      <nav className="lot-breadcrumbs" aria-label={t('lotBreadcrumbs.navAria')} data-testid="lot-breadcrumbs">
+      <nav
+        className="lot-breadcrumbs"
+        aria-label={t('lotBreadcrumbs.navAria')}
+        data-testid="lot-breadcrumbs"
+      >
         <ol className="lot-breadcrumbs-list">
           {crumbs.map((crumb, index) => {
             const isLast = index === crumbs.length - 1;
 
             return (
-              <li key={`${crumb.label}-${index}`} className="lot-breadcrumbs-item">
+              <li
+                key={`${crumb.label}-${index}`}
+                className="lot-breadcrumbs-item"
+              >
                 {crumb.href && !isLast ? (
                   <Link to={crumb.href} className="lot-breadcrumbs-link">
                     {crumb.label}

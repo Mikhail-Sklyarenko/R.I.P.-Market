@@ -168,7 +168,7 @@ const popupMetricOnce = new Set<string>();
 
 function renderNextActionBlock(
   resolved: ResolvedNextAction,
-  options?: { orderId?: string; bannerHtml?: string },
+  options?: { orderId?: string; bannerHtml?: string; snoozeOrderId?: string },
 ): string {
   if (
     options?.orderId &&
@@ -188,9 +188,14 @@ function renderNextActionBlock(
   const overflowItems = resolved.overflow
     .map((item) => renderCtaControl(item, 'secondary'))
     .filter(Boolean);
+  const snoozeButton =
+    options?.snoozeOrderId
+      ? `<button type="button" class="ghost action-snooze" data-snooze-order="${escapeHtml(options.snoozeOrderId)}">${escapeHtml(t('popup.snoozeLater'))}</button>`
+      : '';
+  const moreBody = [...overflowItems, snoozeButton].filter(Boolean).join('');
   const overflow =
-    overflowItems.length > 0
-      ? `<details class="card-more"><summary>${escapeHtml(t('common.more'))}</summary>${overflowItems.join('')}</details>`
+    moreBody.length > 0
+      ? `<details class="card-more"><summary>${escapeHtml(t('common.more'))}</summary>${moreBody}</details>`
       : '';
   const banner = options?.bannerHtml ?? '';
   return `${banner}${hint}${primary}${overflow}`;
@@ -333,12 +338,10 @@ function renderActionCard(item: ActionRequiredItem): string {
           : ''
       }
       <p class="next"><strong>${escapeHtml(item.title)}</strong><br />${escapeHtml(item.description)}</p>
-      ${renderNextActionBlock(cta, { orderId: item.orderId ?? undefined })}
-      ${
-        item.orderId
-          ? `<button type="button" class="btn secondary action-snooze" data-snooze-order="${escapeHtml(item.orderId)}">${escapeHtml(t('popup.snoozeLater'))}</button>`
-          : ''
-      }
+      ${renderNextActionBlock(cta, {
+        orderId: item.orderId ?? undefined,
+        snoozeOrderId: item.orderId ?? undefined,
+      })}
     </article>
   `;
 }

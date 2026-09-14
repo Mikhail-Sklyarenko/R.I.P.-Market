@@ -28,7 +28,8 @@
     "backfill:lot-snapshots": "ts-node -r tsconfig-paths/register src/scripts/backfill-lot-listing-snapshots.ts",
     "backfill:terminal-weapon": "ts-node -r tsconfig-paths/register src/scripts/backfill-terminal-weapon.ts",
     "import:cs2-catalog": "ts-node -r tsconfig-paths/register src/scripts/import-cs2-catalog.ts",
-    "cleanup:orphan-items": "ts-node -r tsconfig-paths/register src/scripts/cleanup-orphan-item-definitions.ts"
+    "cleanup:orphan-items": "ts-node -r tsconfig-paths/register src/scripts/cleanup-orphan-item-definitions.ts",
+    "test:security:postgres": "npm run build && node test/security-postgres.cjs"
   },
   "dependencies": {
     "@nestjs/common": "^11.0.1",
@@ -94,5 +95,10 @@
     ],
     "coverageDirectory": "../coverage",
     "testEnvironment": "node"
+  },
+  "overrides": {
+    "multer": "2.3.0",
+    "mysql2": "3.24.4",
+    "deepmerge-ts": "8.0.2"
   }
 }

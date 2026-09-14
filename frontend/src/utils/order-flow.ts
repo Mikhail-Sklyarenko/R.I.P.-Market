@@ -101,18 +101,18 @@ function stepLabel(key: string, locale: Locale): string {
   return STEP_LABELS[key] ?? key;
 }
 
-function resolveHappyPath(status: string): readonly string[] {
+function resolveHappyPath(status: string, hadSettlementHold = false): readonly string[] {
   if (status === 'SETTLEMENT_HOLD') {
     return HAPPY_PATH_WITH_HOLD;
   }
-  if (status === 'COMPLETED') {
+  if (hadSettlementHold) {
     return HAPPY_PATH_WITH_HOLD;
   }
   return HAPPY_PATH;
 }
 
-export function getOrderSteps(status: string, locale: Locale = 'ru'): OrderStep[] {
-  const path = resolveHappyPath(status);
+export function getOrderSteps(status: string, locale: Locale = 'ru', hadSettlementHold = false): OrderStep[] {
+  const path = resolveHappyPath(status, hadSettlementHold);
 
   if (status === 'COMPLETED') {
     return path.map((key) => ({
@@ -217,6 +217,10 @@ export function getOrderNextAction(
       title: tr('orderNextAction.disputeTitle'),
       description: tr('orderNextAction.disputeBody'),
     };
+  }
+
+  if (order.status === 'WAITING_TRADE' && order.tradeAcknowledgments?.buyerReceived) {
+    return { title: tr('ux.receiptCheckingTitle'), description: tr('ux.receiptCheckingBody'), kind: 'platform_verifying' };
   }
 
   if (role === 'buyer') {

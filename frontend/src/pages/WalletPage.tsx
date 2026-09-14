@@ -1,3 +1,4 @@
+import { safeAppReturnPath } from '../utils/steam-return-path';
 import { type FormEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import {
@@ -57,7 +58,7 @@ export function WalletPage() {
   const { wallet, transactions, loading, error, refresh, applyWallet } = useWallet();
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
-  const returnUrl = searchParams.get('returnUrl');
+  const returnUrl = safeAppReturnPath(searchParams.get('returnUrl'));
   const fromCheckout = searchParams.get('fromCheckout') === '1';
   const neededMinor = searchParams.get('needed');
   const activeTab = parseWalletTab(searchParams.get('tab'));
@@ -525,7 +526,7 @@ export function WalletPage() {
 
           <details className="card wallet-hold-info" data-testid="wallet-hold-info">
             <summary className="wallet-hold-info-summary">{t('wallet.whatIsHoldTitle')}</summary>
-            <p className="muted small">{t('wallet.whatIsHoldBody')}</p>
+            <p className="muted small">{t('wallet.whatIsHoldBody')}</p><p>{t('ux.fundsDetailsBody')}</p><Link to="/deals">{t('ux.fundsDetails')}</Link>
           </details>
 
           <nav className="wallet-tabs" aria-label={t('wallet.tabsAria')} data-testid="wallet-tabs">

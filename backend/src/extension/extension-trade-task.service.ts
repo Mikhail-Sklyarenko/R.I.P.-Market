@@ -133,7 +133,7 @@ export class ExtensionTradeTaskService {
 
     const session = await this.prisma.extensionSession.findUnique({
       where: { id: sessionId },
-      select: { userId: true },
+      select: { userId: true, deviceId: true },
     });
     if (!session) {
       return [];
@@ -153,10 +153,19 @@ export class ExtensionTradeTaskService {
         OR: [
           { executionPhase: null },
           { executionPhase: TradeTaskExecutionPhase.ACKED },
+          { executionPhase: TradeTaskExecutionPhase.TRADE_PAGE_OPENED },
           { executionPhase: TradeTaskExecutionPhase.OFFER_DRAFTED },
         ],
         expiresAt: { gt: now },
+        sendStartedAt: null,
         AND: [
+          {
+            OR: [
+              { leaseUntil: null },
+              { leaseUntil: { lte: now } },
+              { leaseDeviceId: session.deviceId },
+            ],
+          },
           {
             OR: [{ nextAttemptAt: null }, { nextAttemptAt: { lte: now } }],
           },
@@ -166,14 +175,44 @@ export class ExtensionTradeTaskService {
       take: cappedLimit,
     });
 
+    const claimed = [] as typeof tasks;
     for (const task of tasks) {
-      await this.prisma.tradeTask.update({
-        where: { id: task.id },
+      const changed = await this.prisma.tradeTask.updateMany({
+        where: {
+          id: task.id,
+          order: { status: OrderStatus.WAITING_TRADE },
+          expiresAt: { gt: now },
+          status: task.status,
+          executionPhase: task.executionPhase,
+          sendStartedAt: null,
+          leaseVersion: task.leaseVersion,
+          OR: [
+            { leaseUntil: null },
+            { leaseUntil: { lte: now } },
+            { leaseDeviceId: session.deviceId },
+          ],
+        },
         data: {
           status: TradeTaskStatus.DISPATCHED,
           dispatchedAt: now,
+          leaseDeviceId: session.deviceId,
+          leaseUntil: new Date(now.getTime() + 120_000),
+          leaseVersion:
+            task.leaseDeviceId === session.deviceId &&
+            task.leaseUntil &&
+            task.leaseUntil > now
+              ? task.leaseVersion
+              : task.leaseVersion + 1,
         },
       });
+      if (changed.count !== 1) continue;
+      if (
+        task.leaseDeviceId !== session.deviceId ||
+        !task.leaseUntil ||
+        task.leaseUntil <= now
+      )
+        task.leaseVersion += 1;
+      claimed.push(task);
       this.logger.log(
         JSON.stringify({
           event: 'trade_task_dispatched',
@@ -186,8 +225,9 @@ export class ExtensionTradeTaskService {
       );
     }
 
-    return tasks.map((task) => ({
+    return claimed.map((task) => ({
       id: task.id,
+      leaseVersion: task.leaseVersion,
       type: task.type,
       orderId: task.orderId,
       tradeOperationId: task.tradeOperationId,
@@ -246,12 +286,16 @@ export class ExtensionTradeTaskService {
 
   async reportTaskProgress(params: {
     taskId: string;
+    sessionId?: string;
+    leaseVersion?: number;
     phase: TradeTaskExecutionPhase;
     idempotencyKey: string;
     reasonCode?: string | null;
     offerId?: string | null;
     details?: Prisma.JsonObject;
   }): Promise<{ ok: true; phase: TradeTaskExecutionPhase; terminal: boolean }> {
+    if (params.sessionId)
+      await this.assertTaskOwner(params.taskId, params.sessionId);
     const existing = await this.prisma.tradeTaskStatusEvent.findUnique({
       where: {
         tradeTaskId_idempotencyKey: {
@@ -265,16 +309,72 @@ export class ExtensionTradeTaskService {
       where: { id: params.taskId },
     });
 
+    if (
+      params.sessionId &&
+      task &&
+      params.phase !== TradeTaskExecutionPhase.OFFER_SENT
+    ) {
+      const session = await this.prisma.extensionSession.findUnique({
+        where: { id: params.sessionId },
+        select: { deviceId: true },
+      });
+      if (
+        task.leaseDeviceId !== session?.deviceId ||
+        params.leaseVersion !== task.leaseVersion
+      ) {
+        throw new AppException(
+          ErrorCode.EXTENSION_TASK_INVALID_ACK,
+          'Task lease changed; refresh extension task',
+          HttpStatus.CONFLICT,
+        );
+      }
+    }
     if (existing) {
       if (
         existing.phase === TradeTaskExecutionPhase.OFFER_SENT &&
         params.phase === TradeTaskExecutionPhase.OFFER_SENT &&
         task
       ) {
+        const storedOfferId = (existing.payload as Prisma.JsonObject | null)
+          ?.offerId;
+        if (
+          typeof storedOfferId === 'string' &&
+          storedOfferId !== params.offerId?.trim()
+        ) {
+          throw new AppException(
+            ErrorCode.EXTENSION_TASK_INVALID_ACK,
+            'Offer id conflicts with the recorded event',
+            HttpStatus.CONFLICT,
+          );
+        }
+        // Legacy events did not persist the offer ID; validate their replay again.
+        if (typeof storedOfferId !== 'string') {
+          const order = await this.prisma.order.findUnique({
+            where: { id: task.orderId },
+            select: { sellerId: true },
+          });
+          if (
+            !order ||
+            !params.offerId ||
+            !isValidSteamOfferId(params.offerId.trim())
+          )
+            throw new AppException(
+              ErrorCode.EXTENSION_TASK_INVALID_ACK,
+              'Invalid offer replay',
+              HttpStatus.BAD_REQUEST,
+            );
+          await this.extensionTradeAckService.assertOfferSentTrustGate({
+            sellerId: order.sellerId,
+            orderId: task.orderId,
+            offerId: params.offerId.trim(),
+            observed: this.extractObservedFromProgressDetails(params.details),
+          });
+        }
         await this.ensureOfferLinkedAfterSent({
           taskId: task.id,
           orderId: task.orderId,
-          offerId: params.offerId,
+          offerId:
+            typeof storedOfferId === 'string' ? storedOfferId : params.offerId,
         });
       }
       return {
@@ -292,8 +392,9 @@ export class ExtensionTradeTaskService {
       );
     }
     if (
-      task.status === TradeTaskStatus.EXPIRED ||
-      task.status === TradeTaskStatus.FAILED
+      (task.status === TradeTaskStatus.EXPIRED ||
+        task.status === TradeTaskStatus.FAILED) &&
+      params.phase !== TradeTaskExecutionPhase.OFFER_SENT
     ) {
       throw new AppException(
         ErrorCode.EXTENSION_TASK_INVALID_ACK,
@@ -303,7 +404,8 @@ export class ExtensionTradeTaskService {
     if (
       task.executionPhase &&
       TERMINAL_PHASES.has(task.executionPhase) &&
-      params.phase !== task.executionPhase
+      params.phase !== task.executionPhase &&
+      params.phase !== TradeTaskExecutionPhase.OFFER_SENT
     ) {
       throw new AppException(
         ErrorCode.EXTENSION_TASK_INVALID_ACK,
@@ -311,7 +413,8 @@ export class ExtensionTradeTaskService {
       );
     }
 
-    this.ensurePhaseTransition(task.executionPhase, params.phase);
+    if (params.phase !== TradeTaskExecutionPhase.OFFER_SENT)
+      this.ensurePhaseTransition(task.executionPhase, params.phase);
 
     if (params.phase === TradeTaskExecutionPhase.OFFER_SENT) {
       const offerId = params.offerId?.trim();
@@ -349,12 +452,47 @@ export class ExtensionTradeTaskService {
         : null;
 
     const progressResult = await this.prisma.$transaction(async (tx) => {
+      if (params.phase === TradeTaskExecutionPhase.OFFER_SUBMITTED) {
+        const waiting = await tx.order.updateMany({
+          where: { id: task.orderId, status: OrderStatus.WAITING_TRADE },
+          data: { status: OrderStatus.WAITING_TRADE },
+        });
+        if (waiting.count !== 1)
+          throw new AppException(
+            ErrorCode.EXTENSION_TASK_INVALID_ACK,
+            'Order no longer accepts a Steam offer',
+            HttpStatus.CONFLICT,
+          );
+      }
+      const owned = await tx.tradeTask.updateMany({
+        where: {
+          id: task.id,
+          status: task.status,
+          executionPhase: task.executionPhase,
+          leaseVersion: task.leaseVersion,
+        },
+        data: {
+          leaseUntil: new Date(Date.now() + 120_000),
+          ...(params.phase === TradeTaskExecutionPhase.OFFER_SUBMITTED
+            ? { sendStartedAt: new Date() }
+            : {}),
+        },
+      });
+      if (owned.count !== 1)
+        throw new AppException(
+          ErrorCode.EXTENSION_TASK_INVALID_ACK,
+          'Task changed concurrently',
+          HttpStatus.CONFLICT,
+        );
       await tx.tradeTaskStatusEvent.create({
         data: {
           tradeTaskId: task.id,
           phase: params.phase,
           reasonCode: resolvedFailureReason ?? params.reasonCode ?? null,
-          payload: params.details ?? undefined,
+          payload:
+            params.phase === TradeTaskExecutionPhase.OFFER_SENT
+              ? { ...params.details, offerId: params.offerId?.trim() }
+              : (params.details ?? undefined),
           idempotencyKey: params.idempotencyKey,
         },
       });
@@ -408,6 +546,7 @@ export class ExtensionTradeTaskService {
         const reason = resolvedFailureReason ?? 'OFFER_SEND_FAILED';
         const nextAttemptCount = task.attemptCount + 1;
         const canRetry =
+          !task.sendStartedAt &&
           nextAttemptCount < task.maxAttempts &&
           isOfferErrorRetryable(reason, task.executionPhase);
         await tx.tradeTask.update({
@@ -471,8 +610,7 @@ export class ExtensionTradeTaskService {
         ? progressResult
         : null;
     const offerFailedResult =
-      progressResult &&
-      'deliveryCheckOrderId' in progressResult
+      progressResult && 'deliveryCheckOrderId' in progressResult
         ? progressResult
         : null;
 
@@ -509,8 +647,7 @@ export class ExtensionTradeTaskService {
             JSON.stringify({
               event: 'seller_ack_auto_failed',
               orderId: offerSentReconcile.orderId,
-              message:
-                error instanceof Error ? error.message : 'unknown',
+              message: error instanceof Error ? error.message : 'unknown',
             }),
           );
         }
@@ -705,6 +842,7 @@ export class ExtensionTradeTaskService {
   async reopenFailedRetryableTasksForWaitingOrders(): Promise<number> {
     const failed = await this.prisma.tradeTask.findMany({
       where: {
+        sendStartedAt: null,
         status: TradeTaskStatus.FAILED,
         order: { status: OrderStatus.WAITING_TRADE },
         attemptCount: { lt: extensionTaskMaxAttempts() },
@@ -725,11 +863,18 @@ export class ExtensionTradeTaskService {
 
     let reopened = 0;
     for (const task of failed) {
-      await this.prisma.tradeTask.update({
-        where: { id: task.id },
+      await this.prisma.tradeTask.updateMany({
+        where: {
+          id: task.id,
+          status: task.status,
+          sendStartedAt: null,
+          attemptCount: task.attemptCount,
+        },
         data: {
           status: TradeTaskStatus.DISPATCHED,
           executionPhase: null,
+          leaseUntil: null,
+          attemptCount: { increment: 1 },
           failedAt: null,
           nextAttemptAt: new Date(),
         },
@@ -742,6 +887,7 @@ export class ExtensionTradeTaskService {
   async reopenExpiredTasksForWaitingOrders(): Promise<number> {
     const expired = await this.prisma.tradeTask.findMany({
       where: {
+        sendStartedAt: null,
         status: TradeTaskStatus.EXPIRED,
         lastErrorCode: 'TASK_TTL_EXPIRED',
         order: { status: OrderStatus.WAITING_TRADE },
@@ -763,11 +909,18 @@ export class ExtensionTradeTaskService {
       ) {
         continue;
       }
-      await this.prisma.tradeTask.update({
-        where: { id: task.id },
+      await this.prisma.tradeTask.updateMany({
+        where: {
+          id: task.id,
+          status: task.status,
+          sendStartedAt: null,
+          attemptCount: task.attemptCount,
+        },
         data: {
           status: TradeTaskStatus.DISPATCHED,
           executionPhase: null,
+          leaseUntil: null,
+          attemptCount: { increment: 1 },
           lastErrorCode: null,
           failedAt: null,
           nextAttemptAt: new Date(),
@@ -787,29 +940,43 @@ export class ExtensionTradeTaskService {
       },
       take: 100,
     });
+    let changedCount = 0;
     for (const task of expired) {
-      await this.prisma.tradeTask.update({
-        where: { id: task.id },
-        data: {
-          status: TradeTaskStatus.EXPIRED,
-          failedAt: new Date(),
-          lastErrorCode: 'TASK_TTL_EXPIRED',
-        },
-      });
-      await this.prisma.outboxEvent.create({
-        data: {
-          eventType: 'TRADE_TASK_EXPIRED',
-          aggregateType: 'trade_task',
-          aggregateId: task.id,
-          payload: {
-            taskId: task.id,
-            orderId: task.orderId,
-            tradeOperationId: task.tradeOperationId,
+      const changed = await this.prisma.$transaction(async (tx) => {
+        const claimed = await tx.tradeTask.updateMany({
+          where: {
+            id: task.id,
+            status: task.status,
+            executionPhase: task.executionPhase,
+            leaseVersion: task.leaseVersion,
+            attemptCount: task.attemptCount,
+            expiresAt: task.expiresAt,
+            sendStartedAt: task.sendStartedAt,
           },
-        },
+          data: {
+            status: TradeTaskStatus.EXPIRED,
+            failedAt: new Date(),
+            lastErrorCode: 'TASK_TTL_EXPIRED',
+          },
+        });
+        if (claimed.count !== 1) return false;
+        await tx.outboxEvent.create({
+          data: {
+            eventType: 'TRADE_TASK_EXPIRED',
+            aggregateType: 'trade_task',
+            aggregateId: task.id,
+            payload: {
+              taskId: task.id,
+              orderId: task.orderId,
+              tradeOperationId: task.tradeOperationId,
+            },
+          },
+        });
+        return true;
       });
+      if (changed) changedCount += 1;
     }
-    return expired.length;
+    return changedCount;
   }
 
   async failOverRetriedTasks(): Promise<number> {
@@ -820,36 +987,51 @@ export class ExtensionTradeTaskService {
       },
       take: 100,
     });
+    let changedCount = 0;
     for (const task of dead) {
-      await this.prisma.tradeTask.update({
-        where: { id: task.id },
-        data: {
-          status: TradeTaskStatus.FAILED,
-          executionPhase: TradeTaskExecutionPhase.OFFER_FAILED,
-          failedAt: new Date(),
-          nextAttemptAt: null,
-          lastErrorCode: task.lastErrorCode ?? 'MAX_ATTEMPTS_REACHED',
-        },
-      });
-      await this.prisma.outboxEvent.create({
-        data: {
-          eventType: 'TRADE_TASK_FAILED',
-          aggregateType: 'trade_task',
-          aggregateId: task.id,
-          payload: {
-            taskId: task.id,
-            orderId: task.orderId,
-            tradeOperationId: task.tradeOperationId,
-            reasonCode: 'MAX_ATTEMPTS_REACHED',
+      const changed = await this.prisma.$transaction(async (tx) => {
+        const claimed = await tx.tradeTask.updateMany({
+          where: {
+            id: task.id,
+            status: task.status,
+            executionPhase: task.executionPhase,
+            leaseVersion: task.leaseVersion,
+            attemptCount: task.attemptCount,
+            expiresAt: task.expiresAt,
+            sendStartedAt: task.sendStartedAt,
           },
-        },
+          data: {
+            status: TradeTaskStatus.FAILED,
+            executionPhase: TradeTaskExecutionPhase.OFFER_FAILED,
+            failedAt: new Date(),
+            nextAttemptAt: null,
+            lastErrorCode: task.lastErrorCode ?? 'MAX_ATTEMPTS_REACHED',
+          },
+        });
+        if (claimed.count !== 1) return false;
+        await tx.outboxEvent.create({
+          data: {
+            eventType: 'TRADE_TASK_FAILED',
+            aggregateType: 'trade_task',
+            aggregateId: task.id,
+            payload: {
+              taskId: task.id,
+              orderId: task.orderId,
+              tradeOperationId: task.tradeOperationId,
+              reasonCode: 'MAX_ATTEMPTS_REACHED',
+            },
+          },
+        });
+        return true;
       });
+      if (!changed) continue;
+      changedCount += 1;
       await this.maybeBridgeExtensionDispute(
         task.orderId,
         'MAX_ATTEMPTS_REACHED',
       );
     }
-    return dead.length;
+    return changedCount;
   }
 
   private async maybeBridgeExtensionDispute(
@@ -931,6 +1113,25 @@ export class ExtensionTradeTaskService {
       source: 'EXTENSION',
       actorUserId: order.sellerId,
     });
+  }
+
+  async assertTaskOwner(taskId: string, sessionId: string): Promise<void> {
+    const session = await this.prisma.extensionSession.findUnique({
+      where: { id: sessionId },
+      select: { userId: true },
+    });
+    const task =
+      session &&
+      (await this.prisma.tradeTask.findFirst({
+        where: { id: taskId, order: { sellerId: session.userId } },
+        select: { id: true },
+      }));
+    if (!task)
+      throw new AppException(
+        ErrorCode.EXTENSION_TASK_NOT_FOUND,
+        'Trade task not found',
+        HttpStatus.NOT_FOUND,
+      );
   }
 
   private ensurePhaseTransition(

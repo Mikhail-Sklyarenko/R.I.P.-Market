@@ -39,6 +39,7 @@ describe('inventory-one-click-sell', () => {
           orderId: null,
           orderUrl: null,
           inventoryAssetId: 'uuid-1',
+          marketHashName: 'AK-47 | Redline',
         },
       }),
     ).toMatchObject({ kind: 'manage', label: 'Управлять', lotId: 'lot-1' });
@@ -58,6 +59,7 @@ describe('inventory-one-click-sell', () => {
           orderId: 'ord-1',
           orderUrl: 'https://p2pcs.ru/orders/ord-1',
           inventoryAssetId: 'uuid-1',
+          marketHashName: 'AK-47 | Redline',
         },
       }).kind,
     ).toBe('blocked');
@@ -77,6 +79,7 @@ describe('inventory-one-click-sell', () => {
           orderId: 'ord-2',
           orderUrl: 'https://p2pcs.ru/orders/ord-2',
           inventoryAssetId: 'uuid-2',
+          marketHashName: 'AK-47 | Redline',
         },
       }),
     ).toMatchObject({

@@ -264,6 +264,7 @@ describe('InventoryService', () => {
       }),
     );
     expect(result.hints['AK-47 | Redline (Field-Tested)']).toEqual({
+      steamMedianPriceMinor: null,
       steamPriceMinor: 1250,
       buffPriceMinor: null,
       csfloatPriceMinor: null,
@@ -276,6 +277,7 @@ describe('InventoryService', () => {
       sellerReceiveMinor: 808,
     });
     expect(result.hints['Fever Case']).toEqual({
+      steamMedianPriceMinor: null,
       steamPriceMinor: 980,
       buffPriceMinor: null,
       csfloatPriceMinor: null,
@@ -305,6 +307,7 @@ describe('InventoryService', () => {
     const result = await service.getPriceHints(['Fever Case']);
 
     expect(result.hints['Fever Case']).toEqual({
+      steamMedianPriceMinor: null,
       steamPriceMinor: null,
       buffPriceMinor: null,
       csfloatPriceMinor: null,

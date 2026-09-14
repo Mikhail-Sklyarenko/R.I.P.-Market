@@ -190,7 +190,17 @@ export function SupportWidget({ open, onOpenChange }: SupportWidgetProps) {
         data-testid="support-widget-fab"
         onClick={() => onOpenChange(!open)}
       >
-        ?
+        <svg className="support-widget-fab-icon" viewBox="0 0 24 24" width="22" height="22" aria-hidden="true">
+          <circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" strokeWidth="1.75" />
+          <path
+            d="M9.5 9.25a2.5 2.5 0 0 1 4.85.75c0 1.5-2.35 2-2.35 3.5"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.75"
+            strokeLinecap="round"
+          />
+          <circle cx="12" cy="17" r="1" fill="currentColor" />
+        </svg>
       </button>
     </div>
   );

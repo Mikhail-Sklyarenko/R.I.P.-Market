@@ -4,7 +4,7 @@ import { ExtractJwt, Strategy } from 'passport-jwt';
 import { AuthUser } from '../common/auth-user.interface';
 import { UsersService } from '../users/users.service';
 
-type JwtPayload = AuthUser;
+type JwtPayload = AuthUser & { purpose?: string; typ?: string };
 
 @Injectable()
 export class JwtStrategy extends PassportStrategy(Strategy) {
@@ -17,6 +17,11 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
   }
 
   async validate(payload: JwtPayload): Promise<AuthUser> {
+    if (
+      (payload.purpose && payload.purpose !== 'access') ||
+      (payload.typ && payload.typ !== 'access')
+    )
+      throw new UnauthorizedException('Invalid token purpose');
     const user = await this.usersService.resolveSessionUser(payload.sub);
     if (!user) {
       throw new UnauthorizedException(

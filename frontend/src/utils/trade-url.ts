@@ -9,7 +9,7 @@ export function isValidSteamTradeUrl(url: string): boolean {
 
   try {
     const parsed = new URL(trimmed);
-    if (parsed.hostname !== 'steamcommunity.com') {
+    if (parsed.origin !== 'https://steamcommunity.com' || parsed.username || parsed.password) {
       return false;
     }
     if (parsed.pathname !== '/tradeoffer/new/') {
@@ -17,7 +17,11 @@ export function isValidSteamTradeUrl(url: string): boolean {
     }
     const partner = parsed.searchParams.get('partner');
     const token = parsed.searchParams.get('token');
-    return Boolean(partner && /^\d+$/.test(partner) && token && token.length > 0);
+    return Boolean(
+      partner && /^\d+$/.test(partner) && BigInt(partner) > 0n && BigInt(partner) <= 4294967295n &&
+      token && /^[\w-]+$/.test(token) &&
+      parsed.searchParams.getAll('partner').length === 1 && parsed.searchParams.getAll('token').length === 1,
+    );
   } catch {
     return false;
   }

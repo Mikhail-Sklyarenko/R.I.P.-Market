@@ -10,7 +10,8 @@
     "preview": "vite preview",
     "test:unit": "node --experimental-strip-types --test src/**/*.test.ts",
     "test:e2e": "playwright test",
-    "test:e2e:ui": "playwright test --ui"
+    "test:e2e:ui": "playwright test --ui",
+    "prebuild": "python3 ../scripts/package-browser-extension.py"
   },
   "dependencies": {
     "qrcode-generator": "^2.0.4",

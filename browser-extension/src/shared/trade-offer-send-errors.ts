@@ -48,14 +48,6 @@ export function parseSteamSendResponse(parsed: {
 }): TradeOfferSendResultFromSteam {
   const strError = parsed.strError?.trim() ?? '';
   const normalizedOfferId = normalizeSteamOfferId(parsed.tradeofferid);
-  if (strError && /confirm|mobile|guard/i.test(strError)) {
-    return {
-      ok: true,
-      offerId: normalizedOfferId ?? '',
-      confirmPending: true,
-      strError,
-    };
-  }
   if (normalizedOfferId) {
     return {
       ok: true,

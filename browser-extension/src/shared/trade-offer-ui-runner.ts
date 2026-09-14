@@ -1,11 +1,13 @@
 import type {
   TradeOfferDraftPayload,
   TradeOfferSendResult,
-} from './trade-offer-messages.js';
+} from "./trade-offer-messages.js";
 
 type WindowWithRIP = Window & {
   __ripMarketTradeOffer?: {
-    runAutofillFlow: (draft: TradeOfferDraftPayload) => Promise<TradeOfferSendResult>;
+    runAutofillFlow: (
+      draft: TradeOfferDraftPayload,
+    ) => Promise<TradeOfferSendResult>;
     prepareAndSelectItem: (
       draft: TradeOfferDraftPayload,
     ) => Promise<{ ok: true } | { ok: false; error: string }>;
@@ -22,8 +24,13 @@ export type TradeOfferProgressHooks = {
 export function tradeOfferUrlKey(url: string): string | null {
   try {
     const parsed = new URL(url);
-    const partner = parsed.searchParams.get('partner');
-    const token = parsed.searchParams.get('token');
+    if (
+      parsed.origin !== "https://steamcommunity.com" ||
+      parsed.pathname !== "/tradeoffer/new/"
+    )
+      return null;
+    const partner = parsed.searchParams.get("partner");
+    const token = parsed.searchParams.get("token");
     if (!partner || !token) {
       return null;
     }
@@ -51,15 +58,17 @@ export function isConcreteSteamTradeOfferUrl(url: string | undefined): boolean {
     return false;
   }
   try {
-    const pathname = new URL(url).pathname;
+    const parsed = new URL(url);
+    if (parsed.origin !== "https://steamcommunity.com") return false;
+    const pathname = parsed.pathname;
     return /^\/tradeoffer\/\d+\/?$/i.test(pathname);
   } catch {
-    return /\/tradeoffer\/\d+/i.test(url);
+    return false;
   }
 }
 
 function isTradeOfferNewPage(url: string | undefined): boolean {
-  return Boolean(url?.includes('/tradeoffer/new'));
+  return Boolean(url?.includes("/tradeoffer/new"));
 }
 
 /**
@@ -76,7 +85,7 @@ export async function runTradeOfferAutofillInMainWorld(
 ): Promise<TradeOfferSendResult> {
   const tab = await chrome.tabs.get(tabId).catch(() => null);
   if (!tab?.url) {
-    return { ok: false, error: 'Steam tab URL unavailable' };
+    return { ok: false, error: "Steam tab URL unavailable" };
   }
   if (!isTradeOfferNewPage(tab.url)) {
     return {
@@ -87,15 +96,15 @@ export async function runTradeOfferAutofillInMainWorld(
   if (!isTabOnBuyerTradeUrl(tab.url, draft.buyerTradeUrl)) {
     return {
       ok: false,
-      error: 'Steam tab is on a different trade offer URL',
+      error: "Steam tab is on a different trade offer URL",
     };
   }
 
   try {
     await chrome.scripting.executeScript({
       target: { tabId },
-      world: 'MAIN',
-      files: ['page-scripts/trade-offer-ui.js'],
+      world: "MAIN",
+      files: ["page-scripts/trade-offer-ui.js"],
     });
   } catch (error) {
     return {
@@ -103,7 +112,7 @@ export async function runTradeOfferAutofillInMainWorld(
       error:
         error instanceof Error
           ? error.message
-          : 'Failed to inject trade page script',
+          : "Failed to inject trade page script",
     };
   }
 
@@ -111,13 +120,14 @@ export async function runTradeOfferAutofillInMainWorld(
 
   const [{ result: prepared }] = await chrome.scripting.executeScript({
     target: { tabId },
-    world: 'MAIN',
+    world: "MAIN",
     func: (draftArg: TradeOfferDraftPayload) => {
-      const ripApi = (globalThis as unknown as WindowWithRIP).__ripMarketTradeOffer;
+      const ripApi = (globalThis as unknown as WindowWithRIP)
+        .__ripMarketTradeOffer;
       if (!ripApi?.prepareAndSelectItem) {
         return Promise.resolve({
           ok: false as const,
-          error: 'Trade page script not ready — reload trade page',
+          error: "Trade page script not ready — reload trade page",
         });
       }
       return ripApi.prepareAndSelectItem(draftArg);
@@ -126,7 +136,7 @@ export async function runTradeOfferAutofillInMainWorld(
   });
 
   if (!prepared) {
-    return { ok: false, error: 'Autofill prepare returned no result' };
+    return { ok: false, error: "Autofill prepare returned no result" };
   }
   if (prepared.ok === false) {
     return { ok: false, error: prepared.error };
@@ -134,16 +144,18 @@ export async function runTradeOfferAutofillInMainWorld(
 
   await hooks?.onItemSelected?.();
 
+  await hooks?.onOfferSubmitted?.();
+
   const [{ result: started }] = await chrome.scripting.executeScript({
     target: { tabId },
-    world: 'MAIN',
+    world: "MAIN",
     func: () => {
       const win = globalThis as unknown as WindowWithRIP;
       const ripApi = win.__ripMarketTradeOffer;
       if (!ripApi?.submitAndWaitForSend) {
         return {
           ok: false as const,
-          error: 'Trade page script missing submit step — reload trade page',
+          error: "Trade page script missing submit step — reload trade page",
         };
       }
       win.__ripMarketPendingSend = ripApi.submitAndWaitForSend();
@@ -155,24 +167,22 @@ export async function runTradeOfferAutofillInMainWorld(
     return {
       ok: false,
       error:
-        started && 'error' in started
+        started && "error" in started
           ? started.error
-          : 'Failed to start trade offer submit',
+          : "Failed to start trade offer submit",
     };
   }
 
-  await hooks?.onOfferSubmitted?.();
-
   const [{ result }] = await chrome.scripting.executeScript({
     target: { tabId },
-    world: 'MAIN',
+    world: "MAIN",
     func: () => {
       const win = globalThis as unknown as WindowWithRIP;
       const pending = win.__ripMarketPendingSend;
       if (!pending) {
         return Promise.resolve({
           ok: false as const,
-          error: 'Pending Steam send result missing',
+          error: "Pending Steam send result missing",
         } satisfies TradeOfferSendResult);
       }
       return pending.finally(() => {
@@ -182,7 +192,7 @@ export async function runTradeOfferAutofillInMainWorld(
   });
 
   if (!result) {
-    return { ok: false, error: 'Autofill returned no result' };
+    return { ok: false, error: "Autofill returned no result" };
   }
 
   return result as TradeOfferSendResult;

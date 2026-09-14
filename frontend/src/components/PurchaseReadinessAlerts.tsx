@@ -1,4 +1,4 @@
-import { Link } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import type { AuthUser } from '../api/types';
 import { useLocale } from '../i18n';
 import { ErrorAlert } from './ErrorAlert';
@@ -30,6 +30,8 @@ export function PurchaseReadinessAlerts({
   compactTradeUrlWarning = false,
 }: PurchaseReadinessAlertsProps) {
   const { t } = useLocale();
+  const location = useLocation();
+  const accountHref = `/account?returnUrl=${encodeURIComponent(location.pathname + location.search)}`;
   const steamLinked = hasLinkedSteamId(user?.steamId);
   const tradeUrlReady = hasTradeUrl(user?.tradeUrl);
   const steamBlocked = authenticated && requiresSteamLink && !steamLinked;
@@ -42,7 +44,7 @@ export function PurchaseReadinessAlerts({
           <ErrorAlert variant="info" title={t('readiness.steamRequiredTitle')}>
             {t('readiness.steamRequiredBody')}
           </ErrorAlert>
-          <Link className="button secondary sm" to="/account">
+          <Link className="button secondary sm" to={accountHref}>
             {t('readiness.toAccount')}
           </Link>
         </div>
@@ -56,14 +58,14 @@ export function PurchaseReadinessAlerts({
           {compactTradeUrlWarning ? (
             <p className="muted small checkout-inline-warning-text">
               {t('readiness.tradeUrlInlinePrefix')}{' '}
-              <Link to="/account">{t('readiness.tradeUrlInlineLink')}</Link>{' '}
+              <Link to={accountHref}>{t('readiness.tradeUrlInlineLink')}</Link>{' '}
               {t('readiness.tradeUrlInlineSuffix')}
             </p>
           ) : (
             <>
               <strong>{t('readiness.tradeUrlMissingTitle')}</strong>
               <p className="alert-body">{t('readiness.tradeUrlMissingBody')}</p>
-              <Link className="button secondary sm" to="/account">
+              <Link className="button secondary sm" to={accountHref}>
                 {t('readiness.tradeUrlSetButton')}
               </Link>
             </>

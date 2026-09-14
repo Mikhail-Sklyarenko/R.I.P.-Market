@@ -41,7 +41,9 @@ export function historicallyNeededSteamGuard(
     ) {
       continue;
     }
-    if ((event.payload as { confirmPending?: unknown }).confirmPending === true) {
+    if (
+      (event.payload as { confirmPending?: unknown }).confirmPending === true
+    ) {
       return true;
     }
   }
@@ -77,8 +79,8 @@ export function extractTradeTaskConfirmPending(
     return true;
   }
 
-  // Blind poll: only keep Guard while the task itself is still CONFIRM_PENDING.
-  return task.executionPhase === 'CONFIRM_PENDING';
+  // Unknown is not evidence that mobile confirmation has cleared.
+  return true;
 }
 
 export function extractTradeTaskConfirmPendingSince(

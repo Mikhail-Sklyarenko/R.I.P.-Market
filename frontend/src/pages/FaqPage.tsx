@@ -79,7 +79,19 @@ export function FaqPage() {
                   onClick={() => toggleCategory(category.id)}
                 >
                   <span className="support-faq-sidebar-chevron" aria-hidden="true">
-                    {isExpanded ? '▼' : '▶'}
+                    <svg viewBox="0 0 16 16" width="12" height="12">
+                      {isExpanded ? (
+                        <path
+                          fill="currentColor"
+                          d="M3.2 5.6a.75.75 0 0 1 1.06-.06L8 8.94l3.74-3.4a.75.75 0 1 1 1 1.12l-4.24 3.85a.75.75 0 0 1-1 0L3.26 6.66a.75.75 0 0 1-.06-1.06Z"
+                        />
+                      ) : (
+                        <path
+                          fill="currentColor"
+                          d="M5.6 3.2a.75.75 0 0 1 1.06-.06l3.85 4.24a.75.75 0 0 1 0 1l-3.85 4.24a.75.75 0 1 1-1.12-1L8.94 8 5.54 4.26a.75.75 0 0 1 .06-1.06Z"
+                        />
+                      )}
+                    </svg>
                   </span>
                   {category.title}
                 </button>

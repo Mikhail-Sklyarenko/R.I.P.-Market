@@ -75,6 +75,7 @@ describe('inventory-bulk-sell', () => {
         steam: fungibleSteam,
         platform: {
           inventoryAssetId: 'u1',
+          marketHashName: 'AK-47 | Redline',
           assetStatus: 'LISTED',
           listed: true,
           lotId: 'l1',
@@ -95,6 +96,7 @@ describe('inventory-bulk-sell', () => {
         steam: { ...fungibleSteam, assetId: String(id) },
         platform: {
           inventoryAssetId: `uuid-${id}`,
+          marketHashName: 'AK-47 | Redline',
           assetStatus: 'AVAILABLE',
           listed: false,
           lotId: null,

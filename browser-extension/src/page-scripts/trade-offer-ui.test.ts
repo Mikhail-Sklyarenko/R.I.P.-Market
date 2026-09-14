@@ -12,7 +12,11 @@ import {
 
 function mockSteamJquery() {
   const handlers: Array<
-    (event: unknown, xhr: { responseText?: string }, settings: { url?: string }) => void
+    (
+      event: unknown,
+      xhr: { responseText?: string },
+      settings: { url?: string },
+    ) => void
   > = [];
   const $J = vi.fn(() => ({
     click: vi.fn(),
@@ -49,11 +53,18 @@ describe('trade-offer-ui', () => {
   });
 
   it('waitForTradePageReady does not treat another game inventory as ready', async () => {
-    (window as { UserYou?: object; g_ActiveInventory?: object; g_ActiveAppId?: number }).UserYou =
-      {
-        findAsset: () => null,
-      };
-    (window as { g_ActiveInventory?: object }).g_ActiveInventory = { appid: 440 };
+    (
+      window as {
+        UserYou?: object;
+        g_ActiveInventory?: object;
+        g_ActiveAppId?: number;
+      }
+    ).UserYou = {
+      findAsset: () => null,
+    };
+    (window as { g_ActiveInventory?: object }).g_ActiveInventory = {
+      appid: 440,
+    };
     (window as { g_ActiveAppId?: number }).g_ActiveAppId = 440;
 
     await expect(waitForTradePageReady(400)).rejects.toThrow(/CS2 inventory/);
@@ -71,10 +82,13 @@ describe('trade-offer-ui', () => {
     const element = document.createElement('div');
     const asset = { appid: 730, contextid: '2', assetid: '123', element };
     const moveItemToTrade = vi.fn();
-    (window as { UserYou?: object; MoveItemToTrade?: typeof moveItemToTrade }).UserYou = {
+    (
+      window as { UserYou?: object; MoveItemToTrade?: typeof moveItemToTrade }
+    ).UserYou = {
       findAsset: () => asset,
     };
-    (window as { MoveItemToTrade?: typeof moveItemToTrade }).MoveItemToTrade = moveItemToTrade;
+    (window as { MoveItemToTrade?: typeof moveItemToTrade }).MoveItemToTrade =
+      moveItemToTrade;
 
     selectItemForTrade(730, 2, '123');
 
@@ -98,9 +112,10 @@ describe('trade-offer-ui', () => {
   it('setTradeNote updates textarea value', () => {
     document.body.innerHTML = '<textarea id="trade_offer_note"></textarea>';
     setTradeNote('R.I.P Market trade');
-    expect((document.querySelector('#trade_offer_note') as HTMLTextAreaElement).value).toBe(
-      'R.I.P Market trade',
-    );
+    expect(
+      (document.querySelector('#trade_offer_note') as HTMLTextAreaElement)
+        .value,
+    ).toBe('R.I.P Market trade');
   });
 
   it('installSendInterceptor captures tradeoffer/new/send ajax response', async () => {
@@ -126,8 +141,9 @@ describe('trade-offer-ui', () => {
 
   it('submitTradeOffer calls ConfirmTradeOffer when available', () => {
     const confirmTradeOffer = vi.fn();
-    (window as { ConfirmTradeOffer?: typeof confirmTradeOffer }).ConfirmTradeOffer =
-      confirmTradeOffer;
+    (
+      window as { ConfirmTradeOffer?: typeof confirmTradeOffer }
+    ).ConfirmTradeOffer = confirmTradeOffer;
 
     submitTradeOffer();
 
@@ -138,6 +154,7 @@ describe('trade-offer-ui', () => {
     vi.stubGlobal('location', {
       ...window.location,
       pathname: '/tradeoffer/new/',
+      href: 'https://steamcommunity.com/tradeoffer/new/?partner=123&token=abc',
     });
 
     const element = document.createElement('div');
@@ -148,18 +165,38 @@ describe('trade-offer-ui', () => {
         '<textarea id="trade_offer_note"></textarea>';
     });
     const confirmTradeOffer = vi.fn();
-    (window as { UserYou?: object; g_ActiveInventory?: object; MoveItemToTrade?: typeof moveItemToTrade; ConfirmTradeOffer?: typeof confirmTradeOffer }).UserYou = {
+    (
+      window as {
+        UserYou?: object;
+        g_ActiveInventory?: object;
+        MoveItemToTrade?: typeof moveItemToTrade;
+        ConfirmTradeOffer?: typeof confirmTradeOffer;
+      }
+    ).UserYou = {
       findAsset: () => asset,
     };
     (window as { g_ActiveInventory?: object }).g_ActiveInventory = {};
-    (window as { MoveItemToTrade?: typeof moveItemToTrade }).MoveItemToTrade = moveItemToTrade;
-    (window as { ConfirmTradeOffer?: typeof confirmTradeOffer }).ConfirmTradeOffer =
-      confirmTradeOffer;
+    (window as { MoveItemToTrade?: typeof moveItemToTrade }).MoveItemToTrade =
+      moveItemToTrade;
+    (
+      window as { ConfirmTradeOffer?: typeof confirmTradeOffer }
+    ).ConfirmTradeOffer = confirmTradeOffer;
 
     document.body.innerHTML = '<textarea id="trade_offer_note"></textarea>';
 
     const handlers = mockSteamJquery();
 
+    (
+      window as unknown as { g_rgCurrentTradeStatus: unknown }
+    ).g_rgCurrentTradeStatus = {
+      me: {
+        assets: [
+          { appid: 730, contextid: '2', assetid: 'asset-123', amount: 1 },
+        ],
+        currency: [],
+      },
+      them: { assets: [], currency: [] },
+    };
     const pending = runAutofillFlow({
       buyerTradeUrl:
         'https://steamcommunity.com/tradeoffer/new/?partner=123&token=abc',
@@ -196,11 +233,19 @@ describe('trade-offer-ui', () => {
     vi.stubGlobal('location', {
       ...window.location,
       pathname: '/tradeoffer/new/',
+      href: 'https://steamcommunity.com/tradeoffer/new/?partner=123&token=abc',
     });
 
     const element = document.createElement('div');
     const asset = { appid: 730, contextid: '2', assetid: 'asset-123', element };
-    (window as { UserYou?: object; g_ActiveInventory?: object; MoveItemToTrade?: () => void; ConfirmTradeOffer?: () => void }).UserYou = {
+    (
+      window as {
+        UserYou?: object;
+        g_ActiveInventory?: object;
+        MoveItemToTrade?: () => void;
+        ConfirmTradeOffer?: () => void;
+      }
+    ).UserYou = {
       findAsset: () => asset,
     };
     (window as { g_ActiveInventory?: object }).g_ActiveInventory = {};
@@ -214,6 +259,17 @@ describe('trade-offer-ui', () => {
 
     const handlers = mockSteamJquery();
 
+    (
+      window as unknown as { g_rgCurrentTradeStatus: unknown }
+    ).g_rgCurrentTradeStatus = {
+      me: {
+        assets: [
+          { appid: 730, contextid: '2', assetid: 'asset-123', amount: 1 },
+        ],
+        currency: [],
+      },
+      them: { assets: [], currency: [] },
+    };
     const pending = runAutofillFlow({
       buyerTradeUrl:
         'https://steamcommunity.com/tradeoffer/new/?partner=123&token=abc',

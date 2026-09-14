@@ -37,11 +37,13 @@ describe('MessageSteamOfferAdapter idempotency', () => {
             }
             return out;
           }),
-          set: vi.fn().mockImplementation(async (value: Record<string, unknown>) => {
-            for (const [k, entry] of Object.entries(value)) {
-              sessionStorage.set(k, entry);
-            }
-          }),
+          set: vi
+            .fn()
+            .mockImplementation(async (value: Record<string, unknown>) => {
+              for (const [k, entry] of Object.entries(value)) {
+                sessionStorage.set(k, entry);
+              }
+            }),
           remove: vi.fn().mockImplementation(async (key: string | string[]) => {
             const keys = Array.isArray(key) ? key : [key];
             for (const k of keys) {
@@ -60,11 +62,13 @@ describe('MessageSteamOfferAdapter idempotency', () => {
             }
             return out;
           }),
-          set: vi.fn().mockImplementation(async (value: Record<string, unknown>) => {
-            for (const [k, entry] of Object.entries(value)) {
-              localStorage.set(k, entry);
-            }
-          }),
+          set: vi
+            .fn()
+            .mockImplementation(async (value: Record<string, unknown>) => {
+              for (const [k, entry] of Object.entries(value)) {
+                localStorage.set(k, entry);
+              }
+            }),
           remove: vi.fn().mockImplementation(async (key: string | string[]) => {
             const keys = Array.isArray(key) ? key : [key];
             for (const k of keys) {
@@ -82,7 +86,9 @@ describe('MessageSteamOfferAdapter idempotency', () => {
       offerId: '99887766',
       confirmPending: false,
     });
-    const adapter = new MessageSteamOfferAdapter(createMockSteamClient(sendTradeOffer));
+    const adapter = new MessageSteamOfferAdapter(
+      createMockSteamClient(sendTradeOffer),
+    );
 
     sessionStorage.set('rip:draft:draft-task-1', {
       buyerTradeUrl:
@@ -108,7 +114,9 @@ describe('MessageSteamOfferAdapter idempotency', () => {
       offerId: '11223344',
       confirmPending: true,
     });
-    const adapter = new MessageSteamOfferAdapter(createMockSteamClient(sendTradeOffer));
+    const adapter = new MessageSteamOfferAdapter(
+      createMockSteamClient(sendTradeOffer),
+    );
 
     sessionStorage.set('rip:draft:draft-task-2', {
       buyerTradeUrl:
@@ -138,7 +146,8 @@ describe('MessageSteamOfferAdapter idempotency', () => {
 
   it('recovers intercepted offer written during a timed-out Steam send', async () => {
     const sendTradeOffer = vi.fn().mockImplementation(async () => {
-      localStorage.set('rip:intercepted-offer:asset-555', {
+      localStorage.set('rip:sent-offer:draft-task-3', {
+        ok: true,
         offerId: '55667788',
         confirmPending: true,
         assetId: 'asset-555',
@@ -146,7 +155,9 @@ describe('MessageSteamOfferAdapter idempotency', () => {
       });
       return { ok: false, error: 'Send interceptor timeout' };
     });
-    const adapter = new MessageSteamOfferAdapter(createMockSteamClient(sendTradeOffer));
+    const adapter = new MessageSteamOfferAdapter(
+      createMockSteamClient(sendTradeOffer),
+    );
 
     sessionStorage.set('rip:draft:draft-task-3', {
       buyerTradeUrl:
@@ -165,11 +176,13 @@ describe('MessageSteamOfferAdapter idempotency', () => {
 
   it('blocks concurrent send while inflight without a prior success', async () => {
     const deferred: {
-      resolve: ((value: {
-        ok: true;
-        offerId: string;
-        confirmPending: boolean;
-      }) => void) | null;
+      resolve:
+        | ((value: {
+            ok: true;
+            offerId: string;
+            confirmPending: boolean;
+          }) => void)
+        | null;
     } = { resolve: null };
     let releaseSendStarted!: () => void;
     const sendStarted = new Promise<void>((resolve) => {
@@ -186,7 +199,9 @@ describe('MessageSteamOfferAdapter idempotency', () => {
           releaseSendStarted();
         }),
     );
-    const adapter = new MessageSteamOfferAdapter(createMockSteamClient(sendTradeOffer));
+    const adapter = new MessageSteamOfferAdapter(
+      createMockSteamClient(sendTradeOffer),
+    );
 
     sessionStorage.set('rip:draft:draft-task-4', {
       buyerTradeUrl:
@@ -220,17 +235,22 @@ describe('MessageSteamOfferAdapter idempotency', () => {
   it('fires mid-flow hooks during Steam send progress', async () => {
     const onItemSelected = vi.fn();
     const onOfferSubmitted = vi.fn();
-    const sendTradeOffer = vi
-      .fn()
-      .mockImplementation(async (_draft, progress?: {
-        onItemSelected?: () => void | Promise<void>;
-        onOfferSubmitted?: () => void | Promise<void>;
-      }) => {
+    const sendTradeOffer = vi.fn().mockImplementation(
+      async (
+        _draft,
+        progress?: {
+          onItemSelected?: () => void | Promise<void>;
+          onOfferSubmitted?: () => void | Promise<void>;
+        },
+      ) => {
         await progress?.onItemSelected?.();
         await progress?.onOfferSubmitted?.();
         return { ok: true, offerId: '44556677', confirmPending: false };
-      });
-    const adapter = new MessageSteamOfferAdapter(createMockSteamClient(sendTradeOffer));
+      },
+    );
+    const adapter = new MessageSteamOfferAdapter(
+      createMockSteamClient(sendTradeOffer),
+    );
 
     sessionStorage.set('rip:draft:draft-task-5', {
       buyerTradeUrl:

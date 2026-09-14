@@ -35,12 +35,11 @@ export function DealsPage() {
         }
       />
 
-      <div className="seller-activity-tabs" role="tablist" aria-label={t('deals.tabsAria')}>
+      <nav className="seller-activity-tabs" aria-label={t('deals.tabsAria')}>
         <button
           type="button"
-          role="tab"
           className={`seller-activity-tab${tab === 'purchases' ? ' active' : ''}`}
-          aria-selected={tab === 'purchases'}
+          aria-current={tab === 'purchases' ? 'page' : undefined}
           data-testid="deals-tab-purchases"
           onClick={() => selectTab('purchases')}
         >
@@ -48,9 +47,8 @@ export function DealsPage() {
         </button>
         <button
           type="button"
-          role="tab"
           className={`seller-activity-tab${tab === 'sales' ? ' active' : ''}`}
-          aria-selected={tab === 'sales'}
+          aria-current={tab === 'sales' ? 'page' : undefined}
           data-testid="deals-tab-sales"
           onClick={() => selectTab('sales')}
         >
@@ -58,9 +56,8 @@ export function DealsPage() {
         </button>
         <button
           type="button"
-          role="tab"
           className={`seller-activity-tab${tab === 'requests' ? ' active' : ''}`}
-          aria-selected={tab === 'requests'}
+          aria-current={tab === 'requests' ? 'page' : undefined}
           data-testid="deals-tab-requests"
           onClick={() => selectTab('requests')}
         >
@@ -68,15 +65,14 @@ export function DealsPage() {
         </button>
         <button
           type="button"
-          role="tab"
           className={`seller-activity-tab${tab === 'listings' ? ' active' : ''}`}
-          aria-selected={tab === 'listings'}
+          aria-current={tab === 'listings' ? 'page' : undefined}
           data-testid="deals-tab-listings"
           onClick={() => selectTab('listings')}
         >
           {t('deals.listings')}
         </button>
-      </div>
+      </nav>
 
       {tab === 'purchases' ? (
         <MyOrdersPage embedded buyerOnly emptyStateMode="purchases" />

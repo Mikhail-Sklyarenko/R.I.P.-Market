@@ -54,7 +54,7 @@ export class LotStateService {
   ): Promise<void> {
     this.ensureTransition(params.from, params.to);
     await tx.lot.update({
-      where: { id: params.lotId },
+      where: { id: params.lotId, status: params.from },
       data: { status: params.to, ...(params.extra ?? {}) },
     });
     await tx.lotStatusEvent.create({

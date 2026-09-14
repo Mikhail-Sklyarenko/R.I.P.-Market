@@ -5,19 +5,29 @@ import { ExtensionTradeTaskService } from './extension-trade-task.service';
 describe('ExtensionTradeTaskService phase transitions', () => {
   const tx = {
     tradeTaskStatusEvent: { create: jest.fn() },
-    tradeTask: { update: jest.fn() },
-    order: { findUnique: jest.fn() },
+    tradeTask: {
+      update: jest.fn(),
+      updateMany: jest.fn().mockResolvedValue({ count: 1 }),
+    },
+    order: {
+      findUnique: jest.fn(),
+      updateMany: jest.fn().mockResolvedValue({ count: 1 }),
+    },
     outboxEvent: { create: jest.fn() },
   };
   const prisma = {
     tradeTask: {
+      updateMany: jest.fn().mockResolvedValue({ count: 1 }),
       findUnique: jest.fn(),
       update: jest.fn(),
     },
     tradeTaskStatusEvent: {
       findUnique: jest.fn(),
     },
-    order: { findUnique: jest.fn() },
+    order: {
+      findUnique: jest.fn(),
+      updateMany: jest.fn().mockResolvedValue({ count: 1 }),
+    },
     outboxEvent: { create: jest.fn() },
     $transaction: jest.fn(async (fn: (client: typeof tx) => Promise<unknown>) =>
       fn(tx),

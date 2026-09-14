@@ -6,6 +6,7 @@ export const STEAM_BRIDGE_MESSAGE = {
 } as const;
 
 export type TradeOfferDraftPayload = {
+  draftId?: string;
   buyerTradeUrl: string;
   item: {
     assetId: string;
@@ -29,7 +30,9 @@ export type TradeOfferSendFailure = {
   strError?: string;
 };
 
-export type TradeOfferSendResult = TradeOfferSendSuccess | TradeOfferSendFailure;
+export type TradeOfferSendResult =
+  | TradeOfferSendSuccess
+  | TradeOfferSendFailure;
 
 export type RunAutofillBridgeRequest = {
   source: typeof TRADE_OFFER_BRIDGE_SOURCE;

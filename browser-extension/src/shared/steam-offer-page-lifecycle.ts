@@ -22,7 +22,8 @@ const ACCEPTED_RE =
   /trade\s*accepted|обмен\s*принят|предложение\s*принято|trade\s*completed|обмен\s*заверш/i;
 const INVALID_RE =
   /no\s*longer\s*valid|больше\s*не\s*действ|is\s*no\s*longer\s*available|это\s*предложение\s*обмена\s*больше\s*не\s*действ/i;
-const ERROR_BANNER_RE = /oh\s*nooooooes|some\s*kind\s*of\s*error\s*has\s*occurred/i;
+const ERROR_BANNER_RE =
+  /oh\s*nooooooes|some\s*kind\s*of\s*error\s*has\s*occurred/i;
 
 /**
  * Detect lifecycle from a Steam tradeoffer document (or list detail host).
@@ -54,8 +55,8 @@ export function detectSteamOfferPageLifecycle(
       // Delivery still reconciles via poll / buyer ack.
       return {
         lifecycle: 'invalid',
-        offerStatusHint: 'accepted',
-        reasonRu: 'Предложение в Steam уже закрыто (принято или отменено)',
+        offerStatusHint: null,
+        reasonRu: 'Не удалось определить состояние предложения в Steam',
       };
     }
   }
@@ -82,7 +83,9 @@ function collectSteamStatusText(root: ParentNode): string {
     }
   }
   if (chunks.length === 0 && 'body' in doc && doc.body) {
-    chunks.push((doc.body.textContent ?? '').replace(/\s+/g, ' ').trim().slice(0, 2000));
+    chunks.push(
+      (doc.body.textContent ?? '').replace(/\s+/g, ' ').trim().slice(0, 2000),
+    );
   }
   return chunks.join('\n');
 }
@@ -91,5 +94,5 @@ function collectSteamStatusText(root: ParentNode): string {
 export function isPostAcceptSteamLifecycle(
   lifecycle: SteamOfferPageLifecycle,
 ): boolean {
-  return lifecycle === 'accepted' || lifecycle === 'invalid';
+  return lifecycle === 'accepted';
 }

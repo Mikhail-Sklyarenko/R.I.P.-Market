@@ -1,23 +1,28 @@
-import { prisma } from '../db/client.js';
+import { prisma, pool } from '../db/client.js';
 import { nextPaymentStatus } from '../shared/payment-state.js';
 import type { GatewayConfig } from '../shared/config.js';
-import { emitDepositCredited } from '../webhook/emitter.js';
+import { enqueueWebhook } from '../webhook/emitter.js';
 import type { TronGridClient } from './trongrid.js';
 
 const SCANNER_LOCK_KEY = 915_001;
 
 async function withScannerLock<T>(fn: () => Promise<T>): Promise<T | null> {
-  const rows = await prisma.$queryRaw<{ locked: boolean }[]>`
-    SELECT pg_try_advisory_lock(${SCANNER_LOCK_KEY}) AS locked
-  `;
-  if (!rows[0]?.locked) {
-    return null;
-  }
-
+  const connection = await pool.connect();
   try {
-    return await fn();
+    const result = await connection.query(
+      'SELECT pg_try_advisory_lock($1) AS locked',
+      [SCANNER_LOCK_KEY],
+    );
+    if (!result.rows[0]?.locked) return null;
+    try {
+      return await fn();
+    } finally {
+      await connection.query('SELECT pg_advisory_unlock($1)', [
+        SCANNER_LOCK_KEY,
+      ]);
+    }
   } finally {
-    await prisma.$queryRaw`SELECT pg_advisory_unlock(${SCANNER_LOCK_KEY})`;
+    connection.release();
   }
 }
 
@@ -51,30 +56,31 @@ async function creditPayment(
   }
 
   const creditedAt = new Date();
-  const eventId = await emitDepositCredited({
-    externalUserId: payment.user.externalUserId,
-    txHash: payment.txHash,
-    amountSun: payment.amountSun,
-    address: payment.address,
-    creditedAt,
-    webhookUrl: config.webhookUrl,
-    webhookSecret: config.webhookSecret,
-  });
-
+  const eventId = `dep:${payment.txHash}`;
   await prisma.$transaction(async (tx) => {
-    await tx.payment.update({
-      where: { id: payment.id },
-      data: {
-        status: 'credited',
-        creditedAt,
-        webhookEventId: eventId,
-      },
+    const claim = await tx.payment.updateMany({
+      where: { id: payment.id, status: 'held' },
+      data: { status: 'credited', creditedAt, webhookEventId: eventId },
     });
-
+    if (claim.count !== 1) return;
     await tx.gatewayUser.update({
       where: { id: payment.userId },
       data: { balanceSun: { increment: payment.amountSun } },
     });
+    await enqueueWebhook(
+      {
+        eventId,
+        type: 'deposit.credited',
+        externalUserId: payment.user.externalUserId,
+        txHash: payment.txHash,
+        amountSun: payment.amountSun.toString(),
+        address: payment.address,
+        creditedAt: creditedAt.toISOString(),
+      },
+      config.webhookUrl,
+      config.webhookSecret,
+      tx,
+    );
   });
 }
 
@@ -166,6 +172,14 @@ export async function advancePaymentConfirmations(params: {
       continue;
     }
 
+    if (
+      next === 'credited' &&
+      confirmations >= params.config.minConfirmations
+    ) {
+      await creditPayment(payment.id, params.config);
+      advanced += 1;
+      continue;
+    }
     if (next === 'held') {
       await prisma.payment.update({
         where: { id: payment.id },

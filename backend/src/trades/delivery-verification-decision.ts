@@ -41,19 +41,21 @@ export function decideDeliveryVerification(
     return decision('BACKOFF', 'RATE_LIMITED', 'rate_limited', null, null);
   }
 
-  if (signals.timedOut) {
-    return decision('TIMEOUT', 'TRADE_TIMEOUT', 'TRADE_TIMEOUT', null, null);
+  const result = !signals.engineEnabled
+    ? decideLegacy(signals)
+    : signals.hasOfferId && signals.offerStatus !== null
+      ? decideDualSignal(signals)
+      : decideInventoryOnly(signals);
+  if (signals.timedOut && result.action === 'WAIT') {
+    return decision(
+      'TIMEOUT',
+      'TRADE_TIMEOUT',
+      'TRADE_TIMEOUT',
+      signals.offerStatus,
+      signals.inventoryDelta,
+    );
   }
-
-  if (!signals.engineEnabled) {
-    return decideLegacy(signals);
-  }
-
-  if (signals.hasOfferId && signals.offerStatus !== null) {
-    return decideDualSignal(signals);
-  }
-
-  return decideInventoryOnly(signals);
+  return result;
 }
 
 function decideLegacy(
@@ -238,7 +240,9 @@ function decideDualSignal(
       return decision(
         'WAIT',
         'OFFER_UNKNOWN',
-        inventory === 'pending' ? 'OFFER_UNKNOWN_RETRY' : 'INVENTORY_UNKNOWN_RETRY',
+        inventory === 'pending'
+          ? 'OFFER_UNKNOWN_RETRY'
+          : 'INVENTORY_UNKNOWN_RETRY',
         offer,
         inventory,
       );

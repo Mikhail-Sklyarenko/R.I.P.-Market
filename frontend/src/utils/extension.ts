@@ -96,10 +96,7 @@ export async function getExtensionRuntimeStatus(): Promise<ExtensionRuntimeStatu
 export async function pairExtension(
   userJwt: string,
   locale: Locale = 'ru',
-): Promise<
-  | { ok: true; sessionId?: string }
-  | { ok: false; error: string }
-> {
+): Promise<{ ok: true; sessionId?: string } | { ok: false; error: string }> {
   if (!isExtensionRuntimeAvailable()) {
     return {
       ok: false,
@@ -138,7 +135,10 @@ export async function pairExtension(
       error: mapped,
     };
   } catch (error) {
-    const raw = error instanceof Error ? error.message : t('extension.connectionError', locale);
+    const raw =
+      error instanceof Error
+        ? error.message
+        : t('extension.connectionError', locale);
     const friendly =
       raw.includes('Receiving end does not exist') ||
       raw.includes('Could not establish connection')
@@ -176,14 +176,18 @@ export async function syncExtensionLocale(locale: Locale): Promise<void> {
   }
 }
 
-export async function requestExtensionPoll(): Promise<void> {
-  if (!isExtensionRuntimeAvailable()) {
-    return;
-  }
+export async function requestExtensionPoll(): Promise<boolean> {
+  if (!isExtensionRuntimeAvailable()) return false;
   try {
-    await sendExtensionMessage({ type: 'RIP_MARKET_POLL_NOW' });
+    const result = await sendExtensionMessage({ type: 'RIP_MARKET_POLL_NOW' });
+    return Boolean(
+      result &&
+      typeof result === 'object' &&
+      'ok' in result &&
+      result.ok === true
+    );
   } catch {
-    // Extension may be busy or disconnected.
+    return false;
   }
 }
 
@@ -191,15 +195,24 @@ export function formatExtensionUiTradeFlowLabel(
   enabled: boolean,
   locale: Locale = 'ru',
 ): string {
-  return t(enabled ? 'extensionUiFlow.uiTrade' : 'extensionUiFlow.apiFallback', locale);
+  return t(
+    enabled ? 'extensionUiFlow.uiTrade' : 'extensionUiFlow.apiFallback',
+    locale,
+  );
 }
 
-export function formatExtensionTaskPhaseLabel(phase: string, locale: Locale = 'ru'): string {
+export function formatExtensionTaskPhaseLabel(
+  phase: string,
+  locale: Locale = 'ru',
+): string {
   const label = t(`extensionTaskPhase.${phase}`, locale);
   return label === `extensionTaskPhase.${phase}` ? phase : label;
 }
 
-export function formatOfferErrorHint(code: string, locale: Locale = 'ru'): string {
+export function formatOfferErrorHint(
+  code: string,
+  locale: Locale = 'ru',
+): string {
   const label = t(`offerErrorHint.${code}`, locale);
   return label === `offerErrorHint.${code}` ? code : label;
 }

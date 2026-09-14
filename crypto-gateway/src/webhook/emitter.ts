@@ -1,3 +1,4 @@
+import type { Prisma } from '@prisma/client';
 import { prisma } from '../db/client.js';
 import {
   createEventId,
@@ -7,11 +8,14 @@ import {
 
 export async function enqueueWebhook(
   event: GatewayWebhookEvent,
-  webhookUrl: string,
-  webhookSecret: string,
+  _webhookUrl: string,
+  _webhookSecret: string,
+  client: Prisma.TransactionClient = prisma,
 ): Promise<void> {
-  await prisma.webhookDelivery.create({
-    data: {
+  await client.webhookDelivery.upsert({
+    where: { eventId: event.eventId },
+    update: {},
+    create: {
       eventId: event.eventId,
       eventType: event.type,
       payload: event,
@@ -19,27 +23,55 @@ export async function enqueueWebhook(
       nextRetryAt: new Date(),
     },
   });
+}
 
-  const result = await deliverWebhook({
-    webhookUrl,
-    webhookSecret,
-    event,
+export async function flushWebhookQueue(
+  webhookUrl: string,
+  webhookSecret: string,
+): Promise<void> {
+  const now = new Date();
+  const rows = await prisma.webhookDelivery.findMany({
+    where: {
+      status: { not: 'delivered' },
+      OR: [{ nextRetryAt: null }, { nextRetryAt: { lte: now } }],
+    },
+    take: 50,
+    orderBy: { createdAt: 'asc' },
   });
-
-  await prisma.webhookDelivery.update({
-    where: { eventId: event.eventId },
-    data: result.ok
-      ? {
-          status: 'delivered',
-          deliveredAt: new Date(),
-          attempts: { increment: 1 },
-        }
-      : {
-          status: 'failed',
-          lastError: result.error ?? 'delivery failed',
-          attempts: { increment: 1 },
-        },
-  });
+  for (const row of rows) {
+    const lease = await prisma.webhookDelivery.updateMany({
+      where: {
+        id: row.id,
+        status: { not: 'delivered' },
+        OR: [{ nextRetryAt: null }, { nextRetryAt: { lte: now } }],
+      },
+      data: { nextRetryAt: new Date(Date.now() + 120_000) },
+    });
+    if (lease.count !== 1) continue;
+    const result = await deliverWebhook({
+      webhookUrl,
+      webhookSecret,
+      event: row.payload as unknown as GatewayWebhookEvent,
+    });
+    await prisma.webhookDelivery.update({
+      where: { id: row.id },
+      data: result.ok
+        ? {
+            status: 'delivered',
+            deliveredAt: new Date(),
+            attempts: { increment: 1 },
+          }
+        : {
+            status: 'pending',
+            attempts: { increment: 1 },
+            lastError: result.error,
+            nextRetryAt: new Date(
+              Date.now() +
+                Math.min(3_600_000, 1000 * 2 ** Math.min(row.attempts, 12)),
+            ),
+          },
+    });
+  }
 }
 
 export async function emitDepositCredited(params: {

@@ -7,7 +7,8 @@ import {
 
 function weaponCatalogOptions() {
   return CATALOG_CATEGORY_OPTIONS.filter(
-    (option) => option.value && option.tabId !== 'other',
+    (option) =>
+      option.value && option.tabId !== 'other' && option.tabId !== 'cases',
   );
 }
 

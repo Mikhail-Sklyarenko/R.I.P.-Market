@@ -332,11 +332,14 @@ function ensureStyles(): void {
       display: block;
       margin: 10px 0 14px;
       padding: 0;
-      font-family: "Segoe UI", system-ui, -apple-system, sans-serif;
+      font-family: Inter, system-ui, -apple-system, sans-serif;
       z-index: 20;
       position: relative;
       --rip-bg: rgba(24, 28, 38, 0.96);
       --rip-bg-deep: #0b0d12;
+      --rip-elevated-solid: #181c26;
+      --rip-radius: 12px;
+      --rip-radius-sm: 8px;
       --rip-border: rgba(255, 255, 255, 0.1);
       --rip-text: #f4f4f5;
       --rip-muted: #94a3b8;
@@ -355,7 +358,7 @@ function ensureStyles(): void {
       flex-direction: column;
       gap: 12px;
       padding: 14px 16px;
-      border-radius: 14px;
+      border-radius: var(--rip-radius);
       background:
         linear-gradient(145deg, rgba(2, 132, 199, 0.08), transparent 42%),
         var(--rip-bg);
@@ -588,7 +591,7 @@ function ensureStyles(): void {
       justify-content: space-between;
       pointer-events: none;
       z-index: 1000 !important;
-      font-family: Inter, "Segoe UI", system-ui, sans-serif;
+      font-family: Inter, system-ui, -apple-system, sans-serif;
       border-radius: 2px;
       overflow: hidden;
     }
@@ -807,21 +810,23 @@ function ensureStyles(): void {
     #${HOST_ID} .rip-inv-coach {
       margin-bottom: 8px;
       padding: 12px 14px;
-      border-radius: 10px;
-      background: linear-gradient(135deg, #1a2438 0%, #12161e 100%);
-      border: 1px solid #3d5f8f;
-      color: #e8e8e8;
+      border-radius: var(--rip-radius);
+      background:
+        linear-gradient(145deg, rgba(2, 132, 199, 0.08), transparent 42%),
+        var(--rip-bg);
+      border: 1px solid var(--rip-border);
+      color: var(--rip-text);
       box-shadow: 0 6px 18px rgba(0, 0, 0, 0.28);
     }
     #${HOST_ID} .rip-inv-coach-title {
       margin: 0 0 4px;
       font-size: 14px;
       font-weight: 700;
-      color: #8eb7ff;
+      color: var(--rip-link);
     }
     #${HOST_ID} .rip-inv-coach-body {
       margin: 0 0 10px;
-      color: #a8adb8;
+      color: var(--rip-muted);
       font-size: 12px;
       line-height: 1.4;
     }
@@ -836,58 +841,58 @@ function ensureStyles(): void {
       align-items: center;
       justify-content: center;
       padding: 7px 12px;
-      border-radius: 8px;
+      border-radius: var(--rip-radius-sm);
       border: none;
-      background: #5b8def;
+      background: linear-gradient(135deg, var(--rip-primary-from), var(--rip-primary-to));
       color: #fff;
       font-weight: 600;
       font-size: 12px;
       cursor: pointer;
     }
     #${HOST_ID} .rip-inv-coach-hint {
-      color: #7d8494;
+      color: var(--rip-muted);
       font-size: 11px;
     }
 
     #${HOST_ID} .rip-inv-trial {
       margin: 0 0 10px;
       padding: 10px 12px;
-      border-radius: 10px;
-      border: 1px solid rgba(91, 141, 239, 0.45);
-      background: rgba(91, 141, 239, 0.12);
+      border-radius: var(--rip-radius-sm);
+      border: 1px solid rgba(125, 211, 252, 0.28);
+      background: rgba(56, 189, 248, 0.1);
     }
     #${HOST_ID} .rip-inv-trial-title {
       margin: 0 0 4px;
       font-size: 12px;
       font-weight: 700;
-      color: #b7d0ff;
+      color: var(--rip-link);
     }
     #${HOST_ID} .rip-inv-trial-body {
       margin: 0 0 8px;
       font-size: 11px;
-      color: #c7ccd6;
+      color: var(--rip-soft);
       line-height: 1.35;
     }
     #${HOST_ID} .rip-inv-trial-dismiss {
-      border: none;
-      border-radius: 8px;
+      border: 1px solid var(--rip-border);
+      border-radius: var(--rip-radius-sm);
       padding: 6px 10px;
       font-size: 11px;
       cursor: pointer;
-      background: #2a2f3a;
-      color: #e8e8e8;
+      background: rgba(15, 23, 42, 0.65);
+      color: var(--rip-text);
     }
 
     #${HOST_ID} .rip-inv-checklist {
       margin-top: 8px;
       padding: 10px 12px;
-      border-radius: 10px;
-      background: #161b24;
-      border: 1px solid #2f3542;
+      border-radius: var(--rip-radius-sm);
+      background: var(--rip-elevated-solid);
+      border: 1px solid var(--rip-border);
     }
     #${HOST_ID} .rip-inv-checklist[data-ready="1"] {
-      border-color: #2f6f46;
-      background: #121a16;
+      border-color: rgba(134, 239, 172, 0.35);
+      background: var(--rip-success-bg);
     }
     #${HOST_ID} .rip-inv-checklist-head {
       display: flex;
@@ -900,12 +905,12 @@ function ensureStyles(): void {
       margin: 0;
       font-size: 12px;
       font-weight: 700;
-      color: #c9dcff;
+      color: var(--rip-text);
     }
     #${HOST_ID} .rip-inv-checklist-summary {
       margin: 0;
       font-size: 11px;
-      color: #7d8494;
+      color: var(--rip-muted);
     }
     #${HOST_ID} .rip-inv-checklist-list {
       list-style: none;
@@ -934,12 +939,13 @@ function ensureStyles(): void {
       margin-top: 1px;
     }
     #${HOST_ID} .rip-inv-checklist-item[data-ready="1"] .rip-inv-checklist-mark {
-      background: #2f6f46;
-      color: #b8f0c6;
+      background: var(--rip-success-bg);
+      color: var(--rip-success);
+      border: 1px solid rgba(134, 239, 172, 0.35);
     }
     #${HOST_ID} .rip-inv-checklist-item[data-ready="0"] .rip-inv-checklist-mark {
-      background: #3a4250;
-      color: #a8adb8;
+      background: rgba(30, 41, 59, 0.85);
+      color: var(--rip-muted);
     }
     #${HOST_ID} .rip-inv-checklist-copy {
       flex: 1 1 180px;
@@ -949,21 +955,22 @@ function ensureStyles(): void {
       display: block;
       font-size: 12px;
       font-weight: 600;
-      color: #e8e8e8;
+      color: var(--rip-text);
     }
     #${HOST_ID} .rip-inv-checklist-hint {
       margin: 2px 0 0;
       font-size: 11px;
-      color: #7d8494;
+      color: var(--rip-muted);
       line-height: 1.35;
     }
     #${HOST_ID} .rip-inv-checklist-action {
       display: inline-flex;
       align-items: center;
       padding: 6px 10px;
-      border-radius: 7px;
-      background: #2a303c;
-      color: #8eb7ff !important;
+      border-radius: var(--rip-radius-sm);
+      background: rgba(15, 23, 42, 0.65);
+      border: 1px solid var(--rip-border);
+      color: var(--rip-link) !important;
       text-decoration: none !important;
       font-size: 11px;
       font-weight: 600;
@@ -981,11 +988,11 @@ function ensureStyles(): void {
       gap: 8px 10px;
       align-items: center;
       padding: 12px 14px;
-      border-radius: 14px;
+      border-radius: var(--rip-radius);
       background: rgba(24, 28, 38, 0.96);
       border: 1px solid rgba(255, 255, 255, 0.1);
       color: #f4f4f5;
-      font-family: "Segoe UI", system-ui, -apple-system, sans-serif;
+      font-family: Inter, system-ui, -apple-system, sans-serif;
       font-size: 13px;
       box-shadow: 0 14px 36px rgba(0, 0, 0, 0.5);
       max-width: min(680px, calc(100vw - 24px));
@@ -993,10 +1000,10 @@ function ensureStyles(): void {
     }
     #${BULK_BAR_ID} .rip-bulk-count {
       font-weight: 750;
-      color: #7dd3fc;
+      color: var(--rip-link);
     }
     #${BULK_BAR_ID} .rip-bulk-meta {
-      color: #94a3b8;
+      color: var(--rip-muted);
       font-size: 12px;
       max-width: 280px;
       overflow: hidden;
@@ -1036,8 +1043,12 @@ function ensureStyles(): void {
       align-items: center;
       justify-content: center;
       background: rgba(11, 13, 18, 0.72);
-      font-family: "Segoe UI", system-ui, -apple-system, sans-serif;
+      font-family: Inter, system-ui, -apple-system, sans-serif;
       backdrop-filter: blur(2px);
+      --rip-border: rgba(255, 255, 255, 0.08);
+      --rip-link: #7dd3fc;
+      --rip-muted: #94a3b8;
+      --rip-radius-sm: 8px;
     }
     #${SELL_PANEL_ID} .rip-sell-card {
       width: min(440px, calc(100vw - 24px));
@@ -1125,9 +1136,9 @@ function ensureStyles(): void {
     #${SELL_PANEL_ID} .rip-sell-rails {
       margin: 0 0 12px;
       padding: 10px 10px 8px;
-      border-radius: 8px;
-      background: #0d1016;
-      border: 1px solid #2a303c;
+      border-radius: var(--rip-radius-sm);
+      background: rgba(15, 23, 42, 0.72);
+      border: 1px solid var(--rip-border);
     }
     #${SELL_PANEL_ID} .rip-sell-rail {
       display: flex;
@@ -1136,7 +1147,7 @@ function ensureStyles(): void {
       align-items: center;
       margin: 0 0 6px;
       font-size: 12px;
-      color: #a8adb8;
+      color: var(--rip-muted);
       line-height: 1.35;
     }
     #${SELL_PANEL_ID} .rip-sell-rail:last-child {
@@ -1144,10 +1155,10 @@ function ensureStyles(): void {
     }
     #${SELL_PANEL_ID} .rip-sell-rail-apply {
       padding: 3px 8px;
-      border-radius: 6px;
-      border: 1px solid #3a5278;
-      background: #1a2436;
-      color: #8eb7ff;
+      border-radius: var(--rip-radius-sm);
+      border: 1px solid var(--rip-border);
+      background: rgba(15, 23, 42, 0.65);
+      color: var(--rip-link);
       font-size: 11px;
       font-weight: 600;
       cursor: pointer;
@@ -1237,16 +1248,17 @@ function ensureStyles(): void {
       z-index: 100000;
       max-width: min(360px, calc(100vw - 24px));
       padding: 12px 14px;
-      border-radius: 10px;
-      background: #12161e;
-      border: 1px solid #2f6f46;
-      color: #e8e8e8;
-      font-family: "Segoe UI", system-ui, sans-serif;
+      border-radius: 8px;
+      background: #181c26;
+      border: 1px solid rgba(134, 239, 172, 0.35);
+      color: #f4f4f5;
+      font-family: Inter, system-ui, -apple-system, sans-serif;
       font-size: 13px;
       box-shadow: 0 10px 28px rgba(0, 0, 0, 0.4);
+      --rip-link: #7dd3fc;
     }
     #${TOAST_ID} a {
-      color: #8eb7ff;
+      color: var(--rip-link);
       font-weight: 600;
     }
 
@@ -1256,6 +1268,11 @@ function ensureStyles(): void {
       align-items: center;
       margin: 8px 8px 8px 0;
       vertical-align: middle;
+      --rip-primary-from: #0284c7;
+      --rip-primary-to: #2563eb;
+      --rip-border: rgba(255, 255, 255, 0.08);
+      --rip-muted: #94a3b8;
+      --rip-radius: 12px;
     }
     #${SELECTED_SELL_RAIL_ID} .rip-selected-sell {
       display: inline-flex;
@@ -1263,25 +1280,25 @@ function ensureStyles(): void {
       justify-content: center;
       min-width: 148px;
       padding: 8px 14px;
-      border-radius: 4px;
-      border: 1px solid #3d7cff;
-      background: linear-gradient(180deg, #5b8def 0%, #3d6fd4 100%);
+      border-radius: var(--rip-radius);
+      border: none;
+      background: linear-gradient(135deg, var(--rip-primary-from), var(--rip-primary-to));
       color: #fff !important;
       font-size: 13px;
-      font-weight: 800;
+      font-weight: 700;
       line-height: 1.2;
       text-decoration: none !important;
       cursor: pointer;
       box-shadow: 0 2px 6px rgba(0,0,0,0.35);
-      font-family: "Segoe UI", system-ui, sans-serif;
+      font-family: Inter, system-ui, -apple-system, sans-serif;
     }
     #${SELECTED_SELL_RAIL_ID} .rip-selected-sell:hover {
-      filter: brightness(1.08);
+      filter: brightness(1.07);
     }
     #${SELECTED_SELL_RAIL_ID} .rip-selected-sell--muted {
-      background: #3a3f4a;
-      border-color: #555b68;
-      color: #d0d4dc !important;
+      background: rgba(15, 23, 42, 0.85);
+      border: 1px solid var(--rip-border);
+      color: var(--rip-muted) !important;
     }
   `;
   document.documentElement.appendChild(style);

@@ -19,10 +19,15 @@ describe('PaymentsService', () => {
     guard?: Partial<WithdrawalGuardService>;
     provider?: Partial<PaymentProvider>;
   }) {
+    let persistedEvent: Record<string, unknown> = {};
     const prisma = {
       paymentEvent: {
+        updateMany: jest.fn(async () => ({ count: 1 })),
+        findUniqueOrThrow: jest.fn(async () => persistedEvent),
         findUnique: jest.fn(async () => null),
-        create: jest.fn(async (args) => ({ id: 'evt-1', ...args.data })),
+        create: jest.fn(
+          async (args) => (persistedEvent = { id: 'evt-1', ...args.data }),
+        ),
         update: jest.fn(async () => ({})),
       },
       userCryptoDeposit: {
@@ -35,6 +40,7 @@ describe('PaymentsService', () => {
         updateMany: jest.fn(async () => ({ count: 1 })),
       },
       withdrawalRequest: {
+        updateMany: jest.fn(async () => ({ count: 1 })),
         findUnique: jest.fn(async () => null),
         create: jest.fn(async (args) => ({ id: 'wdr-1', ...args.data })),
         findFirst: jest.fn(async () => null),
@@ -44,6 +50,7 @@ describe('PaymentsService', () => {
         })),
       },
       outboxEvent: { create: jest.fn(async () => ({})) },
+      $queryRaw: jest.fn(async () => []),
       $transaction: jest.fn(async (fn) => fn(prisma)),
       ...overrides?.prisma,
     };
@@ -131,6 +138,8 @@ describe('PaymentsService', () => {
     const { service, prisma, ledger } = createService({
       prisma: {
         paymentEvent: {
+          updateMany: jest.fn(async () => ({ count: 1 })),
+          findUniqueOrThrow: jest.fn(),
           findUnique: jest.fn(async () => ({
             id: 'evt-1',
             providerEventId: 'dep-evt-1',
@@ -161,6 +170,7 @@ describe('PaymentsService', () => {
     const { service, ledger, prisma } = createService({
       prisma: {
         withdrawalRequest: {
+          updateMany: jest.fn(async () => ({ count: 1 })),
           findUnique: jest.fn(async () => ({
             id: 'wdr-1',
             userId: 'user-1',
@@ -247,5 +257,76 @@ describe('PaymentsService', () => {
         }),
       }),
     );
+  });
+  function withdrawalFixture() {
+    return {
+      id: 'wdr-1',
+      userId: 'user-1',
+      amountMinor: 3000n,
+      feeMinor: 200n,
+      netMinor: 2800n,
+      status: WithdrawalRequestStatus.APPROVED as WithdrawalRequestStatus,
+      toAddress: 'T9yD14Nj9j7xAB4dbGeiX9h8unkKHxuWwb',
+      paymentMethod: 'trc20',
+      idempotencyKey: 'key',
+    };
+  }
+  it('retains a debited withdrawal after losing the provider response', async () => {
+    const row = withdrawalFixture();
+    const { service, ledger } = createService({
+      prisma: {
+        withdrawalRequest: {
+          findUnique: jest.fn(async () => row),
+          updateMany: jest.fn(async ({ data }) => {
+            Object.assign(row, data);
+            return { count: 1 };
+          }),
+        } as never,
+      },
+      provider: {
+        createGatewayWithdrawal: jest.fn(async () => {
+          throw new Error('lost response');
+        }),
+      },
+    });
+    await expect(
+      service.approveWithdrawal(row.id, row.userId, true),
+    ).rejects.toThrow('pending verification');
+    expect(row.status).toBe(WithdrawalRequestStatus.PROCESSING);
+    expect(ledger.withdraw).toHaveBeenCalledTimes(1);
+    expect(ledger.refundWithdrawal).not.toHaveBeenCalled();
+  });
+  it('does not debit or send when another worker already claimed approval', async () => {
+    const row = withdrawalFixture();
+    const { service, ledger, provider } = createService({
+      prisma: {
+        withdrawalRequest: {
+          findUnique: jest.fn(async () => row),
+          updateMany: jest.fn(async () => ({ count: 0 })),
+        } as never,
+      },
+    });
+    await service.approveWithdrawal(row.id, row.userId, true);
+    expect(ledger.withdraw).not.toHaveBeenCalled();
+    expect(provider.createGatewayWithdrawal).not.toHaveBeenCalled();
+  });
+  it('rejects an idempotency key owned by another user', async () => {
+    const row = withdrawalFixture();
+    const { service, ledger } = createService({
+      prisma: {
+        withdrawalRequest: {
+          findUnique: jest.fn(async () => row),
+        } as never,
+      },
+    });
+    await expect(
+      service.createWithdrawal({
+        userId: 'intruder',
+        amountMinor: 3000,
+        toAddress: row.toAddress,
+        idempotencyKey: row.idempotencyKey,
+      }),
+    ).rejects.toThrow('conflicts');
+    expect(ledger.withdraw).not.toHaveBeenCalled();
   });
 });

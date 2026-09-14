@@ -430,6 +430,7 @@ export type OrderStatusEvent = {
 };
 
 export type TradeTaskSummary = {
+  sendStartedAt?: string | null;
   id: string;
   type: string;
   status: string;

@@ -42,8 +42,14 @@ export function InventoryPriceStack({
   if (loading && !steamPriceMinor && !marketplacePriceMinor) {
     if (compact) {
       return (
-        <div className="inventory-price-stack" data-testid={`${testIdPrefix}-prices`}>
-          <p className="inventory-price-primary muted" data-testid={`${testIdPrefix}-primary-price`}>
+        <div
+          className="inventory-price-stack"
+          data-testid={`${testIdPrefix}-prices`}
+        >
+          <p
+            className="inventory-price-primary muted"
+            data-testid={`${testIdPrefix}-primary-price`}
+          >
             —
           </p>
         </div>
@@ -57,9 +63,16 @@ export function InventoryPriceStack({
 
   if (compact && hasSteam && !hasMarket) {
     return (
-      <div className="inventory-price-stack" data-testid={`${testIdPrefix}-prices`}>
-        <p className="inventory-price-primary" data-testid={`${testIdPrefix}-primary-price`}>
+      <div
+        className="inventory-price-stack"
+        data-testid={`${testIdPrefix}-prices`}
+      >
+        <p
+          className="inventory-price-primary"
+          data-testid={`${testIdPrefix}-primary-price`}
+        >
           <MoneyDisplay minor={steamPriceMinor!} strong />
+          <span className="guide-price-caption">{t('ux.steamGuideOnly')}</span>
         </p>
       </div>
     );
@@ -67,8 +80,14 @@ export function InventoryPriceStack({
 
   if (compact && hasMarket) {
     return (
-      <div className="inventory-price-stack" data-testid={`${testIdPrefix}-prices`}>
-        <p className="inventory-price-primary" data-testid={`${testIdPrefix}-primary-price`}>
+      <div
+        className="inventory-price-stack"
+        data-testid={`${testIdPrefix}-prices`}
+      >
+        <p
+          className="inventory-price-primary"
+          data-testid={`${testIdPrefix}-primary-price`}
+        >
           <MoneyDisplay minor={marketplacePriceMinor!} strong />
         </p>
         {hasSteam ? (
@@ -79,7 +98,11 @@ export function InventoryPriceStack({
             </span>
           </p>
         ) : (
-          <span className="sr-only" data-testid={`${testIdPrefix}-market-price`}>
+          <span
+            hidden
+            aria-hidden="true"
+            data-testid={`${testIdPrefix}-market-price`}
+          >
             {marketplacePriceMinor}
           </span>
         )}
@@ -89,8 +112,14 @@ export function InventoryPriceStack({
 
   if (compact && !hasSteam && !hasMarket) {
     return (
-      <div className="inventory-price-stack" data-testid={`${testIdPrefix}-prices`}>
-        <p className="inventory-price-primary muted" data-testid={`${testIdPrefix}-primary-price`}>
+      <div
+        className="inventory-price-stack"
+        data-testid={`${testIdPrefix}-prices`}
+      >
+        <p
+          className="inventory-price-primary muted"
+          data-testid={`${testIdPrefix}-primary-price`}
+        >
           —
         </p>
       </div>
@@ -101,8 +130,14 @@ export function InventoryPriceStack({
   if (context === 'seller') {
     if (hasSteam) {
       return (
-        <div className="inventory-price-stack" data-testid={`${testIdPrefix}-prices`}>
-          <p className="inventory-price-primary" data-testid={`${testIdPrefix}-primary-price`}>
+        <div
+          className="inventory-price-stack"
+          data-testid={`${testIdPrefix}-prices`}
+        >
+          <p
+            className="inventory-price-primary"
+            data-testid={`${testIdPrefix}-primary-price`}
+          >
             <MoneyDisplay minor={steamPriceMinor!} strong />
           </p>
           <p className="inventory-price-secondary muted small">
@@ -116,7 +151,8 @@ export function InventoryPriceStack({
             <span data-testid={`${testIdPrefix}-market-price`}>
               {hasMarket ? (
                 <>
-                  {t('inventoryPriceStack.from')} <MoneyDisplay minor={marketplacePriceMinor!} />
+                  {t('inventoryPriceStack.from')}{' '}
+                  <MoneyDisplay minor={marketplacePriceMinor!} />
                 </>
               ) : (
                 t('inventoryPriceStack.noLots')
@@ -129,8 +165,14 @@ export function InventoryPriceStack({
 
     if (requireSteamPrice) {
       return (
-        <div className="inventory-price-stack" data-testid={`${testIdPrefix}-prices`}>
-          <p className="inventory-price-primary" data-testid={`${testIdPrefix}-primary-price`}>
+        <div
+          className="inventory-price-stack"
+          data-testid={`${testIdPrefix}-prices`}
+        >
+          <p
+            className="inventory-price-primary"
+            data-testid={`${testIdPrefix}-primary-price`}
+          >
             —
           </p>
           <p
@@ -142,7 +184,8 @@ export function InventoryPriceStack({
             <span data-testid={`${testIdPrefix}-market-price`}>
               {hasMarket ? (
                 <>
-                  {t('inventoryPriceStack.from')} <MoneyDisplay minor={marketplacePriceMinor!} />
+                  {t('inventoryPriceStack.from')}{' '}
+                  <MoneyDisplay minor={marketplacePriceMinor!} />
                 </>
               ) : (
                 '—'
@@ -154,17 +197,27 @@ export function InventoryPriceStack({
     }
 
     return (
-      <div className="inventory-price-stack" data-testid={`${testIdPrefix}-prices`}>
-        <p className="inventory-price-primary muted" data-testid={`${testIdPrefix}-primary-price`}>
+      <div
+        className="inventory-price-stack"
+        data-testid={`${testIdPrefix}-prices`}
+      >
+        <p
+          className="inventory-price-primary muted"
+          data-testid={`${testIdPrefix}-primary-price`}
+        >
           —
         </p>
-        <p className="inventory-price-secondary muted small" data-testid={`${testIdPrefix}-steam-price`}>
+        <p
+          className="inventory-price-secondary muted small"
+          data-testid={`${testIdPrefix}-steam-price`}
+        >
           {t('inventoryPriceStack.steam')} {t('inventoryPriceStack.na')} ·{' '}
           {t('inventoryPriceStack.onRip')}{' '}
           <span data-testid={`${testIdPrefix}-market-price`}>
             {hasMarket ? (
               <>
-                {t('inventoryPriceStack.from')} <MoneyDisplay minor={marketplacePriceMinor!} />
+                {t('inventoryPriceStack.from')}{' '}
+                <MoneyDisplay minor={marketplacePriceMinor!} />
               </>
             ) : (
               '—'
@@ -177,17 +230,31 @@ export function InventoryPriceStack({
 
   if (hasMarket) {
     return (
-      <div className="inventory-price-stack" data-testid={`${testIdPrefix}-prices`}>
-        <p className="inventory-price-primary" data-testid={`${testIdPrefix}-primary-price`}>
+      <div
+        className="inventory-price-stack"
+        data-testid={`${testIdPrefix}-prices`}
+      >
+        <p
+          className="inventory-price-primary"
+          data-testid={`${testIdPrefix}-primary-price`}
+        >
           <MoneyDisplay minor={marketplacePriceMinor!} strong />
         </p>
         <p className="inventory-price-secondary muted small">
           {t('inventoryPriceStack.steam')}{' '}
           <span data-testid={`${testIdPrefix}-steam-price`}>
-            {hasSteam ? <MoneyDisplay minor={steamPriceMinor!} /> : t('inventoryPriceStack.na')}
+            {hasSteam ? (
+              <MoneyDisplay minor={steamPriceMinor!} />
+            ) : (
+              t('inventoryPriceStack.na')
+            )}
           </span>
         </p>
-        <span className="sr-only" data-testid={`${testIdPrefix}-market-price`}>
+        <span
+          hidden
+          aria-hidden="true"
+          data-testid={`${testIdPrefix}-market-price`}
+        >
           {marketplacePriceMinor}
         </span>
       </div>
@@ -196,8 +263,14 @@ export function InventoryPriceStack({
 
   if (hasSteam) {
     return (
-      <div className="inventory-price-stack" data-testid={`${testIdPrefix}-prices`}>
-        <p className="inventory-price-primary" data-testid={`${testIdPrefix}-primary-price`}>
+      <div
+        className="inventory-price-stack"
+        data-testid={`${testIdPrefix}-prices`}
+      >
+        <p
+          className="inventory-price-primary"
+          data-testid={`${testIdPrefix}-primary-price`}
+        >
           <MoneyDisplay minor={steamPriceMinor!} strong />
         </p>
         <p className="inventory-price-secondary muted small">
@@ -208,7 +281,9 @@ export function InventoryPriceStack({
         </p>
         <p className="inventory-price-secondary muted small">
           {t('inventoryPriceStack.market')}{' '}
-          <span data-testid={`${testIdPrefix}-market-price`}>{t('inventoryPriceStack.noLots')}</span>
+          <span data-testid={`${testIdPrefix}-market-price`}>
+            {t('inventoryPriceStack.noLots')}
+          </span>
         </p>
       </div>
     );
@@ -216,26 +291,46 @@ export function InventoryPriceStack({
 
   if (requireSteamPrice) {
     return (
-      <div className="inventory-price-stack" data-testid={`${testIdPrefix}-prices`}>
-        <p className="inventory-price-primary" data-testid={`${testIdPrefix}-primary-price`}>
+      <div
+        className="inventory-price-stack"
+        data-testid={`${testIdPrefix}-prices`}
+      >
+        <p
+          className="inventory-price-primary"
+          data-testid={`${testIdPrefix}-primary-price`}
+        >
           —
         </p>
-        <p className="inventory-price-secondary muted small" data-testid={`${testIdPrefix}-steam-price`}>
+        <p
+          className="inventory-price-secondary muted small"
+          data-testid={`${testIdPrefix}-steam-price`}
+        >
           {t('inventoryPriceStack.steam')} {t('inventoryPriceStack.na')} ·{' '}
-          {t('inventoryPriceStack.market')} <span data-testid={`${testIdPrefix}-market-price`}>—</span>
+          {t('inventoryPriceStack.market')}{' '}
+          <span data-testid={`${testIdPrefix}-market-price`}>—</span>
         </p>
       </div>
     );
   }
 
   return (
-    <div className="inventory-price-stack" data-testid={`${testIdPrefix}-prices`}>
-      <p className="inventory-price-primary" data-testid={`${testIdPrefix}-primary-price`}>
+    <div
+      className="inventory-price-stack"
+      data-testid={`${testIdPrefix}-prices`}
+    >
+      <p
+        className="inventory-price-primary"
+        data-testid={`${testIdPrefix}-primary-price`}
+      >
         —
       </p>
-      <p className="inventory-price-secondary muted small" data-testid={`${testIdPrefix}-steam-price`}>
+      <p
+        className="inventory-price-secondary muted small"
+        data-testid={`${testIdPrefix}-steam-price`}
+      >
         {t('inventoryPriceStack.steam')} {t('inventoryPriceStack.na')} ·{' '}
-        {t('inventoryPriceStack.market')} <span data-testid={`${testIdPrefix}-market-price`}>—</span>
+        {t('inventoryPriceStack.market')}{' '}
+        <span data-testid={`${testIdPrefix}-market-price`}>—</span>
       </p>
     </div>
   );

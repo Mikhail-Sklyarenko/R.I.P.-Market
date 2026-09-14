@@ -16,7 +16,8 @@ describe('TradeInventoryDeltaService', () => {
   );
 
   beforeEach(() => {
-    jest.clearAllMocks();
+    jest.resetAllMocks();
+    inventoryProvider.syncInventory.mockResolvedValue({ status: 'SUCCESS' });
   });
 
   it('force-syncs both inventories during verification', async () => {
@@ -47,7 +48,7 @@ describe('TradeInventoryDeltaService', () => {
     );
   });
 
-  it('confirms when buyer received item by market hash name after seller released it', async () => {
+  it('does not confirm a matching name from a different transfer', async () => {
     prisma.inventoryAsset.findFirst
       .mockResolvedValueOnce(null)
       .mockResolvedValueOnce(null)
@@ -65,7 +66,7 @@ describe('TradeInventoryDeltaService', () => {
       'AK-47 | Redline (Field-Tested)',
     );
 
-    expect(result).toBe('confirmed');
+    expect(result).toBe('pending');
   });
 
   it('does not treat reserved listing asset as seller still holding live inventory', async () => {
@@ -93,7 +94,7 @@ describe('TradeInventoryDeltaService', () => {
     );
   });
 
-  it('confirms when buyer received fungible item synced after order creation', async () => {
+  it('does not confirm a fungible item merely first synced after order creation', async () => {
     const orderCreatedAt = new Date('2026-07-12T10:00:00.000Z');
 
     prisma.inventoryAsset.findFirst
@@ -115,17 +116,18 @@ describe('TradeInventoryDeltaService', () => {
       { orderCreatedAt },
     );
 
-    expect(result).toBe('confirmed');
-    expect(prisma.inventoryAsset.findFirst).toHaveBeenLastCalledWith(
-      expect.objectContaining({
-        where: expect.objectContaining({
-          createdAt: { gte: orderCreatedAt },
-        }),
-      }),
-    );
+    expect(result).toBe('pending');
+    expect(prisma.inventoryAsset.findFirst).toHaveBeenCalledTimes(2);
   });
 
-  it('returns unknown when steam ids are missing', async () => {
+  it('confirms exact asset proof and rejects conflicting ownership', async () => {
+    prisma.inventoryAsset.findFirst.mockResolvedValueOnce(null).mockResolvedValueOnce({ id: 'exact' });
+    expect(await service.verify('s', 'b', 'ss', 'bs', 'asset', 'name')).toBe('confirmed');
+    prisma.inventoryAsset.findFirst.mockResolvedValueOnce({ id: 'seller' }).mockResolvedValueOnce({ id: 'buyer' });
+    expect(await service.verify('s', 'b', 'ss', 'bs', 'asset', 'name')).toBe('seller_still_holds');
+  });
+
+  it('returns unknown when steam ids are missing' , async () => {
     const result = await service.verify(
       'seller-1',
       'buyer-1',

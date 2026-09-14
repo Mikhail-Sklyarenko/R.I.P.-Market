@@ -26,13 +26,12 @@ export class SettlementReleaseWorkerService {
     ) {
       return;
     }
-    // Always scan SETTLEMENT_HOLD — recovers payouts stuck when hold window
-    // was enabled without real settlement (force-release path).
+    // Disabling real settlement pauses releases, including existing holds.
     await this.releaseDueHolds();
   }
 
   async releaseDueHolds(): Promise<{ scanned: number; released: number }> {
-    if (this.processing) {
+    if (this.processing || process.env.ENABLE_REAL_SETTLEMENT !== 'true') {
       return { scanned: 0, released: 0 };
     }
 
@@ -41,17 +40,12 @@ export class SettlementReleaseWorkerService {
     let released = 0;
 
     try {
-      const realSettlement = process.env.ENABLE_REAL_SETTLEMENT === 'true';
       const orders = await this.prisma.order.findMany({
         where: {
           status: OrderStatus.SETTLEMENT_HOLD,
           hold: {
             settlementReleasedAt: null,
-            // When real settlement is off, force-release all stuck holds
-            // (hold window should not have applied). Otherwise wait until due.
-            ...(realSettlement
-              ? { settlementHoldUntil: { lte: new Date() } }
-              : {}),
+            settlementHoldUntil: { lte: new Date() },
           },
         },
         select: { id: true },

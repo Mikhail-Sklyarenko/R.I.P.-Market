@@ -30,7 +30,7 @@ export const extensionMessagesRu: ExtensionMessageTree = {
     toolsTitle: 'Инструменты',
     healthTitle: 'Состояние',
     trustTitle: 'Доверие',
-    quietNotifyLabel: 'Тихие уведомления (сделка / Guard / Accept / Mismatch)',
+    quietNotifyLabel: 'Только важные уведомления по сделкам',
     quietNotifyNote:
       'Только при смене статуса сделки. Несколько событий → одно групповое. «Позже» прячет карточку на 15 минут. «Скрыть на сделку» глушит уведомления до конца сделки.',
     supportEmergency: 'Поддержка · аварийный доступ',
@@ -55,7 +55,7 @@ export const extensionMessagesRu: ExtensionMessageTree = {
     sellersTitle: 'Продажи',
     sellersSub: 'В работе · проверка доставки',
     receiptsTitle: 'Недавние сделки',
-    receiptsSub: 'Квитанции · комиссия · offer',
+    receiptsSub: 'Сумма, комиссия и обмен',
     actionTitle: 'Нужно действие',
     actionSub: 'Один главный шаг на карточке',
     snoozeLater: 'Позже',
@@ -68,7 +68,7 @@ export const extensionMessagesRu: ExtensionMessageTree = {
       'Сайт в браузере может открываться, но API сделок недоступен. Показываем кэш; выставка и отправка офферов с площадки отключены, пока связь не восстановится.',
     degradedTitle: 'Связь с сервером нестабильна',
     degradedBody:
-      'Кэш сделок на экране. List / send временно выключены — Guard или Accept только в Steam, если оффер уже проверен.',
+      'Кэш сделок на экране. Выставление и отправка временно недоступны — Guard или Accept только в Steam, если оффер уже проверен.',
     cacheLine: 'Кэш сделок · {{when}}',
     cacheEmpty: 'Кэша сделок пока нет — обновите, когда API оживёт.',
     hint: 'Безопасный режим: list и send с площадки отключены.',
@@ -102,9 +102,9 @@ export const extensionMessagesRu: ExtensionMessageTree = {
   },
   nextAction: {
     hintDisputeOpen:
-      'Спор уже открыт — evidence уйдёт в тикет. Не принимайте другие офферы.',
+      'Спор уже открыт — данные проверки уйдёт в тикет. Не принимайте другие офферы.',
     hintMismatch:
-      'Не принимайте обмен в Steam. Evidence (offerId, verify, время) подставится в тикет.',
+      'Не принимайте обмен в Steam. Данные заказа и проверки подставится в тикет.',
     hintGuard: 'Расширение Guard не подтверждает — только вы в Steam Mobile.',
     hintManualWithUrl:
       'Отправьте скин вручную, затем вставьте offerId на заказе.',
@@ -129,7 +129,7 @@ export const extensionMessagesRu: ExtensionMessageTree = {
     doneTitle: 'Готово',
     doneBody: 'Сделка у площадки. Заказ можно открыть при необходимости.',
     guardTitle: 'Подтвердите в Steam Mobile',
-    guardBody: 'Guard только в приложении Steam. Здесь статус обновится сам.',
+    guardBody: 'Подтвердите отправку в приложении Steam. Если статус задерживается, откройте заказ на сайте.',
   },
   badge: {
     rePair: 'Подключить',
@@ -194,10 +194,10 @@ export const extensionMessagesRu: ExtensionMessageTree = {
     fundsBuyerKnown: 'Выплата продавцу с: {{date}}',
     fundsBuyerUnknown:
       'Выплата продавцу после окна проверки (до {{days}} дн.)',
-    holdTitleSeller: 'Деньги на hold',
+    holdTitleSeller: 'Выручка на проверке',
     holdTitleBuyer: 'Скин ваш — расчёт у площадки',
     holdBodySeller:
-      'Защита от chargeback и возврата обмена в Steam. Выплата на баланс после hold.',
+      'Защита от chargeback и возврата обмена в Steam. Средства станут доступны после периода защиты.',
     holdBodyBuyer:
       'Предмет в инвентаре. Средства продавцу — после окна проверки на площадке.',
   },
@@ -207,9 +207,9 @@ export const extensionMessagesRu: ExtensionMessageTree = {
       'Поддержка разбирает сделку. Не принимайте другие офферы по этому заказу и не переводите деньги в чат.',
     needTitle: 'Нужен спор',
     needMismatch:
-      'Оффер не совпал с заказом. Не нажимайте Accept — откройте спор с evidence (offerId, verify, время).',
+      'Оффер не совпал с заказом. Не нажимайте Accept — откройте спор с данные заказа и проверки.',
     needGeneric:
-      'Есть проблема по сделке. Откройте спор — evidence подставится в тикет автоматически.',
+      'Есть проблема по сделке. Откройте спор — данные проверки подставится в тикет автоматически.',
     ticketPlaceholder: '(опишите, что пошло не так)',
   },
   receipt: {

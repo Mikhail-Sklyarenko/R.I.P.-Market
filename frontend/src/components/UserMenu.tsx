@@ -41,12 +41,14 @@ export function UserMenu() {
   const initials = getUserInitials(user);
 
   return (
-    <div className="user-menu" ref={menuRef}>
+    <div className="user-menu" ref={menuRef} onKeyDown={(event) => { if (event.key === 'Escape') { setOpen(false); menuRef.current?.querySelector('button')?.focus(); } }}>
       <button
         type="button"
         className="user-menu-trigger"
+        onKeyDown={(event) => { if (event.key === 'Escape') setOpen(false); }}
         onClick={() => setOpen((value) => !value)}
         aria-expanded={open}
+        aria-label={t('ux.menuLabel')}
         data-testid="user-menu-trigger"
       >
         {avatarUrl ? (
@@ -98,6 +100,9 @@ export function UserMenu() {
           >
             {t('account.deals')}
           </Link>
+          <Link to="/saved" className="user-menu-item" onClick={() => setOpen(false)}>
+            {t('ux.savedTitle')}
+          </Link>
           {isAdmin ? (
             <>
               <Link
@@ -106,7 +111,7 @@ export function UserMenu() {
                 data-testid="user-menu-admin-extension"
                 onClick={() => setOpen(false)}
               >
-                Extension Ops
+                {t('account.extensionOps')}
               </Link>
               <Link
                 to="/admin/orders"

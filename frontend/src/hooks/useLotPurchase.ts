@@ -103,8 +103,8 @@ export function useLotPurchase({
     if (!token) {
       try {
         await startSteamLogin(returnPath);
-      } catch {
-        // Stay on page; user can retry via header Steam CTA.
+      } catch (err) {
+        setBuyError(err);
       }
       return;
     }

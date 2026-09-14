@@ -22,6 +22,7 @@ export class CryptoTronGatewayProvider implements PaymentProvider {
   ): Promise<T> {
     const response = await fetch(`${this.config.gatewayUrl}${path}`, {
       method,
+      signal: AbortSignal.timeout(10_000),
       headers: {
         Authorization: `Bearer ${this.config.gatewayApiKey}`,
         'Content-Type': 'application/json',
@@ -53,11 +54,15 @@ export class CryptoTronGatewayProvider implements PaymentProvider {
     userId: string;
     toAddress: string;
     amountSun: string;
+    externalId?: string;
   }): Promise<GatewayWithdrawal> {
+    await this.ensureDepositAddress(params.userId);
     return this.request<GatewayWithdrawal>('POST', '/v1/withdrawals', {
       externalUserId: params.userId,
       toAddress: params.toAddress,
       amountSun: params.amountSun,
+      externalId: params.externalId,
+      debitSource: 'backend_authorized',
     });
   }
 
@@ -65,6 +70,7 @@ export class CryptoTronGatewayProvider implements PaymentProvider {
     const response = await fetch(
       `${this.config.gatewayUrl}/v1/withdrawals/${encodeURIComponent(id)}`,
       {
+        signal: AbortSignal.timeout(10_000),
         headers: { Authorization: `Bearer ${this.config.gatewayApiKey}` },
       },
     );

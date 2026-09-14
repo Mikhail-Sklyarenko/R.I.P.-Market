@@ -50,7 +50,7 @@ export function NotificationsPage() {
     categoryFilter !== 'all' || eventFilter !== 'all' || showUnreadOnly;
 
   return (
-    <div className="page">
+    <div className="page notifications-page">
       <PageHeader
         title={t('notifications.title')}
         subtitle={

@@ -375,7 +375,7 @@ const baseEnMessages = {
       'Marketplace balance is in USD. On this deposit method, 1 USDT sent equals $1.00 credited.',
     warningTokenNetwork: 'Only {{token}} on the {{network}} network.',
     whatIsHoldBody:
-      'When you buy, the deal amount moves from "Available" to "On hold" — the funds are reserved but not yet transferred to the seller. Once the Steam trade is confirmed, the hold is released to the seller. If the deal is canceled or fails, the funds return to "Available".',
+      'When you buy, the deal amount moves from "Available" to "On hold" — the funds are reserved but not yet transferred to the seller. After delivery is confirmed, the seller may still have to wait for the protection period. A dispute keeps the amount reserved until a decision. A confirmed cancellation or refund returns the funds to "Available".',
     whatIsHoldTitle: 'What is a hold?',
     withdrawUsdtBody:
       'USD is deducted from your available balance; USDT is sent to the address after review.',
@@ -388,6 +388,7 @@ const baseEnMessages = {
     deals: 'Deals',
     admin: 'Admin',
     adminPrices: 'Catalog prices',
+    extensionOps: 'Extension ops',
     steamLinked: 'Linked Steam',
     steamNotLinked: 'Steam not linked',
     subtitle: 'Settings for trading: Trade URL, Steam, and the extension.',
@@ -774,7 +775,7 @@ const baseEnMessages = {
     },
     refund: {
       title: 'Refund on failure',
-      description: 'If the trade fails, the hold is released and the money is refunded.',
+      description: 'A confirmed cancellation returns the reserved funds. During a dispute, funds remain reserved until a decision.',
     },
   },
   dealFlowStepExtension: {

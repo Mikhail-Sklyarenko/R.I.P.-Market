@@ -47,10 +47,15 @@ export function LotPurchaseCard({
     purchaseError,
   });
 
-  const steamForGuide = isCredibleSteamGuidePrice(lot.steamPriceMinor, purchase.listingPriceMinor)
+  const steamForGuide = isCredibleSteamGuidePrice(
+    lot.steamPriceMinor,
+    purchase.listingPriceMinor,
+  )
     ? lot.steamPriceMinor
     : null;
-  const sellerName = lot.seller ? formatCounterpartyDisplayName(lot.seller) : null;
+  const sellerName = lot.seller
+    ? formatCounterpartyDisplayName(lot.seller)
+    : null;
   const listingPriceMinor = purchase.listingPriceMinor ?? lot.priceMinor;
 
   return (
@@ -65,12 +70,17 @@ export function LotPurchaseCard({
               compact={!steamForGuide}
             />
           </div>
-          <StatusBadge status={lot.status} />
+          <StatusBadge
+            status={lot.status}
+            label={t(`lotStatus.${lot.status}`)}
+          />
         </div>
 
         {sellerName ? (
           <p className="lot-purchase-seller" data-testid="lot-purchase-seller">
-            <span className="lot-purchase-seller-label">{t('lot.sellerLabel')}</span>
+            <span className="lot-purchase-seller-label">
+              {t('lot.sellerLabel')}
+            </span>
             <span className="lot-purchase-seller-sep" aria-hidden="true">
               ·
             </span>
@@ -92,7 +102,10 @@ export function LotPurchaseCard({
       ) : null}
 
       {token && purchase.summary ? (
-        <div className="lot-purchase-wallet-inline" data-testid="checkout-wallet">
+        <div
+          className="lot-purchase-wallet-inline"
+          data-testid="checkout-wallet"
+        >
           <div className="lot-purchase-wallet-row">
             <span>{t('checkout.available')}</span>
             <MoneyDisplay minor={purchase.summary.availableMinor} strong />
@@ -124,7 +137,7 @@ export function LotPurchaseCard({
 
       {purchase.isUnavailable ? (
         <p className="muted" data-testid="lot-unavailable-message">
-          {t('lot.unavailable', { status: lot.status })}
+          {t('lot.unavailable', { status: t(`lotStatus.${lot.status}`) })}
         </p>
       ) : null}
 
@@ -135,12 +148,17 @@ export function LotPurchaseCard({
       ) : null}
 
       {!purchase.isOwnLot && !purchase.isUnavailable ? (
-        <div className="lot-purchase-sticky-dock" data-testid="lot-mobile-purchase-dock">
+        <div
+          className="lot-purchase-sticky-dock"
+          data-testid="lot-mobile-purchase-dock"
+        >
           <div className="lot-purchase-sticky-price">
             <MoneyDisplay minor={listingPriceMinor} strong />
           </div>
           <div className="lot-purchase-actions">
-            {purchase.insufficient ? (
+            {purchase.purchaseBlocked && token ? (
+              <Link className="button primary lot-purchase-button" to={`/account?returnUrl=${encodeURIComponent(returnPath)}`}>{t('ux.completeSetup')}</Link>
+            ) : purchase.insufficient ? (
               <Link
                 to={purchase.depositHref}
                 className="button primary lot-purchase-button"
@@ -181,12 +199,12 @@ export function LotPurchaseCard({
         </div>
       )}
 
-      <ExtensionAwarePurchaseTrust
-        token={token}
-        testId="lot-purchase-trust"
-      />
+      <ExtensionAwarePurchaseTrust token={token} testId="lot-purchase-trust" />
 
-      <details className="lot-purchase-details" data-testid="lot-purchase-details">
+      <details
+        className="lot-purchase-details"
+        data-testid="lot-purchase-details"
+      >
         <summary className="lot-purchase-details-summary">
           {t('lot.commissionDetails')}
         </summary>

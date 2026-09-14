@@ -250,4 +250,29 @@ describe('TradeStatusPollerService', () => {
     expect(deliveryEngine.evaluate).toHaveBeenCalled();
     expect(tradesService.applyTradeConfirmedFromPoll).not.toHaveBeenCalled();
   });
+  it('coalesces simultaneous browser polls and throttles subsequent refreshes', async () => {
+    const { poller, deliveryEngine } = buildPoller({
+      singleOperation: baseOperation,
+      evaluation: { decision: { action: 'WAIT', pollOutcome: 'WAIT', reasonCode: 'INVENTORY_UNKNOWN_RETRY' }, offerStatus: 'unknown', inventoryDelta: 'unknown', evidence: {} },
+    });
+    await Promise.all(Array.from({ length: 12 }, () => poller.pollOrderById('order-1')));
+    await poller.pollOrderById('order-1');
+    expect(deliveryEngine.evaluate).toHaveBeenCalledTimes(1);
+    await poller.pollOrderById('order-1', { force: true });
+    expect(deliveryEngine.evaluate).toHaveBeenCalledTimes(2);
+  });
+
+  it('checks fresh receipt evidence after an already running evaluation', async () => {
+    const evaluation = { decision: { action: 'WAIT', pollOutcome: 'WAIT', reasonCode: 'OFFER_PENDING' }, offerStatus: 'unknown', inventoryDelta: 'unknown', evidence: {} };
+    const { poller, deliveryEngine } = buildPoller({ singleOperation: baseOperation, evaluation });
+    let finish!: (value: typeof evaluation) => void;
+    deliveryEngine.evaluate.mockImplementationOnce(() => new Promise(resolve => { finish = resolve; }));
+    const first = poller.pollOrderById('order-1');
+    await new Promise(resolve => setImmediate(resolve));
+    const receipt = poller.pollOrderById('order-1', { force: true });
+    finish(evaluation);
+    await Promise.all([first, receipt]);
+    expect(deliveryEngine.evaluate).toHaveBeenCalledTimes(2);
+  });
+
 });

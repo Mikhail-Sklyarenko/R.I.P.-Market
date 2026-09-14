@@ -1,6 +1,9 @@
 import { fetchInventoryViaWebApi } from './steam-api-inventory.js';
 import { loadCs2InventoryFromCookies } from './steam-cookie-client.js';
-import { isDirectTradeApiEnabled, shouldUseUiTradeFlow } from './extension-flags.js';
+import {
+  isDirectTradeApiEnabled,
+  shouldUseUiTradeFlow,
+} from './extension-flags.js';
 import {
   emptyInventoryLoadResult,
   type InventoryLoadResult,
@@ -8,7 +11,11 @@ import {
 import { loadInventoryViaPageScript } from './steam-page-inventory.js';
 import { resolveLoggedInSteamId } from './steam-session.js';
 import { getSteamWebApiKey } from './steam-web-api-settings.js';
-import { navigateTab, waitForTabLoad, waitForTabUrl } from './steam-tab-utils.js';
+import {
+  navigateTab,
+  waitForTabLoad,
+  waitForTabUrl,
+} from './steam-tab-utils.js';
 import {
   sendTradeOfferViaPageScript,
   type TradeOfferDraft,
@@ -26,9 +33,14 @@ export type { TradeOfferProgressHooks };
 const STEAM_TAB_URL = 'https://steamcommunity.com/my/inventory/#730_2';
 const TRADE_PAGE_SETTLE_MS = 800;
 
-function mergeInventoryFailures(results: InventoryLoadResult[]): InventoryLoadResult {
+function mergeInventoryFailures(
+  results: InventoryLoadResult[],
+): InventoryLoadResult {
   if (results.length === 0) {
-    return emptyInventoryLoadResult('unknown', 'Seller inventory is not loaded');
+    return emptyInventoryLoadResult(
+      'unknown',
+      'Seller inventory is not loaded',
+    );
   }
   const priority: Array<NonNullable<InventoryLoadResult['failReason']>> = [
     'private',
@@ -37,7 +49,11 @@ function mergeInventoryFailures(results: InventoryLoadResult[]): InventoryLoadRe
     'unknown',
   ];
   for (const reason of priority) {
-    const hit = results.find((entry) => entry.failReason === reason || (reason === 'rate_limited' && entry.rateLimited));
+    const hit = results.find(
+      (entry) =>
+        entry.failReason === reason ||
+        (reason === 'rate_limited' && entry.rateLimited),
+    );
     if (hit) {
       return {
         items: [],
@@ -105,7 +121,9 @@ export class SteamCommunityClient {
       }
     }
 
-    const tabs = await chrome.tabs.query({ url: 'https://steamcommunity.com/*' });
+    const tabs = await chrome.tabs.query({
+      url: 'https://steamcommunity.com/*',
+    });
     const sorted = [...tabs].sort(
       (a, b) => tabPriority(b.url) - tabPriority(a.url),
     );
@@ -126,7 +144,9 @@ export class SteamCommunityClient {
     return this.openSteamTab();
   }
 
-  private async openBuyerTradeTab(buyerTradeUrl: string): Promise<number | null> {
+  private async openBuyerTradeTab(
+    buyerTradeUrl: string,
+  ): Promise<number | null> {
     const created = await chrome.tabs.create({
       url: buyerTradeUrl,
       active: true,
@@ -152,7 +172,9 @@ export class SteamCommunityClient {
       return this.openBuyerTradeTab(buyerTradeUrl);
     }
 
-    const tabs = await chrome.tabs.query({ url: 'https://steamcommunity.com/*' });
+    const tabs = await chrome.tabs.query({
+      url: 'https://steamcommunity.com/*',
+    });
     const existingTradeTab = tabs.find(
       (tab) => tab.id && isTabOnBuyerTradeUrl(tab.url, buyerTradeUrl),
     );
@@ -246,59 +268,25 @@ export class SteamCommunityClient {
     progress?: TradeOfferProgressHooks,
   ): Promise<SendTradeOfferResult> {
     try {
-      if (await isDirectTradeApiEnabled()) {
-        const tabId = await this.ensureSteamTab();
-        if (!tabId) {
-          return { ok: false, error: 'Steam tab unavailable' };
-        }
-        const apiResult = await sendTradeOfferViaPageScript(tabId, draft);
-        if (apiResult.ok) {
-          await progress?.onItemSelected?.();
-          await progress?.onOfferSubmitted?.();
-        }
-        return apiResult;
-      }
-
-      if (await shouldUseUiTradeFlow()) {
+      if (
+        !(await isDirectTradeApiEnabled()) &&
+        (await shouldUseUiTradeFlow())
+      ) {
         const tabId = await this.navigateToTradePage(draft.buyerTradeUrl);
-        if (!tabId) {
+        if (!tabId)
           return { ok: false, error: 'Failed to open Steam trade page' };
-        }
         return await this.sendTradeOfferViaUi(tabId, draft, progress);
       }
-
       const tabId = await this.ensureSteamTab();
-      if (!tabId) {
-        return { ok: false, error: 'Steam tab unavailable' };
-      }
-      const apiResult = await sendTradeOfferViaPageScript(tabId, draft);
-      if (
-        apiResult.ok ||
-        !/empty response|null response|HTTP 400|invalid json/i.test(
-          apiResult.error,
-        )
-      ) {
-        if (apiResult.ok) {
-          await progress?.onItemSelected?.();
-          await progress?.onOfferSubmitted?.();
-        }
-        return apiResult;
-      }
-
-      // Classic /tradeoffer/new/send often returns HTTP 400 empty for Trade Protected
-      // inventories — fall back to page autofill so the item is actually selected.
-      const tradeTabId = await this.navigateToTradePage(draft.buyerTradeUrl);
-      if (!tradeTabId) {
-        return {
-          ok: false,
-          error: `${apiResult.error} (UI fallback failed: trade page unavailable)`,
-        };
-      }
-      return await this.sendTradeOfferViaUi(tradeTabId, draft, progress);
+      if (!tabId) return { ok: false, error: 'Steam tab unavailable' };
+      await progress?.onItemSelected?.();
+      await progress?.onOfferSubmitted?.();
+      // Never retry with UI after an uncertain external POST.
+      return await sendTradeOfferViaPageScript(tabId, draft);
     } catch (error) {
       return {
         ok: false,
-        error: error instanceof Error ? error.message : 'Trade page navigation failed',
+        error: error instanceof Error ? error.message : 'Trade send failed',
       };
     }
   }
@@ -309,6 +297,7 @@ export class SteamCommunityClient {
     progress?: TradeOfferProgressHooks,
   ): Promise<SendTradeOfferResult> {
     const payload: TradeOfferDraftPayload = {
+      draftId: draft.draftId,
       buyerTradeUrl: draft.buyerTradeUrl,
       item: draft.item,
       note: draft.note?.trim() || 'R.I.P Market trade',

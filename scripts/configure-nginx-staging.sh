@@ -208,6 +208,10 @@ server {
         add_header Cache-Control "no-cache" always;
     }
 
+    # Serve the SPA installer even when legacy extension ZIPs occupy this directory.
+    location = /extension { rewrite ^ /index.html last; }
+    location = /extension/ { rewrite ^ /index.html last; }
+
     location / {
         try_files \$uri \$uri/ /index.html;
     }

@@ -10,6 +10,7 @@ import {
   Prisma,
   WithdrawalRequestStatus,
 } from '@prisma/client';
+import { Interval } from '@nestjs/schedule';
 import { randomUUID } from 'node:crypto';
 import { toJsonSafe } from '../common/json-safe.util';
 import { PrismaService } from '../prisma/prisma.service';
@@ -51,6 +52,76 @@ export class PaymentsService {
     @Inject(PAYMENT_PROVIDER)
     private readonly paymentProvider: PaymentProvider,
   ) {}
+
+  private reconcilingWithdrawals = false;
+
+  @Interval(60_000)
+  async reconcileProcessingWithdrawals(): Promise<void> {
+    if (
+      process.env.JEST_WORKER_ID ||
+      !isLivePaymentProvider() ||
+      this.reconcilingWithdrawals
+    )
+      return;
+    this.reconcilingWithdrawals = true;
+    try {
+      const rows = await this.prisma.withdrawalRequest.findMany({
+        where: { status: WithdrawalRequestStatus.PROCESSING },
+        orderBy: { updatedAt: 'asc' },
+        take: 100,
+      });
+      for (const row of rows) {
+        try {
+          let remote = await this.paymentProvider.getGatewayWithdrawal(
+            row.gatewayRef ?? `wd_${row.id}`,
+          );
+          if (!remote && isCryptoPaymentProvider())
+            remote = await this.paymentProvider.createGatewayWithdrawal({
+              userId: row.userId,
+              toAddress: row.toAddress,
+              amountSun: usdMinorToSun(row.netMinor).toString(),
+              externalId: `wd_${row.id}`,
+            });
+          if (
+            !remote ||
+            remote.toAddress !== row.toAddress ||
+            BigInt(remote.amountSun) !== usdMinorToSun(row.netMinor)
+          )
+            continue;
+          await this.prisma.withdrawalRequest.updateMany({
+            where: { id: row.id, status: WithdrawalRequestStatus.PROCESSING },
+            data: { gatewayRef: remote.id },
+          });
+          const status = remote.status.toLowerCase();
+          if (status !== 'paid' && status !== 'failed') continue;
+          const payload: PaymentWebhookPayload =
+            status === 'paid'
+              ? {
+                  eventId: `reconcile:${row.id}:paid`,
+                  type: 'withdrawal.paid',
+                  withdrawalId: remote.id,
+                  externalId: `wd_${row.id}`,
+                  externalUserId: row.userId,
+                  payoutTxHash: remote.payoutTxHash,
+                  amountSun: remote.amountSun,
+                }
+              : {
+                  eventId: `reconcile:${row.id}:failed`,
+                  type: 'withdrawal.failed',
+                  withdrawalId: remote.id,
+                  externalId: `wd_${row.id}`,
+                  externalUserId: row.userId,
+                  reason: remote.failReason ?? 'PROVIDER_CONFIRMED_FAILURE',
+                };
+          await this.handleWebhook('', payload);
+        } catch {
+          /* Preserve debit; daily reconciliation raises unresolved provider issues. */
+        }
+      }
+    } finally {
+      this.reconcilingWithdrawals = false;
+    }
+  }
 
   async getDepositInfo(userId: string) {
     if (!isLivePaymentProvider()) {
@@ -95,6 +166,10 @@ export class PaymentsService {
       });
     }
 
+    if (deposit.walletIndex === 0)
+      throw new ForbiddenException(
+        'Deposit address requires migration; contact support',
+      );
     return toJsonSafe({
       mode: 'address' as const,
       address: deposit.depositAddress,
@@ -117,7 +192,9 @@ export class PaymentsService {
       throw new ForbiddenException('Checkout deposits require NORTH provider');
     }
     if (!this.paymentProvider.createCheckout) {
-      throw new ForbiddenException('Payment provider does not support checkout');
+      throw new ForbiddenException(
+        'Payment provider does not support checkout',
+      );
     }
 
     const config = getPaymentConfig();
@@ -253,6 +330,16 @@ export class PaymentsService {
       where: { idempotencyKey: params.idempotencyKey },
     });
     if (existing) {
+      if (
+        existing.userId !== params.userId ||
+        existing.toAddress !== params.toAddress ||
+        existing.amountMinor !== BigInt(params.amountMinor) ||
+        existing.paymentMethod !== paymentMethod
+      ) {
+        throw new BadRequestException(
+          'Idempotency key conflicts with this request',
+        );
+      }
       return toJsonSafe(existing);
     }
 
@@ -270,17 +357,18 @@ export class PaymentsService {
       throw new BadRequestException('Insufficient available balance');
     }
 
-    const { needsManualReview } =
-      await this.withdrawalGuard.validateAndResolveReview(
-        params.userId,
-        amountMinor,
-      );
-
-    const initialStatus = needsManualReview
-      ? WithdrawalRequestStatus.PENDING_REVIEW
-      : WithdrawalRequestStatus.APPROVED;
-
     const withdrawal = await this.prisma.$transaction(async (tx) => {
+      // Serialize quota reservation and request creation for this user.
+      await tx.$queryRaw`SELECT id FROM "User" WHERE id = ${params.userId} FOR UPDATE`;
+      const { needsManualReview } =
+        await this.withdrawalGuard.validateAndResolveReview(
+          params.userId,
+          amountMinor,
+          tx,
+        );
+      const initialStatus = needsManualReview
+        ? WithdrawalRequestStatus.PENDING_REVIEW
+        : WithdrawalRequestStatus.APPROVED;
       if (needsManualReview) {
         await this.ledgerService.freezeForWithdrawal({
           userId: params.userId,
@@ -303,7 +391,7 @@ export class PaymentsService {
       });
     });
 
-    if (!needsManualReview) {
+    if (withdrawal.status === WithdrawalRequestStatus.APPROVED) {
       return this.approveWithdrawal(withdrawal.id, params.userId, true);
     }
 
@@ -359,12 +447,19 @@ export class PaymentsService {
 
     const config = getPaymentConfig();
     const fromFrozen =
-      config.withdrawManualReview &&
       withdrawal.status === WithdrawalRequestStatus.PENDING_REVIEW;
 
     const providerName = config.provider;
 
-    await this.prisma.$transaction(async (tx) => {
+    const claimed = await this.prisma.$transaction(async (tx) => {
+      const claim = await tx.withdrawalRequest.updateMany({
+        where: { id: withdrawal.id, status: withdrawal.status },
+        data: {
+          status: WithdrawalRequestStatus.PROCESSING,
+          reviewedBy: auto ? null : reviewerId,
+        },
+      });
+      if (claim.count !== 1) return false;
       await this.ledgerService.withdraw({
         userId: withdrawal.userId,
         amountMinor: withdrawal.amountMinor,
@@ -381,14 +476,14 @@ export class PaymentsService {
         tx,
       });
 
-      await tx.withdrawalRequest.update({
-        where: { id: withdrawal.id },
-        data: {
-          status: WithdrawalRequestStatus.PROCESSING,
-          reviewedBy: auto ? null : reviewerId,
-        },
-      });
+      return true;
     });
+    if (!claimed)
+      return toJsonSafe(
+        await this.prisma.withdrawalRequest.findUnique({
+          where: { id: withdrawal.id },
+        }),
+      );
 
     try {
       const paymentMethod = isNorthPaymentMethod(withdrawal.paymentMethod)
@@ -411,11 +506,11 @@ export class PaymentsService {
 
       return toJsonSafe(updated);
     } catch (error) {
-      await this.failWithdrawalAfterApprove(
-        withdrawal,
-        error instanceof Error ? error.message : 'Gateway error',
+      // A lost response (including a local DB failure) is not a rejected payout.
+      // Keep the debit and PROCESSING state until provider reconciliation.
+      throw new BadRequestException(
+        'Withdrawal outcome pending verification; do not create a replacement request',
       );
-      throw new BadRequestException('Withdrawal gateway request failed');
     }
   }
 
@@ -436,6 +531,14 @@ export class PaymentsService {
     }
 
     await this.prisma.$transaction(async (tx) => {
+      const claim = await tx.withdrawalRequest.updateMany({
+        where: {
+          id: withdrawal.id,
+          status: WithdrawalRequestStatus.PENDING_REVIEW,
+        },
+        data: { status: WithdrawalRequestStatus.REJECTED },
+      });
+      if (claim.count !== 1) return;
       await this.ledgerService.releaseWithdrawHold({
         userId: withdrawal.userId,
         amountMinor: withdrawal.amountMinor,
@@ -470,41 +573,57 @@ export class PaymentsService {
     const providerName = getPaymentConfig().provider;
     const amountMinor = this.resolveWebhookAmountMinor(payload);
 
-    try {
-      await this.prisma.paymentEvent.create({
-        data: {
-          provider: providerName === 'mock' ? 'crypto_tron' : providerName,
-          providerEventId,
-          eventType: payload.type,
-          userId: payload.externalUserId,
-          amountMinor,
-          payload: payload,
-        },
-      });
-    } catch (error) {
-      if (
-        error instanceof Prisma.PrismaClientKnownRequestError &&
-        error.code === 'P2002'
-      ) {
-        return { ok: true, duplicate: true };
+    if (!existing)
+      try {
+        await this.prisma.paymentEvent.create({
+          data: {
+            provider: providerName === 'mock' ? 'crypto_tron' : providerName,
+            providerEventId,
+            eventType: payload.type,
+            userId: payload.externalUserId,
+            amountMinor,
+            payload: payload,
+          },
+        });
+      } catch (error) {
+        if (
+          error instanceof Prisma.PrismaClientKnownRequestError &&
+          error.code === 'P2002'
+        ) {
+          const replay = await this.prisma.paymentEvent.findUnique({
+            where: { providerEventId },
+          });
+          if (replay?.processedAt) return { ok: true, duplicate: true };
+        } else {
+          throw error;
+        }
       }
-      throw error;
-    }
 
-    if (payload.type === 'deposit.credited') {
-      await this.handleDepositCredited(payload);
-    } else if (payload.type === 'withdrawal.paid') {
-      await this.handleWithdrawalPaid(payload);
-    } else if (payload.type === 'withdrawal.failed') {
-      await this.handleWithdrawalFailed(payload);
-    }
-
-    await this.prisma.paymentEvent.update({
-      where: { providerEventId },
-      data: { processedAt: new Date() },
+    return this.prisma.$transaction(async (tx) => {
+      const claim = await tx.paymentEvent.updateMany({
+        where: { providerEventId, processedAt: null },
+        data: { processedAt: new Date() },
+      });
+      if (claim.count !== 1) return { ok: true, duplicate: true };
+      const persisted = await tx.paymentEvent.findUniqueOrThrow({
+        where: { providerEventId },
+      });
+      if (
+        persisted.eventType !== payload.type ||
+        persisted.userId !== payload.externalUserId ||
+        persisted.amountMinor !== amountMinor
+      )
+        throw new BadRequestException(
+          'Webhook event ID conflicts with its payload',
+        );
+      if (payload.type === 'deposit.credited')
+        await this.handleDepositCredited(payload, tx);
+      else if (payload.type === 'withdrawal.paid')
+        await this.handleWithdrawalPaid(payload, tx);
+      else if (payload.type === 'withdrawal.failed')
+        await this.handleWithdrawalFailed(payload, tx);
+      return { ok: true };
     });
-
-    return { ok: true };
   }
 
   private resolveWebhookAmountMinor(payload: PaymentWebhookPayload): bigint {
@@ -525,6 +644,7 @@ export class PaymentsService {
 
   private async handleDepositCredited(
     payload: Extract<PaymentWebhookPayload, { type: 'deposit.credited' }>,
+    client?: Prisma.TransactionClient,
   ) {
     let amountMinor: bigint;
     try {
@@ -551,8 +671,7 @@ export class PaymentsService {
       return;
     }
 
-    const providerName =
-      config.provider === 'north' ? 'north' : 'crypto_tron';
+    const providerName = config.provider === 'north' ? 'north' : 'crypto_tron';
     const wallet = await this.ledgerService.ensureUserWallet(
       payload.externalUserId,
     );
@@ -561,7 +680,7 @@ export class PaymentsService {
       ? `${providerName}:deposit:${payload.txHash}`
       : `${providerName}:deposit:event:${payload.eventId}`;
 
-    await this.prisma.$transaction(async (tx) => {
+    const execute = async (tx: Prisma.TransactionClient) => {
       await this.ledgerService.deposit({
         userId: payload.externalUserId,
         amountMinor,
@@ -627,19 +746,24 @@ export class PaymentsService {
           },
         },
       });
-    });
+    };
+    if (client) await execute(client);
+    else await this.prisma.$transaction(execute);
   }
 
   private async handleWithdrawalPaid(
     payload: Extract<PaymentWebhookPayload, { type: 'withdrawal.paid' }>,
+    client?: Prisma.TransactionClient,
   ) {
-    const withdrawal = await this.findWithdrawalForWebhook(payload);
+    const withdrawal = await this.findWithdrawalForWebhook(payload, client);
+    if (withdrawal && withdrawal.userId !== payload.externalUserId)
+      throw new BadRequestException('Withdrawal webhook subject mismatch');
     if (!withdrawal || withdrawal.status === WithdrawalRequestStatus.PAID) {
       return;
     }
 
-    await this.prisma.withdrawalRequest.update({
-      where: { id: withdrawal.id },
+    await (client ?? this.prisma).withdrawalRequest.updateMany({
+      where: { id: withdrawal.id, status: WithdrawalRequestStatus.PROCESSING },
       data: {
         status: WithdrawalRequestStatus.PAID,
         payoutTxHash: payload.payoutTxHash,
@@ -650,13 +774,27 @@ export class PaymentsService {
 
   private async handleWithdrawalFailed(
     payload: Extract<PaymentWebhookPayload, { type: 'withdrawal.failed' }>,
+    client?: Prisma.TransactionClient,
   ) {
-    const withdrawal = await this.findWithdrawalForWebhook(payload);
+    const withdrawal = await this.findWithdrawalForWebhook(payload, client);
+    if (withdrawal && withdrawal.userId !== payload.externalUserId)
+      throw new BadRequestException('Withdrawal webhook subject mismatch');
     if (!withdrawal || withdrawal.status === WithdrawalRequestStatus.FAILED) {
       return;
     }
 
-    await this.prisma.$transaction(async (tx) => {
+    const execute = async (tx: Prisma.TransactionClient) => {
+      const claim = await tx.withdrawalRequest.updateMany({
+        where: {
+          id: withdrawal.id,
+          status: WithdrawalRequestStatus.PROCESSING,
+        },
+        data: {
+          status: WithdrawalRequestStatus.FAILED,
+          rejectReason: payload.reason,
+        },
+      });
+      if (claim.count !== 1) return;
       await this.ledgerService.refundWithdrawal({
         userId: withdrawal.userId,
         amountMinor: withdrawal.amountMinor,
@@ -673,15 +811,20 @@ export class PaymentsService {
           rejectReason: payload.reason,
         },
       });
-    });
+    };
+    if (client) await execute(client);
+    else await this.prisma.$transaction(execute);
   }
 
-  private async findWithdrawalForWebhook(payload: {
-    withdrawalId: string;
-    externalId?: string;
-  }) {
+  private async findWithdrawalForWebhook(
+    payload: {
+      withdrawalId: string;
+      externalId?: string;
+    },
+    client: Prisma.TransactionClient = this.prisma,
+  ) {
     if (payload.externalId?.startsWith('wd_')) {
-      const byId = await this.prisma.withdrawalRequest.findUnique({
+      const byId = await client.withdrawalRequest.findUnique({
         where: { id: payload.externalId.slice(3) },
       });
       if (byId) {
@@ -689,7 +832,7 @@ export class PaymentsService {
       }
     }
 
-    return this.prisma.withdrawalRequest.findFirst({
+    return client.withdrawalRequest.findFirst({
       where: {
         OR: [
           { gatewayRef: payload.withdrawalId },
@@ -734,33 +877,5 @@ export class PaymentsService {
         `Invalid ${paymentMethod.toUpperCase()} address`,
       );
     }
-  }
-
-  private async failWithdrawalAfterApprove(
-    withdrawal: {
-      id: string;
-      userId: string;
-      amountMinor: bigint;
-    },
-    reason: string,
-  ) {
-    await this.prisma.$transaction(async (tx) => {
-      await this.ledgerService.refundWithdrawal({
-        userId: withdrawal.userId,
-        amountMinor: withdrawal.amountMinor,
-        idempotencyKey: `withdraw-refund:${withdrawal.id}`,
-        reason,
-        withdrawalRequestId: withdrawal.id,
-        tx,
-      });
-
-      await tx.withdrawalRequest.update({
-        where: { id: withdrawal.id },
-        data: {
-          status: WithdrawalRequestStatus.FAILED,
-          rejectReason: reason,
-        },
-      });
-    });
   }
 }

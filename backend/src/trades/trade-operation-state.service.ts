@@ -107,7 +107,7 @@ export class TradeOperationStateService {
     }
 
     await tx.tradeOperation.update({
-      where: { id: params.tradeOperationId },
+      where: { id: params.tradeOperationId, status: params.from },
       data: {
         status: rule.to,
         providerRef: params.providerRef ?? undefined,

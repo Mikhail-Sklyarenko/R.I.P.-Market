@@ -1,12 +1,22 @@
-import { floatsMatch } from '../float-match.util.js';
-import type { SteamOfferAdapter } from '../adapters/steam-offer-adapter.js';
-import type { TaskProgressReporter } from '../api/task-progress-reporter.js';
-import { OfferErrorCode } from '../error-codes.js';
-import { normalizeSteamOfferId } from '../steam-offer-id.util.js';
-import type { PolledTradeTask, SteamInventoryItem } from '../types.js';
+import { floatsMatch } from "../float-match.util.js";
+import type { SteamOfferAdapter } from "../adapters/steam-offer-adapter.js";
+import type { TaskProgressReporter } from "../api/task-progress-reporter.js";
+import { OfferErrorCode } from "../error-codes.js";
+import { normalizeSteamOfferId } from "../steam-offer-id.util.js";
+import type { PolledTradeTask, SteamInventoryItem } from "../types.js";
 
-const TRADE_URL_PATTERN =
-  /^https:\/\/steamcommunity\.com\/tradeoffer\/new\/\?partner=\d+&token=[\w-]+/i;
+function isValidBuyerTradeUrl(value: string): boolean {
+  try {
+    const url = new URL(value);
+    const partner = url.searchParams.get('partner');
+    const token = url.searchParams.get('token');
+    return url.origin === 'https://steamcommunity.com' &&
+      !url.username && !url.password && url.pathname === '/tradeoffer/new/' &&
+      Boolean(partner && /^\d+$/.test(partner) && BigInt(partner) > 0n && BigInt(partner) <= 4294967295n &&
+        token && /^[\w-]+$/.test(token) &&
+        url.searchParams.getAll('partner').length === 1 && url.searchParams.getAll('token').length === 1);
+  } catch { return false; }
+}
 
 /**
  * Once Steam may already hold an offer (or Guard is waiting), never restart
@@ -14,11 +24,11 @@ const TRADE_URL_PATTERN =
  * mismatch alarms for buyers.
  */
 const NON_RESUMABLE_PHASES = new Set([
-  'OFFER_SENT',
-  'OFFER_FAILED',
-  'CONFIRM_PENDING',
-  'OFFER_SUBMITTED',
-  'ITEM_SELECTED',
+  "OFFER_SENT",
+  "OFFER_FAILED",
+  "CONFIRM_PENDING",
+  "OFFER_SUBMITTED",
+  "ITEM_SELECTED",
 ]);
 
 export class CreateOfferOrchestrator {
@@ -28,14 +38,21 @@ export class CreateOfferOrchestrator {
   ) {}
 
   async processTask(task: PolledTradeTask): Promise<void> {
-    const baseKey = `progress:${task.id}`;
+    return new CreateOfferOrchestrator(this.steam, {
+      report: (progress) =>
+        this.reporter.report({ ...progress, leaseVersion: task.leaseVersion }),
+    }).processAttempt(task);
+  }
+
+  private async processAttempt(task: PolledTradeTask): Promise<void> {
+    const baseKey = `progress:${task.id}:${task.attemptCount}:${task.leaseVersion ?? 0}`;
 
     if (task.executionPhase && NON_RESUMABLE_PHASES.has(task.executionPhase)) {
       return;
     }
 
-    const resumeAtSend = task.executionPhase === 'OFFER_DRAFTED';
-    const buyerTradeUrl = task.payload.buyerTradeUrl?.trim() ?? '';
+    const resumeAtSend = false;
+    const buyerTradeUrl = task.payload.buyerTradeUrl?.trim() ?? "";
     let matchedItem: SteamInventoryItem | null = null;
     const observedRef: {
       current: {
@@ -46,10 +63,10 @@ export class CreateOfferOrchestrator {
     } = { current: null };
 
     if (!resumeAtSend) {
-      if (task.executionPhase !== 'ACKED') {
+      if (!task.executionPhase) {
         await this.reporter.report({
           taskId: task.id,
-          phase: 'ACKED',
+          phase: "ACKED",
           idempotencyKey: `${baseKey}:ACKED`,
           details: {
             orderId: task.orderId,
@@ -63,16 +80,16 @@ export class CreateOfferOrchestrator {
           task.id,
           `${baseKey}:OFFER_FAILED:missing_url`,
           OfferErrorCode.BUYER_TRADE_URL_MISSING,
-          'Buyer trade URL is missing',
+          "Buyer trade URL is missing",
         );
         return;
       }
-      if (!TRADE_URL_PATTERN.test(buyerTradeUrl)) {
+      if (!isValidBuyerTradeUrl(buyerTradeUrl)) {
         await this.failTask(
           task.id,
           `${baseKey}:OFFER_FAILED:invalid_url`,
           OfferErrorCode.BUYER_TRADE_URL_INVALID,
-          'Buyer trade URL is invalid',
+          "Buyer trade URL is invalid",
         );
         return;
       }
@@ -89,7 +106,7 @@ export class CreateOfferOrchestrator {
           task.id,
           `${baseKey}:OFFER_FAILED:inventory`,
           OfferErrorCode.STEAM_COOKIE_EXPIRED,
-          'Seller is not logged into Steam in this browser',
+          "Seller is not logged into Steam in this browser",
           { sellerSteamId },
         );
         return;
@@ -100,7 +117,7 @@ export class CreateOfferOrchestrator {
           task.id,
           `${baseKey}:OFFER_FAILED:account_mismatch`,
           OfferErrorCode.STEAM_ACCOUNT_MISMATCH,
-          'Logged-in Steam account does not match seller account',
+          "Logged-in Steam account does not match seller account",
           { sellerSteamId, sessionSteamId },
         );
         return;
@@ -115,8 +132,12 @@ export class CreateOfferOrchestrator {
           task.id,
           `${baseKey}:OFFER_FAILED:inventory`,
           inventoryResult.errorCode,
-          inventoryResult.errorMessage ?? 'Seller inventory is not loaded',
-          { sellerSteamId, sessionSteamId, inventoryCount: inventoryResult.items.length },
+          inventoryResult.errorMessage ?? "Seller inventory is not loaded",
+          {
+            sellerSteamId,
+            sessionSteamId,
+            inventoryCount: inventoryResult.items.length,
+          },
         );
         return;
       }
@@ -126,8 +147,12 @@ export class CreateOfferOrchestrator {
           task.id,
           `${baseKey}:OFFER_FAILED:inventory`,
           OfferErrorCode.INVENTORY_NOT_LOADED,
-          'Seller inventory is not loaded',
-          { sellerSteamId, sessionSteamId, inventoryCount: inventory?.length ?? 0 },
+          "Seller inventory is not loaded",
+          {
+            sellerSteamId,
+            sessionSteamId,
+            inventoryCount: inventory?.length ?? 0,
+          },
         );
         return;
       }
@@ -153,7 +178,7 @@ export class CreateOfferOrchestrator {
           task.id,
           `${baseKey}:OFFER_FAILED:item`,
           code,
-          'Expected item not found in seller inventory',
+          "Expected item not found in seller inventory",
           { inventoryCount: inventory.length, expectedAssetId, marketHashName },
         );
         return;
@@ -176,16 +201,18 @@ export class CreateOfferOrchestrator {
         return;
       }
 
-      await this.reporter.report({
-        taskId: task.id,
-        phase: 'TRADE_PAGE_OPENED',
-        idempotencyKey: `${baseKey}:TRADE_PAGE_OPENED`,
-        details: { buyerTradeUrl },
-      });
+      if (task.executionPhase !== "OFFER_DRAFTED") {
+        await this.reporter.report({
+          taskId: task.id,
+          phase: "TRADE_PAGE_OPENED",
+          idempotencyKey: `${baseKey}:TRADE_PAGE_OPENED`,
+          details: { buyerTradeUrl },
+        });
+      }
 
       await this.reporter.report({
         taskId: task.id,
-        phase: 'OFFER_DRAFTED',
+        phase: "OFFER_DRAFTED",
         idempotencyKey: `${baseKey}:OFFER_DRAFTED`,
         details: {
           draftId: draft.draftId,
@@ -213,7 +240,7 @@ export class CreateOfferOrchestrator {
         };
         await this.reporter.report({
           taskId: task.id,
-          phase: 'ITEM_SELECTED',
+          phase: "ITEM_SELECTED",
           idempotencyKey: `${baseKey}:ITEM_SELECTED`,
           details: {
             assetId: details.assetId,
@@ -226,7 +253,7 @@ export class CreateOfferOrchestrator {
       onOfferSubmitted: async () => {
         await this.reporter.report({
           taskId: task.id,
-          phase: 'OFFER_SUBMITTED',
+          phase: "OFFER_SUBMITTED",
           idempotencyKey: `${baseKey}:OFFER_SUBMITTED`,
         });
       },
@@ -257,12 +284,12 @@ export class CreateOfferOrchestrator {
     if (sent.confirmPending) {
       await this.reporter.report({
         taskId: task.id,
-        phase: 'CONFIRM_PENDING',
+        phase: "CONFIRM_PENDING",
         idempotencyKey: `${baseKey}:CONFIRM_PENDING`,
         reasonCode: OfferErrorCode.CONFIRM_PENDING,
         offerId: offerId ?? undefined,
         details: {
-          message: 'Confirm trade offer in Steam Mobile',
+          message: "Confirm trade offer in Steam Mobile",
           ...(offerId ? { offerId } : {}),
         },
       });
@@ -270,7 +297,7 @@ export class CreateOfferOrchestrator {
       if (offerId) {
         await this.reporter.report({
           taskId: task.id,
-          phase: 'OFFER_SENT',
+          phase: "OFFER_SENT",
           idempotencyKey: `${baseKey}:OFFER_SENT`,
           offerId,
           details: {
@@ -287,7 +314,7 @@ export class CreateOfferOrchestrator {
         task.id,
         `${baseKey}:OFFER_FAILED:invalid_offer_id`,
         OfferErrorCode.OFFER_SEND_FAILED,
-        'Steam returned invalid trade offer id',
+        "Steam returned invalid trade offer id",
         { rawOfferId: sent.offerId ?? null },
       );
       return;
@@ -295,7 +322,7 @@ export class CreateOfferOrchestrator {
 
     await this.reporter.report({
       taskId: task.id,
-      phase: 'OFFER_SENT',
+      phase: "OFFER_SENT",
       idempotencyKey: `${baseKey}:OFFER_SENT`,
       offerId,
       details: observedDetails,
@@ -317,10 +344,12 @@ export class CreateOfferOrchestrator {
         (entry) => String(entry.assetId) === expectedAssetId,
       );
       if (byAsset) {
-        return floatsMatch(expectedFloatValue, byAsset.floatValue)
+        return byAsset.floatValue == null ||
+          floatsMatch(expectedFloatValue, byAsset.floatValue)
           ? byAsset
           : null;
       }
+      return null; // Never substitute another instance for the listed asset.
     }
 
     if (marketHashName) {
@@ -336,7 +365,7 @@ export class CreateOfferOrchestrator {
         if (byFloat.length === 1) {
           return byFloat[0] ?? null;
         }
-        if (byFloat.length > 1 && expectedAssetId) {
+        if (byFloat.length > 1) {
           return null;
         }
         if (byFloat.length === 0) {
@@ -346,7 +375,7 @@ export class CreateOfferOrchestrator {
       if (byName.length === 1) {
         return byName[0] ?? null;
       }
-      if (byName.length > 1 && expectedAssetId) {
+      if (byName.length > 1) {
         return null;
       }
       if (byName.length > 0) {
@@ -366,7 +395,7 @@ export class CreateOfferOrchestrator {
   ): Promise<void> {
     await this.reporter.report({
       taskId,
-      phase: 'OFFER_FAILED',
+      phase: "OFFER_FAILED",
       idempotencyKey,
       reasonCode,
       details: { message, ...extraDetails },

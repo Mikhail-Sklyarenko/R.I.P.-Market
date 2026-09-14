@@ -153,17 +153,16 @@ export class SettlementService {
         };
       }
 
-      // Hold window is only for real settlement. If real settlement is off,
-      // immediately credit the seller (recovers orders stuck by misconfig).
+      // A runtime kill switch must never shorten an existing protection period.
       if (!isRealSettlementEnabled()) {
-        await this.releaseSettlementHold(tx, order, idempotencyKey, undefined, {
-          skipHoldWindowCheck: true,
-          legacyImmediate: true,
-        });
         return {
-          settled: true,
-          inHold: false,
-          guard: { allowed: true },
+          settled: false,
+          inHold: true,
+          guard: {
+            allowed: false,
+            code: 'REAL_SETTLEMENT_DISABLED',
+            reason: 'Settlement releases are paused',
+          },
         };
       }
 

@@ -41,6 +41,13 @@ describe('LedgerService', () => {
         create: jest.fn(),
       },
       walletAccount: {
+        updateMany: jest.fn(async ({ where, data }) => {
+          const key = `${where.walletId}:${where.type}`;
+          const current = accounts.get(key) ?? 0n;
+          if (current < where.balanceMinor.gte) return { count: 0 };
+          accounts.set(key, current - data.balanceMinor.decrement);
+          return { count: 1 };
+        }),
         upsert: jest.fn(),
         findUnique: jest.fn(
           async ({
@@ -191,5 +198,29 @@ describe('LedgerService', () => {
     expect(
       accounts.get(`${buyerWalletId}:${WalletAccountType.AVAILABLE}`),
     ).toBe(7000n);
+  });
+  it('conditional debit rejects a second reservation after both read the old balance', async () => {
+    accounts.set(`${buyerWalletId}:${WalletAccountType.AVAILABLE}`, 10000n);
+    accounts.set(`${buyerWalletId}:${WalletAccountType.HOLD}`, 0n);
+    const results = await Promise.allSettled(
+      ['a', 'b'].map((id) =>
+        ledgerService.reservePurchaseHold({
+          buyerUserId: buyerId,
+          orderId: `concurrent-${id}`,
+          holdId: `hold-${id}`,
+          amountMinor: 8000n,
+          idempotencyKey: `concurrent-${id}`,
+        }),
+      ),
+    );
+    expect(
+      results.filter((result) => result.status === 'fulfilled'),
+    ).toHaveLength(1);
+    expect(
+      accounts.get(`${buyerWalletId}:${WalletAccountType.AVAILABLE}`),
+    ).toBe(2000n);
+    expect(accounts.get(`${buyerWalletId}:${WalletAccountType.HOLD}`)).toBe(
+      8000n,
+    );
   });
 });

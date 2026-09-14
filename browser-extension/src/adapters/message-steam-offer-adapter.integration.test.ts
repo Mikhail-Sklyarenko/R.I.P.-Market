@@ -78,7 +78,17 @@ describe('CreateOfferOrchestrator with MessageSteamOfferAdapter', () => {
           remove: vi.fn().mockResolvedValue(undefined),
         },
         local: {
-          get: vi.fn().mockResolvedValue({}),
+          get: vi.fn().mockImplementation(async (key: string) =>
+            key === 'rip:draft:draft-task-1'
+              ? {
+                  'rip:draft:draft-task-1': {
+                    buyerTradeUrl:
+                      'https://steamcommunity.com/tradeoffer/new/?partner=123&token=abc',
+                    item: { assetId: 'asset-123' },
+                  },
+                }
+              : {},
+          ),
           set: vi.fn().mockResolvedValue(undefined),
           remove: vi.fn().mockResolvedValue(undefined),
         },
@@ -114,6 +124,7 @@ describe('CreateOfferOrchestrator with MessageSteamOfferAdapter', () => {
     );
 
     expect(reporter.reports.map((entry) => entry.phase)).toEqual([
+      'OFFER_DRAFTED',
       'ITEM_SELECTED',
       'OFFER_SUBMITTED',
       'OFFER_SENT',

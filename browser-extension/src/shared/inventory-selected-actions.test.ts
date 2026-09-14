@@ -63,7 +63,7 @@ describe('inventory-selected-actions', () => {
 
     expect(
       buildSelectedSellRailModel({
-        selected: { assetId: '1', marketHashName: 'X' },
+        selected: { contextId: 2, assetId: '1', marketHashName: 'X' },
         connected: false,
         label: 'Продать на R.I.P',
       }),
@@ -71,7 +71,7 @@ describe('inventory-selected-actions', () => {
 
     expect(
       buildSelectedSellRailModel({
-        selected: { assetId: '1', marketHashName: 'X' },
+        selected: { contextId: 2, assetId: '1', marketHashName: 'X' },
         connected: true,
         label: 'Продать на R.I.P',
       }),

@@ -115,11 +115,6 @@ export class DeliveryVerificationEngineService {
       failMode: getTradeFailMode(),
     };
 
-    if (timedOut) {
-      const decision = decideDeliveryVerification(signals);
-      return this.pack(decision, null, null);
-    }
-
     let offerStatus: TradeVerificationResult['status'] | null = null;
     let inventoryDelta: InventoryDeltaResult | null = null;
 

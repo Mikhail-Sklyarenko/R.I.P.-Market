@@ -28,11 +28,13 @@ describe('trade-offer-sent-cache', () => {
             }
             return out;
           }),
-          set: vi.fn().mockImplementation(async (value: Record<string, unknown>) => {
-            for (const [k, entry] of Object.entries(value)) {
-              sessionStorage.set(k, entry);
-            }
-          }),
+          set: vi
+            .fn()
+            .mockImplementation(async (value: Record<string, unknown>) => {
+              for (const [k, entry] of Object.entries(value)) {
+                sessionStorage.set(k, entry);
+              }
+            }),
           remove: vi.fn().mockImplementation(async (key: string | string[]) => {
             for (const k of Array.isArray(key) ? key : [key]) {
               sessionStorage.delete(k);
@@ -48,11 +50,13 @@ describe('trade-offer-sent-cache', () => {
             }
             return out;
           }),
-          set: vi.fn().mockImplementation(async (value: Record<string, unknown>) => {
-            for (const [k, entry] of Object.entries(value)) {
-              localStorageMap.set(k, entry);
-            }
-          }),
+          set: vi
+            .fn()
+            .mockImplementation(async (value: Record<string, unknown>) => {
+              for (const [k, entry] of Object.entries(value)) {
+                localStorageMap.set(k, entry);
+              }
+            }),
           remove: vi.fn().mockImplementation(async (key: string | string[]) => {
             for (const k of Array.isArray(key) ? key : [key]) {
               localStorageMap.delete(k);
@@ -82,7 +86,7 @@ describe('trade-offer-sent-cache', () => {
     });
   });
 
-  it('resolves intercepted offer by asset id', async () => {
+  it('does not reuse an asset-only observation for a new draft', async () => {
     await recordInterceptedOffer({
       offerId: '87654321',
       confirmPending: false,
@@ -98,7 +102,7 @@ describe('trade-offer-sent-cache', () => {
         draftId: 'draft-missing',
         assetId: 'asset-42',
       }),
-    ).toMatchObject({ offerId: '87654321' });
+    ).toBeNull();
   });
 
   it('tracks send inflight markers with TTL cleanup helpers', async () => {

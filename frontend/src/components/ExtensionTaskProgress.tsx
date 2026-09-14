@@ -30,6 +30,7 @@ export function ExtensionTaskProgress({
   itemMarketHashName,
 }: ExtensionTaskProgressProps) {
   const { t, locale } = useLocale();
+  const [retryMessage, setRetryMessage] = useState<string | null>(null);
   const [nowMs, setNowMs] = useState(() => Date.now());
 
   const isConfirmPending =
@@ -52,14 +53,16 @@ export function ExtensionTaskProgress({
     );
   }
 
-  const isTaskExpired = tradeTask.status === 'EXPIRED' || tradeTask.status === 'FAILED';
+  const isTaskExpired = tradeTask.status === 'EXPIRED';
   const isItemSelected = tradeTask.executionPhase === 'ITEM_SELECTED';
   const isOfferSubmitted = tradeTask.executionPhase === 'OFFER_SUBMITTED';
   const isTerminalSuccess =
     (tradeTask.executionPhase === 'OFFER_SENT' && !isConfirmPending) ||
     tradeTask.executionPhase === 'CONFIRM_PENDING';
   const isTerminalFailure =
-    tradeTask.executionPhase === 'OFFER_FAILED' || isTaskExpired;
+    tradeTask.executionPhase === 'OFFER_FAILED' ||
+    tradeTask.status === 'FAILED' ||
+    isTaskExpired;
   const isDeliveryCheck =
     tradeTask.lastErrorCode === 'ITEM_ALREADY_GONE' ||
     (isTerminalFailure && tradeTask.lastErrorCode === 'ITEM_MISSING');
@@ -78,9 +81,14 @@ export function ExtensionTaskProgress({
   const errorHint = errorCode ? formatOfferErrorHint(errorCode, locale) : null;
   const detailMessage = tradeTask.lastErrorMessage?.trim() || null;
   const selectedItemName =
-    tradeTask.selectedMarketHashName?.trim() || itemMarketHashName?.trim() || null;
+    tradeTask.selectedMarketHashName?.trim() ||
+    itemMarketHashName?.trim() ||
+    null;
   const errorAction = errorCode ? getOfferErrorAction(errorCode) : null;
   const showRetry =
+    !isItemSelected &&
+    !isOfferSubmitted &&
+    !isTerminalFailure &&
     !isDeliveryCheck &&
     !isConfirmPending &&
     !(tradeTask.executionPhase === 'OFFER_SENT' && !isConfirmPending) &&
@@ -95,10 +103,12 @@ export function ExtensionTaskProgress({
       className={`extension-task-progress${isConfirmPending ? ' extension-task-progress--confirm-pending' : ''}`}
       data-testid="extension-task-progress"
     >
+      {retryMessage ? <p role="status">{retryMessage}</p> : null}
       <p data-testid="extension-task-phase">
         <strong>{phaseLabel}</strong>
       </p>
-      {(isItemSelected || isOfferSubmitted || isConfirmPending) && selectedItemName ? (
+      {(isItemSelected || isOfferSubmitted || isConfirmPending) &&
+      selectedItemName ? (
         <p className="muted small" data-testid="extension-task-selected-item">
           {t('extensionTask.itemLabel')} <strong>{selectedItemName}</strong>
         </p>
@@ -111,23 +121,35 @@ export function ExtensionTaskProgress({
           <p>{t('extensionTask.confirmPending')}</p>
           <p className="muted small">{t('extensionTask.confirmPendingHint')}</p>
           {waitElapsed ? (
-            <p className="extension-guard-timer" data-testid="extension-guard-timer">
+            <p
+              className="extension-guard-timer"
+              data-testid="extension-guard-timer"
+            >
               {t('extensionTask.confirmPendingTimer', { elapsed: waitElapsed })}
             </p>
           ) : (
-            <p className="extension-guard-timer" data-testid="extension-guard-timer">
+            <p
+              className="extension-guard-timer"
+              data-testid="extension-guard-timer"
+            >
               {t('extensionTask.confirmPendingWaiting')}
             </p>
           )}
         </div>
       ) : null}
       {tradeTask.executionPhase === 'OFFER_SENT' && !isConfirmPending ? (
-        <p className="alert alert-success" data-testid="extension-task-offer-sent">
+        <p
+          className="alert alert-success"
+          data-testid="extension-task-offer-sent"
+        >
           {t('extensionTask.offerSent')}
         </p>
       ) : null}
       {isDeliveryCheck ? (
-        <p className="alert alert-info" data-testid="extension-task-delivery-check">
+        <p
+          className="alert alert-info"
+          data-testid="extension-task-delivery-check"
+        >
           {t('extensionTask.deliveryCheckBody')}
         </p>
       ) : null}
@@ -163,7 +185,10 @@ export function ExtensionTaskProgress({
           {t(errorAction.labelKey)}
         </a>
       ) : null}
-      {!isTerminalSuccess && !isTerminalFailure && !isDeliveryCheck && !isConfirmPending ? (
+      {!isTerminalSuccess &&
+      !isTerminalFailure &&
+      !isDeliveryCheck &&
+      !isConfirmPending ? (
         <p className="muted small">{t('extensionTask.keepTabOpen')}</p>
       ) : null}
       {showRetry ? (
@@ -171,7 +196,19 @@ export function ExtensionTaskProgress({
           type="button"
           className="button secondary sm extension-task-retry"
           data-testid="extension-task-retry"
-          onClick={() => void requestExtensionPoll()}
+          onClick={() => {
+            void requestExtensionPoll().then((ok) =>
+              setRetryMessage(
+                locale === 'ru'
+                  ? ok
+                    ? 'Проверка запрошена. Ожидаем обновления состояния.'
+                    : 'Расширение недоступно. Проверьте подключение в аккаунте.'
+                  : ok
+                    ? 'Check requested. Waiting for status update.'
+                    : 'Extension unavailable. Check the account connection.',
+              ),
+            );
+          }}
         >
           {t('extensionTask.retryNow')}
         </button>

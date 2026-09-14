@@ -84,6 +84,13 @@ describe('SteamInventoryProvider', () => {
     expect(result.cacheHit).toBe(false);
   });
 
+  it('shares concurrent forced syncs for the same account without losing refresh semantics', async () => {
+    await Promise.all(Array.from({ length: 12 }, () => provider.syncInventory('user-1', '76561198000000000', { force: true })));
+    expect(steamClient.fetchAllSteamInventoryPages).toHaveBeenCalledTimes(1);
+    await provider.syncInventory('user-1', '76561198000000000', { force: true });
+    expect(steamClient.fetchAllSteamInventoryPages).toHaveBeenCalledTimes(2);
+  });
+
   it('returns cache hit when TTL is valid', async () => {
     const cachedRun = {
       status: InventorySyncStatus.SUCCESS,

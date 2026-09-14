@@ -62,6 +62,7 @@ export function OrderTradeBuyerPanel({
     order.tradeTask.status !== 'EXPIRED' &&
     order.tradeTask.status !== 'FAILED';
   const showAcceptWizard =
+    !acks?.buyerReceived &&
     guidedBuyerEnabled &&
     hasOfferSaved &&
     !isDeliveryCheck &&
@@ -79,7 +80,7 @@ export function OrderTradeBuyerPanel({
     scenarioAck.showReceived &&
     Boolean(onAcknowledgeReceived);
 
-  const showSteamCta = (hasOfferSaved || isDeliveryCheck) && !showAcceptWizard;
+  const showSteamCta = !acks?.buyerReceived && (hasOfferSaved || isDeliveryCheck) && !showAcceptWizard;
   const showAwaitingSeller = !hasOfferSaved;
   const steamCtaHref =
     steamOfferUrl && hasOfferSaved ? steamOfferUrl : STEAM_INCOMING_OFFERS_URL;

@@ -6,8 +6,12 @@ describe('ExtensionTradeTaskService integration-like', () => {
     tradeTask: {
       findMany: jest.fn(),
       update: jest.fn(),
+      updateMany: jest.fn().mockResolvedValue({ count: 1 }),
     },
     outboxEvent: { create: jest.fn() },
+    $transaction: jest.fn(async (fn: (tx: unknown) => Promise<unknown>) =>
+      fn(prisma),
+    ),
   };
   const reconcile = { reconcile: jest.fn() };
   const disputeOps = { openSystemDispute: jest.fn() };
@@ -44,9 +48,12 @@ describe('ExtensionTradeTaskService integration-like', () => {
     ]);
     const count = await service.expireTasks();
     expect(count).toBe(1);
-    expect(prisma.tradeTask.update).toHaveBeenCalledWith(
+    expect(prisma.tradeTask.updateMany).toHaveBeenCalledWith(
       expect.objectContaining({
-        where: { id: 'task-expired' },
+        where: expect.objectContaining({
+          id: 'task-expired',
+          status: TradeTaskStatus.DISPATCHED,
+        }),
         data: expect.objectContaining({ status: TradeTaskStatus.EXPIRED }),
       }),
     );
@@ -55,6 +62,15 @@ describe('ExtensionTradeTaskService integration-like', () => {
         data: expect.objectContaining({ eventType: 'TRADE_TASK_EXPIRED' }),
       }),
     );
+  });
+
+  it('does not expire a task changed since the sweep read or emit a false alert', async () => {
+    prisma.tradeTask.findMany.mockResolvedValue([
+      { id: 'race', status: TradeTaskStatus.DISPATCHED },
+    ]);
+    prisma.tradeTask.updateMany.mockResolvedValueOnce({ count: 0 });
+    expect(await service.expireTasks()).toBe(0);
+    expect(prisma.outboxEvent.create).not.toHaveBeenCalled();
   });
 
   it('fails tasks when retry limit reached', async () => {
@@ -69,9 +85,12 @@ describe('ExtensionTradeTaskService integration-like', () => {
     ]);
     const count = await service.failOverRetriedTasks();
     expect(count).toBe(1);
-    expect(prisma.tradeTask.update).toHaveBeenCalledWith(
+    expect(prisma.tradeTask.updateMany).toHaveBeenCalledWith(
       expect.objectContaining({
-        where: { id: 'task-failed' },
+        where: expect.objectContaining({
+          id: 'task-failed',
+          status: TradeTaskStatus.DISPATCHED,
+        }),
         data: expect.objectContaining({ status: TradeTaskStatus.FAILED }),
       }),
     );

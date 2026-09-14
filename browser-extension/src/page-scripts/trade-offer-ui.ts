@@ -60,7 +60,9 @@ type WindowWithSteam = Window &
     jQuery?: SteamJQuery;
     ConfirmTradeOffer?: () => void;
     __ripMarketTradeOffer?: {
-      runAutofillFlow: (draft: TradeOfferDraftPayload) => Promise<TradeOfferSendResult>;
+      runAutofillFlow: (
+        draft: TradeOfferDraftPayload,
+      ) => Promise<TradeOfferSendResult>;
       prepareAndSelectItem: (
         draft: TradeOfferDraftPayload,
       ) => Promise<{ ok: true } | { ok: false; error: string }>;
@@ -87,7 +89,10 @@ export function prepareYourInventory(): void {
 }
 
 function readActiveAppId(win: WindowWithSteam): number | null {
-  if (typeof win.g_ActiveAppId === 'number' && Number.isFinite(win.g_ActiveAppId)) {
+  if (
+    typeof win.g_ActiveAppId === 'number' &&
+    Number.isFinite(win.g_ActiveAppId)
+  ) {
     return win.g_ActiveAppId;
   }
   const inventory = win.g_ActiveInventory as
@@ -210,7 +215,11 @@ function findAssetElement(
   assetId: string,
 ): HTMLElement | null {
   const win = getSteamWindow();
-  const found = win.UserYou?.findAsset(appId, String(contextId), String(assetId));
+  const found = win.UserYou?.findAsset(
+    appId,
+    String(contextId),
+    String(assetId),
+  );
   if (found?.element instanceof HTMLElement) {
     return found.element;
   }
@@ -220,8 +229,8 @@ function findAssetElement(
 function isTradeItemVisibleInDom(assetId: string): boolean {
   return Boolean(
     document.getElementById(`asset_730_2_${assetId}`) ??
-      document.getElementById(`item730_2_${assetId}`) ??
-      document.querySelector(`[data-assetid="${assetId}"]`),
+    document.getElementById(`item730_2_${assetId}`) ??
+    document.querySelector(`[data-assetid="${assetId}"]`),
   );
 }
 
@@ -270,12 +279,7 @@ export function isItemInTradeOffer(assetId: string): boolean {
     }
   }
 
-  const confirmButton = document.querySelector<HTMLElement>('#trade_confirmbtn');
-  return Boolean(
-    confirmButton &&
-      confirmButton.style.display !== 'none' &&
-      !confirmButton.classList.contains('btn_disabled'),
-  );
+  return false;
 }
 
 export function selectItemForTrade(
@@ -325,7 +329,8 @@ async function selectItemForTradeWithRetry(
 }
 
 export function setTradeNote(text: string): void {
-  const noteInput = document.querySelector<HTMLTextAreaElement>('#trade_offer_note');
+  const noteInput =
+    document.querySelector<HTMLTextAreaElement>('#trade_offer_note');
   if (!noteInput) {
     throw new Error('Trade note field not found');
   }
@@ -349,7 +354,9 @@ export function submitTradeOffer(): void {
     return;
   }
 
-  const confirmButton = document.querySelector<HTMLElement>('#trade_confirm_ok_btn');
+  const confirmButton = document.querySelector<HTMLElement>(
+    '#trade_confirm_ok_btn',
+  );
   if (confirmButton) {
     confirmButton.click();
     return;
@@ -364,7 +371,9 @@ export function submitTradeOffer(): void {
   throw new Error('Send button not available on trade page');
 }
 
-export function installSendInterceptor(timeoutMs = 30_000): Promise<SteamSendResponse> {
+export function installSendInterceptor(
+  timeoutMs = 30_000,
+): Promise<SteamSendResponse> {
   return new Promise((resolve, reject) => {
     const win = getSteamWindow();
     const jquery = win.$J ?? win.jQuery;
@@ -401,12 +410,63 @@ export function installSendInterceptor(timeoutMs = 30_000): Promise<SteamSendRes
       try {
         resolve(JSON.parse(responseText) as SteamSendResponse);
       } catch {
-        reject(new Error(`Steam returned invalid send JSON: ${responseText.slice(0, 200)}`));
+        reject(
+          new Error(
+            `Steam returned invalid send JSON: ${responseText.slice(0, 200)}`,
+          ),
+        );
       }
     }
 
     boundJquery(document).ajaxComplete(onAjaxComplete);
   });
+}
+
+let preparedDraft: TradeOfferDraftPayload | null = null;
+
+export function hasExactPreparedComposition(
+  draft: TradeOfferDraftPayload,
+): boolean {
+  const status = (
+    window as unknown as {
+      g_rgCurrentTradeStatus?: {
+        me?: {
+          assets?: Array<{
+            appid: number;
+            contextid: string;
+            assetid: string;
+            amount: number;
+          }>;
+          currency?: unknown[];
+        };
+        them?: { assets?: unknown[]; currency?: unknown[] };
+      };
+    }
+  ).g_rgCurrentTradeStatus;
+  const assets = status?.me?.assets;
+  if (
+    !assets ||
+    !status?.them ||
+    assets.length !== 1 ||
+    (status.them.assets?.length ?? 0) !== 0 ||
+    (status.me?.currency?.length ?? 0) !== 0 ||
+    (status.them.currency?.length ?? 0) !== 0
+  )
+    return false;
+  const item = assets[0];
+  const actual = new URL(window.location.href);
+  const expected = new URL(draft.buyerTradeUrl);
+  return (
+    actual.origin === expected.origin &&
+    actual.pathname.replace(/\/$/, '') === '/tradeoffer/new' &&
+    actual.searchParams.get('partner') ===
+      expected.searchParams.get('partner') &&
+    actual.searchParams.get('token') === expected.searchParams.get('token') &&
+    Number(item.appid) === CS2_APP_ID &&
+    String(item.contextid) === String(CS2_CONTEXT) &&
+    String(item.assetid) === draft.item.assetId &&
+    Number(item.amount) === 1
+  );
 }
 
 export async function prepareAndSelectItem(
@@ -420,21 +480,48 @@ export async function prepareAndSelectItem(
     await waitForTradePageReady(30_000, draft.item.assetId);
     await selectItemForTradeWithRetry(draft.item.assetId);
     setTradeNote(draft.note?.trim() || DEFAULT_TRADE_NOTE);
+    preparedDraft = draft;
+    if (!hasExactPreparedComposition(draft))
+      return {
+        ok: false,
+        error: 'Offer composition or recipient does not match the order',
+      };
     return { ok: true };
   } catch (error) {
     return {
       ok: false,
-      error: error instanceof Error ? error.message : 'Trade offer prepare failed',
+      error:
+        error instanceof Error ? error.message : 'Trade offer prepare failed',
     };
   }
 }
 
 export async function submitAndWaitForSend(): Promise<TradeOfferSendResult> {
   try {
+    if (!preparedDraft || !hasExactPreparedComposition(preparedDraft))
+      return {
+        ok: false,
+        error: 'Offer composition changed or cannot be verified',
+      };
+    const sendingDraft = preparedDraft;
+    preparedDraft = null;
     const interceptor = installSendInterceptor();
     submitTradeOffer();
     const steamResponse = await interceptor;
-    return parseSteamSendResponse(steamResponse);
+    const result = parseSteamSendResponse(steamResponse);
+    if (result.ok && sendingDraft.draftId)
+      window.postMessage(
+        {
+          source: TRADE_OFFER_PAGE_SOURCE,
+          type: 'SEND_RESULT',
+          draftId: sendingDraft.draftId,
+          assetId: sendingDraft.item.assetId,
+          buyerTradeUrl: sendingDraft.buyerTradeUrl,
+          result,
+        },
+        window.location.origin,
+      );
+    return result;
   } catch (error) {
     return {
       ok: false,
@@ -453,7 +540,10 @@ export async function runAutofillFlow(
   return submitAndWaitForSend();
 }
 
-function postPageResponse(requestId: string, result: TradeOfferSendResult): void {
+function postPageResponse(
+  requestId: string,
+  result: TradeOfferSendResult,
+): void {
   const message: RunAutofillPageResponse = {
     source: TRADE_OFFER_PAGE_SOURCE,
     requestId,
@@ -502,7 +592,10 @@ function bootstrapPageScript(): void {
   document.documentElement.appendChild(marker);
 
   getSteamWindow().__ripMarketTradeOffer = api;
-  document.documentElement.setAttribute('data-rip-market-trade-offer-ui', 'ready');
+  document.documentElement.setAttribute(
+    'data-rip-market-trade-offer-ui',
+    'ready',
+  );
   window.addEventListener('message', handleBridgeMessage);
 }
 

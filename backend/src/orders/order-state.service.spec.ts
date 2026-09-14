@@ -65,7 +65,7 @@ describe('OrderStateService', () => {
     });
 
     expect(order.update).toHaveBeenCalledWith({
-      where: { id: 'order-1' },
+      where: { id: 'order-1', status: OrderStatus.CREATED },
       data: { status: OrderStatus.PAYMENT_RESERVED },
     });
     expect(orderStatusEvent.create).toHaveBeenCalledWith({

@@ -3,7 +3,12 @@ import {
   ForbiddenException,
   Injectable,
 } from '@nestjs/common';
-import { OrderStatus, UserRole, WithdrawalRequestStatus } from '@prisma/client';
+import {
+  Prisma,
+  OrderStatus,
+  UserRole,
+  WithdrawalRequestStatus,
+} from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { getPaymentConfig } from '../providers/payment/payment.config';
 
@@ -16,9 +21,13 @@ export type WithdrawalGuardResult = {
 export class WithdrawalGuardService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async validateAndResolveReview(userId: string, amountMinor: bigint) {
+  async validateAndResolveReview(
+    userId: string,
+    amountMinor: bigint,
+    client: Prisma.TransactionClient = this.prisma,
+  ) {
     const config = getPaymentConfig();
-    const user = await this.prisma.user.findUnique({
+    const user = await client.user.findUnique({
       where: { id: userId },
       select: { id: true, steamId: true, role: true },
     });
@@ -34,7 +43,7 @@ export class WithdrawalGuardService {
     }
 
     if (user.role === UserRole.SELLER && config.withdrawMinCompletedSales > 0) {
-      const completedSales = await this.prisma.order.count({
+      const completedSales = await client.order.count({
         where: {
           sellerId: userId,
           status: OrderStatus.COMPLETED,
@@ -52,7 +61,7 @@ export class WithdrawalGuardService {
       const dayStart = new Date();
       dayStart.setUTCHours(0, 0, 0, 0);
 
-      const dailyTotal = await this.prisma.withdrawalRequest.aggregate({
+      const dailyTotal = await client.withdrawalRequest.aggregate({
         where: {
           userId,
           createdAt: { gte: dayStart },
@@ -74,7 +83,7 @@ export class WithdrawalGuardService {
       }
     }
 
-    const priorWithdrawalCount = await this.prisma.withdrawalRequest.count({
+    const priorWithdrawalCount = await client.withdrawalRequest.count({
       where: {
         userId,
         status: { not: WithdrawalRequestStatus.REJECTED },

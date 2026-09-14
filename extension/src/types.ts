@@ -24,6 +24,7 @@ export type CreateOfferTaskPayload = {
 };
 
 export type PolledTradeTask = {
+  leaseVersion?: number;
   id: string;
   type: 'create_offer';
   orderId: string;
@@ -36,6 +37,7 @@ export type PolledTradeTask = {
 };
 
 export type TaskProgressReport = {
+  leaseVersion?: number;
   taskId: string;
   phase: TradeTaskExecutionPhase;
   idempotencyKey: string;

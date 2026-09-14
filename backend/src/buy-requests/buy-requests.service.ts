@@ -12,7 +12,10 @@ import { LedgerService } from '../wallet/ledger.service';
 import { MAX_BUY_REQUEST_QUANTITY } from './buy-request.constants';
 import { BuyRequestMatchingService } from './buy-request-matching.service';
 import { CreateBuyRequestDto } from './dto/create-buy-request.dto';
-import { isUuid, slugifyMarketHashName } from '../item-definitions/item-slug.util';
+import {
+  isUuid,
+  slugifyMarketHashName,
+} from '../item-definitions/item-slug.util';
 
 function parseAvailableWears(value: unknown): string[] {
   if (!Array.isArray(value)) {
@@ -29,7 +32,11 @@ export class BuyRequestsService {
     private readonly ledger: LedgerService,
   ) {}
 
-  async create(buyerId: string, itemDefinitionId: string, dto: CreateBuyRequestDto) {
+  async create(
+    buyerId: string,
+    itemDefinitionId: string,
+    dto: CreateBuyRequestDto,
+  ) {
     const buyer = await this.prisma.user.findUnique({ where: { id: buyerId } });
     if (!buyer || buyer.status !== UserStatus.ACTIVE) {
       throw new AppException(
@@ -200,6 +207,17 @@ export class BuyRequestsService {
     const releaseAmount = buyRequest.reservedAmountMinor ?? 0n;
 
     await this.prisma.$transaction(async (tx) => {
+      const claim = await tx.buyRequest.updateMany({
+        where: {
+          id: buyRequestId,
+          status: BuyRequestStatus.OPEN,
+          reservedAmountMinor: buyRequest.reservedAmountMinor,
+          quantityFilled: buyRequest.quantityFilled,
+        },
+        data: { status: BuyRequestStatus.CANCELED, reservedAmountMinor: 0n },
+      });
+      if (claim.count !== 1) return;
+
       if (releaseAmount > 0n) {
         await this.ledger.releaseBuyRequestHold({
           buyerUserId: buyerId,
@@ -249,6 +267,17 @@ export class BuyRequestsService {
     const releaseAmount = buyRequest.reservedAmountMinor ?? 0n;
 
     await this.prisma.$transaction(async (tx) => {
+      const claim = await tx.buyRequest.updateMany({
+        where: {
+          id: buyRequestId,
+          status: BuyRequestStatus.OPEN,
+          reservedAmountMinor: buyRequest.reservedAmountMinor,
+          quantityFilled: buyRequest.quantityFilled,
+        },
+        data: { status: BuyRequestStatus.EXPIRED, reservedAmountMinor: 0n },
+      });
+      if (claim.count !== 1) return;
+
       if (releaseAmount > 0n) {
         await this.ledger.releaseBuyRequestHold({
           buyerUserId: buyRequest.buyerId,
@@ -283,8 +312,7 @@ export class BuyRequestsService {
     wear?: string,
   ) {
     const availableWears = parseAvailableWears(catalogItem.availableWears);
-    const needsWear =
-      catalogItem.catalogSeeded && availableWears.length > 0;
+    const needsWear = catalogItem.catalogSeeded && availableWears.length > 0;
 
     if (needsWear && !wear) {
       throw new AppException(

@@ -16,7 +16,7 @@ describe('steam-offer-page-lifecycle', () => {
     expect(isPostAcceptSteamLifecycle(result.lifecycle)).toBe(true);
   });
 
-  it('detects no-longer-valid error as post-accept for UX', () => {
+  it('does not infer acceptance from a no-longer-valid error', () => {
     const dom = new JSDOM(`<!doctype html><html><body>
       <div class="error_ctn">
         <h2>Oh nooooooes!</h2>
@@ -25,7 +25,8 @@ describe('steam-offer-page-lifecycle', () => {
     </body></html>`);
     const result = detectSteamOfferPageLifecycle(dom.window.document);
     expect(result.lifecycle).toBe('invalid');
-    expect(result.offerStatusHint).toBe('accepted');
+    expect(result.offerStatusHint).toBeNull();
+    expect(isPostAcceptSteamLifecycle(result.lifecycle)).toBe(false);
   });
 
   it('detects active offer with trade slots', () => {

@@ -230,7 +230,7 @@ export class OrderStateService {
   ): Promise<void> {
     this.ensureTransition(params.from, params.to);
     await tx.order.update({
-      where: { id: params.orderId },
+      where: { id: params.orderId, status: params.from },
       data: { status: params.to, ...(params.extra ?? {}) },
     });
     await tx.orderStatusEvent.create({

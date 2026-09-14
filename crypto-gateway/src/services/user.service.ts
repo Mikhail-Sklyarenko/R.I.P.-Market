@@ -91,17 +91,17 @@ async function allocateWalletIndex(
   return prisma.$transaction(async (tx) => {
     const counter = await tx.walletCounter.upsert({
       where: { id: 1 },
-      create: { id: 1, next: 0 },
+      create: { id: 1, next: 1 },
       update: {},
     });
 
-    const walletIndex = counter.next;
-    const address = deriveAddress(walletIndex, config);
-
-    await tx.walletCounter.update({
+    const allocated = await tx.walletCounter.update({
       where: { id: 1 },
       data: { next: { increment: 1 } },
     });
+    const walletIndex = allocated.next - 1;
+    if (walletIndex < 1) throw new Error('DEPOSIT_INDEX_RESERVED');
+    const address = deriveAddress(walletIndex, config);
 
     await tx.walletRegistry.create({
       data: { walletIndex, address },
@@ -119,6 +119,8 @@ export async function ensureGatewayUser(
     where: { externalUserId },
   });
   if (existing) {
+    if (existing.walletIndex === 0)
+      throw new Error('LEGACY_HOT_WALLET_ADDRESS_REQUIRES_MIGRATION');
     return toUserResponse(existing);
   }
 
@@ -141,6 +143,8 @@ export async function getGatewayUser(
   const user = await prisma.gatewayUser.findUnique({
     where: { externalUserId },
   });
+  if (user?.walletIndex === 0)
+    throw new Error('LEGACY_HOT_WALLET_ADDRESS_REQUIRES_MIGRATION');
   return user ? toUserResponse(user) : null;
 }
 
@@ -170,7 +174,6 @@ export async function listUserPayments(
   const payments = await prisma.payment.findMany({
     where: { userId: user.id },
     orderBy: { createdAt: 'desc' },
-    take: 100,
   });
 
   return payments.map(toPaymentResponse);
@@ -181,6 +184,8 @@ export async function createWithdrawal(params: {
   toAddress: string;
   amountSun: bigint;
   feeSun: bigint;
+  externalId: string;
+  debitSource?: 'gateway_balance' | 'backend_authorized';
 }): Promise<WithdrawalResponse> {
   const user = await prisma.gatewayUser.findUnique({
     where: { externalUserId: params.externalUserId },
@@ -189,29 +194,51 @@ export async function createWithdrawal(params: {
     throw new Error('USER_NOT_FOUND');
   }
 
+  const existing = await prisma.withdrawal.findUnique({
+    where: { externalId: params.externalId },
+  });
+  if (existing) {
+    if (
+      existing.userId !== user.id ||
+      existing.toAddress !== params.toAddress ||
+      existing.amountSun !== params.amountSun ||
+      existing.feeSun !== params.feeSun ||
+      existing.debitSource !== (params.debitSource ?? 'gateway_balance')
+    )
+      throw new Error('IDEMPOTENCY_CONFLICT');
+    return toWithdrawalResponse(existing);
+  }
+  if (params.amountSun <= 0n || params.feeSun < 0n)
+    throw new Error('INVALID_AMOUNT');
   const totalDebit = params.amountSun + params.feeSun;
-  if (user.balanceSun < totalDebit) {
+  if (
+    params.debitSource !== 'backend_authorized' &&
+    user.balanceSun < totalDebit
+  ) {
     throw new Error('INSUFFICIENT_BALANCE');
   }
 
   const withdrawal = await prisma.$transaction(async (tx) => {
-    const updated = await tx.gatewayUser.updateMany({
-      where: {
-        id: user.id,
-        balanceSun: { gte: totalDebit },
-      },
-      data: {
-        balanceSun: { decrement: totalDebit },
-      },
-    });
+    if (params.debitSource !== 'backend_authorized') {
+      const updated = await tx.gatewayUser.updateMany({
+        where: {
+          id: user.id,
+          balanceSun: { gte: totalDebit },
+        },
+        data: {
+          balanceSun: { decrement: totalDebit },
+        },
+      });
 
-    if (updated.count !== 1) {
-      throw new Error('INSUFFICIENT_BALANCE');
+      if (updated.count !== 1) {
+        throw new Error('INSUFFICIENT_BALANCE');
+      }
     }
-
     return tx.withdrawal.create({
       data: {
         userId: user.id,
+        externalId: params.externalId,
+        debitSource: params.debitSource ?? 'gateway_balance',
         toAddress: params.toAddress,
         amountSun: params.amountSun,
         feeSun: params.feeSun,
@@ -223,13 +250,13 @@ export async function createWithdrawal(params: {
   return toWithdrawalResponse(withdrawal);
 }
 
-export async function getWithdrawal(id: string): Promise<WithdrawalResponse | null> {
-  const withdrawal = await prisma.withdrawal.findUnique({ where: { id } });
+export async function getWithdrawal(
+  id: string,
+): Promise<WithdrawalResponse | null> {
+  const withdrawal = await prisma.withdrawal.findFirst({
+    where: { OR: [{ id }, { externalId: id }] },
+  });
   return withdrawal ? toWithdrawalResponse(withdrawal) : null;
 }
 
-export {
-  toUserResponse,
-  toPaymentResponse,
-  toWithdrawalResponse,
-};
+export { toUserResponse, toPaymentResponse, toWithdrawalResponse };

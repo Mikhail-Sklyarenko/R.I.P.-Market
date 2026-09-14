@@ -29,6 +29,7 @@ describe('SettlementReleaseWorkerService', () => {
       settlementService as never,
     );
 
+    process.env.ENABLE_REAL_SETTLEMENT = 'true';
     process.env.ENABLE_SETTLEMENT_HOLD_WINDOW = 'true';
     const result = await worker.releaseDueHolds();
 
@@ -41,6 +42,7 @@ describe('SettlementReleaseWorkerService', () => {
       }),
     );
     expect(settlementService.releaseDueSettlementHold).toHaveBeenCalledTimes(2);
+    delete process.env.ENABLE_REAL_SETTLEMENT;
     delete process.env.ENABLE_SETTLEMENT_HOLD_WINDOW;
   });
 
@@ -52,6 +54,7 @@ describe('SettlementReleaseWorkerService', () => {
       settlementService as never,
     );
 
+    delete process.env.ENABLE_REAL_SETTLEMENT;
     delete process.env.ENABLE_SETTLEMENT_HOLD_WINDOW;
     await worker.handleInterval();
 

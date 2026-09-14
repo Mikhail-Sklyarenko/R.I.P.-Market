@@ -451,6 +451,10 @@ model TradeOperation {
 }
 
 model TradeTask {
+  leaseDeviceId String?
+  leaseUntil DateTime?
+  leaseVersion Int @default(0)
+  sendStartedAt DateTime?
   id               String                   @id @default(uuid())
   orderId          String
   tradeOperationId String
@@ -745,4 +749,12 @@ model SteamPriceCache {
   priceMinor     Int?
   fetchedAt      DateTime
   updatedAt      DateTime @updatedAt
+}
+
+model AuthExchangeCode {
+  codeHash String @id
+  userId String
+  purpose String
+  expiresAt DateTime
+  @@index([expiresAt])
 }

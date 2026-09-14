@@ -3,11 +3,12 @@ import { getOrderSteps } from '../utils/order-flow';
 
 type OrderStepperProps = {
   status: string;
+  hadSettlementHold?: boolean;
 };
 
-export function OrderStepper({ status }: OrderStepperProps) {
+export function OrderStepper({ status, hadSettlementHold = false }: OrderStepperProps) {
   const { locale } = useLocale();
-  const steps = getOrderSteps(status, locale);
+  const steps = getOrderSteps(status, locale, hadSettlementHold);
 
   return (
     <ol className="order-stepper" data-testid="order-stepper">

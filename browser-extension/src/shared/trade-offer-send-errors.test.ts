@@ -1,6 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import { OfferErrorCode } from '@rip-market/extension-orchestrator';
-import { mapSteamSendError, parseSteamSendResponse } from './trade-offer-send-errors.js';
+import {
+  mapSteamSendError,
+  parseSteamSendResponse,
+} from './trade-offer-send-errors.js';
 
 describe('trade-offer-send-errors', () => {
   it('maps session errors', () => {
@@ -11,7 +14,9 @@ describe('trade-offer-send-errors', () => {
   });
 
   it('maps trade hold errors', () => {
-    expect(mapSteamSendError('Offer send failed', 'You have a trade hold')).toEqual({
+    expect(
+      mapSteamSendError('Offer send failed', 'You have a trade hold'),
+    ).toEqual({
       code: OfferErrorCode.TRADE_HOLD_BLOCKED,
       message: 'Offer send failed — You have a trade hold',
     });
@@ -38,15 +43,14 @@ describe('trade-offer-send-errors', () => {
     });
   });
 
-  it('parses guard confirmation without invalid offer id as success without offer id', () => {
+  it('rejects an unstructured Guard message without an offer ID', () => {
     expect(
       parseSteamSendResponse({
         strError: 'Please confirm this trade in your mobile app',
       }),
     ).toEqual({
-      ok: true,
-      offerId: '',
-      confirmPending: true,
+      ok: false,
+      error: 'Please confirm this trade in your mobile app',
       strError: 'Please confirm this trade in your mobile app',
     });
   });
@@ -78,7 +82,9 @@ describe('trade-offer-send-errors', () => {
   });
 
   it('maps session/login errors to STEAM_COOKIE_EXPIRED', () => {
-    expect(mapSteamSendError('Steam session expired — reload steamcommunity.com')).toEqual({
+    expect(
+      mapSteamSendError('Steam session expired — reload steamcommunity.com'),
+    ).toEqual({
       code: OfferErrorCode.STEAM_COOKIE_EXPIRED,
       message: 'Steam session expired — reload steamcommunity.com',
     });

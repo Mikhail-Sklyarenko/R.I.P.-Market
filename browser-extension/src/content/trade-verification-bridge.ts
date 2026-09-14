@@ -66,7 +66,6 @@ import {
   isPostAcceptSteamLifecycle,
 } from '../shared/steam-offer-page-lifecycle.js';
 
-
 const PANEL_ID = 'rip-market-trade-verification-panel';
 const STICKY_ID = 'rip-market-anti-scam-sticky';
 const STEAM_INCOMING_OFFERS_URL = 'https://steamcommunity.com/my/tradeoffers/';
@@ -133,7 +132,13 @@ function maybeReportSteamOfferPage(trade: TradeVerificationResult): void {
     offerId,
     lifecycle: page.lifecycle === 'invalid' ? 'invalid' : 'accepted',
     idempotencyKey: `steam-page:${trade.orderId}:${offerId}:${page.lifecycle}`,
-  }).catch(() => undefined);
+  })
+    .then((result) => {
+      if (!result.ok) reportedSteamPageKeys.delete(key);
+    })
+    .catch(() => {
+      reportedSteamPageKeys.delete(key);
+    });
 }
 
 let acceptAssistUi: AcceptAssistUiState | null = null;
@@ -180,7 +185,11 @@ function armManualAcceptAssist(trade: TradeVerificationResult): void {
     return;
   }
   highlightSteamAcceptControl(control);
-  acceptAssistUi = { offerId, phase: 'armed', lastClickedKind: acceptAssistUi?.lastClickedKind };
+  acceptAssistUi = {
+    offerId,
+    phase: 'armed',
+    lastClickedKind: acceptAssistUi?.lastClickedKind,
+  };
   rerenderOfferPanel();
 }
 
@@ -188,7 +197,11 @@ function cancelManualAcceptAssist(trade: TradeVerificationResult): void {
   const offerId = trade.offerId?.trim();
   clearSteamAcceptHighlights(document);
   acceptAssistUi = offerId
-    ? { offerId, phase: 'ready', lastClickedKind: acceptAssistUi?.lastClickedKind }
+    ? {
+        offerId,
+        phase: 'ready',
+        lastClickedKind: acceptAssistUi?.lastClickedKind,
+      }
     : null;
   rerenderOfferPanel();
 }
@@ -257,7 +270,9 @@ function escapeHtml(value: string): string {
     .replaceAll('"', '&quot;');
 }
 
-function statusClass(status: TradeVerificationResult['verificationStatus']): string {
+function statusClass(
+  status: TradeVerificationResult['verificationStatus'],
+): string {
   if (status === 'verified') return 'rip-verified';
   if (status === 'mismatch') return 'rip-mismatch';
   if (status === 'partial') return 'rip-partial';
@@ -290,7 +305,10 @@ async function runtimeRequest<T>(message: Record<string, unknown>): Promise<T> {
 }
 
 async function resolveObservedFloat(assetId: string): Promise<string | null> {
-  const response = await runtimeRequest<{ ok: boolean; floatValue?: string | null }>({
+  const response = await runtimeRequest<{
+    ok: boolean;
+    floatValue?: string | null;
+  }>({
     type: TRADE_VERIFICATION_RUNTIME.RESOLVE_ASSET_FLOAT,
     assetId,
   });
@@ -330,14 +348,19 @@ async function loadTradeForPage(): Promise<OfferPageContext | null> {
   const slots = readSlotsFromPage();
   const observedPayload = {
     ...(observed?.assetId ? { observedAssetId: observed.assetId } : {}),
-    ...(observed?.floatValue ? { observedFloatValue: observed.floatValue } : {}),
+    ...(observed?.floatValue
+      ? { observedFloatValue: observed.floatValue }
+      : {}),
     ...(observed?.partnerSteamId
       ? { observedPartnerSteamId: observed.partnerSteamId }
       : {}),
   };
 
   if (offerId) {
-    const verified = await runtimeRequest<{ ok: boolean; trade?: TradeVerificationResult }>({
+    const verified = await runtimeRequest<{
+      ok: boolean;
+      trade?: TradeVerificationResult;
+    }>({
       type: TRADE_VERIFICATION_RUNTIME.VERIFY_TRADE,
       offerId,
       ...observedPayload,
@@ -347,7 +370,10 @@ async function loadTradeForPage(): Promise<OfferPageContext | null> {
     }
   }
 
-  const active = await runtimeRequest<{ ok: boolean; trades: TradeVerificationResult[] }>({
+  const active = await runtimeRequest<{
+    ok: boolean;
+    trades: TradeVerificationResult[];
+  }>({
     type: TRADE_VERIFICATION_RUNTIME.GET_ACTIVE_TRADES,
   });
   const trades = active.ok ? active.trades : [];
@@ -377,7 +403,10 @@ async function loadTradeForPage(): Promise<OfferPageContext | null> {
     ) {
       return { trade: fallback, observed, slots, offerId };
     }
-    const reverified = await runtimeRequest<{ ok: boolean; trade?: TradeVerificationResult }>({
+    const reverified = await runtimeRequest<{
+      ok: boolean;
+      trade?: TradeVerificationResult;
+    }>({
       type: TRADE_VERIFICATION_RUNTIME.VERIFY_TRADE,
       orderId: fallback.orderId,
       // Prefer the canonical linked offer id when present so we do not stamp
@@ -587,9 +616,7 @@ function renderPartnerBlock(
   const tools = `
       <div class="partner-row">
         <span class="partner-id" data-steamid>${
-          steamId
-            ? escapeHtml(steamId)
-            : escapeHtml(t('shield.steamIdMissing'))
+          steamId ? escapeHtml(steamId) : escapeHtml(t('shield.steamIdMissing'))
         }</span>
         ${
           steamId
@@ -769,8 +796,8 @@ const PANEL_STYLES = `
         --rip-danger: #fecaca;
         --rip-danger-bg: rgba(239, 68, 68, 0.14);
         --rip-info-bg: rgba(56, 189, 248, 0.1);
-        --rip-radius: 14px;
-        --rip-radius-sm: 10px;
+        --rip-radius: 12px;
+        --rip-radius-sm: 8px;
 
         position: fixed; top: 72px; right: 16px; z-index: 2147483646;
         width: min(360px, calc(100vw - 28px));
@@ -955,14 +982,17 @@ const PANEL_STYLES = `
       .actions { display: grid; gap: 8px; margin: 0; }
       button, a.btn {
         display: block; text-align: center; text-decoration: none; border: none;
-        border-radius: 9px; padding: 10px 12px; font-size: 13px; font-weight: 600; cursor: pointer;
+        border-radius: var(--rip-radius-sm); padding: 10px 12px; font-size: 13px; font-weight: 600; cursor: pointer;
       }
       .primary {
         background: linear-gradient(135deg, var(--rip-primary-from), var(--rip-primary-to));
         color: #fff;
       }
-      .primary.accept-cta { background: #15803d; }
-      .primary.accept-cta:hover { background: #16a34a; }
+      .primary.accept-cta {
+        background: linear-gradient(135deg, var(--rip-primary-from), var(--rip-primary-to));
+        box-shadow: inset 0 0 0 1px rgba(134, 239, 172, 0.35);
+      }
+      .primary.accept-cta:hover { filter: brightness(1.06); }
       .secondary {
         background: rgba(255,255,255,0.04); color: var(--rip-text);
         border: 1px solid var(--rip-border);
@@ -1260,7 +1290,10 @@ function buildPanel(context: OfferPageContext): HTMLElement {
       }
       ${renderFailedChecks(trade)}
       <p class="never-auto">${
-        trade.role === 'buyer' && onOfferPage && acceptAllowed && !showPrimaryReceived
+        trade.role === 'buyer' &&
+        onOfferPage &&
+        acceptAllowed &&
+        !showPrimaryReceived
           ? 'Accept в Steam — только после вашего двойного подтверждения.'
           : 'R.I.P Market никогда не нажимает Accept за вас'
       }</p>
@@ -1290,15 +1323,20 @@ function buildPanel(context: OfferPageContext): HTMLElement {
   shadow
     .querySelector<HTMLButtonElement>('button[data-action="seller-sent"]')
     ?.addEventListener('click', (event) => {
-      void acknowledgeSellerSent(trade, event.currentTarget as HTMLButtonElement);
+      void acknowledgeSellerSent(
+        trade,
+        event.currentTarget as HTMLButtonElement,
+      );
     });
 
-  shadow.querySelector<HTMLButtonElement>('button[data-action="pre-accept"]')?.addEventListener(
-    'click',
-    (event) => {
-      void acknowledgePreAccept(trade, event.currentTarget as HTMLButtonElement);
-    },
-  );
+  shadow
+    .querySelector<HTMLButtonElement>('button[data-action="pre-accept"]')
+    ?.addEventListener('click', (event) => {
+      void acknowledgePreAccept(
+        trade,
+        event.currentTarget as HTMLButtonElement,
+      );
+    });
 
   shadow
     .querySelector<HTMLButtonElement>('button[data-action="confirm-received"]')
@@ -1320,14 +1358,18 @@ function buildPanel(context: OfferPageContext): HTMLElement {
     });
 
   shadow
-    .querySelector<HTMLButtonElement>('button[data-action="accept-steam-confirm"]')
+    .querySelector<HTMLButtonElement>(
+      'button[data-action="accept-steam-confirm"]',
+    )
     ?.addEventListener('click', (event) => {
       event.preventDefault();
       confirmManualAcceptAssist(trade);
     });
 
   shadow
-    .querySelector<HTMLButtonElement>('button[data-action="accept-steam-cancel"]')
+    .querySelector<HTMLButtonElement>(
+      'button[data-action="accept-steam-cancel"]',
+    )
     ?.addEventListener('click', (event) => {
       event.preventDefault();
       cancelManualAcceptAssist(trade);

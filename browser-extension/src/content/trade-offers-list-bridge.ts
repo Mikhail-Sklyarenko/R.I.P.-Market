@@ -42,7 +42,7 @@ const BADGE_ATTR = 'data-rip-offer-mark';
 const ACCEPT_ASSIST_ATTR = 'data-rip-accept-assist';
 const CONTEXT_ATTR = 'data-rip-offer-context';
 const FILTER_STORAGE_KEY = 'rip:tradeoffers-filter-rip-only';
-const MAX_MANUAL_CREATE_BUTTONS = 5;
+const MAX_MANUAL_CREATE_PRIMARY = 1;
 
 type ManualCreateUiStatus =
   | { kind: 'idle' }
@@ -203,62 +203,106 @@ function ensureBadgeStyles(): void {
     document.documentElement.appendChild(style);
   }
   style.textContent = `
+    :root {
+      --rip-bg: #0b0d12;
+      --rip-elevated-solid: #181c26;
+      --rip-text: #f4f4f5;
+      --rip-muted: #94a3b8;
+      --rip-soft: #a8b0c0;
+      --rip-link: #7dd3fc;
+      --rip-border: rgba(255, 255, 255, 0.08);
+      --rip-primary-from: #0284c7;
+      --rip-primary-to: #2563eb;
+      --rip-success: #86efac;
+      --rip-success-bg: rgba(34, 197, 94, 0.16);
+      --rip-warn: #fde047;
+      --rip-warn-bg: rgba(234, 179, 8, 0.14);
+      --rip-danger: #fecaca;
+      --rip-danger-bg: rgba(239, 68, 68, 0.14);
+      --rip-radius: 12px;
+      --rip-radius-sm: 8px;
+    }
     .rip-tradeoffers-toolbar {
       display: flex; flex-wrap: wrap; gap: 10px; align-items: center;
-      margin: 12px 0 16px; padding: 12px 14px; border-radius: 10px;
-      background: #12161e; border: 1px solid #2f3542; color: #e8e8e8;
-      font-family: "Segoe UI", system-ui, sans-serif; font-size: 13px;
+      margin: 12px 0 16px; padding: 12px 14px; border-radius: var(--rip-radius);
+      background: var(--rip-elevated-solid); border: 1px solid var(--rip-border);
+      color: var(--rip-text);
+      font-family: Inter, system-ui, -apple-system, sans-serif; font-size: 13px;
     }
-    .rip-tradeoffers-toolbar strong { color: #8eb7ff; }
+    .rip-tradeoffers-toolbar strong { color: var(--rip-link); }
     .rip-tradeoffers-toolbar label {
       display: inline-flex; align-items: center; gap: 8px; cursor: pointer;
       user-select: none;
     }
-    .rip-tradeoffers-toolbar .count { color: #a8adb8; }
+    .rip-tradeoffers-toolbar .count { color: var(--rip-muted); }
     .rip-tradeoffers-toolbar .manual-create {
       flex: 1 1 100%; display: flex; flex-direction: column; gap: 8px;
-      margin-top: 4px; padding-top: 10px; border-top: 1px solid #2a303c;
+      margin-top: 4px; padding-top: 10px; border-top: 1px solid var(--rip-border);
     }
     .rip-tradeoffers-toolbar .manual-create-head {
       display: flex; flex-wrap: wrap; gap: 8px; align-items: baseline;
     }
-    .rip-tradeoffers-toolbar .manual-create-head strong { color: #f0d78a; }
+    .rip-tradeoffers-toolbar .manual-create-head strong { color: var(--rip-text); }
     .rip-tradeoffers-toolbar .manual-create-actions {
       display: flex; flex-wrap: wrap; gap: 8px;
     }
     .rip-tradeoffers-toolbar button.manual-cta {
-      border: 1px solid #3d5f8f; border-radius: 8px; padding: 8px 12px;
-      background: #1a2740; color: #d7e6ff; cursor: pointer; font: inherit;
-      font-weight: 600;
+      border: 1px solid var(--rip-border); border-radius: var(--rip-radius-sm);
+      padding: 8px 12px; background: rgba(15, 23, 42, 0.65);
+      color: var(--rip-text); cursor: pointer; font: inherit; font-weight: 600;
+    }
+    .rip-tradeoffers-toolbar button.manual-cta--primary {
+      border: none;
+      background: linear-gradient(135deg, var(--rip-primary-from), var(--rip-primary-to));
+      color: #fff;
+    }
+    .rip-tradeoffers-toolbar button.manual-cta--ghost {
+      background: transparent; color: var(--rip-muted); font-weight: 500;
     }
     .rip-tradeoffers-toolbar button.manual-cta:hover:not(:disabled) {
-      background: #243556;
+      filter: brightness(1.06);
     }
     .rip-tradeoffers-toolbar button.manual-cta:disabled {
       opacity: 0.65; cursor: wait;
     }
-    .rip-tradeoffers-toolbar button.manual-cta[data-priority="send_manual"] {
-      border-color: #8f6f3d; background: #2a2418; color: #f5e2b0;
+    .rip-tradeoffers-toolbar details.manual-create-more summary {
+      cursor: pointer; font-size: 12px; color: var(--rip-muted); user-select: none;
+      list-style: none;
+    }
+    .rip-tradeoffers-toolbar details.manual-create-more summary::-webkit-details-marker {
+      display: none;
     }
     .rip-tradeoffers-toolbar .manual-status {
-      color: #c7ccd6; font-size: 12px; line-height: 1.4;
+      color: var(--rip-soft); font-size: 12px; line-height: 1.4;
     }
-    .rip-tradeoffers-toolbar .manual-status--error { color: #f0a8a8; }
-    .rip-tradeoffers-toolbar .manual-status--success { color: #8fe6a4; }
+    .rip-tradeoffers-toolbar .manual-status--error { color: var(--rip-danger); }
+    .rip-tradeoffers-toolbar .manual-status--success { color: var(--rip-success); }
     .rip-tradeoffers-toolbar .manual-status a {
-      color: #8eb7ff; margin-left: 6px;
+      color: var(--rip-link); margin-left: 6px;
     }
     .rip-badge {
       display: inline-flex; align-items: center; gap: 6px;
       margin: 8px 0 4px; padding: 4px 10px; border-radius: 999px;
       font-size: 12px; font-weight: 700; cursor: pointer; border: 1px solid transparent;
-      font-family: "Segoe UI", system-ui, sans-serif;
+      font-family: Inter, system-ui, -apple-system, sans-serif;
     }
     .rip-badge svg { width: 12px; height: 12px; flex: 0 0 auto; }
-    .rip-badge--verified { background: rgba(47,111,70,.35); color: #8fe6a4; border-color: #2f6f46; }
-    .rip-badge--pending { background: rgba(91,141,239,.22); color: #b7d0ff; border-color: #3d5f8f; }
-    .rip-badge--mismatch { background: rgba(143,61,61,.35); color: #f0a8a8; border-color: #8f3d3d; }
-    .rip-badge--foreign { background: rgba(90,90,98,.35); color: #c7ccd6; border-color: #4a4f5a; }
+    .rip-badge--verified {
+      background: var(--rip-success-bg); color: var(--rip-success);
+      border-color: rgba(134, 239, 172, 0.35);
+    }
+    .rip-badge--pending {
+      background: rgba(56, 189, 248, 0.12); color: var(--rip-link);
+      border-color: rgba(125, 211, 252, 0.35);
+    }
+    .rip-badge--mismatch {
+      background: var(--rip-danger-bg); color: var(--rip-danger);
+      border-color: rgba(248, 113, 113, 0.4);
+    }
+    .rip-badge--foreign {
+      background: rgba(30, 41, 59, 0.55); color: var(--rip-muted);
+      border-color: var(--rip-border);
+    }
     .rip-badge-row {
       display: inline-flex; flex-wrap: wrap; gap: 8px; align-items: center;
       margin: 8px 0 4px;
@@ -267,112 +311,139 @@ function ensureBadgeStyles(): void {
     a.rip-accept-assist {
       display: inline-flex; align-items: center; padding: 4px 12px; border-radius: 999px;
       font-size: 12px; font-weight: 700; text-decoration: none; cursor: pointer;
-      font-family: "Segoe UI", system-ui, sans-serif;
-      background: rgba(47,111,70,.45); color: #b8f5c6; border: 1px solid #2f6f46;
+      font-family: Inter, system-ui, -apple-system, sans-serif;
+      background: linear-gradient(135deg, var(--rip-primary-from), var(--rip-primary-to));
+      color: #fff; border: none;
     }
-    a.rip-accept-assist:hover { background: rgba(47,111,70,.65); color: #e8ffe9; }
+    a.rip-accept-assist:hover { filter: brightness(1.07); }
     .rip-card-context {
       display: flex; flex-wrap: wrap; gap: 6px 10px; align-items: center;
-      margin: 0 0 8px; padding: 8px 10px; border-radius: 8px;
-      background: rgba(18,22,30,.92); border: 1px solid #2a3140;
-      font-family: "Segoe UI", system-ui, sans-serif; font-size: 12px;
-      color: #c7ccd6; cursor: pointer; max-width: 100%; width: 100%;
+      margin: 0 0 8px; padding: 8px 10px; border-radius: var(--rip-radius-sm);
+      background: var(--rip-elevated-solid); border: 1px solid var(--rip-border);
+      font-family: Inter, system-ui, -apple-system, sans-serif; font-size: 12px;
+      color: var(--rip-soft); cursor: pointer; max-width: 100%; width: 100%;
       text-align: left; appearance: none; -webkit-appearance: none;
     }
-    .rip-card-context:hover { border-color: #3d5f8f; }
+    .rip-card-context:hover { border-color: rgba(125, 211, 252, 0.35); }
     .rip-card-context .chip {
       display: inline-flex; align-items: center; gap: 4px;
-      padding: 2px 8px; border-radius: 999px; background: #1a2030;
-      border: 1px solid #2f3542; color: #e8e8e8; font-weight: 600;
+      padding: 2px 8px; border-radius: 999px; background: rgba(15, 23, 42, 0.72);
+      border: 1px solid var(--rip-border); color: var(--rip-text); font-weight: 600;
       white-space: nowrap;
     }
-    .rip-card-context .chip-order { color: #8eb7ff; border-color: #3d5f8f; }
-    .rip-card-context .chip-price { color: #b8f5c6; border-color: #2f6f46; }
-    .rip-card-context .chip-role { color: #d7e4ff; }
+    .rip-card-context .chip-order { color: var(--rip-link); border-color: rgba(125, 211, 252, 0.28); }
+    .rip-card-context .chip-price { color: var(--rip-success); border-color: rgba(134, 239, 172, 0.28); }
+    .rip-card-context .chip-role { color: var(--rip-soft); }
     .rip-card-context .chip-status { font-weight: 700; }
-    .rip-card-context .chip-status.tone-ok { color: #8fe6a4; border-color: #2f6f46; background: rgba(47,111,70,.2); }
-    .rip-card-context .chip-status.tone-warn { color: #f0d78a; border-color: #6f5d2f; background: rgba(111,93,47,.2); }
-    .rip-card-context .chip-status.tone-error { color: #f0a8a8; border-color: #8f3d3d; background: rgba(143,61,61,.22); }
-    .rip-card-context .chip-status.tone-info { color: #b7d0ff; border-color: #3d5f8f; background: rgba(91,141,239,.16); }
-    .rip-card-context .chip-status.tone-neutral { color: #c7ccd6; }
+    .rip-card-context .chip-status.tone-ok {
+      color: var(--rip-success); border-color: rgba(134, 239, 172, 0.35);
+      background: var(--rip-success-bg);
+    }
+    .rip-card-context .chip-status.tone-warn {
+      color: var(--rip-warn); border-color: rgba(253, 224, 71, 0.35);
+      background: var(--rip-warn-bg);
+    }
+    .rip-card-context .chip-status.tone-error {
+      color: var(--rip-danger); border-color: rgba(248, 113, 113, 0.4);
+      background: var(--rip-danger-bg);
+    }
+    .rip-card-context .chip-status.tone-info {
+      color: var(--rip-link); border-color: rgba(125, 211, 252, 0.28);
+      background: rgba(56, 189, 248, 0.1);
+    }
+    .rip-card-context .chip-status.tone-neutral { color: var(--rip-muted); }
     .rip-card-context .item-line {
-      flex: 1 1 100%; margin: 0; font-size: 11px; color: #a8adb8;
+      flex: 1 1 100%; margin: 0; font-size: 11px; color: var(--rip-muted);
       line-height: 1.35; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
     }
-    #${DETAIL_ID} a.rip-accept-assist-detail {
+    #${DETAIL_ID} a.rip-detail-primary {
       display: block; text-align: center; text-decoration: none; margin-top: 10px;
-      background: #2f6f46; color: #fff; border-radius: 8px; padding: 10px 12px; font-weight: 700;
+      background: linear-gradient(135deg, var(--rip-primary-from), var(--rip-primary-to));
+      color: #fff; border-radius: var(--rip-radius-sm); padding: 10px 12px; font-weight: 700;
+    }
+    #${DETAIL_ID} a.rip-detail-secondary {
+      display: block; text-align: center; text-decoration: none; margin-top: 8px;
+      background: transparent; color: var(--rip-link);
+      border: 1px solid var(--rip-border); border-radius: var(--rip-radius-sm);
+      padding: 8px 12px; font-weight: 600;
+    }
+    #${DETAIL_ID} a.rip-detail-inline-link {
+      display: inline; margin: 0; padding: 0; border: none; background: none;
+      color: var(--rip-link); font-size: 12px; font-weight: 600;
     }
     #${DETAIL_ID} .context-grid {
       display: grid; grid-template-columns: auto 1fr; gap: 4px 10px;
       margin: 0 0 10px; font-size: 12px;
     }
-    #${DETAIL_ID} .context-grid dt { color: #7d8594; margin: 0; }
-    #${DETAIL_ID} .context-grid dd { margin: 0; color: #e8e8e8; font-weight: 600; }
+    #${DETAIL_ID} .context-grid dt { color: var(--rip-muted); margin: 0; }
+    #${DETAIL_ID} .context-grid dd { margin: 0; color: var(--rip-text); font-weight: 600; }
     .tradeoffer.rip-card--verified,
     [id^="tradeofferid_"].rip-card--verified {
-      outline: 2px solid rgba(47,111,70,.75); outline-offset: 2px;
+      outline: 2px solid rgba(134, 239, 172, 0.55); outline-offset: 2px;
     }
     .tradeoffer.rip-card--pending,
     [id^="tradeofferid_"].rip-card--pending {
-      outline: 2px solid rgba(91,141,239,.65); outline-offset: 2px;
+      outline: 2px solid rgba(125, 211, 252, 0.45); outline-offset: 2px;
     }
     .tradeoffer.rip-card--mismatch,
     [id^="tradeofferid_"].rip-card--mismatch {
-      outline: 2px solid rgba(143,61,61,.85); outline-offset: 2px;
+      outline: 2px solid rgba(248, 113, 113, 0.55); outline-offset: 2px;
     }
     .tradeoffer.rip-card--foreign,
     [id^="tradeofferid_"].rip-card--foreign {
-      outline: 1px solid rgba(90,90,98,.45); outline-offset: 1px;
+      outline: 1px solid var(--rip-border); outline-offset: 1px;
     }
     .tradeoffer.rip-card--hidden,
     [id^="tradeofferid_"].rip-card--hidden { display: none !important; }
     #${DETAIL_ID} {
       position: fixed; z-index: 2147483646; width: min(340px, calc(100vw - 24px));
-      border-radius: 12px; padding: 14px; background: #12161e; color: #e8e8e8;
-      border: 1px solid #2f3542; box-shadow: 0 16px 48px rgba(0,0,0,.55);
-      font-family: "Segoe UI", system-ui, sans-serif; font-size: 13px;
+      border-radius: var(--rip-radius); padding: 14px; background: var(--rip-elevated-solid);
+      color: var(--rip-text); border: 1px solid var(--rip-border);
+      box-shadow: 0 16px 48px rgba(0,0,0,.55);
+      font-family: Inter, system-ui, -apple-system, sans-serif; font-size: 13px;
     }
-    #${DETAIL_ID} h2 { margin: 0 0 8px; font-size: 14px; }
-    #${DETAIL_ID} p { margin: 0 0 8px; color: #c7ccd6; line-height: 1.4; }
-    #${DETAIL_ID} .meta { color: #a8adb8; font-size: 12px; }
+    #${DETAIL_ID} h2 { margin: 0 0 8px; font-size: 14px; color: var(--rip-text); }
+    #${DETAIL_ID} p { margin: 0 0 8px; color: var(--rip-soft); line-height: 1.4; }
+    #${DETAIL_ID} .meta { color: var(--rip-muted); font-size: 12px; }
     #${DETAIL_ID} .rip-detail-hero {
       display: flex; gap: 10px; align-items: center; margin: 0 0 10px;
-      padding: 8px; border-radius: 8px; background: #1a2030; border: 1px solid #2a3140;
+      padding: 8px; border-radius: var(--rip-radius-sm);
+      background: rgba(15, 23, 42, 0.55); border: 1px solid var(--rip-border);
     }
     #${DETAIL_ID} .rip-detail-avatar {
       width: 40px; height: 40px; border-radius: 50%; object-fit: cover; flex-shrink: 0;
     }
     #${DETAIL_ID} .rip-detail-avatar-fallback {
       width: 40px; height: 40px; border-radius: 50%; display: grid; place-items: center;
-      background: #0b0e14; border: 1px solid #2a3140; color: #a8adb8; font-weight: 700;
-      flex-shrink: 0;
-    }
-    #${DETAIL_ID} a {
-      display: block; text-align: center; text-decoration: none; margin-top: 10px;
-      background: #5b8def; color: #fff; border-radius: 8px; padding: 10px 12px;
+      background: var(--rip-bg); border: 1px solid var(--rip-border);
+      color: var(--rip-muted); font-weight: 700; flex-shrink: 0;
     }
     #${DETAIL_ID} button.close {
-      width: 100%; margin-top: 8px; border: none; border-radius: 8px;
-      padding: 8px 12px; background: #2a2f3a; color: #e8e8e8; cursor: pointer;
+      width: 100%; margin-top: 8px; border: 1px solid var(--rip-border); border-radius: var(--rip-radius-sm);
+      padding: 8px 12px; background: transparent; color: var(--rip-muted); cursor: pointer;
+      font-family: inherit; font-size: 12px;
     }
+    #${DETAIL_ID} button.close:hover { color: var(--rip-text); }
     #${STICKY_ID} {
       position: fixed; left: 12px; right: 12px; bottom: 12px; z-index: 2147483645;
-      max-width: 520px; margin: 0 auto; padding: 10px 14px; border-radius: 10px;
-      background: rgba(18,22,30,.96); color: #f0d78a; border: 1px solid rgba(111,93,47,.65);
-      font-family: "Segoe UI", system-ui, sans-serif; font-size: 12px; line-height: 1.4;
+      max-width: 520px; margin: 0 auto; padding: 10px 14px; border-radius: var(--rip-radius-sm);
+      background: var(--rip-warn-bg); color: var(--rip-warn);
+      border: 1px solid rgba(253, 224, 71, 0.35);
+      font-family: Inter, system-ui, -apple-system, sans-serif; font-size: 12px; line-height: 1.4;
       box-shadow: 0 10px 28px rgba(0,0,0,.45); pointer-events: none;
     }
     .rip-tradeoffers-reload {
       display: flex; flex-wrap: wrap; gap: 10px; align-items: center;
-      margin: 12px 0 16px; padding: 12px 14px; border-radius: 10px;
-      background: #2a2418; border: 1px solid #8f6f3d; color: #f5e2b0;
-      font-family: "Segoe UI", system-ui, sans-serif; font-size: 13px;
+      margin: 12px 0 16px; padding: 12px 14px; border-radius: var(--rip-radius);
+      background: var(--rip-warn-bg); border: 1px solid rgba(253, 224, 71, 0.35);
+      color: #f5e6b8;
+      font-family: Inter, system-ui, -apple-system, sans-serif; font-size: 13px;
     }
-    .rip-tradeoffers-reload strong { color: #f0d78a; }
+    .rip-tradeoffers-reload strong { color: var(--rip-warn); }
     .rip-tradeoffers-reload button {
-      border: 1px solid #8f6f3d; border-radius: 8px; padding: 8px 12px;
-      background: #3d3420; color: #f5e2b0; cursor: pointer; font: inherit; font-weight: 600;
+      border: 1px solid rgba(253, 224, 71, 0.4); border-radius: var(--rip-radius-sm);
+      padding: 8px 12px; background: rgba(15, 23, 42, 0.72); color: var(--rip-text);
+      cursor: pointer; font: inherit; font-weight: 600;
     }
   `;
 }
@@ -549,9 +620,7 @@ function showDetail(mark: OfferMark, anchor: HTMLElement): void {
   if (!trade) {
     panel.innerHTML = `
       <h2>Не наша сделка</h2>
-      <p><strong>Offer не привязан к активному заказу R.I.P Market.</strong></p>
-      <p>Не принимайте обмены из чата, профиля или от незнакомцев — это классический скам-паттерн.</p>
-      <p class="meta">Проверьте: нет ли запроса ваших предметов и лишних скинов в оффере.</p>
+      <p>Оффер не привязан к заказу R.I.P Market. Не принимайте обмены из чата или от незнакомцев.</p>
       <button class="close" type="button">Закрыть</button>
     `;
   } else {
@@ -570,7 +639,7 @@ function showDetail(mark: OfferMark, anchor: HTMLElement): void {
       : `<span class="rip-detail-avatar-fallback">${escapeHtml(shield.partner.displayName.slice(0, 1).toUpperCase())}</span>`;
     const profile =
       shield.partner.steamId && isRealSteamId64(shield.partner.steamId)
-        ? `<a href="${escapeHtml(buildSteamProfileUrl(shield.partner.steamId))}" target="_blank" rel="noreferrer">${escapeHtml(t('shield.openProfile'))}</a>`
+        ? `<a class="rip-detail-inline-link" href="${escapeHtml(buildSteamProfileUrl(shield.partner.steamId))}" target="_blank" rel="noreferrer">${escapeHtml(t('shield.openProfile'))}</a>`
         : '';
     const itemLines =
       shield.item.lines.length > 0
@@ -600,10 +669,10 @@ function showDetail(mark: OfferMark, anchor: HTMLElement): void {
       </dl>
       ${
         acceptCta
-          ? `<a class="rip-accept-assist-detail" href="${escapeHtml(acceptCta.href)}">${escapeHtml(acceptCta.label)}</a>`
-          : ''
+          ? `<a class="rip-detail-primary" href="${escapeHtml(acceptCta.href)}">${escapeHtml(acceptCta.label)}</a>
+      <a class="rip-detail-secondary" href="${escapeHtml(trade.siteUrl)}" target="_blank" rel="noreferrer">${escapeHtml(t('common.openOrder'))}</a>`
+          : `<a class="rip-detail-primary" href="${escapeHtml(trade.siteUrl)}" target="_blank" rel="noreferrer">${escapeHtml(t('common.openOrder'))}</a>`
       }
-      <a href="${escapeHtml(trade.siteUrl)}" target="_blank" rel="noreferrer">${escapeHtml(t('common.openOrder'))}</a>
       <button class="close" type="button">Закрыть</button>
     `;
   }
@@ -694,27 +763,41 @@ function renderManualCreateStatusHtml(): string {
   return '';
 }
 
+function renderManualCreateButtonHtml(
+  entry: ManualCreateCandidate,
+  variant: 'primary' | 'ghost',
+): string {
+  const busy =
+    manualCreateStatus.kind === 'busy' &&
+    manualCreateStatus.orderId === entry.orderId;
+  const disabled = manualCreateStatus.kind === 'busy';
+  const cls =
+    variant === 'primary'
+      ? 'manual-cta manual-cta--primary'
+      : 'manual-cta manual-cta--ghost';
+  return `<button type="button" class="${cls}" data-priority="${escapeHtml(entry.reason)}" data-order-id="${escapeHtml(entry.orderId)}" title="${escapeHtml(entry.hint)}" ${disabled ? 'disabled' : ''}>${busy ? 'Собираем…' : escapeHtml(entry.ctaLabel)}</button>`;
+}
+
 function renderManualCreateSectionHtml(candidates: ManualCreateCandidate[]): string {
   if (candidates.length === 0 && manualCreateStatus.kind === 'idle') {
     return '';
   }
-  const shown = candidates.slice(0, MAX_MANUAL_CREATE_BUTTONS);
-  const more =
-    candidates.length > MAX_MANUAL_CREATE_BUTTONS
-      ? `<span class="count">ещё ${candidates.length - MAX_MANUAL_CREATE_BUTTONS}</span>`
-      : '';
-  const buttons =
-    shown.length === 0
+  const primary = candidates.slice(0, MAX_MANUAL_CREATE_PRIMARY);
+  const extras = candidates.slice(MAX_MANUAL_CREATE_PRIMARY);
+  const primaryBlock =
+    primary.length === 0
       ? ''
-      : `<div class="manual-create-actions">${shown
-          .map((entry) => {
-            const busy =
-              manualCreateStatus.kind === 'busy' &&
-              manualCreateStatus.orderId === entry.orderId;
-            const disabled = manualCreateStatus.kind === 'busy';
-            return `<button type="button" class="manual-cta" data-priority="${escapeHtml(entry.reason)}" data-order-id="${escapeHtml(entry.orderId)}" title="${escapeHtml(entry.hint)}" ${disabled ? 'disabled' : ''}>${busy ? 'Собираем…' : escapeHtml(entry.ctaLabel)}</button>`;
-          })
-          .join('')}${more}</div>`;
+      : `<div class="manual-create-actions">${primary
+          .map((entry) => renderManualCreateButtonHtml(entry, 'primary'))
+          .join('')}</div>`;
+  const extrasBlock =
+    extras.length === 0
+      ? ''
+      : `<details class="manual-create-more"><summary>Ещё заказы (${extras.length})</summary><div class="manual-create-actions">${extras
+          .map((entry) => renderManualCreateButtonHtml(entry, 'ghost'))
+          .join('')}</div></details>`;
+  const buttons =
+    primaryBlock || extrasBlock ? `${primaryBlock}${extrasBlock}` : '';
   return `
     <div class="manual-create" data-manual-create>
       <div class="manual-create-head">

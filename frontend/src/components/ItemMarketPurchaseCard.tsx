@@ -164,7 +164,9 @@ export function ItemMarketPurchaseCard({
             <MoneyDisplay minor={listingPriceMinor ?? lot.priceMinor} strong />
           </div>
           <div className="lot-purchase-actions">
-            {purchase.insufficient ? (
+            {purchase.purchaseBlocked && token ? (
+              <Link className="button primary lot-purchase-button" to={`/account?returnUrl=${encodeURIComponent(returnPath)}`}>{t('ux.completeSetup')}</Link>
+            ) : purchase.insufficient ? (
               <Link
                 to={purchase.depositHref}
                 className="button primary lot-purchase-button"

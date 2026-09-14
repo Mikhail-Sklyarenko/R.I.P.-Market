@@ -1,5 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { BuyRequestStatus, LotStatus } from '@prisma/client';
+import { Prisma, BuyRequestStatus, LotStatus } from '@prisma/client';
 import { NotificationsService } from '../notifications/notifications.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { LedgerService } from '../wallet/ledger.service';
@@ -75,8 +75,15 @@ export class BuyRequestMatchingService {
     buyerId: string,
     itemDefinitionId: string,
     priceMinor: bigint,
+    client?: Prisma.TransactionClient,
   ): Promise<void> {
-    const candidates = await this.prisma.buyRequest.findMany({
+    if (!client) {
+      await this.prisma.$transaction((tx) =>
+        this.fulfillForPurchase(buyerId, itemDefinitionId, priceMinor, tx),
+      );
+      return;
+    }
+    const candidates = await client.buyRequest.findMany({
       where: {
         buyerId,
         itemDefinitionId,
@@ -96,11 +103,28 @@ export class BuyRequestMatchingService {
     const unitRelease = buyRequest.maxPriceMinor;
     const nextFilled = buyRequest.quantityFilled + 1;
     const currentReserved = buyRequest.reservedAmountMinor ?? 0n;
-    const nextReserved =
-      currentReserved > unitRelease ? currentReserved - unitRelease : 0n;
+    if (currentReserved < unitRelease)
+      throw new Error('Buy request reserve is inconsistent');
+    const nextReserved = currentReserved - unitRelease;
     const fulfilled = nextFilled >= buyRequest.quantity;
 
-    await this.prisma.$transaction(async (tx) => {
+    const tx = client;
+    const claimed = await tx.buyRequest.updateMany({
+      where: {
+        id: buyRequest.id,
+        status: BuyRequestStatus.OPEN,
+        quantityFilled: buyRequest.quantityFilled,
+        reservedAmountMinor: currentReserved,
+      },
+      data: {
+        quantityFilled: nextFilled,
+        reservedAmountMinor: nextReserved,
+        status: fulfilled ? BuyRequestStatus.FULFILLED : BuyRequestStatus.OPEN,
+      },
+    });
+    if (claimed.count !== 1)
+      throw new Error('Buy request changed concurrently; retry purchase');
+    {
       if (unitRelease > 0n && currentReserved > 0n) {
         await this.ledger.releaseBuyRequestHold({
           buyerUserId: buyerId,
@@ -116,10 +140,12 @@ export class BuyRequestMatchingService {
         data: {
           quantityFilled: nextFilled,
           reservedAmountMinor: nextReserved,
-          status: fulfilled ? BuyRequestStatus.FULFILLED : BuyRequestStatus.OPEN,
+          status: fulfilled
+            ? BuyRequestStatus.FULFILLED
+            : BuyRequestStatus.OPEN,
         },
       });
-    });
+    }
   }
 
   private async loadActiveLot(lotId: string) {

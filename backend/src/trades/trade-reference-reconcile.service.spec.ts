@@ -74,7 +74,7 @@ describe('TradeReferenceReconcileService', () => {
       disputed: false,
     });
     expect(prisma.tradeOperation.update).toHaveBeenCalledWith({
-      where: { id: 'trade-1' },
+      where: { id: 'trade-1', externalOfferId: null },
       data: { externalOfferId: '8301234567' },
     });
     expect(prisma.auditLog.create).toHaveBeenCalledWith(

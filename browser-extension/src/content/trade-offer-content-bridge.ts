@@ -37,7 +37,9 @@ function injectPageScript(): Promise<void> {
     return pageScriptInjection;
   }
 
-  if (document.documentElement.getAttribute(PAGE_SCRIPT_READY_ATTR) === 'ready') {
+  if (
+    document.documentElement.getAttribute(PAGE_SCRIPT_READY_ATTR) === 'ready'
+  ) {
     return Promise.resolve();
   }
 
@@ -107,7 +109,11 @@ function runAutofillViaPageScript(
         return;
       }
       const data = event.data as RunAutofillPageResponse | undefined;
-      if (!data || data.source !== TRADE_OFFER_PAGE_SOURCE || data.requestId !== requestId) {
+      if (
+        !data ||
+        data.source !== TRADE_OFFER_PAGE_SOURCE ||
+        data.requestId !== requestId
+      ) {
         return;
       }
 
@@ -146,3 +152,37 @@ export async function handleSteamBridgeRuntimeMessage(
 if (window.location.pathname.includes('/tradeoffer/')) {
   void injectPageScript().catch(() => undefined);
 }
+
+window.addEventListener('message', (event: MessageEvent) => {
+  if (event.source !== window || event.origin !== 'https://steamcommunity.com')
+    return;
+  const message = event.data;
+  if (
+    message?.source !== TRADE_OFFER_PAGE_SOURCE ||
+    message.type !== 'SEND_RESULT' ||
+    typeof message.draftId !== 'string' ||
+    !message.result?.ok
+  )
+    return;
+  void (async () => {
+    const stored = await chrome.storage.local.get(
+      `rip:draft:${message.draftId}`,
+    );
+    const draft = stored[`rip:draft:${message.draftId}`] as
+      | TradeOfferDraftPayload
+      | undefined;
+    if (
+      !draft ||
+      draft.item.assetId !== message.assetId ||
+      draft.buyerTradeUrl !== message.buyerTradeUrl
+    )
+      return;
+    await recordInterceptedOffer({
+      draftId: message.draftId,
+      assetId: draft.item.assetId,
+      buyerTradeUrl: draft.buyerTradeUrl,
+      offerId: message.result.offerId,
+      confirmPending: message.result.confirmPending,
+    });
+  })().catch(() => undefined);
+});

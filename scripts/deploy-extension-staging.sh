@@ -116,6 +116,7 @@ npm ci
 cd "$APP_DIR/browser-extension"
 npm ci
 npm run build
+python3 "$APP_DIR/scripts/package-browser-extension.py"
 
 echo "==> Frontend: install, build"
 cd "$APP_DIR/frontend"

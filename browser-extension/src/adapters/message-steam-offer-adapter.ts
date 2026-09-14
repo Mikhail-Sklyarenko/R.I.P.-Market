@@ -96,6 +96,7 @@ export class MessageSteamOfferAdapter implements SteamOfferAdapter {
       ? `draft-${input.taskId}`
       : `draft-${input.item.assetId}`;
     const draft: TradeOfferDraft = {
+      draftId,
       buyerTradeUrl: input.buyerTradeUrl,
       item: input.item,
       ...(input.note?.trim() ? { note: input.note.trim() } : {}),
@@ -110,13 +111,21 @@ export class MessageSteamOfferAdapter implements SteamOfferAdapter {
       };
     }
 
+    await chrome.storage.local.set({ [draftStorageKey(draftId)]: draft });
     await chrome.storage.session.set({ [draftStorageKey(draftId)]: draft });
     return { ok: true, draftId };
   }
 
-  async sendOffer(draftId: string, hooks?: SendOfferHooks): Promise<SendOfferResult> {
-    const stored = await chrome.storage.session.get(draftStorageKey(draftId));
-    const draft = stored[draftStorageKey(draftId)] as TradeOfferDraft | undefined;
+  async sendOffer(
+    draftId: string,
+    hooks?: SendOfferHooks,
+  ): Promise<SendOfferResult> {
+    const stored = await chrome.storage.local.get(draftStorageKey(draftId));
+    const legacy = stored[draftStorageKey(draftId)]
+      ? {}
+      : await chrome.storage.session.get(draftStorageKey(draftId));
+    const draft = (stored[draftStorageKey(draftId)] ??
+      legacy[draftStorageKey(draftId)]) as TradeOfferDraft | undefined;
     const assetId = draft?.item.assetId;
 
     const prior = await resolvePriorSuccessfulSend({ draftId, assetId });
@@ -155,6 +164,7 @@ export class MessageSteamOfferAdapter implements SteamOfferAdapter {
     });
 
     let midFlowHooksFired = false;
+    let submitAcknowledged = false;
     const progressHooks: TradeOfferProgressHooks = {
       onItemSelected: async () => {
         midFlowHooksFired = true;
@@ -167,6 +177,7 @@ export class MessageSteamOfferAdapter implements SteamOfferAdapter {
       onOfferSubmitted: async () => {
         midFlowHooksFired = true;
         await hooks?.onOfferSubmitted?.();
+        submitAcknowledged = true;
       },
     };
 
@@ -181,11 +192,12 @@ export class MessageSteamOfferAdapter implements SteamOfferAdapter {
       if (recovered) {
         return replayCachedSuccess(recovered, hooks);
       }
-      await clearSendInflight(draftId);
+      if (!submitAcknowledged) await clearSendInflight(draftId);
       return {
         ok: false,
         code: OfferErrorCode.OFFER_SEND_FAILED,
-        message: error instanceof Error ? error.message : 'Trade offer send failed',
+        message:
+          error instanceof Error ? error.message : 'Trade offer send failed',
       };
     }
 
@@ -197,18 +209,9 @@ export class MessageSteamOfferAdapter implements SteamOfferAdapter {
       if (recovered) {
         return replayCachedSuccess(recovered, hooks);
       }
-      await clearSendInflight(draftId);
+      if (!submitAcknowledged) await clearSendInflight(draftId);
       const mapped = mapSteamSendError(result.error, result.strError);
       return { ok: false, code: mapped.code, message: mapped.message };
-    }
-
-    if (!midFlowHooksFired) {
-      await hooks?.onItemSelected?.({
-        assetId: draft.item.assetId,
-        marketHashName: draft.item.marketHashName ?? null,
-        floatValue: draft.item.floatValue ?? null,
-      });
-      await hooks?.onOfferSubmitted?.();
     }
 
     await cacheSentOffer(
@@ -224,7 +227,17 @@ export class MessageSteamOfferAdapter implements SteamOfferAdapter {
         floatValue: draft.item.floatValue ?? null,
       },
     );
+    if (!midFlowHooksFired) {
+      await hooks?.onItemSelected?.({
+        assetId: draft.item.assetId,
+        marketHashName: draft.item.marketHashName ?? null,
+        floatValue: draft.item.floatValue ?? null,
+      });
+      await hooks?.onOfferSubmitted?.();
+    }
+
     await chrome.storage.session.remove(draftStorageKey(draftId));
+    await chrome.storage.local.remove(draftStorageKey(draftId));
 
     return {
       ok: true,

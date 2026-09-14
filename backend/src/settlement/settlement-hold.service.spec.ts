@@ -133,7 +133,7 @@ describe('SettlementService hold window', () => {
     expect(ledgerService.settleSale).toHaveBeenCalledTimes(1);
   });
 
-  it('force-releases stuck hold when real settlement is disabled', async () => {
+  it('keeps existing hold protected when real settlement is disabled', async () => {
     delete process.env.ENABLE_REAL_SETTLEMENT;
     const { service, prisma, ledgerService, tx } = buildService();
     const heldOrder = {
@@ -148,8 +148,8 @@ describe('SettlementService hold window', () => {
     tx.order.findUnique.mockResolvedValue(heldOrder);
 
     const result = await service.releaseDueSettlementHold('order-1');
-    expect(result.settled).toBe(true);
-    expect(ledgerService.settleSale).toHaveBeenCalledTimes(1);
+    expect(result.settled).toBe(false);
+    expect(ledgerService.settleSale).not.toHaveBeenCalled();
   });
 
   it('releases hold once when due and is idempotent on duplicate run', async () => {

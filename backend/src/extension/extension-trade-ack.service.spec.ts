@@ -1,4 +1,4 @@
-import { OrderStatus } from '@prisma/client';
+import { OrderStatus, Prisma } from '@prisma/client';
 import { ExtensionTradeAckService } from './extension-trade-ack.service';
 
 describe('ExtensionTradeAckService', () => {
@@ -669,9 +669,33 @@ describe('ExtensionTradeAckService', () => {
     expect(result.buyerTradeUrl).toContain('steamcommunity.com/tradeoffer/new');
   });
 
+  it('rejects a duplicate key belonging to another user or order', async () => {
+    prisma.tradeAcknowledgment.findUnique.mockResolvedValue({ userId: 'other-user', orderId: 'other-order', type: 'BUYER_ACK_RECEIVED' });
+    await expect(service.acknowledge({ userId: 'buyer-1', orderId: 'order-1', type: 'BUYER_ACK_RECEIVED', idempotencyKey: 'stolen-key' })).rejects.toThrow('another action');
+    expect(tradeStatusPoller.pollOrderById).not.toHaveBeenCalled();
+    expect(prisma.tradeAcknowledgment.create).not.toHaveBeenCalled();
+  });
+
+  it.each([null, '9999999999'])('rejects receipt for absent or different offer (%s)', async (linked) => {
+    prisma.tradeAcknowledgment.findUnique.mockResolvedValue(null);
+    prisma.order.findUnique.mockResolvedValue({ id: 'order-1', buyerId: 'buyer-1', sellerId: 'seller-1', status: OrderStatus.WAITING_TRADE, tradeOperation: { externalOfferId: linked } });
+    await expect(service.acknowledge({ userId: 'buyer-1', orderId: 'order-1', type: 'BUYER_ACK_RECEIVED', offerId: linked ? '1234567890' : undefined, idempotencyKey: 'receipt' })).rejects.toThrow('linked to this order');
+    expect(prisma.tradeAcknowledgment.create).not.toHaveBeenCalled();
+  });
+
+  it('recovers a concurrent unique-key conflict only for the same acknowledgment', async () => {
+    prisma.tradeAcknowledgment.findUnique.mockResolvedValueOnce(null).mockResolvedValueOnce({ userId: 'buyer-1', orderId: 'order-1', type: 'BUYER_ACK_RECEIVED', offerId: '1234567890' });
+    prisma.order.findUnique.mockResolvedValue({ id: 'order-1', buyerId: 'buyer-1', sellerId: 'seller-1', status: OrderStatus.WAITING_TRADE, tradeOperation: { externalOfferId: '1234567890' } });
+    prisma.tradeAcknowledgment.create.mockRejectedValueOnce(new Prisma.PrismaClientKnownRequestError('duplicate', { code: 'P2002', clientVersion: '7' }));
+    const result = await service.acknowledge({ userId: 'buyer-1', orderId: 'order-1', type: 'BUYER_ACK_RECEIVED', idempotencyKey: 'receipt' });
+    expect(result.idempotent).toBe(true);
+    expect(tradeStatusPoller.pollOrderById).toHaveBeenCalledWith('order-1', {force: true});
+  });
+
   it('acknowledges buyer pre-accept idempotently', async () => {
     prisma.tradeAcknowledgment.findUnique.mockResolvedValue({
       id: 'ack-1',
+      userId: 'buyer-1', orderId: 'order-1',
       type: 'BUYER_ACK_PRE_ACCEPT',
     });
 
@@ -826,4 +850,12 @@ describe('ExtensionTradeAckService', () => {
     expect(result.commissionMinor).toBe('125');
     expect(result.sellerReceiveMinor).toBe('2375');
   });
+  it('returns success when the buyer confirms receipt just after the order completed', async () => {
+    prisma.tradeAcknowledgment.findUnique.mockResolvedValue(null);
+    prisma.order.findUnique.mockResolvedValue({ id: 'order-1', buyerId: 'buyer-1', sellerId: 'seller-1', status: OrderStatus.COMPLETED });
+    const result = await service.acknowledge({ userId: 'buyer-1', orderId: 'order-1', type: 'BUYER_ACK_RECEIVED', idempotencyKey: 'completed-receipt', requireChannelEnabled: false });
+    expect(result).toEqual({ ok: true, type: 'BUYER_ACK_RECEIVED', idempotent: true });
+    expect(prisma.tradeAcknowledgment.create).not.toHaveBeenCalled();
+  });
+
 });

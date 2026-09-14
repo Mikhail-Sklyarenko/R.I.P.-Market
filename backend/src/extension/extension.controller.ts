@@ -165,6 +165,7 @@ export class ExtensionController {
         'payload.taskId is required',
       );
     }
+    await this.extensionTaskService.assertTaskOwner(taskId, auth.sessionId);
     if (result === 'ACK') {
       await this.extensionTaskService.ackTask(taskId, dto.payload as object);
     } else {
@@ -198,6 +199,11 @@ export class ExtensionController {
     }
     return this.extensionTaskService.reportTaskProgress({
       taskId,
+      sessionId: auth.sessionId,
+      leaseVersion:
+        typeof payload.leaseVersion === 'number'
+          ? payload.leaseVersion
+          : undefined,
       phase,
       idempotencyKey,
       reasonCode: readOptionalJsonString(payload.reasonCode),

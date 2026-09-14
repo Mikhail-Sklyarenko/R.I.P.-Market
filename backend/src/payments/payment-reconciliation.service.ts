@@ -3,7 +3,11 @@ import { Cron } from '@nestjs/schedule';
 import { LedgerEntryType, Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import type { PaymentProvider } from '../providers/payment/payment-provider.interface';
-import { isCryptoPaymentProvider } from '../providers/payment/payment.config';
+import {
+  isCryptoPaymentProvider,
+  isLivePaymentProvider,
+  isNorthPaymentProvider,
+} from '../providers/payment/payment.config';
 import { sunToUsdMinor } from '../providers/payment/payment.util';
 import { PAYMENT_PROVIDER } from '../providers/tokens';
 
@@ -37,7 +41,7 @@ export class PaymentReconciliationService {
       return;
     }
 
-    if (!isCryptoPaymentProvider()) {
+    if (!isLivePaymentProvider()) {
       return;
     }
 
@@ -80,7 +84,7 @@ export class PaymentReconciliationService {
   async reconcile(): Promise<PaymentReconciliationReport> {
     const issues: PaymentReconciliationIssue[] = [];
 
-    if (!isCryptoPaymentProvider()) {
+    if (!isLivePaymentProvider()) {
       return {
         ok: true,
         checkedAt: new Date().toISOString(),
@@ -90,7 +94,17 @@ export class PaymentReconciliationService {
     }
 
     issues.push(...(await this.reconcileDepositEvents()));
-    issues.push(...(await this.reconcileUserDeposits()));
+    if (isCryptoPaymentProvider())
+      issues.push(...(await this.reconcileUserDeposits()));
+    if (isNorthPaymentProvider())
+      issues.push({
+        code: 'PROVIDER_DEPOSIT_RECONCILIATION_UNAVAILABLE',
+        message:
+          'NORTH remote deposit history is not available through this adapter; local events are checked but provider completeness is unverified',
+        entityType: 'provider',
+        entityId: 'north',
+      });
+    issues.push(...(await this.reconcileProviderWithdrawals()));
     issues.push(...(await this.reconcileUserWithdrawals()));
 
     return {
@@ -108,24 +122,23 @@ export class PaymentReconciliationService {
     const depositEvents = await this.prisma.paymentEvent.findMany({
       where: { eventType: 'deposit.credited' },
       orderBy: { createdAt: 'desc' },
-      take: 500,
     });
 
     const ledgerDeposits = await this.prisma.ledgerEntry.findMany({
       where: { type: LedgerEntryType.DEPOSIT },
       orderBy: { createdAt: 'desc' },
-      take: 2000,
     });
 
     for (const event of depositEvents) {
       const txHash = this.readTxHash(event.payload);
-      if (!txHash) {
-        continue;
-      }
-
       const ledgerMatch = ledgerDeposits.find((entry) => {
         const metadata = entry.metadata as Record<string, unknown> | null;
-        return metadata?.txHash === txHash;
+        return (
+          metadata?.source === event.provider &&
+          (txHash
+            ? metadata?.txHash === txHash
+            : metadata?.gatewayEventId === event.providerEventId)
+        );
       });
 
       if (!ledgerMatch) {
@@ -211,55 +224,84 @@ export class PaymentReconciliationService {
     PaymentReconciliationIssue[]
   > {
     const issues: PaymentReconciliationIssue[] = [];
-    const paidWithdrawals = await this.prisma.withdrawalRequest.findMany({
-      where: { status: 'PAID' },
-      take: 500,
+    const requests = await this.prisma.withdrawalRequest.findMany({
+      where: { status: { in: ['PAID', 'PROCESSING', 'FAILED'] } },
     });
-
-    const userIds = [...new Set(paidWithdrawals.map((row) => row.userId))];
-
-    for (const userId of userIds) {
-      const wallet = await this.prisma.wallet.findUnique({ where: { userId } });
-      if (!wallet) {
-        continue;
-      }
-
-      const ledgerWithdrawMinor = await this.sumLedgerWithdrawals(wallet.id);
-      const requestPaidMinor = paidWithdrawals
-        .filter((row) => row.userId === userId)
-        .reduce((sum, row) => sum + row.amountMinor, 0n);
-
-      if (ledgerWithdrawMinor !== requestPaidMinor) {
+    for (const row of requests) {
+      const wallet = await this.prisma.wallet.findUnique({
+        where: { userId: row.userId },
+      });
+      const entries = wallet
+        ? await this.prisma.ledgerEntry.findMany({
+            where: {
+              walletId: wallet.id,
+              idempotencyKey: {
+                in: [
+                  `withdraw:${row.id}`,
+                  `withdraw:${row.id}:fee`,
+                  `withdraw-refund:${row.id}`,
+                ],
+              },
+            },
+          })
+        : [];
+      const debit = entries
+        .filter((e) => e.type === 'WITHDRAW' || e.type === 'WITHDRAW_FEE')
+        .reduce((sum, e) => sum - e.amountMinor, 0n);
+      const refund = entries
+        .filter((e) => e.idempotencyKey === `withdraw-refund:${row.id}`)
+        .reduce((sum, e) => sum + e.amountMinor, 0n);
+      const expected = row.status === 'FAILED' ? 0n : row.amountMinor;
+      if (debit - refund !== expected)
         issues.push({
-          code: 'GATEWAY_LEDGER_WITHDRAW_MISMATCH',
-          message:
-            'Paid withdrawal requests do not match ledger withdraw entries',
-          entityType: 'user',
-          entityId: userId,
+          code: 'WITHDRAWAL_LEDGER_MISMATCH',
+          message: 'Withdrawal net debit differs from its state',
+          entityType: 'withdrawal',
+          entityId: row.id,
           details: {
-            requestPaidMinor: requestPaidMinor.toString(),
-            ledgerWithdrawMinor: ledgerWithdrawMinor.toString(),
+            expected: expected.toString(),
+            actual: (debit - refund).toString(),
           },
         });
-      }
     }
-
     return issues;
   }
 
-  private async sumLedgerWithdrawals(walletId: string): Promise<bigint> {
-    const entries = await this.prisma.ledgerEntry.findMany({
-      where: {
-        walletId,
-        type: { in: [LedgerEntryType.WITHDRAW, LedgerEntryType.WITHDRAW_FEE] },
-      },
+  private async reconcileProviderWithdrawals(): Promise<
+    PaymentReconciliationIssue[]
+  > {
+    const issues: PaymentReconciliationIssue[] = [];
+    const requests = await this.prisma.withdrawalRequest.findMany({
+      where: { status: { in: ['PROCESSING', 'PAID', 'FAILED'] } },
     });
-
-    return entries.reduce(
-      (sum, entry) =>
-        sum + (entry.amountMinor < 0n ? -entry.amountMinor : entry.amountMinor),
-      0n,
-    );
+    for (const row of requests) {
+      try {
+        const remote = await this.paymentProvider.getGatewayWithdrawal(
+          row.gatewayRef ?? `wd_${row.id}`,
+        );
+        if (
+          !remote ||
+          remote.status.toUpperCase() !== row.status ||
+          remote.toAddress !== row.toAddress ||
+          BigInt(remote.amountSun) !== row.netMinor * 10_000n
+        )
+          issues.push({
+            code: 'PROVIDER_WITHDRAWAL_UNRECONCILED',
+            message: 'Withdrawal provider result needs reconciliation',
+            entityType: 'withdrawal',
+            entityId: row.id,
+            details: { local: row.status, remote: remote?.status ?? 'unknown' },
+          });
+      } catch {
+        issues.push({
+          code: 'PROVIDER_WITHDRAWAL_UNAVAILABLE',
+          message: 'Unable to query provider withdrawal',
+          entityType: 'withdrawal',
+          entityId: row.id,
+        });
+      }
+    }
+    return issues;
   }
 
   private readTxHash(payload: Prisma.JsonValue): string | null {

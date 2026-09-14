@@ -88,20 +88,14 @@ export class TradeInventoryDeltaService {
         itemDefinition: { marketHashName },
       },
     });
-    if (buyerByAssetId) {
+    if (buyerByAssetId && !sellerLiveHolds) {
       return 'confirmed';
     }
 
-    const buyerByHashName = await this.findBuyerReceivedByHashName(
-      buyerId,
-      marketHashName,
-      options?.expectedFloatValue,
-      options?.expectedPaintSeed,
-      options?.orderCreatedAt,
-    );
-    if (buyerByHashName && !sellerLiveHolds) {
-      return 'confirmed';
-    }
+    // A name/float/seed match (even newly synced) cannot establish this transfer:
+    // another trade or an old item first imported today can match. Require exact
+    // asset evidence here; accepted Steam offer or explicit buyer receipt are
+    // handled by the delivery decision engine when Steam changes the asset ID.
 
     if (sellerLiveHolds) {
       return 'seller_still_holds';
@@ -110,40 +104,4 @@ export class TradeInventoryDeltaService {
     return 'pending';
   }
 
-  private async findBuyerReceivedByHashName(
-    buyerId: string,
-    marketHashName: string,
-    expectedFloatValue?: number | null,
-    expectedPaintSeed?: number | null,
-    orderCreatedAt?: Date,
-  ) {
-    const hasUniqueMatchHints =
-      (expectedFloatValue != null && Number.isFinite(expectedFloatValue)) ||
-      (expectedPaintSeed != null && Number.isFinite(expectedPaintSeed));
-
-    const where: {
-      ownerId: string;
-      status: InventoryAssetStatus;
-      itemDefinition: { marketHashName: string };
-      floatValue?: number;
-      paintSeed?: number;
-      createdAt?: { gte: Date };
-    } = {
-      ownerId: buyerId,
-      status: InventoryAssetStatus.AVAILABLE,
-      itemDefinition: { marketHashName },
-    };
-
-    if (expectedFloatValue != null && Number.isFinite(expectedFloatValue)) {
-      where.floatValue = expectedFloatValue;
-    }
-    if (expectedPaintSeed != null && Number.isFinite(expectedPaintSeed)) {
-      where.paintSeed = expectedPaintSeed;
-    }
-    if (!hasUniqueMatchHints && orderCreatedAt) {
-      where.createdAt = { gte: orderCreatedAt };
-    }
-
-    return this.prisma.inventoryAsset.findFirst({ where });
-  }
 }

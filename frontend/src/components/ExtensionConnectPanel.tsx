@@ -1,3 +1,4 @@
+import { Link, useLocation } from 'react-router-dom';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useLocale } from '../i18n';
 import {
@@ -24,6 +25,8 @@ export function ExtensionConnectPanel({
   onConnectedChange,
 }: ExtensionConnectPanelProps) {
   const { t, locale } = useLocale();
+  const location = useLocation();
+  const installHref = `/extension?returnUrl=${encodeURIComponent(location.pathname + location.search)}`;
   const [status, setStatus] = useState<ExtensionRuntimeStatus>({ connected: false });
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
@@ -93,7 +96,7 @@ export function ExtensionConnectPanel({
           </p>
           <details className="extension-install-details">
             <summary>{t('extension.installHow')}</summary>
-            <p className="muted small">{t('extension.installBodyCompact')}</p>
+            <p className="muted small">{t('extension.installBodyCompact')}</p><Link className="button primary sm" to={installHref}>{t('ux.installExtension')}</Link>
           </details>
         </div>
       );
@@ -102,7 +105,7 @@ export function ExtensionConnectPanel({
     return (
       <div className="card extension-panel" data-testid="extension-install-hint">
         <h3 className="extension-panel-title">{t('extension.titleFull')}</h3>
-        <p className="muted small">{t('extension.installBodyFull')}</p>
+        <p className="muted small">{t('extension.installBodyFull')}</p><Link className="button primary" to={installHref}>{t('ux.installExtension')}</Link>
       </div>
     );
   }
@@ -141,7 +144,7 @@ export function ExtensionConnectPanel({
         </p>
       ) : null}
       {message ? <p className="alert alert-success">{message}</p> : null}
-      {error ? <p className="alert alert-error">{error}</p> : null}
+      {error ? <div className="alert alert-error" role="alert"><p>{error}</p><Link to={installHref}>{t('ux.installExtension')}</Link></div> : null}
       {status.connected && !isBuyerSafeAccept && message ? (
         <p className="muted small" data-testid="extension-onboarding-next">
           {t('extension.nextInventory')}{' '}

@@ -1,4 +1,5 @@
 type TradeOfferDraft = {
+  draftId?: string;
   buyerTradeUrl: string;
   item: {
     assetId: string;
@@ -35,7 +36,10 @@ export async function sendTradeOfferViaPageScript(
         strError?: string;
       };
 
-      function parseResponse(status: number, text: string): SendOfferPageResult {
+      function parseResponse(
+        status: number,
+        text: string,
+      ): SendOfferPageResult {
         if (!text || text === 'null' || text.trim() === '') {
           return {
             ok: false,
@@ -61,14 +65,6 @@ export async function sendTradeOfferViaPageScript(
         }
 
         const errorText = parsed.strError ?? '';
-        if (errorText && /confirm|mobile|guard/i.test(errorText)) {
-          return {
-            ok: true,
-            offerId: parsed.tradeofferid ? String(parsed.tradeofferid) : '',
-            confirmPending: true,
-          };
-        }
-
         if (parsed.tradeofferid) {
           return {
             ok: true,
@@ -80,7 +76,8 @@ export async function sendTradeOfferViaPageScript(
         if (/session|login/i.test(errorText)) {
           return {
             ok: false,
-            error: errorText || 'Steam session expired — reload steamcommunity.com',
+            error:
+              errorText || 'Steam session expired — reload steamcommunity.com',
           };
         }
 
@@ -91,8 +88,9 @@ export async function sendTradeOfferViaPageScript(
       }
 
       function getSessionId(): string | null {
-        const doc = (globalThis as typeof globalThis & { document?: { cookie?: string } })
-          .document;
+        const doc = (
+          globalThis as typeof globalThis & { document?: { cookie?: string } }
+        ).document;
         const match = doc?.cookie?.match(/sessionid=([^;]+)/);
         return match?.[1] ?? null;
       }
@@ -104,10 +102,20 @@ export async function sendTradeOfferViaPageScript(
           const url = new URL(tradeUrl);
           const partner = url.searchParams.get('partner');
           const token = url.searchParams.get('token');
-          if (!partner || !token) {
+          if (
+            url.origin !== 'https://steamcommunity.com' ||
+            url.pathname !== '/tradeoffer/new/' ||
+            !partner ||
+            !/^\d+$/.test(partner) ||
+            BigInt(partner) > 4294967295n ||
+            !token
+          ) {
             return null;
           }
-          return { partner, token };
+          return {
+            partner: (76561197960265728n + BigInt(partner)).toString(),
+            token,
+          };
         } catch {
           return null;
         }
@@ -162,19 +170,36 @@ export async function sendTradeOfferViaPageScript(
       );
 
       try {
-        const response = await fetch('https://steamcommunity.com/tradeoffer/new/send', {
-          method: 'POST',
-          credentials: 'include',
-          headers: {
-            'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
-            Referer: offerDraft.buyerTradeUrl,
-            Origin: 'https://steamcommunity.com',
+        const response = await fetch(
+          'https://steamcommunity.com/tradeoffer/new/send',
+          {
+            method: 'POST',
+            credentials: 'include',
+            headers: {
+              'Content-Type':
+                'application/x-www-form-urlencoded; charset=UTF-8',
+              Referer: offerDraft.buyerTradeUrl,
+              Origin: 'https://steamcommunity.com',
+            },
+            body: form.toString(),
           },
-          body: form.toString(),
-        });
+        );
 
         const text = await response.text();
-        return parseResponse(response.status, text);
+        const result = parseResponse(response.status, text);
+        if (result.ok && offerDraft.draftId)
+          globalThis.postMessage(
+            {
+              source: 'rip-market-trade-offer-page',
+              type: 'SEND_RESULT',
+              draftId: offerDraft.draftId,
+              assetId: offerDraft.item.assetId,
+              buyerTradeUrl: offerDraft.buyerTradeUrl,
+              result,
+            },
+            globalThis.location.origin,
+          );
+        return result;
       } catch (error) {
         return {
           ok: false,

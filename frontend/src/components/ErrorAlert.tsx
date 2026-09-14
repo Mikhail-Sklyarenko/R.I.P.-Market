@@ -31,14 +31,14 @@ function resolveError(
   if (error instanceof ApiError) {
     code = error.code;
     requestId = error.requestId;
-    message = formatApiErrorMessage(error.code, locale) ?? error.message;
+    message = formatApiErrorMessage(error.code, locale) ?? genericMessage;
   } else if (error instanceof Error) {
     const raw = error.message;
     message =
       raw === 'Failed to fetch' ||
       /NetworkError|Load failed|network request failed/i.test(raw)
         ? networkMessage
-        : raw;
+        : genericMessage;
   }
 
   return { message, code, requestId };
@@ -76,13 +76,12 @@ export function ErrorAlert({
       {title ? <strong className="alert-title">{title}</strong> : null}
       {resolved ? <strong>{resolved.message}</strong> : null}
       {children ? <div className="alert-body">{children}</div> : null}
-      {resolved?.code ? (
-        <div className="alert-meta">{t('errorAlert.codeLabel', { code: resolved.code })}</div>
-      ) : null}
-      {resolved?.requestId ? (
-        <div className="alert-meta">
-          {t('errorAlert.requestIdLabel', { id: resolved.requestId })}
-        </div>
+      {resolved?.code || resolved?.requestId ? (
+        <details className="alert-diagnostics">
+          <summary>{t('ux.supportDetails')}</summary>
+          {resolved.code ? <div className="alert-meta">{t('errorAlert.codeLabel', { code: resolved.code })}</div> : null}
+          {resolved.requestId ? <div className="alert-meta">{t('errorAlert.requestIdLabel', { id: resolved.requestId })}</div> : null}
+        </details>
       ) : null}
     </div>
   );

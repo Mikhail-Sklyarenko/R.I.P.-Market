@@ -1,10 +1,17 @@
 {
   "manifest_version": 3,
   "name": "R.I.P Market Trade Assistant",
-  "description": "Безопасные P2P-сделки R.I.P Market: минимум прав, без авто-Guard/Accept, Steam Web API key только по запросу поддержки",
-  "version": "0.6.56",
+  "description": "Помощник R.I.P Market для обменов в Steam. Проверка предмета и сопровождение сделки; Steam Guard и принятие подтверждаете вы.",
+  "version": "0.6.61",
   "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAuBKYHMwPyBUIPxpxbAqUxfPTxXtftmy2Wr9XDBOUkPL98+gLNo4eIEbA+oh4tNGPwCRGJjxSBax3gybj/EfuHfaK6Rg0JD+YgOc7zg5DmnXBGexuTYrBJ78/GnTMzeYxnyk6hRUgxDHlVWMj8fPN22B5nMa+gA3RRFWc71+P2NWNbHC/q9qiLF0a8CKMlsdrZRY0hRzaZRhcQhbips1dc0ds1FrxVEAKairL5LLMl1HD3kMjKxqfiINBhEB/Oc0XXvKNQBBn8/KQvjcF0h8u3az4Er8zJdCoCmPJ/h1YtImImDum9cCaMBIfSlp8BNbZnpR3h1DQ6EzIojWws+6zCwIDAQAB",
-  "permissions": ["storage", "alarms", "tabs", "scripting", "cookies", "notifications"],
+  "permissions": [
+    "storage",
+    "alarms",
+    "tabs",
+    "scripting",
+    "cookies",
+    "notifications"
+  ],
   "host_permissions": [
     "https://steamcommunity.com/*",
     "http://localhost:3000/*",
@@ -13,15 +20,22 @@
     "https://p2pcs.ru/*",
     "https://www.p2pcs.ru/*"
   ],
-  "optional_host_permissions": ["https://api.steampowered.com/*"],
+  "optional_host_permissions": [
+    "https://api.steampowered.com/*"
+  ],
   "background": {
     "service_worker": "background/service-worker.js",
     "type": "module"
   },
   "content_scripts": [
     {
-      "matches": ["*://steamcommunity.com/tradeoffer/*"],
-      "js": ["content/steam-bridge.js", "content/trade-verification-bridge.js"],
+      "matches": [
+        "*://steamcommunity.com/tradeoffer/*"
+      ],
+      "js": [
+        "content/steam-bridge.js",
+        "content/trade-verification-bridge.js"
+      ],
       "run_at": "document_idle"
     },
     {
@@ -30,7 +44,9 @@
         "*://steamcommunity.com/profiles/*/tradeoffers/*",
         "*://steamcommunity.com/id/*/tradeoffers/*"
       ],
-      "js": ["content/trade-offers-list-bridge.js"],
+      "js": [
+        "content/trade-offers-list-bridge.js"
+      ],
       "run_at": "document_idle"
     },
     {
@@ -39,7 +55,9 @@
         "*://steamcommunity.com/profiles/*/inventory*",
         "*://steamcommunity.com/id/*/inventory*"
       ],
-      "js": ["content/inventory-bridge.js"],
+      "js": [
+        "content/inventory-bridge.js"
+      ],
       "run_at": "document_idle"
     }
   ],
@@ -49,7 +67,9 @@
         "page-scripts/trade-offer-ui.js",
         "page-scripts/inventory-enrichment.js"
       ],
-      "matches": ["https://steamcommunity.com/*"]
+      "matches": [
+        "https://steamcommunity.com/*"
+      ]
     }
   ],
   "action": {

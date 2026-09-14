@@ -1669,7 +1669,11 @@ a.button.primary {
   font-size: var(--font-size-xl);
   font-weight: var(--font-weight-semibold);
   cursor: pointer;
-  box-shadow: 0 12px 32px rgba(37, 99, 235, 0.35);
+  box-shadow: 0 8px 20px rgba(37, 99, 235, 0.22);
+}
+
+.support-widget-fab-icon {
+  display: block;
 }
 
 .support-widget-panel {
@@ -1834,7 +1838,7 @@ a.button.primary {
   background: linear-gradient(135deg, var(--color-primary-from), var(--color-primary-to));
   color: white;
   cursor: pointer;
-  box-shadow: 0 12px 32px rgba(37, 99, 235, 0.35);
+  box-shadow: 0 8px 20px rgba(37, 99, 235, 0.22);
   transition:
     transform 0.15s ease,
     box-shadow 0.15s ease,
@@ -1843,16 +1847,16 @@ a.button.primary {
 
 .notifications-widget-fab:hover {
   transform: translateY(-1px);
-  box-shadow: 0 14px 36px rgba(37, 99, 235, 0.42);
+  box-shadow: 0 10px 24px rgba(37, 99, 235, 0.28);
 }
 
 .notifications-widget-fab.has-unread {
   background: linear-gradient(135deg, #ef4444, #dc2626);
-  box-shadow: 0 12px 32px rgba(220, 38, 38, 0.35);
+  box-shadow: 0 8px 20px rgba(220, 38, 38, 0.28);
 }
 
 .notifications-widget-fab.has-unread:hover {
-  box-shadow: 0 14px 36px rgba(220, 38, 38, 0.42);
+  box-shadow: 0 10px 24px rgba(220, 38, 38, 0.34);
 }
 
 .notifications-widget-fab.is-pulsing {
@@ -1862,13 +1866,13 @@ a.button.primary {
 @keyframes notifications-widget-pulse {
   0%,
   100% {
-    box-shadow: 0 12px 32px rgba(220, 38, 38, 0.35);
+    box-shadow: 0 8px 20px rgba(220, 38, 38, 0.28);
   }
 
   50% {
     box-shadow:
-      0 0 0 10px rgba(220, 38, 38, 0.2),
-      0 14px 36px rgba(220, 38, 38, 0.48);
+      0 0 0 6px rgba(220, 38, 38, 0.12),
+      0 10px 24px rgba(220, 38, 38, 0.34);
   }
 }
 
@@ -7275,8 +7279,8 @@ a.button.primary {
   border-radius: var(--radius-md);
 }
 
-.order-trade-mismatch .btn.primary,
-.order-trade-mismatch .button.primary {
+.order-trade-mismatch .button.primary,
+.order-trade-mismatch .btn.primary {
   width: 100%;
   min-height: 2.75rem;
 }
@@ -7304,8 +7308,8 @@ a.button.primary {
     rgba(40, 18, 22, 0.55);
 }
 
-.order-dispute-panel .btn.primary,
-.order-dispute-panel .button.primary {
+.order-dispute-panel .button.primary,
+.order-dispute-panel .btn.primary {
   width: 100%;
   min-height: 2.75rem;
 }
@@ -9364,4 +9368,264 @@ a.button.primary {
   .inventory-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
+}
+
+/* Consistent setup, recovery and keyboard navigation across trading screens. */
+.extension-install-page,
+.saved-items-page,
+.faq-page,
+.support-page,
+.notifications-page,
+.seller-activity-page {
+  display: grid;
+  gap: var(--space-5);
+}
+
+.extension-install-page {
+  max-width: 920px;
+  margin-inline: auto;
+}
+
+.extension-install-page > .page-header {
+  margin-bottom: 0;
+}
+
+.extension-install-hero {
+  max-width: 720px;
+}
+
+.extension-install-hero h1 {
+  font-size: clamp(28px, 4vw, 40px);
+  line-height: 1.15;
+  margin: 12px 0 16px;
+}
+
+.extension-install-hero p,
+.extension-install-steps p {
+  line-height: 1.65;
+}
+
+.extension-beta-notice {
+  border-left: 3px solid var(--color-warning);
+}
+
+.extension-beta-notice p {
+  margin: var(--space-2) 0 0;
+}
+
+.extension-install-steps {
+  padding: 0;
+  display: grid;
+  gap: var(--space-4);
+  list-style: none;
+  counter-reset: install-step;
+  margin: 0;
+}
+
+.extension-install-steps > li {
+  padding: var(--space-6);
+  counter-increment: install-step;
+}
+
+.extension-install-steps h2 {
+  margin: 0 0 var(--space-3);
+  font-size: var(--font-size-lg);
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.extension-install-steps h2::before {
+  content: counter(install-step);
+  display: inline-grid;
+  place-items: center;
+  flex: 0 0 32px;
+  height: 32px;
+  border-radius: var(--radius-full);
+  background: var(--color-bg-input);
+  color: var(--color-link);
+  font-size: var(--font-size-base);
+}
+
+.extension-install-download {
+  display: grid;
+  gap: var(--space-2);
+  justify-items: start;
+  margin-top: var(--space-4);
+}
+
+.extension-install-code {
+  display: inline-block;
+  margin-top: var(--space-3);
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--color-border);
+  background: var(--color-bg-input);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: var(--font-size-sm);
+  color: var(--color-link);
+}
+
+.extension-install-footer {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+}
+
+.extension-permissions summary,
+.extension-install-details summary {
+  cursor: pointer;
+  font-weight: var(--font-weight-semibold);
+}
+
+.extension-permissions p,
+.extension-install-details p {
+  line-height: 1.7;
+  color: var(--color-text-muted);
+}
+
+.continuation-card { border-color: var(--color-link); }
+.guide-price-caption { display: block; font-size: 12px; line-height: 1.5; color: var(--color-text-muted); font-weight: 400; }
+.alert-diagnostics { margin-top: 10px; font-size: 12px; }
+.alert-diagnostics summary { cursor: pointer; }
+.alert-meta { overflow-wrap: anywhere; }
+
+.app-footer {
+  display: grid;
+  gap: var(--space-3);
+}
+
+.footer-links {
+  display: flex;
+  gap: var(--space-5);
+  flex-wrap: wrap;
+  margin: 0;
+}
+
+.footer-links a {
+  color: var(--color-text-muted);
+  text-decoration: none;
+  font-size: var(--font-size-sm);
+}
+
+.footer-links a:hover {
+  color: var(--color-link);
+}
+
+:where(a, button, input, select, textarea, summary):focus-visible { outline: 2px solid var(--color-link); outline-offset: 3px; }
+@media (max-width: 640px) {
+  .extension-install-steps > li { padding: 18px; }
+  .extension-install-page .button { min-height: 44px; }
+  .app-nav { flex-wrap: wrap; }
+  .footer-links { gap: 12px 20px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { scroll-behavior: auto !important; animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
+}
+
+.saved-item-toggle {
+  display: inline-grid;
+  place-items: center;
+  background: transparent;
+  color: var(--color-text-muted);
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  min-width: 36px;
+  min-height: 36px;
+  cursor: pointer;
+  line-height: 1;
+  transition: color 0.15s ease, border-color 0.15s ease, background 0.15s ease;
+}
+
+.saved-item-toggle:hover {
+  color: var(--color-link);
+  border-color: var(--color-border);
+  background: var(--color-bg-subtle);
+}
+
+.saved-item-toggle[aria-pressed="true"] {
+  color: var(--color-link);
+  border-color: var(--color-info-border);
+  background: var(--color-info-bg);
+}
+
+.saved-item-toggle-icon {
+  display: inline-grid;
+  place-items: center;
+}
+
+.saved-item-toggle-icon svg {
+  display: block;
+}
+
+.saved-item-toggle[aria-pressed="true"] .saved-item-toggle-icon {
+  opacity: 1;
+}
+
+.saved-items-page > .page-header {
+  margin-bottom: 0;
+}
+
+.saved-items-list {
+  display: grid;
+  gap: var(--space-3);
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.saved-item-card {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--space-4);
+}
+
+.saved-item-card-body {
+  min-width: 0;
+  display: grid;
+  gap: var(--space-1);
+}
+
+.saved-item-card-title {
+  margin: 0;
+  font-size: var(--font-size-base);
+  font-weight: var(--font-weight-semibold);
+  overflow-wrap: anywhere;
+}
+
+.saved-item-card-ref {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.saved-item-card-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  flex-shrink: 0;
+}
+
+@media (max-width: 640px) {
+  .saved-item-card {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+}
+
+.extension-install-page > .button.secondary { margin-top: 16px; }
+
+/* Keep price and action in normal flow: a wrapped reference must not overlap
+   the item name, and touch users must see the price before choosing an action. */
+.catalog-lot-card-bottom { display: grid; gap: 8px; }
+.catalog-lot-card-price-row,
+.catalog-lot-card-actions { position: relative; inset: auto; }
+.catalog-lot-card-price-row,
+.catalog-lot-card:hover .catalog-lot-card-price-row,
+.catalog-lot-card-actions { opacity: 1; pointer-events: auto; }
+.catalog-lot-card-price-row { min-height: 44px; align-items: flex-start; }
+.catalog-lot-card-actions .catalog-lot-card-action { min-height: 36px; height: auto; white-space: normal; }
+.catalog-lot-card .guide-price-caption { font-size: 11px; line-height: 1.35; margin-top: 5px; }
+@media (hover: none) {
+  .catalog-lot-card-actions .catalog-lot-card-action { min-height: 44px; }
 }

@@ -1,3 +1,4 @@
+import { flushWebhookQueue } from '../webhook/emitter.js';
 import { loadApiConfig } from '../shared/config.js';
 import { createTronGridClient } from './trongrid.js';
 import { runScannerTick } from './scanner-logic.js';
@@ -11,6 +12,7 @@ const tronGrid = createTronGridClient({
 const INTERVAL_MS = Number(process.env.SCANNER_INTERVAL_MS ?? 15_000);
 
 async function tick(): Promise<void> {
+  await flushWebhookQueue(config.webhookUrl, config.webhookSecret);
   const result = await runScannerTick({ config, tronGrid });
   console.log(
     JSON.stringify({

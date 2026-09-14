@@ -45,8 +45,9 @@ describe('MessageSteamOfferAdapter', () => {
     const onOfferSubmitted = vi.fn().mockResolvedValue(undefined);
     const steam = createMockSteamClient();
     const adapter = new MessageSteamOfferAdapter(steam);
-    vi.mocked(chrome.storage.session.get).mockImplementation(async () => ({
+    vi.mocked(chrome.storage.local.get).mockImplementation(async () => ({
       'rip:draft:draft-task-1': {
+        draftId: 'draft-task-1',
         buyerTradeUrl:
           'https://steamcommunity.com/tradeoffer/new/?partner=123&token=abc',
         item: { assetId: 'asset-1', marketHashName: 'AK-47 | Redline' },
@@ -76,8 +77,9 @@ describe('MessageSteamOfferAdapter', () => {
       }),
     });
     const adapter = new MessageSteamOfferAdapter(steam);
-    vi.mocked(chrome.storage.session.get).mockImplementation(async () => ({
+    vi.mocked(chrome.storage.local.get).mockImplementation(async () => ({
       'rip:draft:draft-task-1': {
+        draftId: 'draft-task-1',
         buyerTradeUrl:
           'https://steamcommunity.com/tradeoffer/new/?partner=123&token=abc',
         item: { assetId: 'asset-1' },
@@ -89,8 +91,7 @@ describe('MessageSteamOfferAdapter', () => {
     expect(result).toEqual({
       ok: false,
       code: OfferErrorCode.TRADE_HOLD_BLOCKED,
-      message:
-        'Offer send failed — You cannot trade due to a trade hold',
+      message: 'Offer send failed — You cannot trade due to a trade hold',
     });
   });
 
@@ -99,12 +100,14 @@ describe('MessageSteamOfferAdapter', () => {
       sendTradeOffer: vi.fn().mockResolvedValue({
         ok: false,
         error: 'Steam returned HTTP 400',
-        strError: 'There was an error sending your trade offer. Please try again later.',
+        strError:
+          'There was an error sending your trade offer. Please try again later.',
       }),
     });
     const adapter = new MessageSteamOfferAdapter(steam);
-    vi.mocked(chrome.storage.session.get).mockImplementation(async () => ({
+    vi.mocked(chrome.storage.local.get).mockImplementation(async () => ({
       'rip:draft:draft-task-1': {
+        draftId: 'draft-task-1',
         buyerTradeUrl:
           'https://steamcommunity.com/tradeoffer/new/?partner=123&token=abc',
         item: { assetId: 'asset-1' },
@@ -114,7 +117,9 @@ describe('MessageSteamOfferAdapter', () => {
     const result = await adapter.sendOffer('draft-task-1');
 
     expect(result.ok).toBe(false);
-    expect(result.ok === false && result.code).toBe(OfferErrorCode.STEAM_UNAVAILABLE);
+    expect(result.ok === false && result.code).toBe(
+      OfferErrorCode.STEAM_UNAVAILABLE,
+    );
   });
 
   it('draftOffer navigates to trade page and stores draft for resume', async () => {
@@ -134,6 +139,7 @@ describe('MessageSteamOfferAdapter', () => {
     );
     expect(chrome.storage.session.set).toHaveBeenCalledWith({
       'rip:draft:draft-task-1': {
+        draftId: 'draft-task-1',
         buyerTradeUrl:
           'https://steamcommunity.com/tradeoffer/new/?partner=123&token=abc',
         item: { assetId: 'asset-1' },
@@ -144,8 +150,9 @@ describe('MessageSteamOfferAdapter', () => {
   it('sendOffer uses UI flow result from SteamCommunityClient', async () => {
     const steam = createMockSteamClient();
     const adapter = new MessageSteamOfferAdapter(steam);
-    vi.mocked(chrome.storage.session.get).mockImplementation(async () => ({
+    vi.mocked(chrome.storage.local.get).mockImplementation(async () => ({
       'rip:draft:draft-task-1': {
+        draftId: 'draft-task-1',
         buyerTradeUrl:
           'https://steamcommunity.com/tradeoffer/new/?partner=123&token=abc',
         item: { assetId: 'asset-1' },
@@ -156,6 +163,7 @@ describe('MessageSteamOfferAdapter', () => {
 
     expect(steam.sendTradeOffer).toHaveBeenCalledWith(
       {
+        draftId: 'draft-task-1',
         buyerTradeUrl:
           'https://steamcommunity.com/tradeoffer/new/?partner=123&token=abc',
         item: { assetId: 'asset-1' },
@@ -170,7 +178,9 @@ describe('MessageSteamOfferAdapter', () => {
       offerId: '99887766',
       confirmPending: false,
     });
-    expect(chrome.storage.session.remove).toHaveBeenCalledWith('rip:draft:draft-task-1');
+    expect(chrome.storage.session.remove).toHaveBeenCalledWith(
+      'rip:draft:draft-task-1',
+    );
   });
 
   it('sendOffer maps strError from UI flow to OfferErrorCode', async () => {
@@ -182,8 +192,9 @@ describe('MessageSteamOfferAdapter', () => {
       }),
     });
     const adapter = new MessageSteamOfferAdapter(steam);
-    vi.mocked(chrome.storage.session.get).mockImplementation(async () => ({
+    vi.mocked(chrome.storage.local.get).mockImplementation(async () => ({
       'rip:draft:draft-task-1': {
+        draftId: 'draft-task-1',
         buyerTradeUrl:
           'https://steamcommunity.com/tradeoffer/new/?partner=123&token=abc',
         item: { assetId: 'asset-1' },
@@ -195,7 +206,8 @@ describe('MessageSteamOfferAdapter', () => {
     expect(result).toEqual({
       ok: false,
       code: OfferErrorCode.ITEM_MISSING,
-      message: 'Item missing from inventory — The item is no longer in your inventory',
+      message:
+        'Item missing from inventory — The item is no longer in your inventory',
     });
     // Inflight marker is cleared on failure; draft stays for a safe retry.
     expect(chrome.storage.session.remove).toHaveBeenCalledWith([

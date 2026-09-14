@@ -3,6 +3,7 @@ import { SteamTradeRateLimitError } from '../providers/trade/steam-trade.provide
 
 describe('DeliveryVerificationEngineService', () => {
   const prisma = {
+    tradePollEvent: { findFirst: jest.fn().mockResolvedValue(null) },
     tradeAcknowledgment: {
       findFirst: jest.fn().mockResolvedValue(null),
     },

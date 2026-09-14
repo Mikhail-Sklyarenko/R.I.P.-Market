@@ -1,6 +1,18 @@
-import { useEffect, useLayoutEffect, useMemo, useRef, useState, type Dispatch, type SetStateAction } from 'react';
+import {
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+  type Dispatch,
+  type SetStateAction,
+} from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
-import { listCatalogItems, listPopularCatalogItems, getCatalogSteamPrices } from '../api/marketplace';
+import {
+  listCatalogItems,
+  listPopularCatalogItems,
+  getCatalogSteamPrices,
+} from '../api/marketplace';
 import type { CatalogItem } from '../api/types';
 import { useAuth } from '../auth/AuthContext';
 import { CatalogCategoryBar } from '../components/CatalogCategoryBar';
@@ -98,7 +110,10 @@ function isSteamPriceFresh(item: CatalogItem): boolean {
   if (item.steamPriceMinor == null || !item.steamPriceFetchedAt) {
     return false;
   }
-  return Date.now() - new Date(item.steamPriceFetchedAt).getTime() <= STEAM_PRICE_STALE_MS;
+  return (
+    Date.now() - new Date(item.steamPriceFetchedAt).getTime() <=
+    STEAM_PRICE_STALE_MS
+  );
 }
 
 function applyCatalogPriceState(
@@ -156,16 +171,22 @@ function mergeSteamPricesForItems(
 
 export function CatalogPage() {
   const { token } = useAuth();
-  const { t } = useLocale();
+  const { t, locale } = useLocale();
   const [searchParams, setSearchParams] = useSearchParams();
   const weaponParam = searchParams.get('weapon');
 
   const [items, setItems] = useState<CatalogItem[]>([]);
   const [popularItems, setPopularItems] = useState<CatalogItem[]>([]);
   const [popularLoading, setPopularLoading] = useState(false);
-  const [steamPriceFetchedAt, setSteamPriceFetchedAt] = useState<string | null>(null);
-  const [steamPrices, setSteamPrices] = useState<Record<string, number | null>>({});
-  const [pendingPriceNames, setPendingPriceNames] = useState<Set<string>>(new Set());
+  const [steamPriceFetchedAt, setSteamPriceFetchedAt] = useState<string | null>(
+    null,
+  );
+  const [steamPrices, setSteamPrices] = useState<Record<string, number | null>>(
+    {},
+  );
+  const [pendingPriceNames, setPendingPriceNames] = useState<Set<string>>(
+    new Set(),
+  );
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
@@ -184,7 +205,9 @@ export function CatalogPage() {
   const [inStock, setInStock] = useState(false);
   const loadedPage = parseCatalogPageParam(searchParams.get('page'));
   const pageLimit = CATALOG_PAGE_LIMIT;
-  const pendingRestoreRef = useRef<CatalogReturnRestore | null | undefined>(undefined);
+  const pendingRestoreRef = useRef<CatalogReturnRestore | null | undefined>(
+    undefined,
+  );
   if (pendingRestoreRef.current === undefined) {
     pendingRestoreRef.current = readCatalogReturnRestore();
   }
@@ -218,9 +241,7 @@ export function CatalogPage() {
 
     return {
       q: search.trim() || categoryFilter.q || undefined,
-      marketHashName: search.trim()
-        ? undefined
-        : categoryFilter.marketHashName,
+      marketHashName: search.trim() ? undefined : categoryFilter.marketHashName,
       minPriceMinor: minMinor ?? undefined,
       maxPriceMinor: maxMinor ?? undefined,
       weapon: categoryFilter.weapon,
@@ -269,7 +290,9 @@ export function CatalogPage() {
       floatMin,
       floatMax,
       skinTraitFilters,
-    }) || Boolean(rarityFilter) || inStock;
+    }) ||
+    Boolean(rarityFilter) ||
+    inStock;
 
   const popularSortSelected = sort === 'popular';
   const filtersActive = showResetFilters;
@@ -286,7 +309,9 @@ export function CatalogPage() {
       floatMin,
       floatMax,
       skinTraitFilters,
-    }) || Boolean(rarityFilter) || inStock;
+    }) ||
+    Boolean(rarityFilter) ||
+    inStock;
   const isInitialLoading = loading && items.length === 0;
   const isRefreshing = loading && items.length > 0;
   const showPopularSection =
@@ -426,21 +451,42 @@ export function CatalogPage() {
           }
           setItems(response.items);
           setTotal(response.total);
-          applyCatalogPriceState(response.items, priceSetters, response.steamPriceFetchedAt);
-          await persistSession(response.items, response.total, 1, response.steamPriceFetchedAt);
+          applyCatalogPriceState(
+            response.items,
+            priceSetters,
+            response.steamPriceFetchedAt,
+          );
+          await persistSession(
+            response.items,
+            response.total,
+            1,
+            response.steamPriceFetchedAt,
+          );
           return;
         }
 
         if (mode === 'append' && toPage > fromPage) {
-          const response = await listCatalogItems({ ...baseQuery, page: toPage });
+          const response = await listCatalogItems({
+            ...baseQuery,
+            page: toPage,
+          });
           if (cancelled) {
             return;
           }
           const merged = mergeCatalogItems(itemsRef.current, response.items);
           setItems(merged);
           setTotal(response.total);
-          applyCatalogPriceState(response.items, priceSetters, response.steamPriceFetchedAt);
-          await persistSession(merged, response.total, toPage, response.steamPriceFetchedAt);
+          applyCatalogPriceState(
+            response.items,
+            priceSetters,
+            response.steamPriceFetchedAt,
+          );
+          await persistSession(
+            merged,
+            response.total,
+            toPage,
+            response.steamPriceFetchedAt,
+          );
           return;
         }
 
@@ -452,7 +498,9 @@ export function CatalogPage() {
         if (cancelled) {
           return;
         }
-        const mergedItems = dedupeCatalogItems(responses.flatMap((response) => response.items));
+        const mergedItems = dedupeCatalogItems(
+          responses.flatMap((response) => response.items),
+        );
         const totalCount = responses.at(-1)?.total ?? mergedItems.length;
         const latestSteamPriceFetchedAt =
           responses
@@ -461,8 +509,17 @@ export function CatalogPage() {
             .at(-1) ?? null;
         setItems(mergedItems);
         setTotal(totalCount);
-        applyCatalogPriceState(mergedItems, priceSetters, latestSteamPriceFetchedAt);
-        await persistSession(mergedItems, totalCount, toPage, latestSteamPriceFetchedAt);
+        applyCatalogPriceState(
+          mergedItems,
+          priceSetters,
+          latestSteamPriceFetchedAt,
+        );
+        await persistSession(
+          mergedItems,
+          totalCount,
+          toPage,
+          latestSteamPriceFetchedAt,
+        );
       } catch (err: unknown) {
         if (!cancelled && !options?.silent) {
           setError(err);
@@ -593,7 +650,13 @@ export function CatalogPage() {
     return () => {
       cancelled = true;
     };
-  }, [popularSortSelected, hasNonSortFilters, popularItems.length, baseQueryKey, returnRestoreDone]);
+  }, [
+    popularSortSelected,
+    hasNonSortFilters,
+    popularItems.length,
+    baseQueryKey,
+    returnRestoreDone,
+  ]);
 
   useEffect(() => {
     const allItems = [...items, ...popularItems];
@@ -881,7 +944,11 @@ export function CatalogPage() {
     setCategoryValues(next.values);
 
     const nextParams = new URLSearchParams(searchParams);
-    const paramValue = encodeCategorySelection(next.tabId, next.mode, next.values);
+    const paramValue = encodeCategorySelection(
+      next.tabId,
+      next.mode,
+      next.values,
+    );
     if (paramValue) {
       nextParams.set('weapon', paramValue);
     } else {
@@ -924,14 +991,14 @@ export function CatalogPage() {
 
   return (
     <div className="page">
-      <PageHeader
-        title={t('catalog.title')}
-        subtitle={t('catalog.subtitle')}
-      />
+      <PageHeader title={t('catalog.title')} subtitle={t('catalog.subtitle')} />
 
       <TrustBanner />
 
-      <div className="catalog-search-toolbar" data-testid="catalog-search-toolbar">
+      <div
+        className="catalog-search-toolbar"
+        data-testid="catalog-search-toolbar"
+      >
         <label className="field catalog-filter-field catalog-search-field">
           <span className="sr-only">{t('catalog.search')}</span>
           <input
@@ -964,7 +1031,10 @@ export function CatalogPage() {
         ) : null}
       </div>
 
-      <div className="catalog-category-strip card" data-testid="catalog-category-strip">
+      <div
+        className="catalog-category-strip card"
+        data-testid="catalog-category-strip"
+      >
         <CatalogCategoryBar
           activeTabId={activeTabId}
           categoryMode={categoryMode}
@@ -996,7 +1066,10 @@ export function CatalogPage() {
               onMaxPriceChange={setMaxPrice}
             />
 
-            <CatalogRarityFilter value={rarityFilter} onChange={setRarityFilter} />
+            <CatalogRarityFilter
+              value={rarityFilter}
+              onChange={setRarityFilter}
+            />
 
             <CatalogFloatRangeFilter
               floatMin={floatMin}
@@ -1033,21 +1106,39 @@ export function CatalogPage() {
           ) : null}
 
           {isRefreshing ? (
-            <div className="catalog-refresh-indicator" role="status" aria-live="polite">
+            <div
+              className="catalog-refresh-indicator"
+              role="status"
+              aria-live="polite"
+            >
               <span className="loading-spinner" aria-hidden="true" />
               <span>{t('catalog.refreshing')}</span>
             </div>
           ) : null}
 
-          {isInitialLoading ? <LoadingState message={t('catalog.loading')} /> : null}
+          {isInitialLoading ? (
+            <LoadingState message={t('catalog.loading')} />
+          ) : null}
 
-          {!isInitialLoading ? (
+          {!isInitialLoading && (!error || items.length > 0) ? (
             <>
               <p className="catalog-total" data-testid="catalog-total">
                 {t('catalog.found', { count: total })}
               </p>
+              {steamPriceFetchedAt &&
+              Date.now() - new Date(steamPriceFetchedAt).getTime() >
+                24 * 60 * 60 * 1000 ? (
+                <p className="alert alert-warning" role="status">
+                  {locale === 'ru'
+                    ? 'Данные о ценах Steam старше суток. Используйте их только как ориентир; текущая цена может отличаться.'
+                    : 'Steam price data is over a day old. Treat it as a guide; current prices may differ.'}
+                </p>
+              ) : null}
               {formatDataTimestamp(steamPriceFetchedAt) ? (
-                <p className="muted small" data-testid="catalog-steam-price-updated-at">
+                <p
+                  className="muted small"
+                  data-testid="catalog-steam-price-updated-at"
+                >
                   {t('catalog.steamPricesUpdated', {
                     when: formatDataTimestamp(steamPriceFetchedAt) ?? '',
                   })}
@@ -1063,8 +1154,13 @@ export function CatalogPage() {
           ) : null}
 
           {!isInitialLoading && showPopularSection ? (
-            <section className="catalog-popular-section" data-testid="catalog-popular-section">
-              <h2 className="catalog-section-title">{t('catalog.popularTitle')}</h2>
+            <section
+              className="catalog-popular-section"
+              data-testid="catalog-popular-section"
+            >
+              <h2 className="catalog-section-title">
+                {t('catalog.popularTitle')}
+              </h2>
               <div className="catalog-grid catalog-grid-compact">
                 {popularItems.map((item) => (
                   <CatalogItemCard
@@ -1079,7 +1175,7 @@ export function CatalogPage() {
             </section>
           ) : null}
 
-          {!isInitialLoading && !loading && items.length === 0 ? (
+          {!isInitialLoading && !loading && !error && items.length === 0 ? (
             filtersActive ? (
               <EmptyState
                 variant="filtered"
@@ -1103,12 +1199,20 @@ export function CatalogPage() {
                 title={t('catalog.emptyCatalogTitle')}
                 message={t('catalog.emptyCatalogMessage')}
                 action={
-                  <Link to="/sell/inventory" className="button primary" data-testid="catalog-empty-sell">
+                  <Link
+                    to="/sell/inventory"
+                    className="button primary"
+                    data-testid="catalog-empty-sell"
+                  >
                     {t('catalog.emptyCatalogSell')}
                   </Link>
                 }
                 secondaryAction={
-                  <Link to="/faq" className="button secondary" data-testid="catalog-empty-faq">
+                  <Link
+                    to="/faq"
+                    className="button secondary"
+                    data-testid="catalog-empty-faq"
+                  >
                     {t('nav.faq')}
                   </Link>
                 }

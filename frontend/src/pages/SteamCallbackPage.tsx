@@ -1,4 +1,5 @@
-import { useEffect, useState } from 'react';
+import { apiRequest } from '../api/client';
+import { useEffect, useState, useRef } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../auth/AuthContext';
 import { useLocale } from '../i18n';
@@ -20,6 +21,10 @@ export function SteamCallbackPage() {
     message: string;
   } | null>(null);
 
+  const exchange = useRef<Promise<{
+    accessToken: string;
+    user: Parameters<typeof login>[1];
+  }> | null>(null);
   useEffect(() => {
     const errorCode = searchParams.get('error');
     const messageParam = searchParams.get('message');
@@ -32,41 +37,46 @@ export function SteamCallbackPage() {
       return;
     }
 
-    const accessToken = searchParams.get('accessToken');
-    const userId = searchParams.get('userId');
-    const username = searchParams.get('username');
-    const role = searchParams.get('role');
-    const status = searchParams.get('status');
-    const steamId = searchParams.get('steamId');
-    const steamPersonaName = searchParams.get('steamPersonaName');
-    const steamAvatarUrl = searchParams.get('steamAvatarUrl');
-
-    if (!accessToken || !userId || !username || !role || !status) {
+    const code = searchParams.get('code');
+    if (!code) {
       setError({
         code: null,
         message: t('steamCallbackPage.incompleteResponse'),
       });
       return;
     }
-
-    login(accessToken, {
-      id: userId,
-      username,
-      role,
-      status,
-      steamId: steamId ?? undefined,
-      steamPersonaName: steamPersonaName ?? undefined,
-      steamAvatarUrl: steamAvatarUrl ?? undefined,
-    });
     const linked = searchParams.get('linked') === '1';
-    const rememberedPath = consumeSteamReturnPath();
-    const destination = linked
-      ? '/account'
-      : rememberedPath ?? getHomePathForRole(role);
-    navigate(destination, {
-      replace: true,
-      state: linked ? { steamLinked: true } : undefined,
+    // StrictMode can re-run effects; share the single one-time exchange request.
+    exchange.current ??= apiRequest('/auth/steam/exchange', {
+      method: 'POST',
+      body: { code },
     });
+    let active = true;
+    void exchange.current
+      .then((result) => {
+        if (!active) return;
+        login(result.accessToken, result.user);
+        const destination = linked
+          ? '/account'
+          : (consumeSteamReturnPath() ?? getHomePathForRole(result.user.role));
+        navigate(destination, {
+          replace: true,
+          state: linked ? { steamLinked: true } : undefined,
+        });
+      })
+      .catch((error) => {
+        if (active)
+          setError({
+            code: null,
+            message:
+              error instanceof Error
+                ? error.message
+                : t('steamCallbackPage.incompleteResponse'),
+          });
+      });
+    return () => {
+      active = false;
+    };
   }, [login, navigate, searchParams]);
 
   const actions = error ? getSteamCallbackActions(error.code, locale) : [];
@@ -86,7 +96,11 @@ export function SteamCallbackPage() {
             ) : null}
             <div className="steam-callback-actions">
               {actions.map((action) => (
-                <Link key={`${action.href}-${action.label}`} className="button secondary" to={action.href}>
+                <Link
+                  key={`${action.href}-${action.label}`}
+                  className="button secondary"
+                  to={action.href}
+                >
                   {action.label}
                 </Link>
               ))}

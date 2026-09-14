@@ -76,9 +76,20 @@ export function createApiApp() {
     const externalUserId = String(req.body?.externalUserId ?? '').trim();
     const toAddress = String(req.body?.toAddress ?? '').trim();
     const amountSunRaw = req.body?.amountSun;
+    const externalId = String(req.body?.externalId ?? '').trim();
+    if (!externalId || externalId.length > 200) {
+      res.status(400).json({ error: 'externalId required' });
+      return;
+    }
+    const debitSource =
+      req.body?.debitSource === 'backend_authorized'
+        ? ('backend_authorized' as const)
+        : ('gateway_balance' as const);
 
     if (!externalUserId || !toAddress || amountSunRaw === undefined) {
-      res.status(400).json({ error: 'externalUserId, toAddress, amountSun required' });
+      res
+        .status(400)
+        .json({ error: 'externalUserId, toAddress, amountSun required' });
       return;
     }
 
@@ -108,12 +119,19 @@ export function createApiApp() {
         toAddress,
         amountSun,
         feeSun,
+        externalId,
+        debitSource,
       });
       res.status(201).json(withdrawal);
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'WITHDRAWAL_FAILED';
+      const message =
+        error instanceof Error ? error.message : 'WITHDRAWAL_FAILED';
       if (message === 'USER_NOT_FOUND') {
         res.status(404).json({ error: message });
+        return;
+      }
+      if (message === 'IDEMPOTENCY_CONFLICT') {
+        res.status(409).json({ error: message });
         return;
       }
       if (message === 'INSUFFICIENT_BALANCE') {

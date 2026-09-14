@@ -688,7 +688,10 @@ export function InventoryPage() {
     return assets.filter((asset) => !isInventoryAssetVisible(asset, false)).length;
   }, [assets, showUnavailable]);
 
+  const sellOpenerRef = useRef<HTMLElement | null>(null);
+
   function selectAsset(asset: InventoryAsset) {
+    sellOpenerRef.current = document.activeElement as HTMLElement | null;
     if (!canOpenInventorySellPanel(asset)) {
       return;
     }
@@ -723,6 +726,8 @@ export function InventoryPage() {
   }
 
   const clearSelection = useCallback(() => {
+    const opener = sellOpenerRef.current;
+    window.requestAnimationFrame(() => { if (opener?.isConnected) opener.focus(); });
     listingRequestGenRef.current = nextListingRequestGeneration(
       listingRequestGenRef.current,
     );

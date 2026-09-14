@@ -77,10 +77,9 @@ describe('steam-web-api-settings (H3 optional host)', () => {
   });
 
   it('does not store a key when optional host permission is denied', async () => {
-    vi.mocked(chrome.permissions.request).mockResolvedValue(false);
-    const { saveSteamWebApiKey, STEAM_WEB_API_KEY_STORAGE_KEY } = await import(
-      './steam-web-api-settings.js'
-    );
+    vi.mocked(chrome.permissions.request).mockImplementation(async () => false);
+    const { saveSteamWebApiKey, STEAM_WEB_API_KEY_STORAGE_KEY } =
+      await import('./steam-web-api-settings.js');
 
     const result = await saveSteamWebApiKey('abc123');
     expect(result).toEqual({ ok: false, reason: 'permission_denied' });
@@ -90,10 +89,9 @@ describe('steam-web-api-settings (H3 optional host)', () => {
   });
 
   it('stores key only after optional host is granted', async () => {
-    vi.mocked(chrome.permissions.request).mockResolvedValue(true);
-    const { saveSteamWebApiKey, STEAM_WEB_API_KEY_STORAGE_KEY } = await import(
-      './steam-web-api-settings.js'
-    );
+    vi.mocked(chrome.permissions.request).mockImplementation(async () => true);
+    const { saveSteamWebApiKey, STEAM_WEB_API_KEY_STORAGE_KEY } =
+      await import('./steam-web-api-settings.js');
 
     const result = await saveSteamWebApiKey('  secret-key  ');
     expect(result).toEqual({ ok: true });
@@ -106,10 +104,9 @@ describe('steam-web-api-settings (H3 optional host)', () => {
   });
 
   it('clears key and revokes optional host', async () => {
-    vi.mocked(chrome.permissions.contains).mockResolvedValue(true);
-    const { clearSteamWebApiKey, STEAM_WEB_API_KEY_STORAGE_KEY } = await import(
-      './steam-web-api-settings.js'
-    );
+    vi.mocked(chrome.permissions.contains).mockImplementation(async () => true);
+    const { clearSteamWebApiKey, STEAM_WEB_API_KEY_STORAGE_KEY } =
+      await import('./steam-web-api-settings.js');
 
     await clearSteamWebApiKey();
     expect(chrome.storage.local.remove).toHaveBeenCalledWith(

@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
+import { safeAppReturnPath } from '../utils/steam-return-path';
 import {
   getAuthConfig,
   getSteamLinkUrl,
@@ -44,6 +45,8 @@ function SteamAvatar({
 
 export function AccountPage() {
   const { locale, t } = useLocale();
+  const [searchParams] = useSearchParams();
+  const returnPath = safeAppReturnPath(searchParams.get('returnUrl'));
   const { token, user, updateUser } = useAuth();
   const [config, setConfig] = useState<AuthConfig | null>(null);
   const [tradeUrlInput, setTradeUrlInput] = useState('');
@@ -194,6 +197,7 @@ export function AccountPage() {
     <div className="page account-page" data-testid="account-page">
       <PageHeader title={t('account.title')} subtitle={t('account.subtitle')} />
 
+      {returnPath ? <div className="card continuation-card" role="status"><strong>{t('ux.purchaseSaved')}</strong><p>{t('ux.purchaseSavedBody')}</p><Link className="button primary" to={returnPath}>{t('ux.resumePurchase')}</Link></div> : null}
       <AccountTradingOnboarding
         steamId={user?.steamId}
         tradeUrl={user?.tradeUrl}
@@ -213,7 +217,7 @@ export function AccountPage() {
               {displayName}
             </h2>
             {isAdmin ? (
-              <Link to="/admin" className="account-admin-chip" data-testid="account-role">
+              <Link to="/admin/orders" className="account-admin-chip" data-testid="account-role">
                 {t('account.adminChip')}
               </Link>
             ) : (

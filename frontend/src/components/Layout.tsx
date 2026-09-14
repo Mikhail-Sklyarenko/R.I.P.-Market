@@ -45,6 +45,7 @@ export function Layout() {
             <NavLink to="/sell/inventory" className={navLinkClass} data-testid="nav-sell">
               {t('nav.sell')}
             </NavLink>
+            {isAuthenticated ? <NavLink to="/deals" className={navLinkClass} data-testid="nav-deals">{t('account.deals')}</NavLink> : null}
             <NavLink to="/faq" className={navLinkClass} data-testid="nav-faq">
               {t('nav.faq')}
             </NavLink>
@@ -69,6 +70,11 @@ export function Layout() {
       </main>
 
       <footer className="app-footer">
+        <nav className="footer-links" aria-label={t('nav.mainAria')}>
+          <Link to="/saved">{t('ux.savedTitle')}</Link>
+          <Link to="/extension">{t('ux.installExtension')}</Link>
+          <Link to="/support">{t('support.title')}</Link>
+        </nav>
         <p className="app-footer-disclaimer">{t('footer.trademarkDisclaimer')}</p>
       </footer>
 

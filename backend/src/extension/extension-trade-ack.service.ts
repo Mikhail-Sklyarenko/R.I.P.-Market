@@ -1,4 +1,10 @@
-import { HttpStatus, Inject, Injectable, Logger, forwardRef } from '@nestjs/common';
+import {
+  HttpStatus,
+  Inject,
+  Injectable,
+  Logger,
+  forwardRef,
+} from '@nestjs/common';
 import { OrderStatus, Prisma } from '@prisma/client';
 import { AppException } from '../common/errors/app.exception';
 import { ErrorCode } from '../common/errors/error-codes';
@@ -248,17 +254,20 @@ export class ExtensionTradeAckService {
           sellerId: params.sellerId,
         }),
       );
-      void this.tradeStatusPoller.pollOrderById(params.orderId).catch((error) => {
-        this.logger.warn(
-          `Delivery check after gone-asset OFFER_SENT failed for ${params.orderId}: ${
-            error instanceof Error ? error.message : 'unknown'
-          }`,
-        );
-      });
+      void this.tradeStatusPoller
+        .pollOrderById(params.orderId)
+        .catch((error) => {
+          this.logger.warn(
+            `Delivery check after gone-asset OFFER_SENT failed for ${params.orderId}: ${
+              error instanceof Error ? error.message : 'unknown'
+            }`,
+          );
+        });
     }
 
     if (isExtensionTradeAcknowledgmentEnabled()) {
-      const linkedOfferId = order.tradeOperation?.externalOfferId?.trim() || null;
+      const linkedOfferId =
+        order.tradeOperation?.externalOfferId?.trim() || null;
       // Canonical offer already linked — ignore duplicate OFFER_SENT with a
       // different id (post-Guard recreate). Do not stamp false mismatch.
       if (linkedOfferId && linkedOfferId !== params.offerId.trim()) {
@@ -350,27 +359,51 @@ export class ExtensionTradeAckService {
       where: { idempotencyKey: params.idempotencyKey },
     });
     if (existing) {
-      return {
-        ok: true,
-        type: existing.type as TradeAcknowledgmentType,
-        idempotent: true,
-      };
+      if (existing.userId !== params.userId || existing.orderId !== params.orderId || existing.type !== type || (params.offerId && this.normalizeOfferId(params.offerId) !== existing.offerId)) {
+        throw new AppException(ErrorCode.EXTENSION_TASK_INVALID_ACK, 'Acknowledgment key belongs to another action', HttpStatus.CONFLICT);
+      }
+      if (type === 'BUYER_ACK_RECEIVED') {
+        await this.tradeStatusPoller.pollOrderById(params.orderId, { force: true }).catch(() => false);
+      }
+      return { ok: true, type, idempotent: true };
     }
 
     const order = await this.loadOrderForUser(params.orderId, params.userId);
     const role = order.buyerId === params.userId ? 'buyer' : 'seller';
+    if (type === 'BUYER_ACK_RECEIVED' && role === 'buyer' && order.status === OrderStatus.COMPLETED) {
+      return { ok: true, type, idempotent: true };
+    }
     this.assertAcknowledgmentAllowed(order, role, type);
 
-    await this.prisma.tradeAcknowledgment.create({
+    const linkedOfferId = this.normalizeOfferId(order.tradeOperation?.externalOfferId);
+    const suppliedOfferId = this.normalizeOfferId(params.offerId);
+    if ((params.offerId && !suppliedOfferId) ||
+        (suppliedOfferId && suppliedOfferId !== linkedOfferId) ||
+        (type === 'BUYER_ACK_RECEIVED' && !linkedOfferId)) {
+      throw new AppException(ErrorCode.EXTENSION_TASK_INVALID_ACK,
+        'Acknowledgment must reference the offer linked to this order', HttpStatus.CONFLICT);
+    }
+
+    let idempotent = false;
+    try {
+      await this.prisma.tradeAcknowledgment.create({
       data: {
         orderId: order.id,
         userId: params.userId,
         role,
         type,
-        offerId: this.normalizeOfferId(params.offerId),
+        offerId: linkedOfferId,
         idempotencyKey: params.idempotencyKey,
       },
-    });
+      });
+    } catch (error) {
+      if (!(error instanceof Prisma.PrismaClientKnownRequestError) || error.code !== 'P2002') throw error;
+      const replay = await this.prisma.tradeAcknowledgment.findUnique({ where: { idempotencyKey: params.idempotencyKey } });
+      if (!replay || replay.userId !== params.userId || replay.orderId !== order.id || replay.type !== type || replay.offerId !== linkedOfferId) {
+        throw new AppException(ErrorCode.EXTENSION_TASK_INVALID_ACK, 'Acknowledgment key belongs to another action', HttpStatus.CONFLICT);
+      }
+      idempotent = true;
+    }
 
     if (type === 'BUYER_ACK_RECEIVED') {
       try {
@@ -384,12 +417,12 @@ export class ExtensionTradeAckService {
       }
     }
 
-    return { ok: true, type, idempotent: false };
+    return { ok: true, type, idempotent };
   }
 
   /**
-   * Product: Steam DOM "Trade Accepted" / closed offer is ground truth for UX
-   * and a delivery signal when GetTradeOffer lags or returns unknown.
+   * Untrusted page observation for UX and diagnostics only. Settlement must use
+   * server verification or an explicit receipt from the authenticated buyer.
    */
   async reportSteamOfferPage(params: {
     userId: string;
@@ -449,7 +482,7 @@ export class ExtensionTradeAckService {
     await this.prisma.tradePollEvent.create({
       data: {
         tradeOperationId: order.tradeOperation.id,
-        offerStatus: 'accepted',
+        offerStatus: params.lifecycle === 'accepted' ? 'accepted' : 'unknown',
         outcome: 'PAGE_OBSERVED',
         strategy: 'STEAM_PAGE_OBSERVED',
         error: params.idempotencyKey.slice(0, 180),
@@ -661,8 +694,7 @@ export class ExtensionTradeAckService {
       siteUrl: `${getExtensionSiteOrigin()}/orders/${order.id}`,
       amountMinor: order.amountMinor.toString(),
       commissionMinor: (
-        order.lot.commissionMinor ??
-        (order.amountMinor * 5n) / 100n
+        order.lot.commissionMinor ?? (order.amountMinor * 5n) / 100n
       ).toString(),
       sellerReceiveMinor: (
         order.lot.sellerReceiveMinor ??
@@ -674,9 +706,7 @@ export class ExtensionTradeAckService {
         order.createdAt.getTime() + getTradeTimeoutMs(),
       ).toISOString(),
       buyerTradeUrl:
-        role === 'seller'
-          ? (order.buyer?.tradeUrl?.trim() || null)
-          : null,
+        role === 'seller' ? order.buyer?.tradeUrl?.trim() || null : null,
       settlementHoldUntil: order.hold?.settlementHoldUntil
         ? order.hold.settlementHoldUntil.toISOString()
         : null,
@@ -701,7 +731,11 @@ export class ExtensionTradeAckService {
     if (out.includes('dispute') || out.includes('fail')) {
       return 'warn';
     }
-    if (offer.includes('active') || offer === '2' || offer.includes('pending')) {
+    if (
+      offer.includes('active') ||
+      offer === '2' ||
+      offer.includes('pending')
+    ) {
       return 'pending';
     }
     return offer || out ? 'unknown' : 'pending';
@@ -1033,6 +1067,10 @@ export class ExtensionTradeAckService {
           'Не принимайте этот trade offer. Откройте заказ на R.I.P Market.',
       };
     }
+    if (order.status === OrderStatus.WAITING_TRADE && acknowledgments.buyerReceived) {
+      return { kind: 'platform_verifying', title: 'Покупатель подтвердил получение', description: 'Сервис завершает проверку. Повторно отправлять или принимать обмен не нужно. При задержке откройте обращение из заказа.' };
+    }
+
 
     if (order.status === OrderStatus.DISPUTE) {
       return {
@@ -1129,7 +1167,7 @@ export class ExtensionTradeAckService {
       return {
         kind: 'completed',
         title: 'Сделка завершена',
-        description: 'Статус обновится на сайте автоматически.',
+        description: 'Обмен завершён. Подробности доступны в заказе на сайте.',
       };
     }
 
@@ -1139,7 +1177,7 @@ export class ExtensionTradeAckService {
           kind: 'wait',
           title: 'Ждём обмен от продавца',
           description:
-            'Обычно 1–2 минуты. Страница обновится сама — ничего нажимать не нужно.',
+            'Продавец должен отправить предмет. Следите за состоянием заказа; если ожидание затянулось, откройте обращение.',
         };
       }
       const latestOfferStatus = (
@@ -1152,7 +1190,7 @@ export class ExtensionTradeAckService {
             kind: 'confirm_received',
             title: 'Предмет у вас?',
             description:
-              'Steam уже принял обмен. Подтвердите получение здесь — площадка закроет сделку.',
+              'На странице обмена найдено сообщение о принятии. Подтверждайте получение только если предмет действительно у вас.',
           };
         }
         return {
@@ -1166,7 +1204,7 @@ export class ExtensionTradeAckService {
         kind: 'accept_in_steam',
         title: 'Примите обмен в Steam',
         description:
-          'Откройте этот проверенный offer (не общий inbox), сверьте щит R.I.P и примите кнопкой Steam. Сайт обновится сам.',
+          'Откройте этот проверенный offer (не общий inbox), сверьте щит R.I.P и примите кнопкой Steam. Если предмет получен, а статус не обновился, подтвердите получение на сайте.',
       };
     }
 

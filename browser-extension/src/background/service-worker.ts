@@ -1,3 +1,8 @@
+import { getCachedSentOffer } from "../shared/trade-offer-sent-cache.js";
+import {
+  DurableTaskProgressReporter,
+  taskProgressScope,
+} from "../shared/durable-task-progress.js";
 import {
   CreateOfferOrchestrator,
   ExtensionApiClient,
@@ -8,9 +13,9 @@ import {
   parseExtensionApiError,
   type TaskProgressReporter,
   type TradeVerificationResult,
-} from '@rip-market/extension-orchestrator';
-import { MessageSteamOfferAdapter } from '../adapters/message-steam-offer-adapter.js';
-import { SteamCommunityClient } from '../shared/steam-community-client.js';
+} from "@rip-market/extension-orchestrator";
+import { MessageSteamOfferAdapter } from "../adapters/message-steam-offer-adapter.js";
+import { SteamCommunityClient } from "../shared/steam-community-client.js";
 import {
   assertSessionDeviceConsistency,
   clearSessionState,
@@ -20,53 +25,53 @@ import {
   saveSessionState,
   signMessage,
   type ExtensionSessionState,
-} from '../shared/storage.js';
+} from "../shared/storage.js";
 import {
   applyTaskUiTradeFlowFlag,
   setTaskUiTradeFlowOverride,
   isExtensionQuietNotificationsEnabled,
   syncUiTradeFlowFromAuthConfig,
-} from '../shared/extension-flags.js';
+} from "../shared/extension-flags.js";
 import {
   countActionableTrades,
   getActiveTradesCache,
   isActiveTradesCacheFresh,
   isTradeAcknowledgmentEnabled,
   setActiveTradesCache,
-} from '../shared/active-trades-cache.js';
-import { resolveTradeForOfferPage } from '../shared/resolve-trade-for-offer-page.js';
+} from "../shared/active-trades-cache.js";
+import { resolveTradeForOfferPage } from "../shared/resolve-trade-for-offer-page.js";
 import {
   parsePollScheduleMode,
   periodsForPollMode,
   resolvePollScheduleMode,
   POLL_MODE_STORAGE_KEY,
   type PollScheduleMode,
-} from '../shared/poll-schedule.js';
+} from "../shared/poll-schedule.js";
 import {
   getStoredSiteLinkSnapshot,
   persistSiteLinkFromPoll,
   safeModeBlockMessage,
   type SiteLinkSnapshot,
-} from '../shared/offline-safe-mode.js';
-import { recordTwoMinuteFirstList } from '../shared/two-minute-onboarding.js';
-import { humanizeListingApiError } from '../shared/listing-api-errors.js';
+} from "../shared/offline-safe-mode.js";
+import { recordTwoMinuteFirstList } from "../shared/two-minute-onboarding.js";
+import { humanizeListingApiError } from "../shared/listing-api-errors.js";
 import {
   buildSupportBridgePack,
   buildSupportBridgeUrl,
   formatSupportBridgeTicketBody,
   siteOriginFromApiBaseUrl as supportSiteOriginFromApiBaseUrl,
   type SupportBridgePack,
-} from '../shared/support-bridge.js';
+} from "../shared/support-bridge.js";
 import {
   formatDealFlowMetricsForDebug,
   readDealFlowMetrics,
-} from '../shared/deal-flow-metrics.js';
+} from "../shared/deal-flow-metrics.js";
 import {
   canProceedPastRateLimit,
   noteRateLimitCleared,
   noteRateLimitHit,
-} from '../shared/rate-limit-backoff-runtime.js';
-import { parseRetryAfterMs } from '../shared/rate-limit-backoff.js';
+} from "../shared/rate-limit-backoff-runtime.js";
+import { parseRetryAfterMs } from "../shared/rate-limit-backoff.js";
 import {
   handleQuietNotificationButton,
   handleQuietNotificationClick,
@@ -74,7 +79,7 @@ import {
   processQuietNotifications,
   setQuietNotificationsEnabled,
   unmuteQuietNotifyDeal,
-} from '../shared/quiet-notifications-runtime.js';
+} from "../shared/quiet-notifications-runtime.js";
 import {
   buildOpsHealthSnapshot,
   loadOpsHealthPollState,
@@ -82,56 +87,49 @@ import {
   recordPollFailure,
   recordRateLimitedHit,
   recordTaskPollSuccess,
-} from '../shared/extension-ops-health-runtime.js';
-import { resolveLastSuccessfulPollAt } from '../shared/extension-ops-health.js';
-import {
-  buildManualCreateCandidate,
-  buildManualCreateDraftInput,
-} from '../shared/manual-create-offer.js';
-import { TRADE_VERIFICATION_RUNTIME } from '../shared/trade-verification-runtime.js';
+} from "../shared/extension-ops-health-runtime.js";
+import { resolveLastSuccessfulPollAt } from "../shared/extension-ops-health.js";
+import { buildManualCreateCandidate } from "../shared/manual-create-offer.js";
+import { TRADE_VERIFICATION_RUNTIME } from "../shared/trade-verification-runtime.js";
 import {
   recordInterceptedOffer,
   TRADE_OFFER_INTERCEPTED_MESSAGE,
-} from '../shared/trade-offer-sent-cache.js';
+} from "../shared/trade-offer-sent-cache.js";
 import {
   flushPendingOfferLinks,
   tryLinkCapturedOffer,
-} from '../shared/offer-link-recovery.js';
-import { loadCs2InventoryFromCookies } from '../shared/steam-cookie-client.js';
+} from "../shared/offer-link-recovery.js";
+import { loadCs2InventoryFromCookies } from "../shared/steam-cookie-client.js";
 import {
   buildPlatformFactsMap,
   type PlatformInventoryAssetRow,
-} from '../shared/inventory-enrichment-data.js';
-import type { InventoryItemPlatformFacts } from '../shared/inventory-item-enrichment.js';
-import {
-  type PageEnrichmentLoadResult,
-} from '../shared/steam-inventory-page-enrichment.js';
-import { chunkMarketHashNames } from '../shared/inventory-price-intel.js';
-import type { InventoryPriceHintLike } from '../shared/inventory-price-intel.js';
+} from "../shared/inventory-enrichment-data.js";
+import type { InventoryItemPlatformFacts } from "../shared/inventory-item-enrichment.js";
+import { type PageEnrichmentLoadResult } from "../shared/steam-inventory-page-enrichment.js";
+import { chunkMarketHashNames } from "../shared/inventory-price-intel.js";
+import type { InventoryPriceHintLike } from "../shared/inventory-price-intel.js";
 import {
   collectActiveTradeTaskAssets,
   getActiveTradeTaskAssetsCache,
   setActiveTradeTaskAssetsCache,
-} from '../shared/active-trade-task-assets.js';
+} from "../shared/active-trade-task-assets.js";
 import {
   findPlatformAssetIdByExternalId,
   siteListingsUrl,
   siteLotUrl,
   validateCreateLotPriceMinor,
-} from '../shared/inventory-one-click-sell.js';
-import {
-  evaluateCheckedInventoryAsset,
-} from '../shared/inventory-prelist-safety.js';
+} from "../shared/inventory-one-click-sell.js";
+import { evaluateCheckedInventoryAsset } from "../shared/inventory-prelist-safety.js";
 import {
   MAX_BULK_LISTING_COUNT,
   MIN_BULK_LISTING_COUNT,
   type BulkSellOperation,
-} from '../shared/inventory-bulk-sell.js';
+} from "../shared/inventory-bulk-sell.js";
 import {
   siteAccountUrl,
   siteOriginFromApiBaseUrl,
-} from '../shared/steam-inventory-page.js';
-import { hasValidTradeUrl } from '../shared/inventory-seller-onboarding.js';
+} from "../shared/steam-inventory-page.js";
+import { hasValidTradeUrl } from "../shared/inventory-seller-onboarding.js";
 import {
   buildSessionHealth,
   clearLastSessionDiag,
@@ -139,17 +137,17 @@ import {
   probeSessionHealth,
   saveLastSessionDiag,
   type SessionHealth,
-} from '../shared/session-health.js';
+} from "../shared/session-health.js";
 import {
   getStoredExtensionLocale,
   normalizeExtensionLocale,
   setStoredExtensionLocale,
-} from '../shared/extension-i18n.js';
-import { humanizePairError } from '../shared/humanize-pair-error.js';
+} from "../shared/extension-i18n.js";
+import { humanizePairError } from "../shared/humanize-pair-error.js";
 
-const POLL_ALARM = 'rip-market-poll-tasks';
-const ACTIVE_TRADES_ALARM = 'rip-market-poll-active-trades';
-const HEARTBEAT_ALARM = 'rip-market-heartbeat';
+const POLL_ALARM = "rip-market-poll-tasks";
+const ACTIVE_TRADES_ALARM = "rip-market-poll-active-trades";
+const HEARTBEAT_ALARM = "rip-market-heartbeat";
 const processingTasks = new Set<string>();
 let pollInFlight: Promise<void> | null = null;
 
@@ -163,17 +161,19 @@ async function invalidateSessionOnAuthError(
   if (!isExtensionAuthError(error)) {
     return;
   }
-  console.warn('[rip-market] extension session invalid — clearing local session');
+  console.warn(
+    "[rip-market] extension session invalid — clearing local session",
+  );
 
   if (options?.taskId && options.reporter) {
     try {
       await options.reporter.report({
         taskId: options.taskId,
-        phase: 'OFFER_FAILED',
+        phase: "OFFER_FAILED",
         idempotencyKey: `progress:${options.taskId}:OFFER_FAILED:SESSION_REVOKED`,
         reasonCode: OfferErrorCode.SESSION_REVOKED,
         details: {
-          message: 'Extension session revoked — reconnect from Account page',
+          message: "Extension session revoked — reconnect from Account page",
         },
       });
     } catch {
@@ -182,9 +182,9 @@ async function invalidateSessionOnAuthError(
   }
 
   const health = buildSessionHealth({
-    code: 'SESSION_REVOKED',
+    code: "SESSION_REVOKED",
     messageOverride:
-      'Сессия расширения истекла. Откройте сайт → Аккаунт → «Подключить расширение».',
+      "Сессия расширения истекла. Откройте сайт → Аккаунт → «Подключить расширение».",
   });
   await saveLastSessionDiag(health);
   await clearSessionState();
@@ -205,14 +205,15 @@ export async function pairExtension(params: {
       await setStoredExtensionLocale(pairLocale);
     }
     const keys = await ensureDeviceKeys();
-    const apiBaseUrl = params.apiBaseUrl?.replace(/\/$/, '') ?? getDefaultApiBaseUrl();
+    const apiBaseUrl =
+      params.apiBaseUrl?.replace(/\/$/, "") ?? getDefaultApiBaseUrl();
     const client = new ExtensionApiClient(
       apiBaseUrl,
       {
-        sessionId: '',
+        sessionId: "",
         deviceId: keys.deviceId,
-        accessToken: '',
-        expiresAt: '',
+        accessToken: "",
+        expiresAt: "",
       },
       (message) => signMessage(keys.privateKeyJwk, message),
     );
@@ -234,7 +235,7 @@ export async function pairExtension(params: {
     void pollActiveTrades();
     return { ok: true, sessionId: session.sessionId };
   } catch (error) {
-    const raw = error instanceof Error ? error.message : 'Pairing failed';
+    const raw = error instanceof Error ? error.message : "Pairing failed";
     return {
       ok: false,
       error: humanizePairError(raw, pairLocale),
@@ -293,19 +294,19 @@ async function buildExtensionDebugPack(params?: {
     expectedSteamId: params?.expectedSteamId,
     probeInventory: params?.probeInventory !== false,
   });
-  if (health.code === 'INVENTORY_RATE_LIMITED') {
+  if (health.code === "INVENTORY_RATE_LIMITED") {
     await recordRateLimitedHit();
   }
   const manifest = chrome.runtime.getManifest();
   const ops = await buildOpsHealthSnapshot({
     connected: Boolean(status.connected),
     health,
-    extensionVersion: manifest.version ?? '0',
+    extensionVersion: manifest.version ?? "0",
   });
   const cache = await getActiveTradesCache();
   const siteLink = await getStoredSiteLinkSnapshot();
   const supportBridge = buildSupportBridgePack({
-    extensionVersion: manifest.version ?? '0',
+    extensionVersion: manifest.version ?? "0",
     extensionId: chrome.runtime.id,
     connected: Boolean(status.connected),
     sessionHealthCode: health.code,
@@ -320,10 +321,10 @@ async function buildExtensionDebugPack(params?: {
   const dealFlowMetrics = await readDealFlowMetrics();
   const clipboardText = [
     formatSupportBridgeTicketBody(supportBridge),
-    '',
-    '--- deal-flow metrics ---',
+    "",
+    "--- deal-flow metrics ---",
     formatDealFlowMetricsForDebug(dealFlowMetrics),
-  ].join('\n');
+  ].join("\n");
   return {
     pack: {
       version: 1,
@@ -360,7 +361,7 @@ async function buildExtensionDebugPack(params?: {
 }
 
 export async function scheduleAlarms(
-  mode: PollScheduleMode = 'active',
+  mode: PollScheduleMode = "active",
 ): Promise<void> {
   const periods = periodsForPollMode(mode);
   await chrome.alarms.clear(POLL_ALARM);
@@ -509,7 +510,7 @@ async function runOfferLinkAfterCapture(params: {
   offerId: string;
   assetId?: string;
   buyerTradeUrl?: string;
-  source: 'intercept' | 'manual_create';
+  source: "intercept" | "manual_create";
 }): Promise<void> {
   const gate = await assertSiteMutationsAllowed();
   if (!gate.ok) {
@@ -521,7 +522,9 @@ async function runOfferLinkAfterCapture(params: {
     return;
   }
 
-  let trades = await getActiveTradesCache().then((cache) => cache?.trades ?? []);
+  let trades = await getActiveTradesCache().then(
+    (cache) => cache?.trades ?? [],
+  );
   if (trades.length === 0) {
     trades = await pollActiveTrades({ force: true });
   }
@@ -547,7 +550,7 @@ export async function pollActiveTrades(options?: {
 }): Promise<TradeVerificationResult[]> {
   if (!(await isTradeAcknowledgmentEnabled())) {
     await setActiveTradesCache([]);
-    await chrome.action.setBadgeText({ text: '' });
+    await chrome.action.setBadgeText({ text: "" });
     return [];
   }
 
@@ -568,7 +571,7 @@ export async function pollActiveTrades(options?: {
       liveFetchOk: false,
       fromCache: Boolean(cached?.trades?.length),
       cacheUpdatedAt: cached?.updatedAt ?? null,
-      lastError: 'not_paired',
+      lastError: "not_paired",
     });
     return cached?.trades ?? [];
   }
@@ -588,27 +591,27 @@ export async function pollActiveTrades(options?: {
     });
     const actionable = countActionableTrades(trades);
     await chrome.action.setBadgeText({
-      text: actionable > 0 ? String(actionable) : '',
+      text: actionable > 0 ? String(actionable) : "",
     });
-    await chrome.action.setBadgeBackgroundColor({ color: '#5b8def' });
+    await chrome.action.setBadgeBackgroundColor({ color: "#5b8def" });
     void (async () => {
       if (!(await isExtensionQuietNotificationsEnabled())) {
         return;
       }
       await processQuietNotifications(trades);
     })().catch((error) => {
-      console.warn('[rip-market] quiet notifications failed', error);
+      console.warn("[rip-market] quiet notifications failed", error);
     });
     void syncPollSchedule({ trades }).catch((error) => {
-      console.warn('[rip-market] poll schedule sync failed', error);
+      console.warn("[rip-market] poll schedule sync failed", error);
     });
     void runPendingOfferLinkRecovery(auth.client, trades).catch((error) => {
-      console.warn('[rip-market] offer link recovery failed', error);
+      console.warn("[rip-market] offer link recovery failed", error);
     });
     return trades;
   } catch (error) {
     const message =
-      error instanceof Error ? error.message : 'Active trades poll failed';
+      error instanceof Error ? error.message : "Active trades poll failed";
     const is429 =
       /HTTP 429|rate.?limit|too many requests/i.test(message) ||
       (error as { status?: number })?.status === 429;
@@ -662,9 +665,12 @@ async function rememberSiteLink(params: {
   });
 }
 
-async function assertSiteMutationsAllowed(): Promise<{
-  ok: true;
-} | { ok: false; error: string }> {
+async function assertSiteMutationsAllowed(): Promise<
+  | {
+      ok: true;
+    }
+  | { ok: false; error: string }
+> {
   const link = await getStoredSiteLinkSnapshot();
   if (!link.safeMode) {
     return { ok: true };
@@ -684,12 +690,14 @@ async function verifyTradeFromRuntime(params: {
 }): Promise<TradeVerificationResult | null> {
   const hasObserved = Boolean(
     params.observedAssetId?.trim() ||
-      params.observedFloatValue?.trim() ||
-      params.observedPartnerSteamId?.trim(),
+    params.observedFloatValue?.trim() ||
+    params.observedPartnerSteamId?.trim(),
   );
   const cache = await getActiveTradesCache();
   if (params.offerId && cache && !hasObserved) {
-    const cached = cache.trades.find((trade) => trade.offerId === params.offerId);
+    const cached = cache.trades.find(
+      (trade) => trade.offerId === params.offerId,
+    );
     if (cached) {
       return cached;
     }
@@ -711,7 +719,9 @@ async function verifyTradeFromRuntime(params: {
     // so a duplicate Steam tab does not paint offer_id warnings.
     let offerId = params.offerId ?? null;
     if (cache) {
-      const forOrder = cache.trades.find((trade) => trade.orderId === params.orderId);
+      const forOrder = cache.trades.find(
+        (trade) => trade.orderId === params.orderId,
+      );
       if (forOrder?.offerId?.trim()) {
         offerId = forOrder.offerId.trim();
       }
@@ -722,19 +732,21 @@ async function verifyTradeFromRuntime(params: {
   if (params.offerId) {
     const trades =
       cache?.trades ??
-      (await auth.client.listActiveTrades().catch(() => [] as TradeVerificationResult[]));
+      (await auth.client
+        .listActiveTrades()
+        .catch(() => [] as TradeVerificationResult[]));
     const byOffer =
       resolveTradeForOfferPage({
         trades,
         offerId: params.offerId,
         observedAssetId: params.observedAssetId,
-        roleHint: 'buyer',
+        roleHint: "buyer",
       }) ??
       resolveTradeForOfferPage({
         trades,
         offerId: params.offerId,
         observedAssetId: params.observedAssetId,
-        roleHint: 'seller',
+        roleHint: "seller",
       });
     if (byOffer) {
       return auth.client.verifyTrade(
@@ -750,7 +762,7 @@ async function verifyTradeFromRuntime(params: {
 
 async function acknowledgeTradeFromRuntime(params: {
   orderId: string;
-  ackType: 'SELLER_ACK_SENT' | 'BUYER_ACK_PRE_ACCEPT' | 'BUYER_ACK_RECEIVED';
+  ackType: "SELLER_ACK_SENT" | "BUYER_ACK_PRE_ACCEPT" | "BUYER_ACK_RECEIVED";
   offerId?: string;
   idempotencyKey: string;
 }): Promise<{ ok: boolean; error?: string }> {
@@ -761,7 +773,7 @@ async function acknowledgeTradeFromRuntime(params: {
 
   const auth = await buildAuthenticatedClient();
   if (!auth) {
-    return { ok: false, error: 'Расширение не подключено' };
+    return { ok: false, error: "Расширение не подключено" };
   }
 
   try {
@@ -777,7 +789,7 @@ async function acknowledgeTradeFromRuntime(params: {
     await invalidateSessionOnAuthError(error);
     return {
       ok: false,
-      error: error instanceof Error ? error.message : 'Acknowledgment failed',
+      error: error instanceof Error ? error.message : "Acknowledgment failed",
     };
   }
 }
@@ -785,7 +797,7 @@ async function acknowledgeTradeFromRuntime(params: {
 async function reportSteamOfferPageFromRuntime(params: {
   orderId: string;
   offerId: string;
-  lifecycle: 'accepted' | 'invalid';
+  lifecycle: "accepted" | "invalid";
   idempotencyKey: string;
 }): Promise<{
   ok: boolean;
@@ -794,7 +806,7 @@ async function reportSteamOfferPageFromRuntime(params: {
 }> {
   const auth = await buildAuthenticatedClient();
   if (!auth) {
-    return { ok: false, error: 'Расширение не подключено' };
+    return { ok: false, error: "Расширение не подключено" };
   }
 
   try {
@@ -813,7 +825,7 @@ async function reportSteamOfferPageFromRuntime(params: {
       error:
         error instanceof Error
           ? error.message
-          : 'Steam page observation failed',
+          : "Steam page observation failed",
     };
   }
 }
@@ -836,7 +848,7 @@ async function loadInventoryPlatformStatus(): Promise<{
 
   const cache = await getActiveTradesCache();
   for (const trade of cache?.trades ?? []) {
-    if (trade.role !== 'seller') {
+    if (trade.role !== "seller") {
       continue;
     }
     const assetId = trade.item.assetExternalId?.trim();
@@ -863,21 +875,22 @@ async function loadInventoryPlatformStatus(): Promise<{
     if (entry.orderId) {
       tradeTaskOrderByAssetId.set(assetId, {
         orderId: entry.orderId,
-        siteUrl:
-          entry.siteUrl ??
-          `${siteOrigin}/orders/${entry.orderId}`,
+        siteUrl: entry.siteUrl ?? `${siteOrigin}/orders/${entry.orderId}`,
       });
     }
   }
 
   let assets: PlatformInventoryAssetRow[] = [];
   try {
-    const response = await fetch(`${state.apiBaseUrl.replace(/\/$/, '')}/inventory`, {
-      headers: {
-        Authorization: `Bearer ${state.accessToken}`,
-        Accept: 'application/json',
+    const response = await fetch(
+      `${state.apiBaseUrl.replace(/\/$/, "")}/inventory`,
+      {
+        headers: {
+          Authorization: `Bearer ${state.accessToken}`,
+          Accept: "application/json",
+        },
       },
-    });
+    );
     if (response.ok) {
       const body = (await response.json()) as {
         assets?: PlatformInventoryAssetRow[];
@@ -917,7 +930,7 @@ async function loadInventoryPriceHints(
 
   const chunks = chunkMarketHashNames(marketHashNames, 60);
   const hints: Record<string, InventoryPriceHintLike> = {};
-  const base = state.apiBaseUrl.replace(/\/$/, '');
+  const base = state.apiBaseUrl.replace(/\/$/, "");
 
   for (const chunk of chunks) {
     if (chunk.length === 0) {
@@ -928,11 +941,11 @@ async function loadInventoryPriceHints(
       const suggested = await fetch(
         `${base}/extension/inventory/suggested-prices`,
         {
-          method: 'POST',
+          method: "POST",
           headers: {
             Authorization: `Bearer ${state.accessToken}`,
-            Accept: 'application/json',
-            'Content-Type': 'application/json',
+            Accept: "application/json",
+            "Content-Type": "application/json",
           },
           body: JSON.stringify({
             items: chunk.map((marketHashName) => ({ marketHashName })),
@@ -949,7 +962,7 @@ async function loadInventoryPriceHints(
             bestBidMinor?: string | number | null;
             bestBidQuantity?: number | null;
             suggestedListMinor?: number | null;
-            suggestedListSource?: 'bid' | 'steam_discount' | null;
+            suggestedListSource?: "bid" | "steam_discount" | null;
             commissionMinor?: number | null;
             sellerReceiveMinor?: number | null;
           }>;
@@ -975,11 +988,11 @@ async function loadInventoryPriceHints(
 
       // Compat: legacy JWT inventory price-hints.
       const response = await fetch(`${base}/inventory/price-hints`, {
-        method: 'POST',
+        method: "POST",
         headers: {
           Authorization: `Bearer ${state.accessToken}`,
-          Accept: 'application/json',
-          'Content-Type': 'application/json',
+          Accept: "application/json",
+          "Content-Type": "application/json",
         },
         body: JSON.stringify({
           marketHashNames: chunk,
@@ -1040,18 +1053,18 @@ async function loadSellerOnboardingStatus(force = false): Promise<{
     };
   }
 
-  const base = state.apiBaseUrl.replace(/\/$/, '');
+  const base = state.apiBaseUrl.replace(/\/$/, "");
   try {
     const response = await fetch(`${base}/users/me`, {
-      method: 'GET',
+      method: "GET",
       headers: {
         Authorization: `Bearer ${state.accessToken}`,
-        Accept: 'application/json',
+        Accept: "application/json",
       },
     });
     if (!response.ok) {
       if (response.status === 401) {
-        const apiError = await readListingApiError('/users/me', response);
+        const apiError = await readListingApiError("/users/me", response);
         await invalidateSessionOnAuthError(apiError);
       }
       return {
@@ -1063,7 +1076,7 @@ async function loadSellerOnboardingStatus(force = false): Promise<{
     }
     const body = (await response.json()) as { tradeUrl?: string | null };
     const tradeUrl =
-      typeof body.tradeUrl === 'string' && body.tradeUrl.trim()
+      typeof body.tradeUrl === "string" && body.tradeUrl.trim()
         ? body.tradeUrl.trim()
         : null;
     sellerOnboardingCache = { fetchedAt: now, tradeUrl };
@@ -1092,7 +1105,11 @@ async function readListingApiError(
   if (text.trim()) {
     return parseExtensionApiError(path, response.status, text);
   }
-  return new ExtensionApiError(path, response.status, `HTTP ${response.status}`);
+  return new ExtensionApiError(
+    path,
+    response.status,
+    `HTTP ${response.status}`,
+  );
 }
 
 function listingUserError(apiError: ExtensionApiError): string {
@@ -1129,32 +1146,35 @@ async function createInventoryLotFromRuntime(params: {
   if (!state?.accessToken || !state.apiBaseUrl) {
     return {
       ok: false,
-      error: 'Подключите расширение на сайте (Account → Подключить).',
+      error: "Подключите расширение на сайте (Account → Подключить).",
     };
   }
 
-  const base = state.apiBaseUrl.replace(/\/$/, '');
+  const base = state.apiBaseUrl.replace(/\/$/, "");
   const siteOrigin = siteOriginFromApiBaseUrl(state.apiBaseUrl);
   const listingsUrl = siteListingsUrl(siteOrigin);
   const headers = {
     Authorization: `Bearer ${state.accessToken}`,
-    Accept: 'application/json',
-    'Content-Type': 'application/json',
+    Accept: "application/json",
+    "Content-Type": "application/json",
   };
 
   let inventoryAssetId = params.inventoryAssetId?.trim() || null;
 
   try {
     if (!inventoryAssetId) {
-      const inventoryResponse = await fetch(`${base}/inventory?forceRefresh=true`, {
-        headers: {
-          Authorization: headers.Authorization,
-          Accept: headers.Accept,
+      const inventoryResponse = await fetch(
+        `${base}/inventory?forceRefresh=true`,
+        {
+          headers: {
+            Authorization: headers.Authorization,
+            Accept: headers.Accept,
+          },
         },
-      });
+      );
       if (!inventoryResponse.ok) {
         const apiError = await readListingApiError(
-          '/inventory',
+          "/inventory",
           inventoryResponse,
         );
         await invalidateSessionOnAuthError(apiError);
@@ -1177,7 +1197,7 @@ async function createInventoryLotFromRuntime(params: {
       return {
         ok: false,
         error:
-          'Предмет ещё не в инвентаре площадки. Откройте «Мои продажи» на сайте и обновите инвентарь, затем повторите.',
+          "Предмет ещё не в инвентаре площадки. Откройте «Мои продажи» на сайте и обновите инвентарь, затем повторите.",
         listingsUrl,
       };
     }
@@ -1185,7 +1205,7 @@ async function createInventoryLotFromRuntime(params: {
     const checkResponse = await fetch(
       `${base}/inventory/${encodeURIComponent(inventoryAssetId)}/check`,
       {
-        method: 'POST',
+        method: "POST",
         headers: {
           Authorization: headers.Authorization,
           Accept: headers.Accept,
@@ -1212,13 +1232,14 @@ async function createInventoryLotFromRuntime(params: {
     if (!eligibility.ok) {
       return {
         ok: false,
-        error: eligibility.error ?? 'Предмет не прошёл проверку перед выставкой',
+        error:
+          eligibility.error ?? "Предмет не прошёл проверку перед выставкой",
         listingsUrl,
       };
     }
 
     const createResponse = await fetch(`${base}/lots`, {
-      method: 'POST',
+      method: "POST",
       headers,
       body: JSON.stringify({
         inventoryAssetId,
@@ -1226,7 +1247,7 @@ async function createInventoryLotFromRuntime(params: {
       }),
     });
     if (!createResponse.ok) {
-      const apiError = await readListingApiError('/lots', createResponse);
+      const apiError = await readListingApiError("/lots", createResponse);
       await invalidateSessionOnAuthError(apiError);
       return {
         ok: false,
@@ -1237,7 +1258,7 @@ async function createInventoryLotFromRuntime(params: {
 
     const lot = (await createResponse.json()) as { id?: string };
     if (!lot.id) {
-      return { ok: false, error: 'Лот создан, но id не вернулся' };
+      return { ok: false, error: "Лот создан, но id не вернулся" };
     }
 
     void recordTwoMinuteFirstList().catch(() => undefined);
@@ -1252,7 +1273,8 @@ async function createInventoryLotFromRuntime(params: {
     await invalidateSessionOnAuthError(error);
     return {
       ok: false,
-      error: error instanceof Error ? error.message : 'Не удалось выставить лот',
+      error:
+        error instanceof Error ? error.message : "Не удалось выставить лот",
     };
   }
 }
@@ -1276,9 +1298,13 @@ async function loadInventoryIdMap(
     },
   });
   if (!inventoryResponse.ok) {
-    const apiError = await readListingApiError('/inventory', inventoryResponse);
+    const apiError = await readListingApiError("/inventory", inventoryResponse);
     await invalidateSessionOnAuthError(apiError);
-    return { ok: false, byExternalId: new Map(), error: listingUserError(apiError) };
+    return {
+      ok: false,
+      byExternalId: new Map(),
+      error: listingUserError(apiError),
+    };
   }
   const inventoryBody = (await inventoryResponse.json()) as {
     assets?: Array<{ id?: string; assetExternalId?: string }>;
@@ -1320,21 +1346,24 @@ async function createInventoryLotsBatchFromRuntime(params: {
       ok: false,
       created: [],
       failed: [],
-      error: 'Подключите расширение на сайте (Account → Подключить).',
+      error: "Подключите расширение на сайте (Account → Подключить).",
     };
   }
 
-  const base = state.apiBaseUrl.replace(/\/$/, '');
+  const base = state.apiBaseUrl.replace(/\/$/, "");
   const siteOrigin = siteOriginFromApiBaseUrl(state.apiBaseUrl);
   const listingsUrl = siteListingsUrl(siteOrigin);
   const headers = {
     Authorization: `Bearer ${state.accessToken}`,
-    Accept: 'application/json',
-    'Content-Type': 'application/json',
+    Accept: "application/json",
+    "Content-Type": "application/json",
   };
 
-  const created: Array<{ steamAssetId: string; lotId: string; lotUrl: string }> =
-    [];
+  const created: Array<{
+    steamAssetId: string;
+    lotId: string;
+    lotUrl: string;
+  }> = [];
   const failed: Array<{ steamAssetId: string; error: string }> = [];
 
   try {
@@ -1370,7 +1399,7 @@ async function createInventoryLotsBatchFromRuntime(params: {
     };
 
     for (const operation of params.operations) {
-      if (operation.type === 'platform_bulk') {
+      if (operation.type === "platform_bulk") {
         const ids: string[] = [];
         const steamById = new Map<string, string>();
         for (const item of operation.items) {
@@ -1379,7 +1408,7 @@ async function createInventoryLotsBatchFromRuntime(params: {
             failed.push({
               steamAssetId: item.steamAssetId,
               error:
-                'Предмет ещё не в инвентаре площадки. Обновите инвентарь на сайте.',
+                "Предмет ещё не в инвентаре площадки. Обновите инвентарь на сайте.",
             });
             continue;
           }
@@ -1403,7 +1432,7 @@ async function createInventoryLotsBatchFromRuntime(params: {
             } else {
               failed.push({
                 steamAssetId,
-                error: single.error ?? 'Не удалось выставить',
+                error: single.error ?? "Не удалось выставить",
               });
             }
           }
@@ -1412,7 +1441,7 @@ async function createInventoryLotsBatchFromRuntime(params: {
 
         const chunkIds = ids.slice(0, MAX_BULK_LISTING_COUNT);
         const bulkResponse = await fetch(`${base}/lots/bulk`, {
-          method: 'POST',
+          method: "POST",
           headers,
           body: JSON.stringify({
             inventoryAssetIds: chunkIds,
@@ -1420,7 +1449,10 @@ async function createInventoryLotsBatchFromRuntime(params: {
           }),
         });
         if (!bulkResponse.ok) {
-          const apiError = await readListingApiError('/lots/bulk', bulkResponse);
+          const apiError = await readListingApiError(
+            "/lots/bulk",
+            bulkResponse,
+          );
           await invalidateSessionOnAuthError(apiError);
           for (const id of chunkIds) {
             failed.push({
@@ -1470,7 +1502,7 @@ async function createInventoryLotsBatchFromRuntime(params: {
           }
           failed.push({
             steamAssetId,
-            error: 'Лот в пакете не подтверждён',
+            error: "Лот в пакете не подтверждён",
           });
         }
         continue;
@@ -1492,7 +1524,7 @@ async function createInventoryLotsBatchFromRuntime(params: {
         } else {
           failed.push({
             steamAssetId: item.steamAssetId,
-            error: single.error ?? 'Не удалось выставить',
+            error: single.error ?? "Не удалось выставить",
           });
         }
       }
@@ -1505,7 +1537,7 @@ async function createInventoryLotsBatchFromRuntime(params: {
       listingsUrl,
       error:
         created.length === 0
-          ? failed[0]?.error ?? 'Не удалось выставить лоты'
+          ? (failed[0]?.error ?? "Не удалось выставить лоты")
           : undefined,
     };
   } catch (error) {
@@ -1516,7 +1548,7 @@ async function createInventoryLotsBatchFromRuntime(params: {
       failed,
       listingsUrl,
       error:
-        error instanceof Error ? error.message : 'Не удалось выставить лоты',
+        error instanceof Error ? error.message : "Не удалось выставить лоты",
     };
   }
 }
@@ -1544,18 +1576,18 @@ async function updateInventoryLotPriceFromRuntime(params: {
   }
   const lotId = params.lotId.trim();
   if (!lotId) {
-    return { ok: false, error: 'Не указан лот' };
+    return { ok: false, error: "Не указан лот" };
   }
 
   const state = await getSessionState();
   if (!state?.accessToken || !state.apiBaseUrl) {
     return {
       ok: false,
-      error: 'Подключите расширение на сайте (Account → Подключить).',
+      error: "Подключите расширение на сайте (Account → Подключить).",
     };
   }
 
-  const base = state.apiBaseUrl.replace(/\/$/, '');
+  const base = state.apiBaseUrl.replace(/\/$/, "");
   const siteOrigin = siteOriginFromApiBaseUrl(state.apiBaseUrl);
   const listingsUrl = siteListingsUrl(siteOrigin);
 
@@ -1563,11 +1595,11 @@ async function updateInventoryLotPriceFromRuntime(params: {
     const response = await fetch(
       `${base}/lots/${encodeURIComponent(lotId)}/price`,
       {
-        method: 'PATCH',
+        method: "PATCH",
         headers: {
           Authorization: `Bearer ${state.accessToken}`,
-          Accept: 'application/json',
-          'Content-Type': 'application/json',
+          Accept: "application/json",
+          "Content-Type": "application/json",
         },
         body: JSON.stringify({ priceMinor: params.priceMinor }),
       },
@@ -1599,7 +1631,7 @@ async function updateInventoryLotPriceFromRuntime(params: {
       ok: false,
       listingsUrl,
       error:
-        error instanceof Error ? error.message : 'Не удалось обновить цену',
+        error instanceof Error ? error.message : "Не удалось обновить цену",
     };
   }
 }
@@ -1620,18 +1652,18 @@ async function cancelInventoryLotFromRuntime(params: {
 
   const lotId = params.lotId.trim();
   if (!lotId) {
-    return { ok: false, error: 'Не указан лот' };
+    return { ok: false, error: "Не указан лот" };
   }
 
   const state = await getSessionState();
   if (!state?.accessToken || !state.apiBaseUrl) {
     return {
       ok: false,
-      error: 'Подключите расширение на сайте (Account → Подключить).',
+      error: "Подключите расширение на сайте (Account → Подключить).",
     };
   }
 
-  const base = state.apiBaseUrl.replace(/\/$/, '');
+  const base = state.apiBaseUrl.replace(/\/$/, "");
   const listingsUrl = siteListingsUrl(
     siteOriginFromApiBaseUrl(state.apiBaseUrl),
   );
@@ -1640,11 +1672,11 @@ async function cancelInventoryLotFromRuntime(params: {
     const response = await fetch(
       `${base}/lots/${encodeURIComponent(lotId)}/cancel`,
       {
-        method: 'POST',
+        method: "POST",
         headers: {
           Authorization: `Bearer ${state.accessToken}`,
-          Accept: 'application/json',
-          'Content-Type': 'application/json',
+          Accept: "application/json",
+          "Content-Type": "application/json",
         },
         body: JSON.stringify({}),
       },
@@ -1669,7 +1701,7 @@ async function cancelInventoryLotFromRuntime(params: {
       ok: false,
       listingsUrl,
       error:
-        error instanceof Error ? error.message : 'Не удалось снять с продажи',
+        error instanceof Error ? error.message : "Не удалось снять с продажи",
     };
   }
 }
@@ -1688,7 +1720,7 @@ async function manualCreateOfferFromRuntime(orderId: string): Promise<{
 
   const trimmed = orderId.trim();
   if (!trimmed) {
-    return { ok: false, error: 'orderId обязателен' };
+    return { ok: false, error: "orderId обязателен" };
   }
 
   let trades: TradeVerificationResult[] = [];
@@ -1701,7 +1733,7 @@ async function manualCreateOfferFromRuntime(orderId: string): Promise<{
 
   const trade = trades.find((entry) => entry.orderId === trimmed);
   if (!trade) {
-    return { ok: false, error: 'Активная сделка не найдена. Обновите список.' };
+    return { ok: false, error: "Активная сделка не найдена. Обновите список." };
   }
 
   const candidate = buildManualCreateCandidate(trade);
@@ -1709,99 +1741,51 @@ async function manualCreateOfferFromRuntime(orderId: string): Promise<{
     return {
       ok: false,
       error:
-        'Для этой сделки нельзя собрать оффер (нужны Trade URL покупателя и asset, без уже привязанного offer).',
+        "Для этой сделки нельзя собрать оффер (нужны Trade URL покупателя и asset, без уже привязанного offer).",
     };
   }
 
-  const draftInput = buildManualCreateDraftInput(candidate);
-  // Open Trade URL in a new tab so /tradeoffers stays as the console.
-  const steam = new SteamCommunityClient();
-  const tradeTabId = await steam.navigateToTradePage(candidate.buyerTradeUrl, {
-    forceNewTab: true,
-  });
-  if (!tradeTabId) {
+  const auth = await buildAuthenticatedClient();
+  if (!auth) return { ok: false, error: "Подключите расширение к сайту." };
+  const reporter = new DurableTaskProgressReporter(
+    auth.client,
+    taskProgressScope(auth.state),
+  );
+  await reporter.flush();
+  const tasks = await auth.client.pollTasks(10);
+  const task = tasks.find((entry) => entry.orderId === candidate.orderId);
+  if (!task || processingTasks.has(task.id)) {
     return {
       ok: false,
-      error: 'Не удалось открыть страницу обмена Steam. Попробуйте ещё раз.',
+      error:
+        "Отправка уже выполняется или ожидает проверки Steam. Повторный оффер не создан.",
     };
   }
-
-  const adapter = new MessageSteamOfferAdapter(steam);
-  const drafted = await adapter.draftOffer({
-    buyerTradeUrl: draftInput.buyerTradeUrl,
-    item: draftInput.item,
-    taskId: draftInput.taskId,
-    note: draftInput.note,
-  });
-  if (!drafted.ok) {
-    return { ok: false, error: drafted.message || drafted.code };
-  }
-
-  const sent = await adapter.sendOffer(drafted.draftId);
-  if (!sent.ok) {
-    return { ok: false, error: sent.message || sent.code };
-  }
-
-  // Best-effort: link offer to order (primary) + task progress fallback.
+  processingTasks.add(task.id);
   try {
-    const auth = await buildAuthenticatedClient();
-    if (auth) {
-      let trades = await getActiveTradesCache().then((cache) => cache?.trades ?? []);
-      if (trades.length === 0) {
-        trades = await pollActiveTrades({ force: true });
-      }
-
-      const linked = await tryLinkCapturedOffer({
-        client: auth.client,
-        trades,
-        offer: {
+    await reporter.remember(task);
+    await applyTaskUiTradeFlowFlag(task.payload.uiTradeFlow);
+    await new CreateOfferOrchestrator(
+      new MessageSteamOfferAdapter(),
+      reporter,
+    ).processTask(task);
+    const sent = await getCachedSentOffer(`draft-${task.id}`);
+    await pollActiveTrades({ force: true }).catch(() => undefined);
+    return sent
+      ? {
+          ok: true,
           offerId: sent.offerId,
-          assetId: candidate.assetId,
-          buyerTradeUrl: candidate.buyerTradeUrl,
-        },
-        source: 'manual_create',
-      });
-
-      if (!linked.linked) {
-        try {
-          const tasks = await auth.client.pollTasks(10);
-          const task = tasks.find((entry) => entry.orderId === candidate.orderId);
-          if (task) {
-            await auth.client.reportTaskProgress({
-              taskId: task.id,
-              phase: 'OFFER_SENT',
-              idempotencyKey: `progress:${task.id}:OFFER_SENT:manual`,
-              offerId: sent.offerId,
-              details: {
-                source: 'manual_create',
-                confirmPending: Boolean(sent.confirmPending),
-              },
-            });
-          }
-        } catch (error) {
-          console.warn('[rip-market] manual create task progress failed', error);
+          confirmPending: sent.confirmPending,
+          siteUrl: candidate.siteUrl,
         }
-      }
-
-      await auth.client.acknowledgeTrade({
-        orderId: candidate.orderId,
-        type: 'SELLER_ACK_SENT',
-        offerId: sent.offerId,
-        idempotencyKey: `ack:${candidate.orderId}:SELLER_ACK_SENT:manual`,
-      }).catch(() => undefined);
-    }
-  } catch (error) {
-    console.warn('[rip-market] manual create offer link failed', error);
+      : {
+          ok: false,
+          error:
+            "Оффер не подтверждён. Проверьте состояние сделки на сайте перед повторной попыткой.",
+        };
+  } finally {
+    processingTasks.delete(task.id);
   }
-
-  await pollActiveTrades().catch(() => undefined);
-
-  return {
-    ok: true,
-    offerId: sent.offerId,
-    confirmPending: Boolean(sent.confirmPending),
-    siteUrl: candidate.siteUrl,
-  };
 }
 
 function handleTradeVerificationRuntimeMessage(
@@ -1851,7 +1835,7 @@ function handleTradeVerificationRuntimeMessage(
           trades: cache?.trades ?? [],
           fromCache: true,
           siteLink,
-          error: error instanceof Error ? error.message : 'Refresh failed',
+          error: error instanceof Error ? error.message : "Refresh failed",
         });
       }
     })();
@@ -1876,7 +1860,7 @@ function handleTradeVerificationRuntimeMessage(
       .catch((error: unknown) =>
         sendResponse({
           ok: false,
-          error: error instanceof Error ? error.message : 'Verify failed',
+          error: error instanceof Error ? error.message : "Verify failed",
         }),
       );
     return true;
@@ -1884,36 +1868,44 @@ function handleTradeVerificationRuntimeMessage(
 
   if (message?.type === TRADE_VERIFICATION_RUNTIME.ACK_TRADE) {
     void acknowledgeTradeFromRuntime({
-      orderId: String(message.orderId ?? ''),
+      orderId: String(message.orderId ?? ""),
       ackType: message.ackType as
-        | 'SELLER_ACK_SENT'
-        | 'BUYER_ACK_PRE_ACCEPT'
-        | 'BUYER_ACK_RECEIVED',
+        | "SELLER_ACK_SENT"
+        | "BUYER_ACK_PRE_ACCEPT"
+        | "BUYER_ACK_RECEIVED",
       offerId: message.offerId ? String(message.offerId) : undefined,
-      idempotencyKey: String(message.idempotencyKey ?? ''),
+      idempotencyKey: String(message.idempotencyKey ?? ""),
     }).then(sendResponse);
     return true;
   }
 
   if (message?.type === TRADE_VERIFICATION_RUNTIME.REPORT_STEAM_OFFER_PAGE) {
     void reportSteamOfferPageFromRuntime({
-      orderId: String(message.orderId ?? ''),
-      offerId: String(message.offerId ?? ''),
-      lifecycle: message.lifecycle === 'invalid' ? 'invalid' : 'accepted',
-      idempotencyKey: String(message.idempotencyKey ?? ''),
+      orderId: String(message.orderId ?? ""),
+      offerId: String(message.offerId ?? ""),
+      lifecycle: message.lifecycle === "invalid" ? "invalid" : "accepted",
+      idempotencyKey: String(message.idempotencyKey ?? ""),
     }).then(sendResponse);
     return true;
   }
 
   if (message?.type === TRADE_VERIFICATION_RUNTIME.MANUAL_CREATE_OFFER) {
-    void manualCreateOfferFromRuntime(String(message.orderId ?? '')).then(
+    void manualCreateOfferFromRuntime(String(message.orderId ?? "")).then(
       sendResponse,
+      (error) =>
+        sendResponse({
+          ok: false,
+          error:
+            error instanceof Error
+              ? error.message
+              : "Не удалось проверить отправку оффера",
+        }),
     );
     return true;
   }
 
   if (message?.type === TRADE_VERIFICATION_RUNTIME.RESOLVE_ASSET_FLOAT) {
-    const assetId = message.assetId ? String(message.assetId).trim() : '';
+    const assetId = message.assetId ? String(message.assetId).trim() : "";
     if (!assetId) {
       sendResponse({ ok: false, floatValue: null });
       return true;
@@ -1930,7 +1922,9 @@ function handleTradeVerificationRuntimeMessage(
     return true;
   }
 
-  if (message?.type === TRADE_VERIFICATION_RUNTIME.GET_INVENTORY_PLATFORM_STATUS) {
+  if (
+    message?.type === TRADE_VERIFICATION_RUNTIME.GET_INVENTORY_PLATFORM_STATUS
+  ) {
     void (async () => {
       try {
         const payload = await loadInventoryPlatformStatus();
@@ -1945,7 +1939,7 @@ function handleTradeVerificationRuntimeMessage(
         sendResponse({
           ok: false,
           error:
-            error instanceof Error ? error.message : 'Platform status failed',
+            error instanceof Error ? error.message : "Platform status failed",
           byAssetId: {},
           siteSafeMode: true,
         });
@@ -1964,7 +1958,7 @@ function handleTradeVerificationRuntimeMessage(
       .catch((error: unknown) =>
         sendResponse({
           ok: false,
-          error: error instanceof Error ? error.message : 'Price hints failed',
+          error: error instanceof Error ? error.message : "Price hints failed",
           hints: {},
         }),
       );
@@ -1974,13 +1968,13 @@ function handleTradeVerificationRuntimeMessage(
   if (message?.type === TRADE_VERIFICATION_RUNTIME.GET_INVENTORY_PAGE_FACTS) {
     const tabId = sender.tab?.id;
     const steamIdHint =
-      typeof message.steamId === 'string' ? message.steamId.trim() : null;
+      typeof message.steamId === "string" ? message.steamId.trim() : null;
     if (tabId == null) {
       sendResponse({
         ok: false,
-        error: 'Inventory tab not found',
+        error: "Inventory tab not found",
         facts: [],
-        source: 'empty',
+        source: "empty",
       });
       return false;
     }
@@ -1988,13 +1982,15 @@ function handleTradeVerificationRuntimeMessage(
       try {
         await chrome.scripting.executeScript({
           target: { tabId },
-          world: 'MAIN',
-          files: ['page-scripts/inventory-enrichment.js'],
+          world: "MAIN",
+          files: ["page-scripts/inventory-enrichment.js"],
         });
         const [injection] = await chrome.scripting.executeScript({
           target: { tabId },
-          world: 'MAIN',
-          args: [steamIdHint && /^\d{17}$/.test(steamIdHint) ? steamIdHint : null],
+          world: "MAIN",
+          args: [
+            steamIdHint && /^\d{17}$/.test(steamIdHint) ? steamIdHint : null,
+          ],
           func: (hint: string | null) => {
             type EnrichmentApi = {
               loadCs2EnrichmentFacts: (
@@ -2009,20 +2005,22 @@ function handleTradeVerificationRuntimeMessage(
             if (!api?.loadCs2EnrichmentFacts) {
               return Promise.resolve({
                 facts: [],
-                source: 'empty' as const,
-                error: 'Enrichment page script not ready',
+                source: "empty" as const,
+                error: "Enrichment page script not ready",
               });
             }
             return api.loadCs2EnrichmentFacts(hint);
           },
         });
-        const result = injection?.result as PageEnrichmentLoadResult | undefined;
+        const result = injection?.result as
+          | PageEnrichmentLoadResult
+          | undefined;
         if (!result) {
           sendResponse({
             ok: false,
-            error: 'Steam page enrichment returned empty',
+            error: "Steam page enrichment returned empty",
             facts: [],
-            source: 'empty',
+            source: "empty",
           });
           return;
         }
@@ -2036,47 +2034,52 @@ function handleTradeVerificationRuntimeMessage(
           error:
             error instanceof Error
               ? error.message
-              : 'Steam page enrichment failed',
+              : "Steam page enrichment failed",
           facts: [],
-          source: 'empty',
+          source: "empty",
         });
       }
     })();
     return true;
   }
 
-  if (message?.type === TRADE_VERIFICATION_RUNTIME.BROWSER_ASSIST_INVENTORY_SYNC) {
+  if (
+    message?.type === TRADE_VERIFICATION_RUNTIME.BROWSER_ASSIST_INVENTORY_SYNC
+  ) {
     void (async () => {
       try {
         const state = await getSessionState();
         if (!state?.accessToken || !state.apiBaseUrl) {
-          sendResponse({ ok: false, error: 'Extension not connected' });
+          sendResponse({ ok: false, error: "Extension not connected" });
           return;
         }
         const steamId =
-          typeof message.steamId === 'string' ? message.steamId.trim() : '';
+          typeof message.steamId === "string" ? message.steamId.trim() : "";
         const assets = Array.isArray(message.assets) ? message.assets : [];
         if (!/^\d{17}$/.test(steamId) || assets.length === 0) {
           sendResponse({
             ok: false,
-            error: 'Browser assist requires steamId and assets',
+            error: "Browser assist requires steamId and assets",
           });
           return;
         }
-        const base = state.apiBaseUrl.replace(/\/$/, '');
-        const response = await fetch(`${base}/extension/inventory/browser-assist`, {
-          method: 'POST',
-          headers: {
-            Authorization: `Bearer ${state.accessToken}`,
-            Accept: 'application/json',
-            'Content-Type': 'application/json',
+        const base = state.apiBaseUrl.replace(/\/$/, "");
+        const response = await fetch(
+          `${base}/extension/inventory/browser-assist`,
+          {
+            method: "POST",
+            headers: {
+              Authorization: `Bearer ${state.accessToken}`,
+              Accept: "application/json",
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              steamId,
+              assets,
+              complete: message.complete === true,
+            }),
           },
-          body: JSON.stringify({
-            steamId,
-            assets,
-            complete: message.complete === true,
-          }),
-        });
+        );
         const body = (await response.json().catch(() => null)) as {
           ok?: boolean;
           itemCount?: number;
@@ -2107,7 +2110,7 @@ function handleTradeVerificationRuntimeMessage(
           error:
             error instanceof Error
               ? error.message
-              : 'Browser assist sync failed',
+              : "Browser assist sync failed",
         });
       }
     })();
@@ -2116,7 +2119,7 @@ function handleTradeVerificationRuntimeMessage(
 
   if (message?.type === TRADE_VERIFICATION_RUNTIME.CREATE_INVENTORY_LOT) {
     void createInventoryLotFromRuntime({
-      steamAssetId: String(message.steamAssetId ?? ''),
+      steamAssetId: String(message.steamAssetId ?? ""),
       priceMinor: Number(message.priceMinor),
       inventoryAssetId: message.inventoryAssetId
         ? String(message.inventoryAssetId)
@@ -2125,7 +2128,9 @@ function handleTradeVerificationRuntimeMessage(
     return true;
   }
 
-  if (message?.type === TRADE_VERIFICATION_RUNTIME.CREATE_INVENTORY_LOTS_BATCH) {
+  if (
+    message?.type === TRADE_VERIFICATION_RUNTIME.CREATE_INVENTORY_LOTS_BATCH
+  ) {
     const operations = Array.isArray(message.operations)
       ? (message.operations as BulkSellOperation[])
       : [];
@@ -2138,7 +2143,7 @@ function handleTradeVerificationRuntimeMessage(
 
   if (message?.type === TRADE_VERIFICATION_RUNTIME.UPDATE_INVENTORY_LOT_PRICE) {
     void updateInventoryLotPriceFromRuntime({
-      lotId: String(message.lotId ?? ''),
+      lotId: String(message.lotId ?? ""),
       priceMinor: Number(message.priceMinor),
     }).then(sendResponse);
     return true;
@@ -2146,12 +2151,14 @@ function handleTradeVerificationRuntimeMessage(
 
   if (message?.type === TRADE_VERIFICATION_RUNTIME.CANCEL_INVENTORY_LOT) {
     void cancelInventoryLotFromRuntime({
-      lotId: String(message.lotId ?? ''),
+      lotId: String(message.lotId ?? ""),
     }).then(sendResponse);
     return true;
   }
 
-  if (message?.type === TRADE_VERIFICATION_RUNTIME.GET_SELLER_ONBOARDING_STATUS) {
+  if (
+    message?.type === TRADE_VERIFICATION_RUNTIME.GET_SELLER_ONBOARDING_STATUS
+  ) {
     void loadSellerOnboardingStatus(Boolean(message.force))
       .then((payload) => sendResponse({ ok: true, ...payload }))
       .catch((error: unknown) =>
@@ -2160,7 +2167,7 @@ function handleTradeVerificationRuntimeMessage(
           error:
             error instanceof Error
               ? error.message
-              : 'Seller onboarding status failed',
+              : "Seller onboarding status failed",
           connected: false,
           tradeUrl: null,
           tradeUrlReady: false,
@@ -2172,7 +2179,7 @@ function handleTradeVerificationRuntimeMessage(
 
   if (message?.type === TRADE_OFFER_INTERCEPTED_MESSAGE) {
     void recordInterceptedOffer({
-      offerId: String(message.offerId ?? ''),
+      offerId: String(message.offerId ?? ""),
       confirmPending: Boolean(message.confirmPending),
       assetId: message.assetId ? String(message.assetId) : undefined,
       buyerTradeUrl: message.buyerTradeUrl
@@ -2188,7 +2195,7 @@ function handleTradeVerificationRuntimeMessage(
             buyerTradeUrl: message.buyerTradeUrl
               ? String(message.buyerTradeUrl)
               : undefined,
-            source: 'intercept',
+            source: "intercept",
           });
         }
         sendResponse({ ok: Boolean(cached), offerId: cached?.offerId });
@@ -2212,7 +2219,7 @@ export async function pollAndProcessTasks(): Promise<void> {
 
 async function pollAndProcessTasksInner(): Promise<void> {
   void pollActiveTrades().catch((error) => {
-    console.warn('[rip-market] active trades poll failed', error);
+    console.warn("[rip-market] active trades poll failed", error);
   });
 
   if (!(await assertSessionDeviceConsistency())) {
@@ -2235,6 +2242,11 @@ async function pollAndProcessTasksInner(): Promise<void> {
   }
   client = buildClient(freshState, keys, keys.privateKeyJwk);
 
+  const reporter = new DurableTaskProgressReporter(
+    client,
+    taskProgressScope(freshState),
+  );
+  await reporter.flush();
   let tasks;
   try {
     tasks = await client.pollTasks(10);
@@ -2251,13 +2263,13 @@ async function pollAndProcessTasksInner(): Promise<void> {
       trades: cache?.trades ?? [],
       pendingTaskCount: tasks.length,
     });
-    if (schedule.changed && schedule.mode === 'active') {
+    if (schedule.changed && schedule.mode === "active") {
       // Mode just woke — don't wait for the next alarm tick.
       void pollActiveTrades({ force: true }).catch(() => undefined);
     }
   } catch (error) {
     await recordPollFailure(
-      error instanceof Error ? error.message : 'Task poll failed',
+      error instanceof Error ? error.message : "Task poll failed",
     );
     await invalidateSessionOnAuthError(error);
     const cache = await getActiveTradesCache();
@@ -2266,7 +2278,7 @@ async function pollAndProcessTasksInner(): Promise<void> {
       liveFetchOk: false,
       fromCache: Boolean(cache?.trades?.length),
       cacheUpdatedAt: cache?.updatedAt ?? null,
-      lastError: error instanceof Error ? error.message : 'Task poll failed',
+      lastError: error instanceof Error ? error.message : "Task poll failed",
     });
     throw error;
   }
@@ -2277,14 +2289,16 @@ async function pollAndProcessTasksInner(): Promise<void> {
       collectActiveTradeTaskAssets(tasks, origin),
     );
   } catch (error) {
-    console.warn('[rip-market] failed to cache active trade-task assets', error);
+    console.warn(
+      "[rip-market] failed to cache active trade-task assets",
+      error,
+    );
   }
 
   const adapter = new MessageSteamOfferAdapter();
-  const reporter = new HttpTaskProgressReporter(client);
   const diagReporter: TaskProgressReporter = {
     report: async (params) => {
-      if (params.phase === 'OFFER_FAILED' && params.reasonCode) {
+      if (params.phase === "OFFER_FAILED" && params.reasonCode) {
         const healthCode = offerErrorToSessionHealthCode(params.reasonCode);
         if (healthCode) {
           await saveLastSessionDiag(
@@ -2292,14 +2306,14 @@ async function pollAndProcessTasksInner(): Promise<void> {
               code: healthCode,
               messageOverride:
                 params.details &&
-                typeof params.details === 'object' &&
+                typeof params.details === "object" &&
                 typeof (params.details as { message?: unknown }).message ===
-                  'string'
+                  "string"
                   ? String((params.details as { message: string }).message)
                   : undefined,
             }),
           );
-          if (healthCode === 'INVENTORY_RATE_LIMITED') {
+          if (healthCode === "INVENTORY_RATE_LIMITED") {
             await recordRateLimitedHit();
           }
         }
@@ -2312,11 +2326,11 @@ async function pollAndProcessTasksInner(): Promise<void> {
   // In-flight / post-submit phases must not re-enter create_offer (duplicate
   // Steam offers + false mismatch). Backend also stops redistributing these.
   const skipPhases = new Set([
-    'OFFER_SENT',
-    'OFFER_FAILED',
-    'CONFIRM_PENDING',
-    'OFFER_SUBMITTED',
-    'ITEM_SELECTED',
+    "OFFER_SENT",
+    "OFFER_FAILED",
+    "CONFIRM_PENDING",
+    "OFFER_SUBMITTED",
+    "ITEM_SELECTED",
   ]);
 
   for (const task of tasks) {
@@ -2328,10 +2342,11 @@ async function pollAndProcessTasksInner(): Promise<void> {
     }
     processingTasks.add(task.id);
     try {
+      await reporter.remember(task);
       await applyTaskUiTradeFlowFlag(task.payload.uiTradeFlow);
       await orchestrator.processTask(task);
     } catch (error) {
-      console.error('[rip-market] task failed', task.id, error);
+      console.error("[rip-market] task failed", task.id, error);
       if (isExtensionAuthError(error)) {
         await invalidateSessionOnAuthError(error, {
           taskId: task.id,
@@ -2342,11 +2357,12 @@ async function pollAndProcessTasksInner(): Promise<void> {
       try {
         await diagReporter.report({
           taskId: task.id,
-          phase: 'OFFER_FAILED',
-          idempotencyKey: `progress:${task.id}:OFFER_FAILED:unhandled`,
-          reasonCode: 'OFFER_SEND_FAILED',
+          phase: "OFFER_FAILED",
+          idempotencyKey: `progress:${task.id}:${task.attemptCount}:${task.leaseVersion ?? 0}:OFFER_FAILED:unhandled`,
+          leaseVersion: task.leaseVersion,
+          reasonCode: "OFFER_SEND_FAILED",
           details: {
-            message: error instanceof Error ? error.message : 'Unhandled error',
+            message: error instanceof Error ? error.message : "Unhandled error",
           },
         });
       } catch (reportError) {
@@ -2355,7 +2371,11 @@ async function pollAndProcessTasksInner(): Promise<void> {
           reporter: diagReporter,
         });
         if (!isExtensionAuthError(reportError)) {
-          console.error('[rip-market] failed to report error', task.id, reportError);
+          console.error(
+            "[rip-market] failed to report error",
+            task.id,
+            reportError,
+          );
         }
       }
     } finally {
@@ -2365,7 +2385,7 @@ async function pollAndProcessTasksInner(): Promise<void> {
   }
 
   void pollActiveTrades({ force: true }).catch((error) => {
-    console.warn('[rip-market] post-task active trades refresh failed', error);
+    console.warn("[rip-market] post-task active trades refresh failed", error);
   });
 }
 
@@ -2383,7 +2403,7 @@ export async function sendHeartbeat(): Promise<void> {
     const hint = await client.heartbeat();
     // I5: refresh public flags so inventory/guided/quiet kills apply without re-pair.
     void syncUiTradeFlowFromAuthConfig(state.apiBaseUrl).catch((error) => {
-      console.warn('[rip-market] extension flags sync failed', error);
+      console.warn("[rip-market] extension flags sync failed", error);
     });
     const cache = await getActiveTradesCache();
     const schedule = await syncPollSchedule({
@@ -2393,7 +2413,7 @@ export async function sendHeartbeat(): Promise<void> {
     });
     if (
       schedule.changed &&
-      schedule.mode === 'active' &&
+      schedule.mode === "active" &&
       (hint.hasPendingTask || hint.hasActiveDeal)
     ) {
       void pollAndProcessTasks();
@@ -2415,7 +2435,7 @@ function respondWithSessionHealth(
     probeInventory: message.probeInventory !== false,
   })
     .then(async (health) => {
-      if (health.code === 'INVENTORY_RATE_LIMITED') {
+      if (health.code === "INVENTORY_RATE_LIMITED") {
         await recordRateLimitedHit();
       }
       sendResponse({ ok: true, health });
@@ -2423,7 +2443,7 @@ function respondWithSessionHealth(
     .catch((error: unknown) =>
       sendResponse({
         ok: false,
-        error: error instanceof Error ? error.message : 'Health check failed',
+        error: error instanceof Error ? error.message : "Health check failed",
       }),
     );
 }
@@ -2438,25 +2458,25 @@ function respondWithOpsHealth(
   void (async () => {
     const status = await getExtensionStatus();
     const health =
-      message.health && typeof message.health === 'object'
+      message.health && typeof message.health === "object"
         ? (message.health as SessionHealth)
         : await probeSessionHealth({
             probeInventory: message.probeInventory !== false,
           });
-    if (health.code === 'INVENTORY_RATE_LIMITED') {
+    if (health.code === "INVENTORY_RATE_LIMITED") {
       await recordRateLimitedHit();
     }
     const manifest = chrome.runtime.getManifest();
     const ops = await buildOpsHealthSnapshot({
       connected: Boolean(status.connected),
       health,
-      extensionVersion: manifest.version ?? '0',
+      extensionVersion: manifest.version ?? "0",
     });
     sendResponse({ ok: true, ...ops });
   })().catch((error: unknown) =>
     sendResponse({
       ok: false,
-      error: error instanceof Error ? error.message : 'Ops health failed',
+      error: error instanceof Error ? error.message : "Ops health failed",
     }),
   );
 }
@@ -2479,99 +2499,107 @@ chrome.notifications.onClicked.addListener((notificationId) => {
   void handleQuietNotificationClick(notificationId);
 });
 
-chrome.notifications.onButtonClicked.addListener((notificationId, buttonIndex) => {
-  void handleQuietNotificationButton(notificationId, buttonIndex);
-});
+chrome.notifications.onButtonClicked.addListener(
+  (notificationId, buttonIndex) => {
+    void handleQuietNotificationButton(notificationId, buttonIndex);
+  },
+);
 
-chrome.runtime.onMessageExternal.addListener((message, _sender, sendResponse) => {
-  if (message?.type === 'RIP_MARKET_PAIR') {
-    void pairExtension({
-      userJwt: String(message.userJwt ?? ''),
-      apiBaseUrl: message.apiBaseUrl ? String(message.apiBaseUrl) : undefined,
-      locale: message.locale ? String(message.locale) : undefined,
-    }).then(sendResponse);
-    return true;
-  }
-  if (message?.type === 'RIP_MARKET_SET_LOCALE') {
-    void (async () => {
-      const locale = normalizeExtensionLocale(message.locale);
-      await setStoredExtensionLocale(locale);
-      sendResponse({ ok: true, locale });
-    })();
-    return true;
-  }
-  if (message?.type === 'RIP_MARKET_STATUS') {
-    void getExtensionStatus().then(sendResponse);
-    return true;
-  }
-  if (message?.type === 'RIP_MARKET_DISCONNECT') {
-    void disconnectExtension().then(() => sendResponse({ ok: true }));
-    return true;
-  }
-  if (message?.type === 'RIP_MARKET_POLL_NOW') {
-    void pollAndProcessTasks().then(() => sendResponse({ ok: true }));
-    return true;
-  }
-  if (message?.type === 'RIP_MARKET_SESSION_HEALTH') {
-    respondWithSessionHealth(message, sendResponse);
-    return true;
-  }
-  if (message?.type === 'RIP_MARKET_OPS_HEALTH') {
-    respondWithOpsHealth(message, sendResponse);
-    return true;
-  }
-  if (message?.type === 'RIP_MARKET_DEBUG_PACK') {
-    void buildExtensionDebugPack({
-      expectedSteamId: message.expectedSteamId
-        ? String(message.expectedSteamId)
-        : undefined,
-      probeInventory: message.probeInventory !== false,
-    })
-      .then((result) =>
-        sendResponse({
-          ok: true,
-          pack: result.pack,
-          supportBridge: result.supportBridge,
-          clipboardText: result.clipboardText,
-          supportUrl: result.supportUrl,
-        }),
-      )
-      .catch((error: unknown) =>
-        sendResponse({
-          ok: false,
-          error: error instanceof Error ? error.message : 'Debug pack failed',
-        }),
-      );
-    return true;
-  }
-  return false;
-});
+chrome.runtime.onMessageExternal.addListener(
+  (message, _sender, sendResponse) => {
+    if (message?.type === "RIP_MARKET_PAIR") {
+      void pairExtension({
+        userJwt: String(message.userJwt ?? ""),
+        apiBaseUrl: message.apiBaseUrl ? String(message.apiBaseUrl) : undefined,
+        locale: message.locale ? String(message.locale) : undefined,
+      }).then(sendResponse);
+      return true;
+    }
+    if (message?.type === "RIP_MARKET_SET_LOCALE") {
+      void (async () => {
+        const locale = normalizeExtensionLocale(message.locale);
+        await setStoredExtensionLocale(locale);
+        sendResponse({ ok: true, locale });
+      })();
+      return true;
+    }
+    if (message?.type === "RIP_MARKET_STATUS") {
+      void getExtensionStatus().then(sendResponse);
+      return true;
+    }
+    if (message?.type === "RIP_MARKET_DISCONNECT") {
+      void disconnectExtension().then(() => sendResponse({ ok: true }));
+      return true;
+    }
+    if (message?.type === "RIP_MARKET_POLL_NOW") {
+      void pollAndProcessTasks()
+        .then(() => sendResponse({ ok: true }))
+        .catch(() => sendResponse({ ok: false }));
+      return true;
+    }
+    if (message?.type === "RIP_MARKET_SESSION_HEALTH") {
+      respondWithSessionHealth(message, sendResponse);
+      return true;
+    }
+    if (message?.type === "RIP_MARKET_OPS_HEALTH") {
+      respondWithOpsHealth(message, sendResponse);
+      return true;
+    }
+    if (message?.type === "RIP_MARKET_DEBUG_PACK") {
+      void buildExtensionDebugPack({
+        expectedSteamId: message.expectedSteamId
+          ? String(message.expectedSteamId)
+          : undefined,
+        probeInventory: message.probeInventory !== false,
+      })
+        .then((result) =>
+          sendResponse({
+            ok: true,
+            pack: result.pack,
+            supportBridge: result.supportBridge,
+            clipboardText: result.clipboardText,
+            supportUrl: result.supportUrl,
+          }),
+        )
+        .catch((error: unknown) =>
+          sendResponse({
+            ok: false,
+            error: error instanceof Error ? error.message : "Debug pack failed",
+          }),
+        );
+      return true;
+    }
+    return false;
+  },
+);
 
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (handleTradeVerificationRuntimeMessage(message, sender, sendResponse)) {
     return true;
   }
-  if (message?.type === 'RIP_MARKET_STATUS') {
+  if (message?.type === "RIP_MARKET_STATUS") {
     void getExtensionStatus().then(sendResponse);
     return true;
   }
-  if (message?.type === 'RIP_MARKET_DISCONNECT') {
+  if (message?.type === "RIP_MARKET_DISCONNECT") {
     void disconnectExtension().then(() => sendResponse({ ok: true }));
     return true;
   }
-  if (message?.type === 'RIP_MARKET_POLL_NOW') {
-    void pollAndProcessTasks().then(() => sendResponse({ ok: true }));
+  if (message?.type === "RIP_MARKET_POLL_NOW") {
+    void pollAndProcessTasks()
+      .then(() => sendResponse({ ok: true }))
+      .catch(() => sendResponse({ ok: false }));
     return true;
   }
-  if (message?.type === 'RIP_MARKET_SESSION_HEALTH') {
+  if (message?.type === "RIP_MARKET_SESSION_HEALTH") {
     respondWithSessionHealth(message, sendResponse);
     return true;
   }
-  if (message?.type === 'RIP_MARKET_OPS_HEALTH') {
+  if (message?.type === "RIP_MARKET_OPS_HEALTH") {
     respondWithOpsHealth(message, sendResponse);
     return true;
   }
-  if (message?.type === 'RIP_MARKET_DEBUG_PACK') {
+  if (message?.type === "RIP_MARKET_DEBUG_PACK") {
     void buildExtensionDebugPack({
       expectedSteamId: message.expectedSteamId
         ? String(message.expectedSteamId)
@@ -2590,41 +2618,45 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       .catch((error: unknown) =>
         sendResponse({
           ok: false,
-          error: error instanceof Error ? error.message : 'Debug pack failed',
+          error: error instanceof Error ? error.message : "Debug pack failed",
         }),
       );
     return true;
   }
-  if (message?.type === 'RIP_MARKET_QUIET_NOTIFY_GET') {
+  if (message?.type === "RIP_MARKET_QUIET_NOTIFY_GET") {
     void loadQuietNotifyState()
       .then((state) => sendResponse({ ok: true, state }))
       .catch((error: unknown) =>
         sendResponse({
           ok: false,
-          error: error instanceof Error ? error.message : 'Quiet notify get failed',
+          error:
+            error instanceof Error ? error.message : "Quiet notify get failed",
         }),
       );
     return true;
   }
-  if (message?.type === 'RIP_MARKET_QUIET_NOTIFY_SET') {
+  if (message?.type === "RIP_MARKET_QUIET_NOTIFY_SET") {
     void setQuietNotificationsEnabled(Boolean(message.enabled))
       .then((state) => sendResponse({ ok: true, state }))
       .catch((error: unknown) =>
         sendResponse({
           ok: false,
-          error: error instanceof Error ? error.message : 'Quiet notify set failed',
+          error:
+            error instanceof Error ? error.message : "Quiet notify set failed",
         }),
       );
     return true;
   }
-  if (message?.type === 'RIP_MARKET_QUIET_NOTIFY_UNMUTE') {
-    void unmuteQuietNotifyDeal(String(message.orderId ?? ''))
+  if (message?.type === "RIP_MARKET_QUIET_NOTIFY_UNMUTE") {
+    void unmuteQuietNotifyDeal(String(message.orderId ?? ""))
       .then((state) => sendResponse({ ok: true, state }))
       .catch((error: unknown) =>
         sendResponse({
           ok: false,
           error:
-            error instanceof Error ? error.message : 'Quiet notify unmute failed',
+            error instanceof Error
+              ? error.message
+              : "Quiet notify unmute failed",
         }),
       );
     return true;

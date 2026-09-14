@@ -4,13 +4,20 @@ import { ExtensionTradeTaskService } from './extension-trade-task.service';
 describe('ExtensionTradeTaskService progress', () => {
   const tx = {
     tradeTaskStatusEvent: { create: jest.fn() },
-    tradeTask: { update: jest.fn() },
-    tradeOperation: { update: jest.fn() },
+    tradeTask: {
+      update: jest.fn(),
+      updateMany: jest.fn().mockResolvedValue({ count: 1 }),
+    },
+    tradeOperation: {
+      update: jest.fn(),
+      findUnique: jest.fn().mockResolvedValue({ externalOfferId: null }),
+    },
     order: { findUnique: jest.fn() },
     outboxEvent: { create: jest.fn() },
   };
   const prisma = {
     tradeTask: {
+      updateMany: jest.fn().mockResolvedValue({ count: 1 }),
       findUnique: jest.fn(),
       update: jest.fn(),
     },
@@ -18,7 +25,10 @@ describe('ExtensionTradeTaskService progress', () => {
       findUnique: jest.fn(),
       create: jest.fn(),
     },
-    tradeOperation: { update: jest.fn() },
+    tradeOperation: {
+      update: jest.fn(),
+      findUnique: jest.fn().mockResolvedValue({ externalOfferId: null }),
+    },
     order: { findUnique: jest.fn() },
     outboxEvent: { create: jest.fn() },
     $transaction: jest.fn(async (fn: (client: typeof tx) => Promise<void>) =>
@@ -98,16 +108,34 @@ describe('ExtensionTradeTaskService progress', () => {
   it('returns cached result for duplicate idempotency key', async () => {
     prisma.tradeTaskStatusEvent.findUnique.mockResolvedValue({
       phase: TradeTaskExecutionPhase.OFFER_SENT,
+      payload: { offerId: '999001' },
     });
 
     const result = await service.reportTaskProgress({
       taskId: 'task-1',
       phase: TradeTaskExecutionPhase.OFFER_SENT,
       idempotencyKey: 'progress:task-1:OFFER_SENT',
+      offerId: '999001',
     });
 
     expect(result.terminal).toBe(true);
     expect(prisma.$transaction).not.toHaveBeenCalled();
+  });
+
+  it('rejects replacing the offer ID through an idempotent event replay', async () => {
+    prisma.tradeTaskStatusEvent.findUnique.mockResolvedValue({
+      phase: TradeTaskExecutionPhase.OFFER_SENT,
+      payload: { offerId: '999001' },
+    });
+    await expect(
+      service.reportTaskProgress({
+        taskId: 'task-1',
+        phase: TradeTaskExecutionPhase.OFFER_SENT,
+        idempotencyKey: 'existing',
+        offerId: '999002',
+      }),
+    ).rejects.toThrow('conflicts');
+    expect(reconcile.reconcile).not.toHaveBeenCalled();
   });
 
   it('stops send retries and triggers delivery check when item gone after CONFIRM_PENDING', async () => {

@@ -71,7 +71,7 @@ export function resolveBuyerScenarioAck(params: {
     !blocked &&
     hasOffer &&
     !receivedDone &&
-    (status === 'TRADE_CONFIRMED' || status === 'SETTLEMENT_HOLD');
+    (status === 'WAITING_TRADE' || status === 'TRADE_CONFIRMED' || status === 'SETTLEMENT_HOLD');
 
   return {
     showPreAccept,

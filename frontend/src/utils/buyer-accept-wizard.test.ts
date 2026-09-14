@@ -102,8 +102,8 @@ describe('buyer-accept-wizard', () => {
     assert.equal(view?.steps[2]?.state, 'current');
     assert.equal(view?.primary.labelKey, 'buyerAcceptWizard.ctaAcceptInSteam');
     assert.equal(view?.ack.showPreAccept, false);
-    // Received confirm lives in extension / post-accept panel — not during WAITING_TRADE wizard.
-    assert.equal(view?.ack.showReceived, false);
+    // Receipt recovery must remain available when Steam cannot verify acceptance.
+    assert.equal(view?.ack.showReceived, true);
   });
 
   it('surfaces pre-accept ack on site only when extension is offline', () => {
@@ -115,7 +115,7 @@ describe('buyer-accept-wizard', () => {
       extensionConnected: false,
     });
     assert.equal(view?.ack.showPreAccept, true);
-    assert.equal(view?.ack.showReceived, false);
+    assert.equal(view?.ack.showReceived, true);
   });
 
   it('hides pre-accept on site when extension is connected', () => {
@@ -126,7 +126,7 @@ describe('buyer-accept-wizard', () => {
       ackEnabled: true,
       extensionConnected: true,
     });
-    assert.equal(view?.ack.showReceived, false);
+    assert.equal(view?.ack.showReceived, true);
     assert.equal(view?.ack.showPreAccept, false);
   });
 
@@ -183,4 +183,10 @@ describe('buyer-accept-wizard', () => {
       null,
     );
   });
+});
+
+it('keeps receipt recovery available without an extension and hides it after acknowledgment', () => {
+  assert.equal(resolveBuyerScenarioAck({ order: baseOrder(), ackEnabled: false, extensionConnected: false }).showReceived, true);
+  assert.equal(resolveBuyerScenarioAck({ order: baseOrder({ tradeAcknowledgments: { sellerAckSent: true, buyerPreAccept: false, buyerReceived: true } }), ackEnabled: false }).showReceived, false);
+  assert.equal(resolveBuyerScenarioAck({ order: baseOrder({ tradeOperation: null }), ackEnabled: true }).showReceived, false);
 });

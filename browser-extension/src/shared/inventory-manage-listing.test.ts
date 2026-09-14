@@ -10,6 +10,7 @@ import {
 describe('inventory-manage-listing', () => {
   const listedPlatform = {
     inventoryAssetId: 'uuid-1',
+    marketHashName: 'AK-47 | Redline',
     assetStatus: 'LISTED',
     listed: true,
     lotId: 'lot-1',

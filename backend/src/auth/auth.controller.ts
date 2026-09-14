@@ -45,8 +45,12 @@ export class AuthController {
       tradeProvider: config.trade,
       steamLoginAvailable: config.auth === 'steam',
       steamHttpProxyConfigured: isSteamHttpProxyConfigured(),
-      mockLoginAvailable: config.auth !== 'steam' || allowMockInSteamMode,
-      mockTradeEnabled: process.env.ENABLE_MOCK_TRADE !== 'false',
+      mockLoginAvailable:
+        process.env.NODE_ENV !== 'production' &&
+        (config.auth !== 'steam' || allowMockInSteamMode),
+      mockTradeEnabled:
+        process.env.NODE_ENV !== 'production' &&
+        process.env.ENABLE_MOCK_TRADE === 'true',
       mockDepositEnabled: paymentConfig.mockDepositEnabled,
       paymentProvider: config.payment,
       cryptoPaymentsEnabled:
@@ -128,7 +132,7 @@ export class AuthController {
         openidParams,
         linkState,
       );
-      const redirectUrl = this.authService.buildFrontendCallbackUrl(
+      const redirectUrl = await this.authService.buildFrontendCallbackUrl(
         authResponse,
         linkState ? { linked: '1' } : undefined,
       );
@@ -153,6 +157,13 @@ export class AuthController {
   @Post('steam/link')
   async steamLink(@CurrentUser() user: AuthUser, @Body() body: SteamLinkDto) {
     return this.authService.steamLink(user.sub, body.openidParams);
+  }
+
+  @Post('steam/exchange')
+  exchange(@Body() body: { code?: unknown }) {
+    if (typeof body.code !== 'string')
+      throw new BadRequestException('code required');
+    return this.authService.exchangeCode(body.code);
   }
 
   @Post('mock-login')

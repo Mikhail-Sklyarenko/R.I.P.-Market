@@ -101,7 +101,10 @@ export function OrderPage() {
   const isSeller = user?.id === order?.sellerId;
   const role = isBuyer ? 'buyer' : isSeller ? 'seller' : 'other';
   const canBuyerCancel =
-    isBuyer && order !== null && BUYER_CANCELABLE_STATUSES.has(order.status);
+    isBuyer && order !== null && BUYER_CANCELABLE_STATUSES.has(order.status) &&
+    !order.tradeOperation?.externalOfferId && !order.tradeTask?.sendStartedAt &&
+    !['DISPATCHED', 'ACKED'].includes(order.tradeTask?.status ?? '') &&
+    !['ITEM_SELECTED', 'OFFER_SUBMITTED', 'CONFIRM_PENDING', 'OFFER_SENT'].includes(order.tradeTask?.executionPhase ?? '');
   const mockBlockedByLiveSettlement =
     enableRealSettlement && liveVerificationMode && user?.role !== 'ADMIN';
   const showMockTradePanel =
@@ -550,7 +553,7 @@ export function OrderPage() {
             </div>
 
             <div className="card order-progress-card">
-              <OrderStepper status={order.status} />
+              <OrderStepper status={order.status} hadSettlementHold={Boolean(order.settlementHoldUntil || order.statusEvents?.some(event => event.toStatus === 'SETTLEMENT_HOLD'))} />
             </div>
 
             {order.statusEvents && order.statusEvents.length > 0 ? (
@@ -630,7 +633,7 @@ export function OrderPage() {
                   ) : null}
                   <p>
                     <Link
-                      className="btn primary"
+                      className="button primary"
                       to={buildTradeProblemSupportPath(
                         {
                           order,
@@ -666,7 +669,7 @@ export function OrderPage() {
                   <p className="muted small">{t('orderPage.disputeMessage')}</p>
                   <p>
                     <Link
-                      className="btn primary"
+                      className="button primary"
                       to={buildTradeProblemSupportPath(
                         {
                           order,

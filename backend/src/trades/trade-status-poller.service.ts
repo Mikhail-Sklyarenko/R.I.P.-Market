@@ -36,6 +36,9 @@ const OPERATION_INCLUDE = {
 export class TradeStatusPollerService implements OnModuleInit {
   private readonly logger = new Logger(TradeStatusPollerService.name);
   private processing = false;
+  private readonly inFlight = new Map<string, Promise<boolean>>();
+  private readonly nextCheckAt = new Map<string, number>();
+  private readonly minimumPollIntervalMs = 15_000;
 
   constructor(
     private readonly prisma: PrismaService,
@@ -72,6 +75,12 @@ export class TradeStatusPollerService implements OnModuleInit {
     orderId: string,
     options?: { force?: boolean },
   ): Promise<boolean> {
+    const running = this.inFlight.get(orderId);
+    if (running) {
+      if (!options?.force) return running;
+      // A new receipt may have arrived after the running check loaded its evidence.
+      await running.catch(() => false);
+    }
     // Explicit on-demand checks must run even when the trade provider is mock:
     // inventory-delta confirmation still applies (extension/live Guard flows).
     const operation = await this.prisma.tradeOperation.findFirst({
@@ -94,7 +103,7 @@ export class TradeStatusPollerService implements OnModuleInit {
       return false;
     }
 
-    return this.checkOperation(operation as DeliveryVerificationOperation);
+    return this.checkCoordinated(operation as DeliveryVerificationOperation, options?.force);
   }
 
   async pollWaitingTrades(): Promise<{ checked: number; transitions: number }> {
@@ -115,7 +124,10 @@ export class TradeStatusPollerService implements OnModuleInit {
         },
         include: OPERATION_INCLUDE,
         take: 50,
-        orderBy: [{ externalOfferId: 'desc' }, { lastCheckedAt: 'asc' }],
+        orderBy: [
+          { lastCheckedAt: { sort: 'asc', nulls: 'first' } },
+          { id: 'asc' },
+        ],
       });
 
       for (const operation of operations) {
@@ -124,7 +136,7 @@ export class TradeStatusPollerService implements OnModuleInit {
         }
 
         checked += 1;
-        const transitioned = await this.checkOperation(
+        const transitioned = await this.checkCoordinated(
           operation as DeliveryVerificationOperation,
         );
         if (transitioned) {
@@ -136,6 +148,27 @@ export class TradeStatusPollerService implements OnModuleInit {
     }
 
     return { checked, transitions };
+  }
+
+  private checkCoordinated(
+    operation: DeliveryVerificationOperation,
+    force = false,
+  ): Promise<boolean> {
+    const running = this.inFlight.get(operation.orderId);
+    if (running) return running;
+    const now = Date.now();
+    if (!force && (this.nextCheckAt.get(operation.orderId) ?? 0) > now) {
+      return Promise.resolve(false);
+    }
+    for (const [id, until] of this.nextCheckAt) {
+      if (until <= now) this.nextCheckAt.delete(id);
+    }
+    this.nextCheckAt.set(operation.orderId, now + this.minimumPollIntervalMs);
+    const check = Promise.resolve().then(() => this.checkOperation(operation)).finally(() => {
+      this.inFlight.delete(operation.orderId);
+    });
+    this.inFlight.set(operation.orderId, check);
+    return check;
   }
 
   private async checkOperation(

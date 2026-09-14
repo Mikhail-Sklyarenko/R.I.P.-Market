@@ -1,4 +1,6 @@
-import type { CSSProperties, KeyboardEvent } from 'react';
+import { useEffect, useState, type CSSProperties, type KeyboardEvent } from 'react';
+import { useAuth } from '../auth/AuthContext';
+import { readSavedItems, toggleSavedItem, SAVED_ITEMS_EVENT } from '../utils/saved-items';
 import { Link, useNavigate } from 'react-router-dom';
 import type { CatalogItem } from '../api/types';
 import { useLocale } from '../i18n';
@@ -30,6 +32,14 @@ export function CatalogItemCard({
   pricesLoading = false,
 }: CatalogItemCardProps) {
   const { t } = useLocale();
+  const { user } = useAuth();
+  const [saved, setSaved] = useState(false);
+  const [saveError, setSaveError] = useState(false);
+  useEffect(() => {
+    const refresh = () => setSaved(readSavedItems(user?.id).some(i => i.id === item.id));
+    refresh(); window.addEventListener(SAVED_ITEMS_EVENT, refresh); window.addEventListener('storage', refresh);
+    return () => { window.removeEventListener(SAVED_ITEMS_EVENT, refresh); window.removeEventListener('storage', refresh); };
+  }, [item.id, user?.id]);
   const navigate = useNavigate();
   const name = item.marketHashName;
   const { weapon, skin } = parseCatalogLotName(name);
@@ -58,6 +68,7 @@ export function CatalogItemCard({
   }
 
   function handleCardKeyDown(event: KeyboardEvent<HTMLElement>) {
+    if (event.target !== event.currentTarget) return;
     if (event.key === 'Enter' || event.key === ' ') {
       event.preventDefault();
       openItem();
@@ -95,6 +106,44 @@ export function CatalogItemCard({
           )}
         </div>
         <div className="catalog-lot-card-top-end">
+          <button
+            type="button"
+            className="saved-item-toggle"
+            aria-pressed={saved}
+            aria-label={t(saved ? 'ux.savedRemove' : 'ux.savedAdd')}
+            onClick={(event) => {
+              event.stopPropagation();
+              setSaveError(
+                !toggleSavedItem(
+                  {
+                    id: item.id,
+                    ref: item.slug?.trim() || item.id,
+                    name,
+                  },
+                  user?.id,
+                ),
+              );
+            }}
+          >
+            <span className="saved-item-toggle-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" width="16" height="16">
+                {saved ? (
+                  <path
+                    fill="currentColor"
+                    d="M6 3.75A1.75 1.75 0 0 1 7.75 2h8.5A1.75 1.75 0 0 1 18 3.75v16.1a.75.75 0 0 1-1.2.6L12 16.5l-4.8 3.95a.75.75 0 0 1-1.2-.6V3.75Z"
+                  />
+                ) : (
+                  <path
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="1.75"
+                    strokeLinejoin="round"
+                    d="M7.75 3.1h8.5A1.65 1.65 0 0 1 17.9 4.75v14.35L12 15.4l-5.9 3.7V4.75A1.65 1.65 0 0 1 7.75 3.1Z"
+                  />
+                )}
+              </svg>
+            </span>
+          </button>
           {item.orderCount30d > 0 ? (
             <span className="catalog-lot-card-badge muted small">
               {t('catalog.popularBadge')}
@@ -130,6 +179,7 @@ export function CatalogItemCard({
             />
           </div>
 
+          {saveError ? <p className="small" role="alert">{t('ux.savedError')}</p> : null}
           <div className="catalog-lot-card-actions">
             {buyPath ? (
               <Link

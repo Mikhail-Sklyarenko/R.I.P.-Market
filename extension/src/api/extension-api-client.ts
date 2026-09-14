@@ -149,6 +149,7 @@ export class ExtensionApiClient {
   ): Promise<{ ok: boolean; phase: string; terminal: boolean }> {
     return this.signedPost('/extension/tasks/progress', {
       taskId: progress.taskId,
+      leaseVersion: progress.leaseVersion,
       phase: progress.phase,
       idempotencyKey: progress.idempotencyKey,
       reasonCode: progress.reasonCode,
@@ -193,17 +194,20 @@ export class ExtensionApiClient {
       partnerSteamId?: string | null;
     },
   ): Promise<TradeVerificationResult> {
-    return this.signedPost<TradeVerificationResult>('/extension/trades/verify', {
-      orderId,
-      ...(offerId ? { offerId } : {}),
-      ...(observed?.assetId ? { observedAssetId: observed.assetId } : {}),
-      ...(observed?.floatValue
-        ? { observedFloatValue: observed.floatValue }
-        : {}),
-      ...(observed?.partnerSteamId
-        ? { observedPartnerSteamId: observed.partnerSteamId }
-        : {}),
-    });
+    return this.signedPost<TradeVerificationResult>(
+      '/extension/trades/verify',
+      {
+        orderId,
+        ...(offerId ? { offerId } : {}),
+        ...(observed?.assetId ? { observedAssetId: observed.assetId } : {}),
+        ...(observed?.floatValue
+          ? { observedFloatValue: observed.floatValue }
+          : {}),
+        ...(observed?.partnerSteamId
+          ? { observedPartnerSteamId: observed.partnerSteamId }
+          : {}),
+      },
+    );
   }
 
   async acknowledgeTrade(params: {
@@ -211,7 +215,11 @@ export class ExtensionApiClient {
     type: TradeAcknowledgmentType;
     offerId?: string | null;
     idempotencyKey: string;
-  }): Promise<{ ok: true; type: TradeAcknowledgmentType; idempotent: boolean }> {
+  }): Promise<{
+    ok: true;
+    type: TradeAcknowledgmentType;
+    idempotent: boolean;
+  }> {
     return this.signedPost('/extension/trades/acknowledge', {
       orderId: params.orderId,
       type: params.type,
@@ -250,11 +258,14 @@ export class ExtensionApiClient {
     idempotent: boolean;
     disputed: boolean;
   }> {
-    return this.signedPost(`/extension/orders/${params.orderId}/trade-reference`, {
-      orderId: params.orderId,
-      offerId: params.offerId,
-      idempotencyKey: params.idempotencyKey,
-    });
+    return this.signedPost(
+      `/extension/orders/${params.orderId}/trade-reference`,
+      {
+        orderId: params.orderId,
+        offerId: params.offerId,
+        idempotencyKey: params.idempotencyKey,
+      },
+    );
   }
 
   private async signedPost<T>(

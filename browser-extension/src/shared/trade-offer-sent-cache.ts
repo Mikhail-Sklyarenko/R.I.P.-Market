@@ -95,14 +95,20 @@ export async function getCachedSentOffer(
   draftId: string,
 ): Promise<CachedSentOffer | null> {
   const sessionHit = normalizeCachedSentOffer(
-    await readStorageValue<CachedSentOffer>('session', sentOfferStorageKey(draftId)),
+    await readStorageValue<CachedSentOffer>(
+      'session',
+      sentOfferStorageKey(draftId),
+    ),
   );
   if (sessionHit) {
     return sessionHit;
   }
 
   const localHit = normalizeCachedSentOffer(
-    await readStorageValue<CachedSentOffer>('local', sentOfferStorageKey(draftId)),
+    await readStorageValue<CachedSentOffer>(
+      'local',
+      sentOfferStorageKey(draftId),
+    ),
   );
   if (localHit) {
     await writeStorageValue('session', sentOfferStorageKey(draftId), localHit);
@@ -199,8 +205,8 @@ export async function cacheSentOffer(
     patch['rip:last-intercepted-offer'] = intercepted;
   }
 
-  await chrome.storage.session.set(patch);
   await chrome.storage.local.set(patch);
+  await chrome.storage.session.set(patch);
   await clearSendInflight(draftId);
 }
 
@@ -244,8 +250,8 @@ export async function recordInterceptedOffer(params: {
     patch[sentOfferStorageKey(params.draftId)] = cached;
   }
 
-  await chrome.storage.session.set(patch);
   await chrome.storage.local.set(patch);
+  await chrome.storage.session.set(patch);
   if (params.draftId) {
     await clearSendInflight(params.draftId);
   }
@@ -262,8 +268,16 @@ export async function markSendInflight(params: {
     assetId: params.assetId,
     startedAt: new Date().toISOString(),
   };
-  await writeStorageValue('session', sendInflightStorageKey(params.draftId), marker);
-  await writeStorageValue('local', sendInflightStorageKey(params.draftId), marker);
+  await writeStorageValue(
+    'session',
+    sendInflightStorageKey(params.draftId),
+    marker,
+  );
+  await writeStorageValue(
+    'local',
+    sendInflightStorageKey(params.draftId),
+    marker,
+  );
 }
 
 export async function clearSendInflight(draftId: string): Promise<void> {
@@ -287,11 +301,7 @@ export async function getSendInflight(
   if (!session?.startedAt) {
     return null;
   }
-  const startedAt = Date.parse(session.startedAt);
-  if (!Number.isFinite(startedAt) || Date.now() - startedAt > SEND_INFLIGHT_TTL_MS) {
-    await clearSendInflight(draftId);
-    return null;
-  }
+  // Time alone cannot prove the external POST failed. Reconciliation must clear this marker.
   return session;
 }
 
@@ -307,8 +317,6 @@ export async function resolvePriorSuccessfulSend(params: {
   if (byDraft) {
     return byDraft;
   }
-  if (params.assetId) {
-    return getInterceptedOfferByAssetId(params.assetId);
-  }
+  // Asset-only observations may belong to another buyer/order. Never replay them as success.
   return null;
 }

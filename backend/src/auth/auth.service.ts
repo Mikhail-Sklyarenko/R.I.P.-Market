@@ -1,3 +1,5 @@
+import { createHash, randomBytes } from 'node:crypto';
+import { PrismaService } from '../prisma/prisma.service';
 import {
   BadRequestException,
   HttpStatus,
@@ -25,6 +27,7 @@ const STEAM_LINK_EXPIRES_IN = '10m';
 export class AuthService {
   constructor(
     private readonly jwtService: JwtService,
+    private readonly prisma: PrismaService,
     private readonly usersService: UsersService,
     private readonly steamProfileService: SteamProfileService,
     private readonly mockAuthProvider: MockAuthProvider,
@@ -32,6 +35,8 @@ export class AuthService {
   ) {}
 
   async mockLogin(dto: MockLoginDto) {
+    if (process.env.NODE_ENV === 'production')
+      throw new BadRequestException('Mock login disabled in production');
     const config = getProvidersConfig();
     if (
       config.auth === 'steam' &&
@@ -119,55 +124,84 @@ export class AuthService {
     };
   }
 
-  buildFrontendCallbackUrl(
+  async buildFrontendCallbackUrl(
     authResponse: Awaited<ReturnType<AuthService['buildAuthResponse']>>,
     extraParams?: Record<string, string>,
   ) {
-    const origin = getPublicSiteOriginFromEnv();
-    const params = new URLSearchParams({
-      accessToken: authResponse.accessToken,
-      userId: authResponse.user.id,
-      username: authResponse.user.username,
-      role: authResponse.user.role,
-      status: authResponse.user.status,
+    const code = randomBytes(32).toString('hex');
+    await this.prisma.authExchangeCode.deleteMany({
+      where: { expiresAt: { lt: new Date() } },
     });
-    if (authResponse.user.steamId) {
-      params.set('steamId', authResponse.user.steamId);
-    }
-    if (authResponse.user.steamPersonaName) {
-      params.set('steamPersonaName', authResponse.user.steamPersonaName);
-    }
-    if (authResponse.user.steamAvatarUrl) {
-      params.set('steamAvatarUrl', authResponse.user.steamAvatarUrl);
-    }
-    if (extraParams) {
-      for (const [key, value] of Object.entries(extraParams)) {
-        params.set(key, value);
-      }
-    }
-    return `${origin}/login/steam/callback?${params.toString()}`;
+    await this.prisma.authExchangeCode.create({
+      data: {
+        codeHash: this.hashCode(code),
+        userId: authResponse.user.id,
+        purpose: 'login',
+        expiresAt: new Date(Date.now() + 90_000),
+      },
+    });
+    const params = new URLSearchParams({ code, ...extraParams });
+    return `${getPublicSiteOriginFromEnv()}/login/steam/callback?${params.toString()}`;
+  }
+
+  async exchangeCode(code: string) {
+    if (!/^[a-f0-9]{64}$/.test(code))
+      throw new BadRequestException('Invalid login code');
+    const userId = await this.consumeCode(code, 'login');
+    const user = await this.getSessionUser(userId);
+    return this.buildAuthResponse({ ...user, userId: user.id });
+  }
+
+  private hashCode(code: string): string {
+    return createHash('sha256').update(code).digest('hex');
+  }
+  private async consumeCode(code: string, purpose: string): Promise<string> {
+    return this.prisma.$transaction(async (tx) => {
+      const row = await tx.authExchangeCode.findUnique({
+        where: { codeHash: this.hashCode(code) },
+      });
+      if (!row || row.purpose !== purpose || row.expiresAt <= new Date())
+        throw new BadRequestException('Login code expired or already used');
+      const claimed = await tx.authExchangeCode.deleteMany({
+        where: { codeHash: row.codeHash, expiresAt: { gt: new Date() } },
+      });
+      if (claimed.count !== 1)
+        throw new BadRequestException('Login code already used');
+      return row.userId;
+    });
   }
 
   private async createSteamLinkState(userId: string): Promise<string> {
-    return this.jwtService.signAsync(
-      { sub: userId, purpose: STEAM_LINK_PURPOSE },
+    const token = await this.jwtService.signAsync(
+      {
+        sub: userId,
+        purpose: STEAM_LINK_PURPOSE,
+        nonce: randomBytes(16).toString('hex'),
+      },
       { expiresIn: STEAM_LINK_EXPIRES_IN },
     );
+    await this.prisma.authExchangeCode.create({
+      data: {
+        codeHash: this.hashCode(token),
+        userId,
+        purpose: STEAM_LINK_PURPOSE,
+        expiresAt: new Date(Date.now() + 600_000),
+      },
+    });
+    return token;
   }
 
-  private async verifySteamLinkState(token: string): Promise<string | null> {
-    try {
-      const payload = await this.jwtService.verifyAsync<{
-        sub?: string;
-        purpose?: string;
-      }>(token);
-      if (payload.purpose !== STEAM_LINK_PURPOSE || !payload.sub) {
-        return null;
-      }
-      return payload.sub;
-    } catch {
-      return null;
-    }
+  private async verifySteamLinkState(token: string): Promise<string> {
+    const payload = await this.jwtService.verifyAsync<{
+      sub?: string;
+      purpose?: string;
+    }>(token);
+    if (payload.purpose !== STEAM_LINK_PURPOSE || !payload.sub)
+      throw new BadRequestException('Invalid Steam link state');
+    const userId = await this.consumeCode(token, STEAM_LINK_PURPOSE);
+    if (userId !== payload.sub)
+      throw new BadRequestException('Invalid Steam link subject');
+    return userId;
   }
 
   private async buildAuthResponse(
@@ -183,7 +217,7 @@ export class AuthService {
     },
     providerOverride?: string,
   ) {
-    const payload = { sub: user.userId, role: user.role };
+    const payload = { sub: user.userId, role: user.role, purpose: 'access' };
     const accessToken = await this.jwtService.signAsync(payload);
 
     return {

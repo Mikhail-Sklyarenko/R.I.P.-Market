@@ -15,7 +15,10 @@ export type TronGridClient = {
     maxBlock: bigint;
     toAddress?: string;
   }): Promise<Trc20Transfer[]>;
-  getTransactionConfirmations(txHash: string, latestBlock: bigint): Promise<number>;
+  getTransactionConfirmations(
+    txHash: string,
+    latestBlock: bigint,
+  ): Promise<number>;
 };
 
 type TronGridEvent = {
@@ -49,9 +52,9 @@ export function createTronGridClient(params: {
 
   return {
     async getLatestBlock(): Promise<bigint> {
-      const data = await fetchJson<{ block_header?: { raw_data?: { number?: number } } }>(
-        '/wallet/getnowblock',
-      );
+      const data = await fetchJson<{
+        block_header?: { raw_data?: { number?: number } };
+      }>('/wallet/getnowblock');
       const number = data.block_header?.raw_data?.number;
       if (number === undefined) {
         throw new Error('Failed to read latest block');
@@ -77,15 +80,34 @@ export function createTronGridClient(params: {
         query.set('to_address', toAddress);
       }
 
-      const data = await fetchJson<{ data?: TronGridEvent[] }>(
-        `/v1/contracts/${contractAddress}/events?${query.toString()}`,
-      );
-
+      const items: TronGridEvent[] = [];
+      const seen = new Set<string>();
+      let path: string | null =
+        `/v1/contracts/${contractAddress}/events?${query.toString()}`;
+      while (path) {
+        if (seen.has(path)) throw new Error('TronGrid pagination cycle');
+        seen.add(path);
+        const page: {
+          data?: TronGridEvent[];
+          meta?: { links?: { next?: string } };
+        } = await fetchJson(path);
+        items.push(...(page.data ?? []));
+        const next = page.meta?.links?.next;
+        if (!next) {
+          path = null;
+          continue;
+        }
+        const nextUrl = new URL(next, params.baseUrl);
+        if (nextUrl.origin !== new URL(params.baseUrl).origin)
+          throw new Error('Invalid pagination origin');
+        path = nextUrl.pathname + nextUrl.search;
+      }
       const latest = await this.getLatestBlock();
-      const items = data.data ?? [];
 
       return items
-        .filter((item) => item.transaction_id && item.result?.to && item.result.value)
+        .filter(
+          (item) => item.transaction_id && item.result?.to && item.result.value,
+        )
         .map((item) => {
           const blockNumber = BigInt(item.block_number ?? 0);
           return {
@@ -124,7 +146,10 @@ export function createMockTronGridClient(
     },
     async getTrc20Transfers({ minBlock, maxBlock, toAddress }) {
       return transfers.filter((transfer) => {
-        if (transfer.blockNumber < minBlock || transfer.blockNumber > maxBlock) {
+        if (
+          transfer.blockNumber < minBlock ||
+          transfer.blockNumber > maxBlock
+        ) {
           return false;
         }
         if (toAddress && transfer.toAddress !== toAddress) {

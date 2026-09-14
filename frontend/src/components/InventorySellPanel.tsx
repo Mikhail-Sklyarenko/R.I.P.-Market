@@ -141,6 +141,14 @@ export function InventorySellPanel({
 
   useEffect(() => {
     function onKeyDown(event: KeyboardEvent) {
+      if (event.key === 'Tab') {
+        const dialog = document.querySelector<HTMLElement>('[data-testid="inventory-sell-panel"]');
+        const targets = Array.from(dialog?.querySelectorAll<HTMLElement>('button:not([disabled]), input:not([disabled]), a[href], select:not([disabled]), textarea:not([disabled]), [tabindex="0"]') ?? []).filter(el => el.getClientRects().length > 0);
+        const first = targets[0], last = targets[targets.length - 1];
+        if (first && (event.shiftKey ? document.activeElement === first : document.activeElement === last)) {
+          event.preventDefault(); (event.shiftKey ? last : first).focus();
+        }
+      }
       if (event.key === 'Escape') {
         onClose();
       }

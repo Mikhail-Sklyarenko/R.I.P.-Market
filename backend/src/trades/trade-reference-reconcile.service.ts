@@ -220,10 +220,17 @@ export class TradeReferenceReconcileService {
     const beforeOfferId = order.tradeOperation.externalOfferId;
     try {
       await this.prisma.tradeOperation.update({
-        where: { id: order.tradeOperation.id },
+        where: { id: order.tradeOperation.id, externalOfferId: beforeOfferId },
         data: { externalOfferId: offerId },
       });
     } catch (error) {
+      if ((error as { code?: string })?.code === 'P2025') {
+        throw new AppException(
+          ErrorCode.BAD_REQUEST,
+          'Trade reference changed concurrently; refresh the order',
+          HttpStatus.CONFLICT,
+        );
+      }
       if (this.isUniqueViolation(error)) {
         if (strict) {
           await this.openDisputeForReferenceIssue({

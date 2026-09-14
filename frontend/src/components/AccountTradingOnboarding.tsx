@@ -98,7 +98,7 @@ export function AccountTradingOnboarding({
     },
   ];
 
-  if (extensionChannelEnabled && !requiredReady) {
+  if (extensionChannelEnabled) {
     steps.push({
       key: 'extension',
       label: t('onboarding.extensionLabel'),
@@ -112,7 +112,7 @@ export function AccountTradingOnboarding({
     });
   }
 
-  if (requiredReady) {
+  if (requiredReady && (!extensionChannelEnabled || extensionConnected)) {
     return (
       <div
         className="card account-onboarding account-onboarding-ready"

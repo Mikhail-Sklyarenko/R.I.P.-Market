@@ -209,6 +209,16 @@ export class OrdersService {
           },
         });
 
+        const purchasedAsset = await tx.inventoryAsset.findUniqueOrThrow({
+          where: { id: lot.inventoryAssetId },
+          select: { itemDefinitionId: true },
+        });
+        await this.buyRequestMatching.fulfillForPurchase(
+          buyerId,
+          purchasedAsset.itemDefinitionId,
+          lot.priceMinor,
+          tx,
+        );
         await this.ledgerService.reservePurchaseHold({
           buyerUserId: buyerId,
           orderId: createdOrder.id,
@@ -408,15 +418,6 @@ export class OrdersService {
         buyerId: order.buyerId,
       });
 
-      const itemDefinitionId =
-        order.lot?.inventoryAsset?.itemDefinitionId ?? null;
-      const lotPriceMinor = order.lot?.priceMinor ?? null;
-      if (itemDefinitionId && lotPriceMinor != null) {
-        void this.buyRequestMatching
-          .fulfillForPurchase(buyerId, itemDefinitionId, lotPriceMinor)
-          .catch(() => undefined);
-      }
-
       return toJsonSafe(order);
     } catch (error) {
       if (error instanceof AppException) {
@@ -521,6 +522,7 @@ export class OrdersService {
             type: true,
             status: true,
             executionPhase: true,
+            sendStartedAt: true,
             lastErrorCode: true,
             expiresAt: true,
             attemptCount: true,
@@ -602,6 +604,7 @@ export class OrdersService {
           type: rawTask.type,
           status: rawTask.status,
           executionPhase: rawTask.executionPhase,
+          sendStartedAt: rawTask.sendStartedAt,
           lastErrorCode: rawTask.lastErrorCode,
           lastErrorMessage: extractTradeTaskErrorMessage(
             rawTask.statusEvents.find(
@@ -616,7 +619,10 @@ export class OrdersService {
           selectedMarketHashName: extractTradeTaskMarketHashName(
             rawTask.statusEvents,
           ),
-          confirmPending: extractTradeTaskConfirmPending(rawTask, deliveryProbe),
+          confirmPending: extractTradeTaskConfirmPending(
+            rawTask,
+            deliveryProbe,
+          ),
           confirmPendingSince: extractTradeTaskConfirmPendingSince(
             rawTask.statusEvents,
           ),
@@ -852,9 +858,14 @@ export class OrdersService {
     }
 
     const order = await this.prisma.$transaction(async (tx) => {
+      // Lock against OFFER_SUBMITTED before deciding whether a refund is safe.
+      await tx.order.updateMany({
+        where: { id: orderId, buyerId, status: OrderStatus.WAITING_TRADE },
+        data: { status: OrderStatus.WAITING_TRADE },
+      });
       const current = await tx.order.findUnique({
         where: { id: orderId },
-        include: { hold: true, lot: true },
+        include: { hold: true, lot: true, tradeOperation: true },
       });
 
       if (!current) {
@@ -883,6 +894,34 @@ export class OrdersService {
           ErrorCode.BAD_REQUEST,
           'Order cannot be canceled after trade confirmation',
           HttpStatus.BAD_REQUEST,
+        );
+      }
+
+      const activeSend = await tx.tradeTask.findFirst({
+        where: {
+          orderId,
+          OR: [
+            { sendStartedAt: { not: null } },
+            { status: { in: ['DISPATCHED', 'ACKED'] } },
+            {
+              executionPhase: {
+                in: [
+                  'ITEM_SELECTED',
+                  'OFFER_SUBMITTED',
+                  'CONFIRM_PENDING',
+                  'OFFER_SENT',
+                ],
+              },
+            },
+          ],
+        },
+        select: { id: true },
+      });
+      if (current.tradeOperation?.externalOfferId || activeSend) {
+        throw new AppException(
+          ErrorCode.BAD_REQUEST,
+          'Trade sending has started. Wait for Steam verification; cancellation cannot safely refund this order.',
+          HttpStatus.CONFLICT,
         );
       }
 
@@ -1010,4 +1049,3 @@ function extractTradeTaskMarketHashName(
   }
   return null;
 }
-

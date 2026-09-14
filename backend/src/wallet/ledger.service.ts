@@ -105,12 +105,12 @@ export class LedgerService {
 
       const referenceGroupId = crypto.randomUUID();
 
-      await client.walletAccount.update({
-        where: {
-          walletId_type: { walletId: wallet.id, type: accountType },
-        },
-        data: { balanceMinor: { decrement: params.amountMinor } },
-      });
+      await this.debitAccount(
+        client,
+        wallet.id,
+        accountType,
+        params.amountMinor,
+      );
 
       const withdrawEntry = await client.ledgerEntry.create({
         data: {
@@ -181,15 +181,12 @@ export class LedgerService {
         throw new BadRequestException('Insufficient available balance');
       }
 
-      await client.walletAccount.update({
-        where: {
-          walletId_type: {
-            walletId: wallet.id,
-            type: WalletAccountType.AVAILABLE,
-          },
-        },
-        data: { balanceMinor: { decrement: params.amountMinor } },
-      });
+      await this.debitAccount(
+        client,
+        wallet.id,
+        WalletAccountType.AVAILABLE,
+        params.amountMinor,
+      );
 
       await client.walletAccount.update({
         where: {
@@ -230,15 +227,12 @@ export class LedgerService {
         throw new BadRequestException('Insufficient frozen balance to release');
       }
 
-      await client.walletAccount.update({
-        where: {
-          walletId_type: {
-            walletId: wallet.id,
-            type: WalletAccountType.FROZEN,
-          },
-        },
-        data: { balanceMinor: { decrement: params.amountMinor } },
-      });
+      await this.debitAccount(
+        client,
+        wallet.id,
+        WalletAccountType.FROZEN,
+        params.amountMinor,
+      );
 
       await client.walletAccount.update({
         where: {
@@ -363,15 +357,12 @@ export class LedgerService {
 
       const referenceGroupId = crypto.randomUUID();
 
-      await client.walletAccount.update({
-        where: {
-          walletId_type: {
-            walletId: wallet.id,
-            type: WalletAccountType.AVAILABLE,
-          },
-        },
-        data: { balanceMinor: { decrement: amountMinor } },
-      });
+      await this.debitAccount(
+        client,
+        wallet.id,
+        WalletAccountType.AVAILABLE,
+        amountMinor,
+      );
 
       await client.walletAccount.update({
         where: {
@@ -449,15 +440,12 @@ export class LedgerService {
 
       const referenceGroupId = crypto.randomUUID();
 
-      await client.walletAccount.update({
-        where: {
-          walletId_type: {
-            walletId: wallet.id,
-            type: WalletAccountType.AVAILABLE,
-          },
-        },
-        data: { balanceMinor: { decrement: amountMinor } },
-      });
+      await this.debitAccount(
+        client,
+        wallet.id,
+        WalletAccountType.AVAILABLE,
+        amountMinor,
+      );
 
       await client.walletAccount.update({
         where: {
@@ -507,7 +495,9 @@ export class LedgerService {
       params;
 
     if (amountMinor <= 0n) {
-      throw new BadRequestException('Buy request release amount must be positive');
+      throw new BadRequestException(
+        'Buy request release amount must be positive',
+      );
     }
 
     const wallet = await this.ensureUserWallet(buyerUserId);
@@ -534,12 +524,12 @@ export class LedgerService {
 
       const referenceGroupId = crypto.randomUUID();
 
-      await client.walletAccount.update({
-        where: {
-          walletId_type: { walletId: wallet.id, type: WalletAccountType.HOLD },
-        },
-        data: { balanceMinor: { decrement: amountMinor } },
-      });
+      await this.debitAccount(
+        client,
+        wallet.id,
+        WalletAccountType.HOLD,
+        amountMinor,
+      );
 
       await client.walletAccount.update({
         where: {
@@ -636,15 +626,12 @@ export class LedgerService {
 
       const referenceGroupId = crypto.randomUUID();
 
-      await client.walletAccount.update({
-        where: {
-          walletId_type: {
-            walletId: buyerWallet.id,
-            type: WalletAccountType.HOLD,
-          },
-        },
-        data: { balanceMinor: { decrement: totalAmountMinor } },
-      });
+      await this.debitAccount(
+        client,
+        buyerWallet.id,
+        WalletAccountType.HOLD,
+        totalAmountMinor,
+      );
 
       await client.walletAccount.update({
         where: {
@@ -767,12 +754,12 @@ export class LedgerService {
 
       const referenceGroupId = crypto.randomUUID();
 
-      await client.walletAccount.update({
-        where: {
-          walletId_type: { walletId: wallet.id, type: WalletAccountType.HOLD },
-        },
-        data: { balanceMinor: { decrement: amountMinor } },
-      });
+      await this.debitAccount(
+        client,
+        wallet.id,
+        WalletAccountType.HOLD,
+        amountMinor,
+      );
 
       await client.walletAccount.update({
         where: {
@@ -850,15 +837,24 @@ export class LedgerService {
 
       const referenceGroupId = crypto.randomUUID();
 
-      await tx.walletAccount.update({
-        where: {
-          walletId_type: {
-            walletId: wallet.id,
-            type: WalletAccountType.AVAILABLE,
+      if (params.amountMinor < 0n) {
+        await this.debitAccount(
+          tx,
+          wallet.id,
+          WalletAccountType.AVAILABLE,
+          -params.amountMinor,
+        );
+      } else {
+        await tx.walletAccount.update({
+          where: {
+            walletId_type: {
+              walletId: wallet.id,
+              type: WalletAccountType.AVAILABLE,
+            },
           },
-        },
-        data: { balanceMinor: { increment: params.amountMinor } },
-      });
+          data: { balanceMinor: { increment: params.amountMinor } },
+        });
+      }
 
       const entry = await tx.ledgerEntry.create({
         data: {
@@ -1004,6 +1000,21 @@ export class LedgerService {
         create: { walletId, type, balanceMinor: 0n },
         update: {},
       });
+    }
+  }
+
+  private async debitAccount(
+    client: TxClient,
+    walletId: string,
+    type: WalletAccountType,
+    amount: bigint,
+  ): Promise<void> {
+    const changed = await client.walletAccount.updateMany({
+      where: { walletId, type, balanceMinor: { gte: amount } },
+      data: { balanceMinor: { decrement: amount } },
+    });
+    if (changed.count !== 1) {
+      throw new BadRequestException('Insufficient available balance for debit');
     }
   }
 

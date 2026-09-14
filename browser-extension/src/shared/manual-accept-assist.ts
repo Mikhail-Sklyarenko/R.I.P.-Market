@@ -219,14 +219,14 @@ export function ensureAcceptAssistHighlightStyles(
   style.id = MANUAL_ACCEPT_ASSIST.STYLE_ID;
   style.textContent = `
     [${MANUAL_ACCEPT_ASSIST.HIGHLIGHT_ATTR}="1"] {
-      outline: 3px solid #5b8def !important;
+      outline: 3px solid #7dd3fc !important;
       outline-offset: 4px !important;
-      box-shadow: 0 0 0 6px rgba(91,141,239,.35) !important;
+      box-shadow: 0 0 0 6px rgba(2, 132, 199, 0.35) !important;
       animation: rip-accept-pulse 1.1s ease-in-out 3;
     }
     @keyframes rip-accept-pulse {
-      0%, 100% { box-shadow: 0 0 0 4px rgba(91,141,239,.25); }
-      50% { box-shadow: 0 0 0 10px rgba(91,141,239,.45); }
+      0%, 100% { box-shadow: 0 0 0 4px rgba(2, 132, 199, 0.22); }
+      50% { box-shadow: 0 0 0 10px rgba(37, 99, 235, 0.4); }
     }
   `;
   doc.documentElement.appendChild(style);

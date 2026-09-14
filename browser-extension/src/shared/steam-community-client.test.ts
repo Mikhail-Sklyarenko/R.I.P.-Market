@@ -33,15 +33,17 @@ function mockChromeStorage(local: Record<string, unknown> = {}) {
   vi.stubGlobal('chrome', {
     storage: {
       local: {
-        get: vi.fn(async (keys: string | string[] | Record<string, unknown>) => {
-          if (typeof keys === 'string') {
-            return { [keys]: local[keys] };
-          }
-          if (Array.isArray(keys)) {
-            return Object.fromEntries(keys.map((key) => [key, local[key]]));
-          }
-          return { ...local };
-        }),
+        get: vi.fn(
+          async (keys: string | string[] | Record<string, unknown>) => {
+            if (typeof keys === 'string') {
+              return { [keys]: local[keys] };
+            }
+            if (Array.isArray(keys)) {
+              return Object.fromEntries(keys.map((key) => [key, local[key]]));
+            }
+            return { ...local };
+          },
+        ),
       },
       session: {
         get: vi.fn(async () => ({})),
@@ -52,7 +54,11 @@ function mockChromeStorage(local: Record<string, unknown> = {}) {
         id: 1,
         url: 'https://steamcommunity.com/tradeoffer/new/?partner=123&token=abc',
       }),
-      query: vi.fn().mockResolvedValue([{ id: 1, url: 'https://steamcommunity.com/tradeoffer/new' }]),
+      query: vi
+        .fn()
+        .mockResolvedValue([
+          { id: 1, url: 'https://steamcommunity.com/tradeoffer/new' },
+        ]),
       update: vi.fn().mockResolvedValue({}),
       create: vi.fn(),
       onUpdated: {
@@ -73,7 +79,8 @@ describe('SteamCommunityClient.sendTradeOffer', () => {
   });
 
   it('uses legacy API when ui trade flag is off', async () => {
-    const { sendTradeOfferViaPageScript } = await import('./steam-trade-offer.js');
+    const { sendTradeOfferViaPageScript } =
+      await import('./steam-trade-offer.js');
     const client = new SteamCommunityClient();
     const result = await client.sendTradeOffer({
       buyerTradeUrl:
@@ -91,8 +98,10 @@ describe('SteamCommunityClient.sendTradeOffer', () => {
 
   it('uses main-world UI runner when ui trade flag is enabled', async () => {
     mockChromeStorage({ [UI_TRADE_FLOW_ENABLED_KEY]: true });
-    const { runTradeOfferAutofillInMainWorld } = await import('./trade-offer-ui-runner.js');
-    const { sendTradeOfferViaPageScript } = await import('./steam-trade-offer.js');
+    const { runTradeOfferAutofillInMainWorld } =
+      await import('./trade-offer-ui-runner.js');
+    const { sendTradeOfferViaPageScript } =
+      await import('./steam-trade-offer.js');
     const client = new SteamCommunityClient();
     const result = await client.sendTradeOffer({
       buyerTradeUrl:
@@ -115,8 +124,10 @@ describe('SteamCommunityClient.sendTradeOffer', () => {
       [USE_DIRECT_TRADE_API_KEY]: true,
     });
 
-    const { sendTradeOfferViaPageScript } = await import('./steam-trade-offer.js');
-    const { runTradeOfferAutofillInMainWorld } = await import('./trade-offer-ui-runner.js');
+    const { sendTradeOfferViaPageScript } =
+      await import('./steam-trade-offer.js');
+    const { runTradeOfferAutofillInMainWorld } =
+      await import('./trade-offer-ui-runner.js');
     const client = new SteamCommunityClient();
     const result = await client.sendTradeOffer({
       buyerTradeUrl:
@@ -133,9 +144,11 @@ describe('SteamCommunityClient.sendTradeOffer', () => {
     });
   });
 
-  it('falls back to UI autofill when API returns HTTP 400 empty', async () => {
-    const { sendTradeOfferViaPageScript } = await import('./steam-trade-offer.js');
-    const { runTradeOfferAutofillInMainWorld } = await import('./trade-offer-ui-runner.js');
+  it('does not send again after an uncertain API response', async () => {
+    const { sendTradeOfferViaPageScript } =
+      await import('./steam-trade-offer.js');
+    const { runTradeOfferAutofillInMainWorld } =
+      await import('./trade-offer-ui-runner.js');
     vi.mocked(sendTradeOfferViaPageScript).mockResolvedValueOnce({
       ok: false,
       error: 'Steam returned empty response (HTTP 400)',
@@ -149,11 +162,10 @@ describe('SteamCommunityClient.sendTradeOffer', () => {
     });
 
     expect(sendTradeOfferViaPageScript).toHaveBeenCalled();
-    expect(runTradeOfferAutofillInMainWorld).toHaveBeenCalled();
+    expect(runTradeOfferAutofillInMainWorld).not.toHaveBeenCalled();
     expect(result).toEqual({
-      ok: true,
-      offerId: 'ui-offer',
-      confirmPending: true,
+      ok: false,
+      error: 'Steam returned empty response (HTTP 400)',
     });
   });
 });
@@ -180,10 +192,13 @@ describe('SteamCommunityClient.navigateToTradePage', () => {
         url: 'https://steamcommunity.com/tradeoffer/9336569013/',
       } as chrome.tabs.Tab,
     ]);
-    vi.mocked(chrome.tabs.create).mockResolvedValue({
-      id: 99,
-      url: 'https://steamcommunity.com/tradeoffer/new/?partner=123&token=abc',
-    } as chrome.tabs.Tab);
+    vi.mocked(chrome.tabs.create).mockImplementation(
+      async () =>
+        ({
+          id: 99,
+          url: 'https://steamcommunity.com/tradeoffer/new/?partner=123&token=abc',
+        }) as chrome.tabs.Tab,
+    );
 
     const client = new SteamCommunityClient();
     // Seed cache so ensureSteamTab returns the live offer tab.

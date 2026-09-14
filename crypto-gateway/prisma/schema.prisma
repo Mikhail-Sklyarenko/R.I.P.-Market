@@ -28,7 +28,7 @@ model WalletRegistry {
 
 model WalletCounter {
   id   Int @id @default(1)
-  next Int @default(0)
+  next Int @default(1)
 }
 
 model GatewayUser {
@@ -64,6 +64,10 @@ model Payment {
 }
 
 model Withdrawal {
+  externalId String? @unique
+  debitSource String @default("gateway_balance")
+  signedTransaction Json?
+  leaseUntil DateTime?
   id             String           @id @default(uuid())
   userId         String
   toAddress      String

@@ -3,6 +3,47 @@
  * terminology where relevant. Deep-merged into `enMessages` in `en.ts`.
  */
 export const clientExtraEn = {
+  ux: {
+    savedTitle: "Saved items",
+    savedBody: "Items are saved for this account in this browser. Open an item to check current offers.",
+    savedOpen: "View offers",
+    savedRemove: "Remove from saved",
+    savedAdd: "Save item",
+    savedEmpty: "Save items with the bookmark in the catalog to easily find them again.",
+    savedError: "Could not save. Check browser storage; you can save up to 100 items.",
+
+    downloadUnavailable: "The download is unavailable. Refresh the page or contact support.",
+    receiptCheckingTitle: "You confirmed receipt",
+    receiptCheckingBody: "The service is completing its checks. Do not accept or send another offer. If the delay continues, contact support from this order.",
+    "completeSetup": "Set up account",
+    "purchaseSaved": "Return to your selected item",
+    "purchaseSavedBody": "Finish setup, then continue your purchase. Offer availability and price will be checked again.",
+    "resumePurchase": "Continue purchase",
+    "menuLabel": "Account menu",
+    "steamGuideOnly": "Steam guide · not a listing price",
+    "supportDetails": "Details for support",
+    "installExtension": "Install extension",
+    "extensionTitle": "Your Steam trade assistant",
+    "extensionLead": "Connect R.I.P Market in the browser profile where you use Steam. The assistant checks the offer and helps send your item. You confirm Steam Guard and accept trades yourself.",
+    "betaTitle": "Installation for closed testing",
+    "betaBody": "The extension is currently installed from an archive, rather than the Chrome store. Testing requires desktop Chrome. On a phone, continue using this link on your computer.",
+    "download": "Download extension",
+    "stepDownload": "Download and unpack",
+    "stepDownloadBody": "Keep the R.I.P-Market-Extension folder in a permanent location. Do not delete it after installing.",
+    "stepInstall": "Add the extension to Chrome",
+    "stepInstallBody": "Open chrome://extensions, enable Developer mode, select Load unpacked, and choose the extracted folder. To update, replace the files in that folder and reload the extension.",
+    "stepConnect": "Connect your account",
+    "stepConnectBody": "Return here in the same Chrome profile and select Connect extension. Use a separate browser profile for another Steam account.",
+    "permissionsTitle": "Why permissions are needed",
+    "permissionsBody": "Steam access is used to read offer data and send the selected item. Tabs and scripting operate the Steam page; cookies provide the browser Steam session; storage keeps account pairing and pending actions; notifications highlight important steps. The assistant does not confirm Steam Guard or accept trades for you.",
+    "resumeTrade": "Return to your trade",
+    "loginConnect": "Sign in to connect",
+    "downloadVersion": "Version",
+    "extensionDisconnected": "Check the connection before trading",
+    "fundsDetails": "Amounts by trade",
+    "fundsDetailsBody": "Open your active trades to see the item, amount and reason for waiting. Disputed funds remain unavailable until resolution.",
+    "buyerSetupHint": "Steam and your trade URL are ready. Connect the assistant for trade checks and guidance. Manual receipt is confirmed separately on the website."
+},
   onboarding: {
     title: 'How to start trading',
     lead: 'One account can both buy and sell. Follow the steps below in order.',
@@ -13,14 +54,14 @@ export const clientExtraEn = {
     tradeUrlHint: 'Buying and selling is unavailable without a trade link.',
     tradeUrlAction: 'Add Trade URL',
     extensionLabel: 'Connect the extension',
-    extensionHintOptional: 'Optional: auto-sends the trade offer when you sell.',
-    extensionHintInstall: 'Optional: install the Chrome extension for auto-trading.',
+    extensionHintOptional: 'For assisted sending and trade checks. Manual trading remains a separate method.',
+    extensionHintInstall: 'Desktop Chrome is needed for the assistant. Follow the installation guide.',
     extensionAction: 'Connect extension',
     readyText: 'Your account is ready to trade',
-    readyExtensionOptional: '· extension is optional',
+    readyExtensionOptional: '· trade assistant is not connected',
     catalogLink: 'Catalog',
     inventoryLink: 'Inventory',
-    optionalSuffix: '(optional)',
+    optionalSuffix: '(trade assistant)',
   },
   catalog: {
     resetFilter: 'Reset',
@@ -85,13 +126,13 @@ export const clientExtraEn = {
   extension: {
     titleFull: 'Auto-trade extension',
     titleCompact: 'Extension',
-    compactSubtitle: 'Optional — speeds up sending the trade offer when you sell.',
+    compactSubtitle: 'Helps send the item and check the offer. You confirm Steam Guard.',
     installHow: 'How to install',
     installBodyCompact:
-      'Load the browser-extension/dist folder in Chrome → Extensions → Developer mode, and set VITE_EXTENSION_ID in the frontend .env.',
+      'Open the installation guide, download the extension, add it to Chrome, then connect your account.',
     installBodyFull:
-      'Install the R.I.P Market extension (browser-extension/dist folder in Chrome → Extensions → Developer mode) and set VITE_EXTENSION_ID in the frontend .env.',
-    connectSuccess: 'Extension connected. Deals will be handled automatically.',
+      'Install the assistant using the guide, then connect it in this Chrome profile.',
+    connectSuccess: 'Extension connected. It helps send the offer; you confirm Steam Guard.',
     nextInventory: 'Next (~1 min): open your',
     nextInventoryLink: 'CS2 inventory on Steam',
     connected: 'Connected',
@@ -110,7 +151,7 @@ export const clientExtraEn = {
       'Cannot reach the R.I.P server. Check your network/VPN and reload the page.',
     connectionError: 'Connection error',
     notFoundHint:
-      'Extension not found. Build browser-extension/dist, load it in Chrome (Load unpacked), and check VITE_EXTENSION_ID=gmmlnkjdbcoojbhndjcfehojknjamaoj in frontend/.env.',
+      'Could not reach the extension. Make sure it is installed and enabled in this Chrome profile, then reconnect.',
   },
   steamPriceAge: {
     today: 'today',
@@ -294,7 +335,7 @@ export const clientExtraEn = {
     ctaReopenOffer: 'Reopen offer to verify',
     ctaAcceptInSteam: 'Open offer and accept in Steam',
     returnHint:
-      'Accept in Steam, then confirm in the extension. This page is for status and support.',
+      'Accept in Steam. If you received the item but the status has not updated, confirm receipt here.',
     mismatchTitle: 'Do not accept — mismatch',
     mismatchBody:
       'The offer does not match the order. Do not press Accept. Contact support if you need help.',
@@ -305,10 +346,10 @@ export const clientExtraEn = {
     preAcceptDone: 'Marked: offer looks correct. Next — Accept with the Steam button.',
     receivedTitle: 'Item is already in my inventory',
     receivedBody:
-      'After you Accept in Steam, confirm here. That closes the deal and releases the seller payout.',
+      'Already accepted in Steam and received the item? Confirm receipt here if the site is still waiting for the trade.',
     receivedCta: 'I received the item',
     receivedConfirmBody:
-      'Confirm only if the skin is in your Steam inventory. The seller will be paid.',
+      'Confirm only if the correct item is in your Steam inventory. You acknowledge receipt and authorize settlement of this order.',
     receivedConfirmCta: 'Confirm receipt',
     receivedCancel: 'Cancel',
     receivedDone: 'Receipt confirmed. The deal is closing.',
@@ -413,7 +454,7 @@ export const clientExtraEn = {
     STALE_ORDER_SUPERSEDED:
       'This deal is outdated — there is a newer order. Open the current deal in "My deals".',
     MAX_ATTEMPTS_REACHED: 'Auto-sending ran out of attempts. Send the offer manually using the link below.',
-    TASK_TTL_EXPIRED: 'Auto-sending timed out. Refresh the page — the task will resume automatically.',
+    TASK_TTL_EXPIRED: 'Sending timed out. Open the order to check whether it can safely continue. Do not resend if the first attempt has an unknown result.',
   },
   extensionTaskCta: {
     openSteamLogin: 'Log into the correct Steam',
@@ -660,7 +701,7 @@ export const clientExtraEn = {
     instruction2: 'Add the item from the deal to the trade offer.',
     instruction3: 'Send the trade offer without any extra items on your side.',
     instruction4: 'Copy the link to the sent offer and paste it below.',
-    instruction5: 'Wait for the buyer to accept — the status will update automatically.',
+    instruction5: 'Wait for the buyer to accept. If the item was received but the check is delayed, the buyer can confirm receipt in the order.',
     checklist1: 'Check the skin name and condition (wear/float).',
     checklist2: 'Make sure the trade only contains the expected item.',
     checklist3: 'Do not accept offers with extra items from the seller.',

@@ -4,6 +4,7 @@ import { ExtensionTradeTaskService } from './extension-trade-task.service';
 describe('ExtensionTradeTaskService', () => {
   const prisma = {
     tradeTask: {
+      updateMany: jest.fn().mockResolvedValue({ count: 1 }),
       upsert: jest.fn(),
       findMany: jest.fn(),
       update: jest.fn(),
@@ -22,7 +23,10 @@ describe('ExtensionTradeTaskService', () => {
     $transaction: jest.fn((fn: (tx: unknown) => Promise<unknown>) =>
       fn({
         tradeTaskStatusEvent: { create: jest.fn() },
-        tradeTask: { update: jest.fn() },
+        tradeTask: {
+          update: jest.fn(),
+          updateMany: jest.fn().mockResolvedValue({ count: 1 }),
+        },
         tradeOperation: { update: jest.fn() },
         outboxEvent: { create: jest.fn() },
       }),
@@ -145,7 +149,9 @@ describe('ExtensionTradeTaskService', () => {
   });
 
   it('pollTasks only redistributes pre-submit phases', async () => {
-    prisma.extensionSession.findUnique.mockResolvedValue({ userId: 'seller-1' });
+    prisma.extensionSession.findUnique.mockResolvedValue({
+      userId: 'seller-1',
+    });
     prisma.tradeTask.findMany.mockResolvedValue([]);
 
     await service.pollTasks('session-1', 5);
@@ -156,6 +162,7 @@ describe('ExtensionTradeTaskService', () => {
           OR: [
             { executionPhase: null },
             { executionPhase: TradeTaskExecutionPhase.ACKED },
+            { executionPhase: TradeTaskExecutionPhase.TRADE_PAGE_OPENED },
             { executionPhase: TradeTaskExecutionPhase.OFFER_DRAFTED },
           ],
         }),
