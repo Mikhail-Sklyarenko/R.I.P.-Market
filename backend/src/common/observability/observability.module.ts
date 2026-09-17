@@ -7,6 +7,7 @@ import { ExtensionRateLimitService } from './extension-rate-limit.service';
 import { HttpMetricsService } from './http-metrics.service';
 import { ObservabilityAlertService } from './observability-alert.service';
 import { RequestIdMiddleware } from './request-id.middleware';
+import { SensitiveRateLimitService } from './sensitive-rate-limit.service';
 import { StructuredLoggingInterceptor } from './structured-logging.interceptor';
 
 @Global()
@@ -18,6 +19,7 @@ import { StructuredLoggingInterceptor } from './structured-logging.interceptor';
     ObservabilityAlertService,
     AntiFraudRuleService,
     ExtensionRateLimitService,
+    SensitiveRateLimitService,
     RequestIdMiddleware,
     StructuredLoggingInterceptor,
     {
@@ -31,6 +33,7 @@ import { StructuredLoggingInterceptor } from './structured-logging.interceptor';
     ObservabilityAlertService,
     AntiFraudRuleService,
     ExtensionRateLimitService,
+    SensitiveRateLimitService,
     RequestIdMiddleware,
   ],
 })

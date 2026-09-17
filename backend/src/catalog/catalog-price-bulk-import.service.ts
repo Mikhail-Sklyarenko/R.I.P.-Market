@@ -5,6 +5,7 @@ import {
   resolveCatalogCardDisplaySteamPriceName,
 } from './catalog-steam-price-names.util';
 import { SteamMarketPriceService } from './steam-market-price.service';
+import { SteamPriceHistoryService } from './steam-price-history.service';
 
 export type CatalogPriceImportProgress = {
   processed: number;
@@ -36,6 +37,7 @@ export class CatalogPriceBulkImportService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly steamPrices: SteamMarketPriceService,
+    private readonly steamPriceHistory: SteamPriceHistoryService,
   ) {}
 
   requestAbort(): void {
@@ -129,6 +131,10 @@ export class CatalogPriceBulkImportService {
             },
             update: { priceMinor, fetchedAt },
           });
+          void this.steamPriceHistory.recordSnapshotIfNeeded(
+            steamName,
+            priceMinor,
+          );
         }
 
         // Destructuring keeps the element type; IteratorResult.value widens to any.
@@ -144,6 +150,10 @@ export class CatalogPriceBulkImportService {
             },
             update: { priceMinor: displayPrice, fetchedAt },
           });
+          void this.steamPriceHistory.recordSnapshotIfNeeded(
+            item.marketHashName,
+            displayPrice,
+          );
         }
 
         matched += 1;

@@ -12,6 +12,14 @@ export type InventorySessionSnapshot = {
 
 const memory = new Map<string, InventorySessionSnapshot>();
 
+/** Bind cache to platform user + linked Steam so relink cannot flash foreign items. */
+export function inventorySessionOwnerKey(
+  userId: string,
+  steamId?: string | null,
+): string {
+  return `${userId}:${steamId?.trim() || 'unlinked'}`;
+}
+
 function isFresh(savedAt: number): boolean {
   return Number.isFinite(savedAt) && Date.now() - savedAt <= INVENTORY_SESSION_TTL_MS;
 }

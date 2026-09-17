@@ -2,6 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import * as https from 'node:https';
 import { steamFetch } from '../common/steam/steam-http.client';
 import { PrismaService } from '../prisma/prisma.service';
+import { SteamPriceHistoryService } from './steam-price-history.service';
 
 type CacheEntry = {
   priceMinor: number | null;
@@ -85,7 +86,10 @@ export class SteamMarketPriceService {
   /** Live Steam median from priceoverview (not persisted — optional rail only). */
   private readonly lastMedianByName = new Map<string, number>();
 
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly steamPriceHistory: SteamPriceHistoryService,
+  ) {}
 
   isEnabled(): boolean {
     return process.env.STEAM_MARKET_PRICE_ENABLED !== 'false';
@@ -282,6 +286,10 @@ export class SteamMarketPriceService {
         fetchedAt: fetchedAtDate,
       },
     });
+    void this.steamPriceHistory.recordSnapshotIfNeeded(
+      marketHashName,
+      priceMinor,
+    );
   }
 
   private async fetchAndCacheBatch(

@@ -27,6 +27,20 @@ describe('inventory-pricing utils', () => {
     );
   });
 
+  it('prefers server suggestedListMinor from bid when Steam is missing', () => {
+    const hint = {
+      steamPriceMinor: null,
+      buffPriceMinor: null,
+      csfloatPriceMinor: null,
+      minMarketplacePriceMinor: null,
+      bestBidMinor: '1200',
+      suggestedListMinor: 1200,
+      suggestedListSource: 'bid' as const,
+    };
+    assert.equal(getRecommendedPriceMinor(hint), 1200);
+    assert.equal(getRecommendedPriceSource(hint), 'bid');
+  });
+
   it('ignores outlier marketplace lots for recommendations', () => {
     const minor = getRecommendedPriceMinor({
       steamPriceMinor: 3,
@@ -37,7 +51,7 @@ describe('inventory-pricing utils', () => {
     assert.equal(minor, 3);
   });
 
-  it('falls back to null without steam', () => {
+  it('falls back to null without steam or suggestion', () => {
     assert.equal(
       getRecommendedPriceMinor({
         steamPriceMinor: null,

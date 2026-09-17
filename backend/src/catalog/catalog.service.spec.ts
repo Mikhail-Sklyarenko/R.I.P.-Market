@@ -20,6 +20,11 @@ describe('CatalogService', () => {
     getPricesWithMeta: jest.fn(),
   };
 
+  const steamPriceHistory = {
+    getChangePcts: jest.fn().mockResolvedValue({}),
+    recordSnapshotIfNeeded: jest.fn().mockResolvedValue(undefined),
+  };
+
   const itemIcons = {
     scheduleMissingIconRefresh: jest.fn(),
     backfillFromListingSnapshots: jest.fn().mockResolvedValue(0),
@@ -28,6 +33,7 @@ describe('CatalogService', () => {
   const service = new CatalogService(
     prisma as never,
     steamMarketPrice as never,
+    steamPriceHistory as never,
     itemIcons as never,
   );
 

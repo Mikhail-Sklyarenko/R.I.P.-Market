@@ -1,5 +1,6 @@
 import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { PassportStrategy } from '@nestjs/passport';
+import { UserStatus } from '@prisma/client';
 import { ExtractJwt, Strategy } from 'passport-jwt';
 import { AuthUser } from '../common/auth-user.interface';
 import { UsersService } from '../users/users.service';
@@ -26,6 +27,11 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     if (!user) {
       throw new UnauthorizedException(
         'Your session is no longer valid. Please sign in again.',
+      );
+    }
+    if (user.status === UserStatus.SUSPENDED) {
+      throw new UnauthorizedException(
+        'Your account is suspended. Contact support if you need help.',
       );
     }
     return user;

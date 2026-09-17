@@ -247,7 +247,7 @@ describe('buildBuyerInbox / sort', () => {
       }),
     );
     expect(card?.timeoutRemainingMinutes).toBeGreaterThan(10);
-    expect(card?.timeoutLabel).toContain('автоспора');
+    expect(card?.timeoutLabel).toContain('на обмен');
     expect(card?.problemHref).toContain('/support?');
     expect(card?.problemHref).toContain('dealId=ord-1');
     expect(card?.problemHref).toContain('offerId=8301234567');

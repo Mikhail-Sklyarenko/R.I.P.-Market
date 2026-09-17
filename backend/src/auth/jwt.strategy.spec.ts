@@ -3,7 +3,11 @@ import { JwtStrategy } from './jwt.strategy';
 import { UsersService } from '../users/users.service';
 
 describe('API token separation', () => {
-  const resolveSessionUser = jest.fn(async () => ({ sub: 'user-1' }));
+  const resolveSessionUser = jest.fn(async () => ({
+    sub: 'user-1',
+    role: 'BUYER' as const,
+    status: 'ACTIVE' as const,
+  }));
   const strategy = new JwtStrategy({
     resolveSessionUser,
   } as unknown as UsersService);
@@ -20,6 +24,20 @@ describe('API token separation', () => {
   it('accepts access tokens', async () => {
     await expect(
       strategy.validate({ sub: 'user-1', purpose: 'access' } as never),
-    ).resolves.toEqual({ sub: 'user-1' });
+    ).resolves.toEqual({
+      sub: 'user-1',
+      role: 'BUYER',
+      status: 'ACTIVE',
+    });
+  });
+  it('rejects suspended accounts', async () => {
+    resolveSessionUser.mockResolvedValueOnce({
+      sub: 'user-1',
+      role: 'BUYER' as const,
+      status: 'SUSPENDED' as const,
+    });
+    await expect(
+      strategy.validate({ sub: 'user-1', purpose: 'access' } as never),
+    ).rejects.toBeInstanceOf(UnauthorizedException);
   });
 });

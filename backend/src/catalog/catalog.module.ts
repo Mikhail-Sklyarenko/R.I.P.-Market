@@ -9,6 +9,7 @@ import { ItemIconService } from './item-icon.service';
 import { ItemIconWarmerService } from './item-icon-warmer.service';
 import { ReferencePriceService } from './reference-price.service';
 import { SteamMarketPriceService } from './steam-market-price.service';
+import { SteamPriceHistoryService } from './steam-price-history.service';
 import { SteamPriceWarmerService } from './steam-price-warmer.service';
 
 @Module({
@@ -17,6 +18,7 @@ import { SteamPriceWarmerService } from './steam-price-warmer.service';
   providers: [
     CatalogService,
     ItemSlugBackfillService,
+    SteamPriceHistoryService,
     SteamMarketPriceService,
     SteamPriceWarmerService,
     CatalogPriceBulkImportService,
@@ -28,6 +30,7 @@ import { SteamPriceWarmerService } from './steam-price-warmer.service';
   exports: [
     CatalogService,
     SteamMarketPriceService,
+    SteamPriceHistoryService,
     ReferencePriceService,
     ItemIconService,
     CatalogPriceRefreshService,

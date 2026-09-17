@@ -4,6 +4,7 @@ import {
   UserStatus,
   WalletAccountType,
   InventoryAssetStatus,
+  LotStatus,
 } from '@prisma/client';
 import { AppException } from '../common/errors/app.exception';
 import { ErrorCode } from '../common/errors/error-codes';
@@ -269,10 +270,27 @@ export class UsersService {
 
   private async clearInventoryForSteamChange(userId: string): Promise<void> {
     await this.prisma.inventorySyncRun.deleteMany({ where: { userId } });
+
+    // Cancel open (non-reserved) listings before wiping assets from the old Steam.
+    await this.prisma.lot.updateMany({
+      where: {
+        sellerId: userId,
+        status: { in: [LotStatus.ACTIVE, LotStatus.DRAFT] },
+      },
+      data: { status: LotStatus.CANCELED },
+    });
+
+    // Keep SOLD (history) and RESERVED (in-flight deals). Wipe the rest.
     await this.prisma.inventoryAsset.updateMany({
       where: {
         ownerId: userId,
-        status: InventoryAssetStatus.AVAILABLE,
+        status: {
+          in: [
+            InventoryAssetStatus.AVAILABLE,
+            InventoryAssetStatus.LISTED,
+            InventoryAssetStatus.BLOCKED,
+          ],
+        },
       },
       data: { status: InventoryAssetStatus.REMOVED },
     });
@@ -281,7 +299,7 @@ export class UsersService {
   async resolveSessionUser(userId: string) {
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
-      select: { id: true, role: true, steamId: true },
+      select: { id: true, role: true, steamId: true, status: true },
     });
 
     if (!user) {
@@ -292,6 +310,7 @@ export class UsersService {
     return {
       sub: synced.id,
       role: synced.role,
+      status: synced.status,
     };
   }
 

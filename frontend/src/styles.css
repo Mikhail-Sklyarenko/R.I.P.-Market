@@ -2125,6 +2125,25 @@ a.button.primary {
   color: var(--color-text-muted);
 }
 
+.trust-notice-dismiss {
+  flex-shrink: 0;
+  margin-left: auto;
+  border: 0;
+  background: transparent;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  font-size: var(--font-size-md);
+  line-height: 1;
+  padding: var(--space-1);
+  opacity: 0.7;
+}
+
+.trust-notice-dismiss:hover,
+.trust-notice-dismiss:focus-visible {
+  opacity: 1;
+  color: var(--color-text);
+}
+
 .wear-bar {
   display: grid;
   gap: var(--space-2);
@@ -4597,6 +4616,24 @@ a.button.primary {
   display: grid;
   gap: 2px;
   min-height: 2.4rem;
+}
+
+.inventory-price-change {
+  margin: 0;
+  font-size: 10px;
+  line-height: 1.25;
+}
+
+.price-change-up {
+  color: #15803d;
+}
+
+.price-change-down {
+  color: #b91c1c;
+}
+
+.price-change-flat {
+  color: var(--color-text-muted);
 }
 
 .inventory-price-primary {
@@ -8184,6 +8221,11 @@ a.button.primary {
   box-shadow: none;
 }
 
+.extension-aware-hint-dismiss {
+  margin-top: var(--space-2);
+  align-self: flex-start;
+}
+
 .inventory-page .extension-aware-hint {
   margin: 0 0 var(--space-4);
 }
@@ -8788,6 +8830,13 @@ a.button.primary {
 .trade-url-banner-text {
   margin: 0;
   font-size: var(--font-size-sm);
+}
+
+.trade-url-banner-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
 }
 
 .one-gesture-pair-banner {

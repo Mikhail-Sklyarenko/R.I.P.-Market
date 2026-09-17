@@ -12,6 +12,12 @@ import {
 } from '../utils/extension-aware-commerce';
 import { ExtensionConnectPanel } from './ExtensionConnectPanel';
 import { CS2_STEAM_INVENTORY_URL } from '../utils/steam-inventory-links';
+import {
+  UI_DISMISS_KEYS,
+  UI_DISMISS_TTL,
+  isUiDismissed,
+  markUiDismissed,
+} from '../utils/ui-dismiss';
 
 type ExtensionAwareCommerceHintProps = {
   surface: ExtensionAwareSurface;
@@ -32,6 +38,13 @@ export function ExtensionAwareCommerceHint({
   const { t } = useLocale();
   const [channelEnabledLocal, setChannelEnabledLocal] = useState(false);
   const [connected, setConnected] = useState(false);
+  const dismissKey =
+    surface === 'sell'
+      ? UI_DISMISS_KEYS.extensionHintSell
+      : UI_DISMISS_KEYS.extensionHintBuy;
+  const [dismissed, setDismissed] = useState(() =>
+    isUiDismissed(dismissKey, { ttlMs: UI_DISMISS_TTL.week }),
+  );
   const runtimeAvailable = isExtensionRuntimeAvailable();
   const channelEnabled =
     channelEnabledProp != null ? channelEnabledProp : channelEnabledLocal;
@@ -83,7 +96,7 @@ export function ExtensionAwareCommerceHint({
     surface,
   });
 
-  if (hint.kind === 'hidden') {
+  if (hint.kind === 'hidden' || dismissed) {
     return null;
   }
 
@@ -125,6 +138,17 @@ export function ExtensionAwareCommerceHint({
           </Link>
         </p>
       ) : null}
+      <button
+        type="button"
+        className="button ghost sm extension-aware-hint-dismiss"
+        data-testid={`extension-aware-${surface}-dismiss`}
+        onClick={() => {
+          markUiDismissed(dismissKey, { ttlMs: UI_DISMISS_TTL.week });
+          setDismissed(true);
+        }}
+      >
+        {t('extensionAwareCommerce.dismiss')}
+      </button>
     </aside>
   );
 }

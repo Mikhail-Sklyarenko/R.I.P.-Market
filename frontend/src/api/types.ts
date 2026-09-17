@@ -307,6 +307,8 @@ export type CatalogItem = {
   orderCount30d: number;
   steamPriceMinor: number | null;
   steamPriceFetchedAt?: string | null;
+  steamPriceChange7dPct?: number | null;
+  steamPriceChange30dPct?: number | null;
   buffPriceMinor: number | null;
   csfloatPriceMinor: number | null;
   featuredLotId: string | null;

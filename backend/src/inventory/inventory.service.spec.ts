@@ -54,6 +54,7 @@ describe('InventoryService', () => {
     });
     prisma.inventorySyncRun.findFirst.mockResolvedValue({
       userId: 'user-1',
+      steamId: '76561198000000000',
       status: 'SUCCESS',
       itemCount: 1,
       fetchedAt,
@@ -85,6 +86,7 @@ describe('InventoryService', () => {
     });
     prisma.inventorySyncRun.findFirst.mockResolvedValue({
       userId: 'user-1',
+      steamId: '76561198000000000',
       status: 'SUCCESS',
       itemCount: 1,
       fetchedAt,
@@ -124,6 +126,7 @@ describe('InventoryService', () => {
     });
     prisma.inventorySyncRun.findFirst.mockResolvedValue({
       userId: 'user-1',
+      steamId: '76561198000000000',
       status: 'SUCCESS',
       itemCount: 2,
       fetchedAt,
@@ -165,6 +168,41 @@ describe('InventoryService', () => {
       'user-1',
       '76561198000000000',
       { force: true },
+    );
+  });
+
+  it('ignores soft cache when sync run steamId does not match linked account', async () => {
+    const fetchedAt = new Date('2026-07-19T10:00:00.000Z');
+    const expiresAt = new Date(Date.now() + 60_000);
+    prisma.user.findUnique.mockResolvedValue({
+      id: 'user-1',
+      steamId: '76561198000000099',
+    });
+    prisma.inventorySyncRun.findFirst.mockResolvedValue({
+      userId: 'user-1',
+      steamId: '76561198000000000',
+      status: 'SUCCESS',
+      itemCount: 1,
+      fetchedAt,
+      expiresAt,
+      errorCode: null,
+    });
+    inventoryProvider.syncInventory.mockResolvedValue({
+      status: 'SUCCESS',
+      itemCount: 0,
+      fetchedAt: new Date(),
+      expiresAt: new Date(Date.now() + 60_000),
+      cacheHit: false,
+      stale: false,
+    });
+    prisma.inventoryAsset.findMany.mockResolvedValue([]);
+
+    await service.getUserInventory('user-1');
+
+    expect(inventoryProvider.syncInventory).toHaveBeenCalledWith(
+      'user-1',
+      '76561198000000099',
+      { force: false },
     );
   });
 

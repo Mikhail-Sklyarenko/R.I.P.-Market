@@ -20,7 +20,7 @@ describe('extension-i18n', () => {
     expect(tx('en', 'cta.openDispute')).toBe('Open dispute');
     expect(
       tx('en', 'timeout.minutes', { minutes: 4 }),
-    ).toBe('~4 min left until auto-dispute');
+    ).toBe('~4 min left in the trade window');
     expect(tx('ru', 'missing.key')).toBe('missing.key');
   });
 

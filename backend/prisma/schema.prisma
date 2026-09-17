@@ -751,6 +751,16 @@ model SteamPriceCache {
   updatedAt      DateTime @updatedAt
 }
 
+/// Sparse Steam market price history for 7d/30d % change on catalog cards.
+model SteamPriceSnapshot {
+  id             String   @id @default(cuid())
+  marketHashName String
+  priceMinor     Int
+  recordedAt     DateTime @default(now())
+
+  @@index([marketHashName, recordedAt(sort: Desc)])
+}
+
 model AuthExchangeCode {
   codeHash String @id
   userId String

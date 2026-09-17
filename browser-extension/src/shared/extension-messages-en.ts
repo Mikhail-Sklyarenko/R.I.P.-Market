@@ -168,9 +168,9 @@ export const extensionMessagesEn: ExtensionMessageTree = {
     dispute: 'Dispute / issue',
   },
   timeout: {
-    expired: 'Trade window expired — a dispute may open soon',
-    minutes: '~{{minutes}} min left until auto-dispute',
-    hoursMinutes: '~{{hours}} h {{minutes}} min left until auto-dispute',
+    expired: 'Trade window expired',
+    minutes: '~{{minutes}} min left in the trade window',
+    hoursMinutes: '~{{hours}} h {{minutes}} min left in the trade window',
   },
   settlement: {
     soonSuffix: '{{formatted}} (soon)',

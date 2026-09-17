@@ -57,6 +57,7 @@ export class TradesController {
       idempotencyKey,
       body.mode,
       body.reasonCode,
+      actor.role,
     );
   }
 
@@ -70,11 +71,19 @@ export class TradesController {
     if (!idempotencyKey) {
       throw new BadRequestException('Idempotency-Key header is required');
     }
-    return this.tradesService.mockTimeout(orderId, actor.sub, idempotencyKey);
+    return this.tradesService.mockTimeout(
+      orderId,
+      actor.sub,
+      idempotencyKey,
+      actor.role,
+    );
   }
 
   @Get(':id')
-  async getTrade(@Param('id') tradeId: string) {
-    return this.tradesService.getTradeById(tradeId);
+  async getTrade(
+    @CurrentUser() actor: AuthUser,
+    @Param('id') tradeId: string,
+  ) {
+    return this.tradesService.getTradeById(tradeId, actor.sub, actor.role);
   }
 }

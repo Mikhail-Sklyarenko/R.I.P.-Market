@@ -21,6 +21,9 @@ describe('UsersService (Steam identity)', () => {
     inventoryAsset: {
       updateMany: jest.Mock;
     };
+    lot: {
+      updateMany: jest.Mock;
+    };
   };
   let ledgerService: { ensureUserWallet: jest.Mock };
   let steamProfileService: { fetchPlayerSummary: jest.Mock };
@@ -37,6 +40,9 @@ describe('UsersService (Steam identity)', () => {
         deleteMany: jest.fn().mockResolvedValue({ count: 0 }),
       },
       inventoryAsset: {
+        updateMany: jest.fn().mockResolvedValue({ count: 0 }),
+      },
+      lot: {
         updateMany: jest.fn().mockResolvedValue({ count: 0 }),
       },
     };
@@ -116,11 +122,13 @@ describe('UsersService (Steam identity)', () => {
       id: 'user-x',
       role: UserRole.ADMIN,
       steamId: '76561198746622771',
+      status: UserStatus.ACTIVE,
     });
     prisma.user.update.mockResolvedValue({
       id: 'user-x',
       role: UserRole.BUYER,
       steamId: '76561198746622771',
+      status: UserStatus.ACTIVE,
     });
 
     const session = await service.resolveSessionUser('user-x');
@@ -129,7 +137,11 @@ describe('UsersService (Steam identity)', () => {
       where: { id: 'user-x' },
       data: { role: UserRole.BUYER },
     });
-    expect(session).toEqual({ sub: 'user-x', role: UserRole.BUYER });
+    expect(session).toEqual({
+      sub: 'user-x',
+      role: UserRole.BUYER,
+      status: UserStatus.ACTIVE,
+    });
     delete process.env.OWNER_ADMIN_STEAM_IDS;
   });
 

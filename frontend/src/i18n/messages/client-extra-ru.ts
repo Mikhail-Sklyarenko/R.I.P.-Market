@@ -11,7 +11,7 @@
 export const clientExtraRu = {
   ux: {
     savedTitle: "Избранное",
-    savedBody: "Предметы сохранены для этого аккаунта в этом браузере. Откройте предмет, чтобы проверить актуальные предложения.",
+    savedBody: "Предметы сохранены для этого аккаунта в этом браузере. Цены Steam и площадки — ориентир; откройте предмет, чтобы проверить актуальные предложения.",
     savedOpen: "Посмотреть предложения",
     savedRemove: "Убрать из избранного",
     savedAdd: "Сохранить в избранное",
@@ -413,9 +413,10 @@ export const clientExtraRu = {
     timeoutCritical:
       'Осталось меньше 5 минут. Если что-то пошло не так — нажмите «Проблема с обменом», пока спор не открылся сам.',
     timeoutExpired:
-      'Окно обмена закончилось — скоро может открыться автоматический спор. Опишите проблему, если сделка ещё не закрыта.',
+      'Окно обмена закончилось. Если что-то пошло не так — опишите проблему; деньги под защитой площадки.',
     problemCta: 'Проблема с обменом',
     openDisputeCta: 'Открыть спор',
+    contactSupportCta: 'Написать в поддержку',
     prefillHint:
       'Мы уже подставили ID сделки, offer и статус проверки — дополните, что случилось.',
   },
@@ -703,6 +704,7 @@ export const clientExtraRu = {
     title: 'Защищённая сделка',
     subtitle: 'Оплата в hold до подтверждения передачи в Steam.',
     stepsAria: 'Как работает защищённая сделка',
+    dismiss: 'Скрыть',
   },
   orderTrade: {
     instruction1: 'Откройте Trade URL покупателя в Steam.',
@@ -803,6 +805,7 @@ export const clientExtraRu = {
   tradeUrlBanner: {
     text: 'Укажите Trade URL в Steam — без него нельзя продавать и покупать скины.',
     action: 'Перейти в настройки',
+    dismiss: 'Позже',
   },
   oneGesturePair: {
     title: 'Подключите расширение R.I.P — один клик',
@@ -987,6 +990,8 @@ export const clientExtraRu = {
     noLots: 'нет лотов',
     na: 'н/д',
     from: 'от',
+    change7d: '7д',
+    change30d: '30д',
   },
   headerWallet: {
     titleWithHold: 'Кошелёк: доступно и средства в hold / заморозке',
@@ -1124,8 +1129,8 @@ export const clientExtraRu = {
     statusHistory: 'История статусов',
     supportLink: 'Написать в поддержку',
     supportLinkSuffix: ' — укажите ID сделки выше.',
-    timeoutRemaining: 'Осталось ~{{minutes}} мин. до автоматического спора.',
-    timeoutExpired: 'Время на обмен истекло — скоро может быть открыт спор.',
+    timeoutRemaining: 'Осталось ~{{minutes}} мин. на обмен.',
+    timeoutExpired: 'Время на обмен истекло.',
     amount: 'Сумма',
     onHold: 'На hold',
     youReceive: 'Вы получите',

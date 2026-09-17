@@ -25,7 +25,8 @@ import {
   saveSessionState,
   signMessage,
   type ExtensionSessionState,
-} from "../shared/storage.js";
+} from "../shared/storage.js"
+import { resolveLoggedInSteamId } from "../shared/steam-session.js";
 import {
   applyTaskUiTradeFlowFlag,
   setTaskUiTradeFlowOverride,
@@ -1124,6 +1125,7 @@ async function createInventoryLotFromRuntime(params: {
   steamAssetId: string;
   priceMinor: number;
   inventoryAssetId?: string | null;
+  marketHashName?: string | null;
 }): Promise<{
   ok: boolean;
   lotId?: string;
@@ -1194,10 +1196,53 @@ async function createInventoryLotFromRuntime(params: {
     }
 
     if (!inventoryAssetId) {
+      const marketHashName = params.marketHashName?.trim() || "";
+      const steamId = await resolveLoggedInSteamId();
+      if (marketHashName && steamId) {
+        const assistResponse = await fetch(
+          `${base}/extension/inventory/browser-assist`,
+          {
+            method: "POST",
+            headers,
+            body: JSON.stringify({
+              steamId,
+              assets: [
+                {
+                  assetId: params.steamAssetId,
+                  marketHashName,
+                  tradable: true,
+                  marketable: true,
+                },
+              ],
+              complete: false,
+            }),
+          },
+        );
+        if (assistResponse.ok) {
+          const refreshed = await fetch(`${base}/inventory`, {
+            headers: {
+              Authorization: headers.Authorization,
+              Accept: headers.Accept,
+            },
+          });
+          if (refreshed.ok) {
+            const body = (await refreshed.json()) as {
+              assets?: Array<{ id?: string; assetExternalId?: string }>;
+            };
+            inventoryAssetId = findPlatformAssetIdByExternalId(
+              body.assets ?? [],
+              params.steamAssetId,
+            );
+          }
+        }
+      }
+    }
+
+    if (!inventoryAssetId) {
       return {
         ok: false,
         error:
-          "Предмет ещё не в инвентаре площадки. Откройте «Мои продажи» на сайте и обновите инвентарь, затем повторите.",
+          "Предмет ещё не в инвентаре площадки. Нажмите «Синхронизировать с сайтом» в Steam-инвентаре или обновите инвентарь в «Мои продажи», затем повторите.",
         listingsUrl,
       };
     }
@@ -2123,6 +2168,9 @@ function handleTradeVerificationRuntimeMessage(
       priceMinor: Number(message.priceMinor),
       inventoryAssetId: message.inventoryAssetId
         ? String(message.inventoryAssetId)
+        : null,
+      marketHashName: message.marketHashName
+        ? String(message.marketHashName)
         : null,
     }).then(sendResponse);
     return true;

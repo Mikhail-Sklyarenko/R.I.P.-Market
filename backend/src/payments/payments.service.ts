@@ -719,18 +719,8 @@ export class PaymentsService {
             depositAddress: payload.address,
           },
         });
-      } else {
-        await tx.paymentIntent.updateMany({
-          where: {
-            userId: payload.externalUserId,
-            status: PaymentIntentStatus.PENDING,
-          },
-          data: {
-            status: PaymentIntentStatus.SUCCEEDED,
-            providerRef: payload.txHash,
-          },
-        });
       }
+      // No externalId: credit ledger only. Never bulk-mark all PENDING intents.
 
       await tx.outboxEvent.create({
         data: {

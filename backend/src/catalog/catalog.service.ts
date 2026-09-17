@@ -11,6 +11,7 @@ import {
 } from '../lots/listing-eligibility.util';
 import { ItemIconService } from './item-icon.service';
 import { SteamMarketPriceService } from './steam-market-price.service';
+import { SteamPriceHistoryService } from './steam-price-history.service';
 import type { ListCatalogItemsQueryDto } from './dto/list-catalog-items-query.dto';
 import { applyCatalogSkinTraitFilters } from './catalog-skin-trait-filter.util';
 import { deriveBaseMarketHashName } from '../item-definitions/base-market-hash-name.util';
@@ -49,6 +50,10 @@ export type CatalogItemRow = {
   orderCount30d: number;
   steamPriceMinor: number | null;
   steamPriceFetchedAt?: string | null;
+  /** % change vs ~7d Steam snapshot; null until history exists. */
+  steamPriceChange7dPct?: number | null;
+  /** % change vs ~30d Steam snapshot; null until history exists. */
+  steamPriceChange30dPct?: number | null;
   buffPriceMinor: number | null;
   csfloatPriceMinor: number | null;
   featuredLotId: string | null;
@@ -104,6 +109,7 @@ export class CatalogService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly steamMarketPrice: SteamMarketPriceService,
+    private readonly steamPriceHistory: SteamPriceHistoryService,
     private readonly itemIcons: ItemIconService,
   ) {}
 
@@ -153,8 +159,13 @@ export class CatalogService {
       this.loadActiveLotAggregates({}, { baseNames: [baseName] }),
       this.loadPopularStats({ baseNames: [baseName] }),
     ]);
+    const availableWears = parseAvailableWears(item.availableWears);
+    const steamLookupName = resolveCatalogCardDisplaySteamPriceName(
+      item.marketHashName,
+      availableWears,
+    );
     const steamPrices = await this.steamMarketPrice.getPricesWithMeta(
-      [item.marketHashName],
+      [steamLookupName, item.marketHashName],
       { cacheOnly: true },
     );
 
@@ -166,9 +177,22 @@ export class CatalogService {
       steamPrices,
       {},
     );
-    this.itemIcons.scheduleMissingIconRefresh([row]);
+    const displayEntry = steamPrices[steamLookupName] ?? steamPrices[item.marketHashName];
+    const changePcts = await this.steamPriceHistory.getChangePcts(
+      [steamLookupName],
+      { [steamLookupName]: displayEntry?.priceMinor ?? null },
+    );
+    const change = changePcts[steamLookupName];
+    const hydrated: CatalogItemRow = {
+      ...row,
+      steamPriceMinor: displayEntry?.priceMinor ?? row.steamPriceMinor,
+      steamPriceFetchedAt: displayEntry?.fetchedAt ?? row.steamPriceFetchedAt,
+      steamPriceChange7dPct: change?.steamPriceChange7dPct ?? null,
+      steamPriceChange30dPct: change?.steamPriceChange30dPct ?? null,
+    };
+    this.itemIcons.scheduleMissingIconRefresh([hydrated]);
 
-    return toJsonSafe(row);
+    return toJsonSafe(hydrated);
   }
 
   async listPopular(limit = 12) {
@@ -298,13 +322,25 @@ export class CatalogService {
       { cacheOnly: true },
     );
 
+    const currentByName: Record<string, number | null> = {};
+    for (const name of steamLookupNames) {
+      currentByName[name] = steamPrices[name]?.priceMinor ?? null;
+    }
+    const changePcts = await this.steamPriceHistory.getChangePcts(
+      steamLookupNames,
+      currentByName,
+    );
+
     const hydratedRows = rows.map((row) => {
       const lookupName = steamLookupByRowId.get(row.id) ?? row.marketHashName;
       const steamEntry = steamPrices[lookupName];
+      const change = changePcts[lookupName];
       return {
         ...row,
         steamPriceMinor: steamEntry?.priceMinor ?? null,
         steamPriceFetchedAt: steamEntry?.fetchedAt ?? null,
+        steamPriceChange7dPct: change?.steamPriceChange7dPct ?? null,
+        steamPriceChange30dPct: change?.steamPriceChange30dPct ?? null,
       };
     });
 

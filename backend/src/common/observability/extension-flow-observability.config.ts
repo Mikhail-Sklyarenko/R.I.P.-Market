@@ -3,10 +3,8 @@ export function isExtensionFlowObservabilityEnabled(): boolean {
 }
 
 export function isExtensionRateLimitsEnabled(): boolean {
-  return (
-    isExtensionFlowObservabilityEnabled() &&
-    process.env.ENABLE_EXTENSION_RATE_LIMITS === 'true'
-  );
+  // Default on; set ENABLE_EXTENSION_RATE_LIMITS=false for local/e2e soak.
+  return process.env.ENABLE_EXTENSION_RATE_LIMITS !== 'false';
 }
 
 export function isExtensionAntiFraudEnabled(): boolean {

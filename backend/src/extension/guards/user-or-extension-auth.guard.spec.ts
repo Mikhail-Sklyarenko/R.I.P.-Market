@@ -48,7 +48,11 @@ describe('UserOrExtensionAuthGuard (I3)', () => {
     const usersService = {
       resolveSessionUser:
         overrides?.resolveSessionUser ??
-        jest.fn().mockResolvedValue({ sub: 'user-1', role: 'SELLER' }),
+        jest.fn().mockResolvedValue({
+          sub: 'user-1',
+          role: 'SELLER',
+          status: 'ACTIVE',
+        }),
     } as unknown as UsersService;
     return new UserOrExtensionAuthGuard(extensionSecurity, usersService);
   }
@@ -95,7 +99,11 @@ describe('UserOrExtensionAuthGuard (I3)', () => {
 
     await expect(guard.canActivate(context)).resolves.toBe(true);
     expect(validateExtensionToken).toHaveBeenCalledWith(token);
-    expect(request.user).toEqual({ sub: 'user-1', role: 'SELLER' });
+    expect(request.user).toEqual({
+      sub: 'user-1',
+      role: 'SELLER',
+      status: 'ACTIVE',
+    });
     expect(request.extensionAuth).toEqual({
       sessionId: 'sid-1',
       userId: 'user-1',

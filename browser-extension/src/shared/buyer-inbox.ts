@@ -111,7 +111,11 @@ export function resolveTradeTimeoutRemainingMinutes(
 export function formatBuyerTimeoutLabel(
   remainingMinutes: number | null,
   locale: ExtensionLocale = DEFAULT_EXTENSION_LOCALE,
+  options?: { disputeOpen?: boolean },
 ): string | null {
+  if (options?.disputeOpen) {
+    return null;
+  }
   if (remainingMinutes === null) {
     return null;
   }
@@ -311,7 +315,9 @@ export function buildBuyerInboxCard(
     showPreAccept: acks.showPreAccept,
     showConfirmReceived: acks.showConfirmReceived,
     timeoutRemainingMinutes,
-    timeoutLabel: formatBuyerTimeoutLabel(timeoutRemainingMinutes, locale),
+    timeoutLabel: formatBuyerTimeoutLabel(timeoutRemainingMinutes, locale, {
+      disputeOpen: trade.orderStatus === 'DISPUTE',
+    }),
     problemHref: buildBuyerProblemSupportUrl(trade),
     cta: next,
     settlement: buildSettlementTransparency(trade, { locale }),

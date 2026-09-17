@@ -680,7 +680,7 @@ export function OrderPage() {
                       )}
                       data-testid="order-open-dispute-cta"
                     >
-                      {t('tradeEscalation.openDisputeCta')}
+                      {t('tradeEscalation.contactSupportCta')}
                     </Link>
                   </p>
                 </div>

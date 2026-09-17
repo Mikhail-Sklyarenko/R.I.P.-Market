@@ -45,6 +45,9 @@ describe('CatalogPriceBulkImportService (Steam-direct)', () => {
     const service = new CatalogPriceBulkImportService(
       prisma as never,
       steamPrices,
+      {
+        recordSnapshotIfNeeded: jest.fn().mockResolvedValue(undefined),
+      } as never,
     );
 
     const result = await service.importCatalogPrices();

@@ -1,12 +1,19 @@
-import { assertProductionConfig } from './common/production-config';
+import { assertProductionConfig, assertMoneyStagingSafety } from './common/production-config';
 import { NestFactory } from '@nestjs/core';
-import { ValidationPipe } from '@nestjs/common';
+import { Logger, ValidationPipe } from '@nestjs/common';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { AppModule } from './app.module';
 import { GlobalExceptionFilter } from './common/errors/global-exception.filter';
 
 async function bootstrap() {
   assertProductionConfig();
+  const moneyWarnings = assertMoneyStagingSafety();
+  if (moneyWarnings.length > 0) {
+    const logger = new Logger('MoneyStagingSafety');
+    for (const warning of moneyWarnings) {
+      logger.warn(warning);
+    }
+  }
   // rawBody required for NORTH / crypto gateway HMAC (X-Gateway-Signature).
   const app = await NestFactory.create(AppModule, { rawBody: true });
   app.setGlobalPrefix('api/v1');

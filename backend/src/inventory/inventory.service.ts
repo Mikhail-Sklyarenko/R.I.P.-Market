@@ -87,7 +87,7 @@ export class InventoryService {
     // Gating by SELLER blocked first-sale onboarding (FORBIDDEN on «Обновить из Steam»).
 
     if (!force) {
-      const soft = await this.tryServeCachedInventory(ownerId);
+      const soft = await this.tryServeCachedInventory(ownerId, user.steamId);
       if (soft) {
         return this.attachBackgroundSync(
           ownerId,
@@ -100,7 +100,7 @@ export class InventoryService {
     } else {
       // Force refresh: never block the seller UI on Steam when we already have
       // items to show. Return cache immediately and sync in the background.
-      const soft = await this.tryServeCachedInventory(ownerId);
+      const soft = await this.tryServeCachedInventory(ownerId, user.steamId);
       const cachedAssets = soft?.result.assets;
       if (
         soft &&
@@ -138,14 +138,32 @@ export class InventoryService {
    * Serve DB assets immediately when we already have a prior sync.
    * Fresh cache → no Steam wait. Expired cache → stale payload + background refresh.
    */
+  /**
+   * Drop queued soft-cache background work (best-effort). Mid-flight Steam
+   * writes are discarded in SteamInventoryProvider when steamId no longer matches.
+   */
+  invalidateAfterSteamChange(ownerId: string): void {
+    this.backgroundSyncInflight.delete(ownerId);
+  }
+
   private async tryServeCachedInventory(
     ownerId: string,
+    expectedSteamId: string | null | undefined,
   ): Promise<{ result: InventoryListResult; refreshInBackground: boolean } | null> {
     const latest = await this.prisma.inventorySyncRun.findFirst({
       where: { userId: ownerId },
       orderBy: { fetchedAt: 'desc' },
     });
     if (!latest) {
+      return null;
+    }
+
+    // Soft cache must belong to the currently linked Steam account.
+    if (
+      !expectedSteamId ||
+      !latest.steamId ||
+      latest.steamId !== expectedSteamId
+    ) {
       return null;
     }
 
@@ -341,6 +359,7 @@ export class InventoryService {
       (process.env.ENABLE_MOCK_TRADE === 'true' &&
         getProvidersConfig().inventory === 'mock') ||
       !latest ||
+      Boolean(steamId && latest.steamId && latest.steamId !== steamId) ||
       latest.expiresAt <= new Date() ||
       latest.status !== 'SUCCESS';
 

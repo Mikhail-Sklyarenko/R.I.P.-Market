@@ -8,28 +8,17 @@ import {
   isExtensionRuntimeAvailable,
   pairExtension,
 } from '../utils/extension';
-
-const DISMISS_KEY = 'rip.extension.oneGesturePair.dismissed';
-
-function isDismissed(): boolean {
-  try {
-    return sessionStorage.getItem(DISMISS_KEY) === '1';
-  } catch {
-    return false;
-  }
-}
-
-function markDismissed(): void {
-  try {
-    sessionStorage.setItem(DISMISS_KEY, '1');
-  } catch {
-    /* ignore */
-  }
-}
+import {
+  UI_DISMISS_KEYS,
+  UI_DISMISS_TTL,
+  isUiDismissed,
+  markUiDismissed,
+} from '../utils/ui-dismiss';
 
 /**
  * T3b: one-gesture pair — soft site-wide prompt when the extension is
  * installed but not yet paired. Requires an explicit click (no silent pair).
+ * Dismiss lasts one week (localStorage), not just the current tab session.
  */
 export function OneGestureExtensionPairBanner() {
   const { t, locale } = useLocale();
@@ -37,7 +26,11 @@ export function OneGestureExtensionPairBanner() {
   const location = useLocation();
   const [channelEnabled, setChannelEnabled] = useState(false);
   const [connected, setConnected] = useState(true);
-  const [dismissed, setDismissed] = useState(isDismissed);
+  const [dismissed, setDismissed] = useState(() =>
+    isUiDismissed(UI_DISMISS_KEYS.oneGesturePair, {
+      ttlMs: UI_DISMISS_TTL.week,
+    }),
+  );
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const runtimeAvailable = isExtensionRuntimeAvailable();
@@ -104,7 +97,9 @@ export function OneGestureExtensionPairBanner() {
     setLoading(false);
     if (result.ok) {
       await refresh();
-      markDismissed();
+      markUiDismissed(UI_DISMISS_KEYS.oneGesturePair, {
+        ttlMs: UI_DISMISS_TTL.week,
+      });
       setDismissed(true);
       return;
     }
@@ -112,7 +107,9 @@ export function OneGestureExtensionPairBanner() {
   }
 
   function handleDismiss() {
-    markDismissed();
+    markUiDismissed(UI_DISMISS_KEYS.oneGesturePair, {
+      ttlMs: UI_DISMISS_TTL.week,
+    });
     setDismissed(true);
   }
 

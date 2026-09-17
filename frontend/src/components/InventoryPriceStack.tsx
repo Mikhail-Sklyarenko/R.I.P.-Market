@@ -4,6 +4,8 @@ import { MoneyDisplay } from './MoneyDisplay';
 type PriceStackProps = {
   steamPriceMinor?: number | null;
   marketplacePriceMinor?: string | null;
+  steamPriceChange7dPct?: number | null;
+  steamPriceChange30dPct?: number | null;
   testIdPrefix: string;
   loading?: boolean;
   requireSteamPrice?: boolean;
@@ -15,6 +17,67 @@ type PriceStackProps = {
    */
   context?: 'buyer' | 'seller';
 };
+
+function formatChangePct(value: number): string {
+  const rounded = Math.round(value * 10) / 10;
+  const sign = rounded > 0 ? '+' : '';
+  return `${sign}${rounded}%`;
+}
+
+function SteamPriceChangeRow({
+  change7dPct,
+  change30dPct,
+  testIdPrefix,
+}: {
+  change7dPct?: number | null;
+  change30dPct?: number | null;
+  testIdPrefix: string;
+}) {
+  const { t } = useLocale();
+  const has7 =
+    change7dPct != null && Number.isFinite(change7dPct);
+  const has30 =
+    change30dPct != null && Number.isFinite(change30dPct);
+  if (!has7 && !has30) {
+    return null;
+  }
+  return (
+    <p
+      className="inventory-price-change muted small"
+      data-testid={`${testIdPrefix}-steam-change`}
+    >
+      {has7 ? (
+        <span
+          className={
+            change7dPct! > 0
+              ? 'price-change-up'
+              : change7dPct! < 0
+                ? 'price-change-down'
+                : 'price-change-flat'
+          }
+          data-testid={`${testIdPrefix}-steam-change-7d`}
+        >
+          {t('inventoryPriceStack.change7d')} {formatChangePct(change7dPct!)}
+        </span>
+      ) : null}
+      {has7 && has30 ? <span aria-hidden="true"> · </span> : null}
+      {has30 ? (
+        <span
+          className={
+            change30dPct! > 0
+              ? 'price-change-up'
+              : change30dPct! < 0
+                ? 'price-change-down'
+                : 'price-change-flat'
+          }
+          data-testid={`${testIdPrefix}-steam-change-30d`}
+        >
+          {t('inventoryPriceStack.change30d')} {formatChangePct(change30dPct!)}
+        </span>
+      ) : null}
+    </p>
+  );
+}
 
 function PriceStackSkeleton({ testIdPrefix }: { testIdPrefix: string }) {
   return (
@@ -32,6 +95,8 @@ function PriceStackSkeleton({ testIdPrefix }: { testIdPrefix: string }) {
 export function InventoryPriceStack({
   steamPriceMinor,
   marketplacePriceMinor,
+  steamPriceChange7dPct = null,
+  steamPriceChange30dPct = null,
   testIdPrefix,
   loading = false,
   requireSteamPrice = false,
@@ -39,6 +104,13 @@ export function InventoryPriceStack({
   context = 'buyer',
 }: PriceStackProps) {
   const { t } = useLocale();
+  const changeRow = (
+    <SteamPriceChangeRow
+      change7dPct={steamPriceChange7dPct}
+      change30dPct={steamPriceChange30dPct}
+      testIdPrefix={testIdPrefix}
+    />
+  );
   if (loading && !steamPriceMinor && !marketplacePriceMinor) {
     if (compact) {
       return (
@@ -74,6 +146,7 @@ export function InventoryPriceStack({
           <MoneyDisplay minor={steamPriceMinor!} strong />
           <span className="guide-price-caption">{t('ux.steamGuideOnly')}</span>
         </p>
+        {changeRow}
       </div>
     );
   }
@@ -106,6 +179,7 @@ export function InventoryPriceStack({
             {marketplacePriceMinor}
           </span>
         )}
+        {changeRow}
       </div>
     );
   }

@@ -814,6 +814,7 @@ const baseEnMessages = {
   },
   extensionAwareCommerce: {
     accountLink: 'Open account to connect the extension',
+    dismiss: 'Later',
   },
   oneGesturePair: {
     title: 'Connect the R.I.P extension — one click',

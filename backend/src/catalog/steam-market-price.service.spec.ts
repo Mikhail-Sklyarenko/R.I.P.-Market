@@ -10,9 +10,16 @@ function createService() {
       upsert: jest.fn().mockResolvedValue({}),
     },
   };
+  const steamPriceHistory = {
+    recordSnapshotIfNeeded: jest.fn().mockResolvedValue(undefined),
+  };
   return {
-    service: new SteamMarketPriceService(prisma as never),
+    service: new SteamMarketPriceService(
+      prisma as never,
+      steamPriceHistory as never,
+    ),
     prisma,
+    steamPriceHistory,
   };
 }
 

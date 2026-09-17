@@ -5,16 +5,19 @@ import {
   Get,
   Post,
   Query,
+  Req,
   Res,
   UseGuards,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiQuery, ApiTags } from '@nestjs/swagger';
-import type { Response } from 'express';
+import type { Request, Response } from 'express';
 import { CurrentUser } from '../common/current-user.decorator';
 import type { AuthUser } from '../common/auth-user.interface';
 import { AppException } from '../common/errors/app.exception';
 import { ErrorCode } from '../common/errors/error-codes';
+import { SensitiveRateLimitService } from '../common/observability/sensitive-rate-limit.service';
 import { getPublicSiteOriginFromEnv } from '../common/public-site-url.util';
+import { getRequestClientIp } from '../common/request-client-ip.util';
 import { getProvidersConfig } from '../providers/config';
 import { getPaymentConfig } from '../providers/payment/payment.config';
 import { isRealSettlementEnabled } from '../settlement/settlement.config';
@@ -31,7 +34,10 @@ import { JwtAuthGuard } from './jwt-auth.guard';
 @ApiTags('auth')
 @Controller('auth')
 export class AuthController {
-  constructor(private readonly authService: AuthService) {}
+  constructor(
+    private readonly authService: AuthService,
+    private readonly sensitiveRateLimit: SensitiveRateLimitService,
+  ) {}
 
   @Get('config')
   getConfig() {
@@ -87,12 +93,13 @@ export class AuthController {
     };
   }
 
-  @ApiQuery({ name: 'returnUrl', required: true })
+  @ApiQuery({ name: 'returnUrl', required: false })
   @Get('steam/login-url')
-  getSteamLoginUrl(@Query('returnUrl') returnUrl?: string) {
-    if (!returnUrl) {
-      throw new BadRequestException('returnUrl query parameter is required');
-    }
+  getSteamLoginUrl(
+    @Req() req: Request,
+    @Query('returnUrl') returnUrl?: string,
+  ) {
+    this.sensitiveRateLimit.assertSteamLoginUrl(getRequestClientIp(req));
     const result = this.authService.getSteamLoginUrl(returnUrl);
     if (!result) {
       throw new BadRequestException(
@@ -167,7 +174,8 @@ export class AuthController {
   }
 
   @Post('mock-login')
-  async mockLogin(@Body() body: MockLoginDto) {
+  async mockLogin(@Req() req: Request, @Body() body: MockLoginDto) {
+    this.sensitiveRateLimit.assertMockLogin(getRequestClientIp(req));
     return this.authService.mockLogin(body);
   }
 

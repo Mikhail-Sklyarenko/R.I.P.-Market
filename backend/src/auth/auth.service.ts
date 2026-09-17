@@ -7,6 +7,7 @@ import {
   Injectable,
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
+import { UserRole } from '@prisma/client';
 import { MockAuthProvider } from '../providers/auth/mock-auth.provider';
 import { getProvidersConfig } from '../providers/config';
 import { AUTH_PROVIDER } from '../providers/tokens';
@@ -18,7 +19,7 @@ import { ErrorCode } from '../common/errors/error-codes';
 import { getPublicSiteOriginFromEnv } from '../common/public-site-url.util';
 import { UsersService } from '../users/users.service';
 import { MockLoginDto } from './dto/mock-login.dto';
-import { getApiPublicBaseUrl } from './steam-api-base.util';
+import { getSteamOpenIdCallbackUrl } from './steam-openid-return-to.util';
 
 const STEAM_LINK_PURPOSE = 'steam_link';
 const STEAM_LINK_EXPIRES_IN = '10m';
@@ -44,6 +45,15 @@ export class AuthService {
     ) {
       throw new BadRequestException(
         'Mock login is disabled when AUTH_PROVIDER=steam',
+      );
+    }
+
+    if (
+      dto.role === UserRole.ADMIN &&
+      process.env.ALLOW_MOCK_ADMIN_LOGIN !== 'true'
+    ) {
+      throw new BadRequestException(
+        'Mock admin login requires ALLOW_MOCK_ADMIN_LOGIN=true',
       );
     }
 
@@ -89,7 +99,7 @@ export class AuthService {
   async getSteamLinkLoginUrl(userId: string) {
     this.requireSteamProvider();
     const linkState = await this.createSteamLinkState(userId);
-    const returnUrl = `${getApiPublicBaseUrl()}/auth/steam/callback?link_state=${encodeURIComponent(linkState)}`;
+    const returnUrl = `${getSteamOpenIdCallbackUrl()}?link_state=${encodeURIComponent(linkState)}`;
     return this.getSteamLoginUrl(returnUrl);
   }
 
@@ -114,12 +124,35 @@ export class AuthService {
     });
   }
 
-  getSteamLoginUrl(returnUrl: string) {
+  /**
+   * Build Steam OpenID login URL.
+   * return_to is always server-controlled. Optional `returnUrl` is accepted only
+   * when it already matches our callback (legacy FE); otherwise ignored.
+   */
+  getSteamLoginUrl(returnUrl?: string) {
     if (!this.authProvider.getSteamLoginUrl) {
       return null;
     }
+    const callback = getSteamOpenIdCallbackUrl();
+    let openIdReturnTo = callback;
+    if (returnUrl) {
+      try {
+        const requested = new URL(returnUrl);
+        const expected = new URL(callback);
+        if (
+          requested.protocol === expected.protocol &&
+          requested.host === expected.host &&
+          requested.pathname === expected.pathname
+        ) {
+          // Preserve safe query (e.g. link_state) only when path matches.
+          openIdReturnTo = returnUrl;
+        }
+      } catch {
+        openIdReturnTo = callback;
+      }
+    }
     return {
-      url: this.authProvider.getSteamLoginUrl(returnUrl),
+      url: this.authProvider.getSteamLoginUrl(openIdReturnTo),
       provider: this.authProvider.type,
     };
   }

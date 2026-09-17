@@ -5,7 +5,7 @@
 export const clientExtraEn = {
   ux: {
     savedTitle: "Saved items",
-    savedBody: "Items are saved for this account in this browser. Open an item to check current offers.",
+    savedBody: "Items are saved for this account in this browser. Steam and marketplace prices are a guide; open an item to check current offers.",
     savedOpen: "View offers",
     savedRemove: "Remove from saved",
     savedAdd: "Save item",
@@ -408,9 +408,10 @@ export const clientExtraEn = {
     timeoutCritical:
       'Under 5 minutes left. If something went wrong, tap “Trade problem” before a dispute opens on its own.',
     timeoutExpired:
-      'The trade window ended — an automatic dispute may open soon. Describe the issue if the deal is still open.',
+      'The trade window ended. If something went wrong, describe the issue — funds stay protected.',
     problemCta: 'Trade problem',
     openDisputeCta: 'Open dispute',
+    contactSupportCta: 'Contact support',
     prefillHint:
       'We already filled deal ID, offer, and verify status — add what went wrong.',
   },
@@ -695,6 +696,7 @@ export const clientExtraEn = {
     title: 'Protected deal',
     subtitle: 'Funds stay in hold until the Steam transfer is confirmed.',
     stepsAria: 'How a protected deal works',
+    dismiss: 'Hide',
   },
   orderTrade: {
     instruction1: "Open the buyer's Trade URL in Steam.",
@@ -790,6 +792,7 @@ export const clientExtraEn = {
   tradeUrlBanner: {
     text: 'Add your Trade URL in Steam — you cannot buy or sell skins without it.',
     action: 'Go to settings',
+    dismiss: 'Later',
   },
   oneGesturePair: {
     title: 'Connect the R.I.P extension — one click',
@@ -972,6 +975,8 @@ export const clientExtraEn = {
     noLots: 'no listings',
     na: 'n/a',
     from: 'from',
+    change7d: '7d',
+    change30d: '30d',
   },
   headerWallet: {
     titleWithHold: 'Wallet: available and funds on hold / frozen',
@@ -1109,8 +1114,8 @@ export const clientExtraEn = {
     statusHistory: 'Status history',
     supportLink: 'Contact support',
     supportLinkSuffix: ' — include the deal ID above.',
-    timeoutRemaining: '~{{minutes}} min left before an automatic dispute.',
-    timeoutExpired: 'Trade time expired — a dispute may open soon.',
+    timeoutRemaining: '~{{minutes}} min left in the trade window.',
+    timeoutExpired: 'Trade time expired.',
     amount: 'Amount',
     onHold: 'On hold',
     youReceive: 'You receive',

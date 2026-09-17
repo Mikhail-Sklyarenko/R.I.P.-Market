@@ -45,10 +45,10 @@ describe('resolveTradeTimeoutView', () => {
 });
 
 describe('shouldShowTradeTimeout', () => {
-  it('shows during trade / dispute window', () => {
+  it('shows during active trade window, not after dispute opens', () => {
     assert.equal(shouldShowTradeTimeout('WAITING_TRADE'), true);
     assert.equal(shouldShowTradeTimeout('TRADE_CONFIRMED'), true);
-    assert.equal(shouldShowTradeTimeout('DISPUTE'), true);
+    assert.equal(shouldShowTradeTimeout('DISPUTE'), false);
     assert.equal(shouldShowTradeTimeout('COMPLETED'), false);
   });
 });

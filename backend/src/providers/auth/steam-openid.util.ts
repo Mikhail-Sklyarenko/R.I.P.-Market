@@ -1,4 +1,5 @@
 import { steamFetch } from '../../common/steam/steam-http.client';
+import { isAllowedSteamOpenIdReturnTo } from '../../auth/steam-openid-return-to.util';
 
 export const STEAM_OPENID_ENDPOINT = 'https://steamcommunity.com/openid/login';
 
@@ -57,6 +58,10 @@ export async function verifySteamOpenId(
   postFn: OpenIdPostFn = defaultOpenIdPost,
 ): Promise<SteamOpenIdVerifyResult> {
   if (openidParams['openid.mode'] !== 'id_res') {
+    return { ok: false, reason: 'invalid' };
+  }
+
+  if (!isAllowedSteamOpenIdReturnTo(openidParams['openid.return_to'])) {
     return { ok: false, reason: 'invalid' };
   }
 

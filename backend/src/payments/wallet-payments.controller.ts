@@ -12,6 +12,7 @@ import { ApiBearerAuth, ApiHeader, ApiTags } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { CurrentUser } from '../common/current-user.decorator';
 import type { AuthUser } from '../common/auth-user.interface';
+import { SensitiveRateLimitService } from '../common/observability/sensitive-rate-limit.service';
 import { CreateDepositCheckoutDto } from './dto/create-deposit-checkout.dto';
 import { CreateWithdrawalDto } from './dto/create-withdrawal.dto';
 import { PaymentsService } from './payments.service';
@@ -21,7 +22,10 @@ import { PaymentsService } from './payments.service';
 @UseGuards(JwtAuthGuard)
 @Controller('wallet')
 export class WalletPaymentsController {
-  constructor(private readonly paymentsService: PaymentsService) {}
+  constructor(
+    private readonly paymentsService: PaymentsService,
+    private readonly sensitiveRateLimit: SensitiveRateLimitService,
+  ) {}
 
   @Get('deposit')
   async getDeposit(@CurrentUser() user: AuthUser) {
@@ -33,6 +37,7 @@ export class WalletPaymentsController {
     @CurrentUser() user: AuthUser,
     @Body() body: CreateDepositCheckoutDto,
   ) {
+    this.sensitiveRateLimit.assertDepositCheckout(user.sub);
     return this.paymentsService.createDepositCheckout({
       userId: user.sub,
       amountMinor: body.amountMinor,
@@ -56,6 +61,8 @@ export class WalletPaymentsController {
     if (!idempotencyKey) {
       throw new BadRequestException('Idempotency-Key header is required');
     }
+
+    this.sensitiveRateLimit.assertWithdrawal(user.sub);
 
     return this.paymentsService.createWithdrawal({
       userId: user.sub,

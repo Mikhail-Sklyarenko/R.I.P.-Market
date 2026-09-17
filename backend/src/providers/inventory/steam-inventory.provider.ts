@@ -139,6 +139,27 @@ export class SteamInventoryProvider implements InventoryProvider {
       const parsed = parseSteamInventoryResponse(response);
       const isPartial = response.more_items === 1;
 
+      // Abort writes if the user re-linked/unlinked Steam while we were fetching.
+      const userNow = await this.prisma.user.findUnique({
+        where: { id: ownerId },
+        select: { steamId: true },
+      });
+      if (!userNow?.steamId || userNow.steamId !== steamId) {
+        this.logger.warn(
+          `Discarding inventory sync for ${ownerId}: SteamID changed mid-flight (${maskSteamId(steamId)})`,
+        );
+        return {
+          status: 'FAILED',
+          itemCount: 0,
+          fetchedAt: now,
+          expiresAt: now,
+          cacheHit: false,
+          stale: true,
+          warning: 'Steam account changed during sync — refresh again',
+          errorCode: 'STEAM_ACCOUNT_CHANGED',
+        };
+      }
+
       await this.upsertParsedAssets(ownerId, parsed);
       if (!isPartial) {
         await this.markMissingAssetsRemoved(

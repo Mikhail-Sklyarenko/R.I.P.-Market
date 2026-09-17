@@ -104,7 +104,7 @@ export const extensionMessagesRu: ExtensionMessageTree = {
   },
   nextAction: {
     hintDisputeOpen:
-      'Спор уже открыт — данные проверки уйдёт в тикет. Не принимайте другие офферы.',
+      'Спор уже открыт — данные проверки уйдут в тикет. Не принимайте другие офферы.',
     hintMismatch:
       'Не принимайте обмен в Steam. Данные заказа и проверки подставится в тикет.',
     hintGuard: 'Расширение Guard не подтверждает — только вы в Steam Mobile.',
@@ -170,9 +170,9 @@ export const extensionMessagesRu: ExtensionMessageTree = {
     dispute: 'Спор / проблема',
   },
   timeout: {
-    expired: 'Время на обмен истекло — скоро может открыться спор',
-    minutes: 'Осталось ~{{minutes}} мин до автоспора',
-    hoursMinutes: 'Осталось ~{{hours}} ч {{minutes}} мин до автоспора',
+    expired: 'Время на обмен истекло',
+    minutes: 'Осталось ~{{minutes}} мин на обмен',
+    hoursMinutes: 'Осталось ~{{hours}} ч {{minutes}} мин на обмен',
   },
   settlement: {
     soonSuffix: '{{formatted}} (скоро)',

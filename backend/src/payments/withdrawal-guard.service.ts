@@ -7,6 +7,7 @@ import {
   Prisma,
   OrderStatus,
   UserRole,
+  UserStatus,
   WithdrawalRequestStatus,
 } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
@@ -29,11 +30,15 @@ export class WithdrawalGuardService {
     const config = getPaymentConfig();
     const user = await client.user.findUnique({
       where: { id: userId },
-      select: { id: true, steamId: true, role: true },
+      select: { id: true, steamId: true, role: true, status: true },
     });
 
     if (!user) {
       throw new BadRequestException('User not found');
+    }
+
+    if (user.status === UserStatus.SUSPENDED) {
+      throw new ForbiddenException('Account is suspended');
     }
 
     if (config.withdrawRequireSteamLinked && !user.steamId) {

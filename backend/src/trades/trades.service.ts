@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  ForbiddenException,
   Inject,
   Injectable,
   Logger,
@@ -76,15 +77,16 @@ export class TradesService {
       return this.getOrderDetails(orderId);
     }
 
+    this.assertMockTradeHttpAllowed(actorRole);
+
     if (isShadowVerificationMode()) {
       return this.mockSuccessShadowCompare(
         orderId,
         actorUserId,
         idempotencyKey,
+        actorRole,
       );
     }
-
-    this.assertMockTradeAllowed(actorRole);
 
     const useGuardedSettlement =
       isLiveVerificationMode() && isRealSettlementEnabled();
@@ -104,6 +106,7 @@ export class TradesService {
       if (!current || !current.hold || !current.tradeOperation) {
         throw new NotFoundException('Trade operation not found');
       }
+      this.assertOrderParty(current, actorUserId, actorRole);
       if (current.status !== OrderStatus.WAITING_TRADE) {
         throw new BadRequestException('Order is not in WAITING_TRADE status');
       }
@@ -221,7 +224,11 @@ export class TradesService {
     return toJsonSafe(order);
   }
 
-  private assertMockTradeAllowed(actorRole: UserRole) {
+  /** HTTP mock-trade endpoints require an explicit flag (fail-closed). */
+  private assertMockTradeHttpAllowed(actorRole: UserRole) {
+    if (process.env.ENABLE_MOCK_TRADE !== 'true') {
+      throw new ForbiddenException('Mock trade endpoints are disabled');
+    }
     if (
       isLiveVerificationMode() &&
       isRealSettlementEnabled() &&
@@ -233,10 +240,28 @@ export class TradesService {
     }
   }
 
+  private assertOrderParty(
+    order: { buyerId: string; sellerId: string },
+    actorUserId: string,
+    actorRole: UserRole,
+  ) {
+    if (actorUserId === 'system') {
+      return;
+    }
+    if (actorRole === UserRole.ADMIN) {
+      return;
+    }
+    if (actorUserId === order.buyerId || actorUserId === order.sellerId) {
+      return;
+    }
+    throw new ForbiddenException('Not a party to this order');
+  }
+
   private async mockSuccessShadowCompare(
     orderId: string,
     actorUserId: string,
     idempotencyKey: string,
+    actorRole: UserRole,
   ) {
     const order = await this.prisma.$transaction(async (tx) => {
       const current = await tx.order.findUnique({
@@ -247,6 +272,7 @@ export class TradesService {
       if (!current || !current.tradeOperation) {
         throw new NotFoundException('Trade operation not found');
       }
+      this.assertOrderParty(current, actorUserId, actorRole);
       if (current.status !== OrderStatus.WAITING_TRADE) {
         throw new BadRequestException('Order is not in WAITING_TRADE status');
       }
@@ -356,9 +382,15 @@ export class TradesService {
     idempotencyKey: string,
     mode: MockFailMode,
     reasonCode?: string,
+    actorRole: UserRole = UserRole.BUYER,
   ) {
     if (!idempotencyKey) {
       throw new BadRequestException('Idempotency-Key header is required');
+    }
+
+    // Internal poll/system path may call with actorUserId=system without the HTTP flag.
+    if (actorUserId !== 'system') {
+      this.assertMockTradeHttpAllowed(actorRole);
     }
 
     const existingAudit = await this.prisma.auditLog.findFirst({
@@ -385,6 +417,7 @@ export class TradesService {
       if (!current || !current.hold || !current.tradeOperation) {
         throw new NotFoundException('Trade operation not found');
       }
+      this.assertOrderParty(current, actorUserId, actorRole);
       if (current.status !== OrderStatus.WAITING_TRADE) {
         throw new BadRequestException('Order is not in WAITING_TRADE status');
       }
@@ -540,7 +573,17 @@ export class TradesService {
     orderId: string,
     actorUserId: string,
     idempotencyKey: string,
+    actorRole: UserRole,
   ) {
+    this.assertMockTradeHttpAllowed(actorRole);
+    const order = await this.prisma.order.findUnique({
+      where: { id: orderId },
+      select: { buyerId: true, sellerId: true },
+    });
+    if (!order) {
+      throw new NotFoundException('Trade operation not found');
+    }
+    this.assertOrderParty(order, actorUserId, actorRole);
     return this.applyTradeTimeout(orderId, {
       actorUserId,
       idempotencyKey,
@@ -1107,7 +1150,11 @@ export class TradesService {
     return toJsonSafe(order);
   }
 
-  async getTradeById(tradeId: string) {
+  async getTradeById(
+    tradeId: string,
+    actorUserId: string,
+    actorRole: UserRole,
+  ) {
     const trade = await this.prisma.tradeOperation.findUnique({
       where: { id: tradeId },
       include: {
@@ -1128,6 +1175,7 @@ export class TradesService {
       throw new NotFoundException('Trade operation not found');
     }
 
+    this.assertOrderParty(trade.order, actorUserId, actorRole);
     return toJsonSafe(trade);
   }
 

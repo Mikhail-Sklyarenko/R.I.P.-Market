@@ -2015,6 +2015,7 @@ async function submitSellFromPanel(
       type: TRADE_VERIFICATION_RUNTIME.CREATE_INVENTORY_LOT,
       steamAssetId: ctx.assetId,
       inventoryAssetId: ctx.inventoryAssetId,
+      marketHashName: ctx.marketHashName,
       priceMinor,
     })) as {
       ok?: boolean;

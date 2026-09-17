@@ -16,16 +16,21 @@ import { Roles } from '../auth/roles.decorator';
 import { RolesGuard } from '../auth/roles.guard';
 import { CurrentUser } from '../common/current-user.decorator';
 import type { AuthUser } from '../common/auth-user.interface';
+import { SensitiveRateLimitService } from '../common/observability/sensitive-rate-limit.service';
 import { ManualAdjustmentDto } from './dto/manual-adjustment.dto';
 import { MockDepositDto } from './dto/mock-deposit.dto';
 import { WalletService } from './wallet.service';
+import { getPaymentConfig } from '../providers/payment/payment.config';
 
 @ApiTags('wallet')
 @ApiBearerAuth()
 @UseGuards(JwtAuthGuard)
 @Controller('wallet')
 export class WalletController {
-  constructor(private readonly walletService: WalletService) {}
+  constructor(
+    private readonly walletService: WalletService,
+    private readonly sensitiveRateLimit: SensitiveRateLimitService,
+  ) {}
 
   @Get()
   async getWallet(@CurrentUser() user: AuthUser) {
@@ -44,9 +49,12 @@ export class WalletController {
     @Body() body: MockDepositDto,
     @Headers('idempotency-key') idempotencyKey?: string,
   ) {
-    if (process.env.ENABLE_MOCK_DEPOSIT === 'false') {
+    // Fail-closed: must be explicitly ENABLE_MOCK_DEPOSIT=true (and never in production).
+    if (!getPaymentConfig().mockDepositEnabled) {
       throw new ForbiddenException('Mock deposit is disabled');
     }
+
+    this.sensitiveRateLimit.assertMockDeposit(user.sub);
 
     if (!idempotencyKey) {
       throw new BadRequestException('Idempotency-Key header is required');

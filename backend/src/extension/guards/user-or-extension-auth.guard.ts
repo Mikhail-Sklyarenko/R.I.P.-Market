@@ -5,6 +5,7 @@ import {
   UnauthorizedException,
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
+import { UserStatus } from '@prisma/client';
 import { AppException } from '../../common/errors/app.exception';
 import { ErrorCode } from '../../common/errors/error-codes';
 import { UsersService } from '../../users/users.service';
@@ -58,6 +59,11 @@ export class UserOrExtensionAuthGuard
       if (!user) {
         throw new UnauthorizedException(
           'Your session is no longer valid. Please sign in again.',
+        );
+      }
+      if (user.status === UserStatus.SUSPENDED) {
+        throw new UnauthorizedException(
+          'Your account is suspended. Contact support if you need help.',
         );
       }
       request.user = user;

@@ -80,9 +80,7 @@ export function resolveTradeTimeoutView(params: {
 /** True while the Steam trade window still matters for the client. */
 export function shouldShowTradeTimeout(orderStatus: string): boolean {
   return (
-    orderStatus === 'WAITING_TRADE' ||
-    orderStatus === 'TRADE_CONFIRMED' ||
-    orderStatus === 'DISPUTE'
+    orderStatus === 'WAITING_TRADE' || orderStatus === 'TRADE_CONFIRMED'
   );
 }
 

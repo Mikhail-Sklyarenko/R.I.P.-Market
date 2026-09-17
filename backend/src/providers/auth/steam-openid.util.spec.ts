@@ -47,6 +47,19 @@ describe('steam-openid.util', () => {
       expect(postFn).not.toHaveBeenCalled();
     });
 
+    it('returns invalid when openid.return_to is not our callback', async () => {
+      const postFn = jest.fn();
+      const result = await verifySteamOpenId(
+        {
+          ...baseParams,
+          'openid.return_to': 'https://evil.example/callback',
+        },
+        postFn,
+      );
+      expect(result).toEqual({ ok: false, reason: 'invalid' });
+      expect(postFn).not.toHaveBeenCalled();
+    });
+
     it('posts check_authentication and returns ok when Steam confirms', async () => {
       const postFn = jest
         .fn()

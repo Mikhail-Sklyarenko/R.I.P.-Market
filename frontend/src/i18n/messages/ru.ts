@@ -687,6 +687,7 @@ const baseRuMessages = {
     step2: 'Деньги в hold',
     step3: 'После передачи сделка завершается',
     stepsAria: 'Как работает защищённая сделка',
+    dismiss: 'Скрыть',
   },
   supportWidget: {
     title: 'Быстрая помощь',
@@ -1143,6 +1144,7 @@ const baseRuMessages = {
   tradeUrlBanner: {
     action: 'Перейти в настройки',
     text: 'Укажите Trade URL в Steam — без него нельзя продавать и покупать скины.',
+    dismiss: 'Позже',
   },
   oneGesturePair: {
     title: 'Подключите расширение R.I.P — один клик',
@@ -1390,6 +1392,7 @@ const baseRuMessages = {
   },
   extensionAwareCommerce: {
     accountLink: 'Открыть аккаунт, чтобы подключить расширение',
+    dismiss: 'Позже',
   },
   buyRequestFlowStep: {
     request: {

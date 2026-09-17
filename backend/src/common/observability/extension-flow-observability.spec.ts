@@ -143,7 +143,6 @@ describe('ExtensionRateLimitService', () => {
   beforeEach(() => {
     process.env = {
       ...originalEnv,
-      ENABLE_EXTENSION_FLOW_OBSERVABILITY: 'true',
       ENABLE_EXTENSION_RATE_LIMITS: 'true',
       EXT_FLOW_RL_HANDSHAKE_PER_HOUR: '1',
     };
@@ -157,6 +156,16 @@ describe('ExtensionRateLimitService', () => {
     const service = new ExtensionRateLimitService();
     service.assertHandshakeAllowed('user-1');
     expect(() => service.assertHandshakeAllowed('user-1')).toThrow(
+      'Extension rate limit exceeded',
+    );
+  });
+
+  it('is enabled by default when ENABLE_EXTENSION_RATE_LIMITS is unset', () => {
+    delete process.env.ENABLE_EXTENSION_RATE_LIMITS;
+    process.env.EXT_FLOW_RL_HANDSHAKE_PER_HOUR = '1';
+    const service = new ExtensionRateLimitService();
+    service.assertHandshakeAllowed('user-default');
+    expect(() => service.assertHandshakeAllowed('user-default')).toThrow(
       'Extension rate limit exceeded',
     );
   });

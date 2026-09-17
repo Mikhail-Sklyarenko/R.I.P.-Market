@@ -1,4 +1,4 @@
-import { UserRole } from '@prisma/client';
+import { UserRole, UserStatus } from '@prisma/client';
 import { WithdrawalGuardService } from './withdrawal-guard.service';
 import { PrismaService } from '../prisma/prisma.service';
 
@@ -23,6 +23,7 @@ describe('WithdrawalGuardService', () => {
           id: 'user-1',
           steamId: null,
           role: UserRole.SELLER,
+          status: UserStatus.ACTIVE,
         })),
       },
     });
@@ -30,6 +31,26 @@ describe('WithdrawalGuardService', () => {
     await expect(
       service.validateAndResolveReview('user-1', 3000n),
     ).rejects.toThrow('Steam account must be linked');
+  });
+
+  it('rejects suspended accounts', async () => {
+    process.env.WITHDRAW_REQUIRE_STEAM_LINKED = 'false';
+    process.env.WITHDRAW_MANUAL_REVIEW = 'false';
+
+    const service = createService({
+      user: {
+        findUnique: jest.fn(async () => ({
+          id: 'user-1',
+          steamId: '76561198000000000',
+          role: UserRole.SELLER,
+          status: UserStatus.SUSPENDED,
+        })),
+      },
+    });
+
+    await expect(
+      service.validateAndResolveReview('user-1', 3000n),
+    ).rejects.toThrow('Account is suspended');
   });
 
   it('flags first withdrawals for manual review', async () => {
@@ -44,6 +65,7 @@ describe('WithdrawalGuardService', () => {
           id: 'user-1',
           steamId: '76561198000000001',
           role: UserRole.BUYER,
+          status: UserStatus.ACTIVE,
         })),
       },
       order: { count: jest.fn(async () => 0) },

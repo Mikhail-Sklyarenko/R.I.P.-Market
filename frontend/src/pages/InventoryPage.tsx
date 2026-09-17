@@ -54,7 +54,7 @@ import {
 } from '../utils/seller-flow';
 import { profileToAuthUser } from '../utils/user-profile';
 import { hasTradeUrl } from '../utils/trade-url';
-import { readInventorySession, writeInventorySession } from '../utils/inventory-session-cache';
+import { readInventorySession, writeInventorySession, inventorySessionOwnerKey } from '../utils/inventory-session-cache';
 import {
   INVENTORY_PRICE_HINTS_REFRESH_BATCH,
   hasAnySteamPrice,
@@ -87,6 +87,12 @@ import {
   isSellerOnboardingMarkedComplete,
   markSellerOnboardingComplete,
 } from '../utils/seller-onboarding';
+import {
+  UI_DISMISS_KEYS,
+  UI_DISMISS_TTL,
+  isUiDismissed,
+  markUiDismissed,
+} from '../utils/ui-dismiss';
 import {
   parseInventoryListedSuccess,
   stripListedSuccessParams,
@@ -127,7 +133,11 @@ export function InventoryPage() {
   const [pricesRefreshing, setPricesRefreshing] = useState(false);
   const [pricesError, setPricesError] = useState<unknown>(null);
   const [hasListedBefore, setHasListedBefore] = useState(isSellerOnboardingMarkedComplete);
-  const [onboardingDismissed, setOnboardingDismissed] = useState(false);
+  const [onboardingDismissed, setOnboardingDismissed] = useState(() =>
+    isUiDismissed(UI_DISMISS_KEYS.sellerOnboarding, {
+      ttlMs: UI_DISMISS_TTL.week,
+    }),
+  );
   const [listedSuccess, setListedSuccess] = useState<InventoryListedSuccess | null>(
     null,
   );
@@ -378,7 +388,7 @@ export function InventoryPage() {
               setSync(response.sync);
               if (user?.id) {
                 writeInventorySession({
-                  ownerKey: user.id,
+                  ownerKey: inventorySessionOwnerKey(user.id, user.steamId),
                   assets: response.assets,
                   sync: response.sync,
                   savedAt: Date.now(),
@@ -442,7 +452,7 @@ export function InventoryPage() {
         setSync(response.sync);
         if (user?.id) {
           writeInventorySession({
-            ownerKey: user.id,
+            ownerKey: inventorySessionOwnerKey(user.id, user.steamId),
             assets: response.assets,
             sync: response.sync,
             savedAt: Date.now(),
@@ -457,7 +467,7 @@ export function InventoryPage() {
         setRefreshing(false);
       }
     },
-    [token, steamLinked, assets.length, loadPriceHints, scheduleStaleRevalidate, user?.id],
+    [token, steamLinked, assets.length, loadPriceHints, scheduleStaleRevalidate, user?.id, user?.steamId],
   );
 
   useEffect(() => {
@@ -465,7 +475,9 @@ export function InventoryPage() {
       return;
     }
 
-    const cached = user?.id ? readInventorySession(user.id) : null;
+    const cached = user?.id
+      ? readInventorySession(inventorySessionOwnerKey(user.id, user.steamId))
+      : null;
     if (cached?.assets.length) {
       setAssets(cached.assets);
       setSync(cached.sync);
@@ -504,7 +516,7 @@ export function InventoryPage() {
         setAssets(response.assets);
         setSync(response.sync);
         writeInventorySession({
-          ownerKey: profile.id,
+          ownerKey: inventorySessionOwnerKey(profile.id, profile.steamId),
           assets: response.assets,
           sync: response.sync,
           savedAt: Date.now(),
@@ -526,7 +538,7 @@ export function InventoryPage() {
       cancelled = true;
       inventorySyncPollRef.current += 1;
     };
-  }, [token, updateUser, loadPriceHints, scheduleStaleRevalidate, user?.id]);
+  }, [token, updateUser, loadPriceHints, scheduleStaleRevalidate, user?.id, user?.steamId]);
 
   useEffect(() => {
     if (!priceMinor) {
@@ -1003,7 +1015,12 @@ export function InventoryPage() {
           tradeUrlReady={tradeUrlReady}
           itemSelected={Boolean(selectedAssetId)}
           sellPanelOpen={sellPanelOpen}
-          onDismiss={() => setOnboardingDismissed(true)}
+          onDismiss={() => {
+            markUiDismissed(UI_DISMISS_KEYS.sellerOnboarding, {
+              ttlMs: UI_DISMISS_TTL.week,
+            });
+            setOnboardingDismissed(true);
+          }}
         />
       ) : (
         <SellerSaleInfo compact={hasListedBefore} />

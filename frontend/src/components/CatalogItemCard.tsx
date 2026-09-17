@@ -173,6 +173,8 @@ export function CatalogItemCard({
             <InventoryPriceStack
               steamPriceMinor={resolvedSteamPrice}
               marketplacePriceMinor={item.minMarketplacePriceMinor}
+              steamPriceChange7dPct={item.steamPriceChange7dPct}
+              steamPriceChange30dPct={item.steamPriceChange30dPct}
               testIdPrefix={`catalog-item-${item.id}`}
               loading={pricesLoading && resolvedSteamPrice == null}
               compact={!hasOffers}
