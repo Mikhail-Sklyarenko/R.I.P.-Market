@@ -176,12 +176,13 @@ build_browser_extension() {
 
 write_frontend_env() {
   local mock_trade="${1:-false}"
+  local qa_mock_deposit="${2:-false}"
   cat >"$APP_DIR/frontend/.env" <<EOF
 VITE_API_BASE_URL=https://${DOMAIN}/api/v1
 VITE_EXTENSION_ID=${EXTENSION_ID}
 VITE_ENABLE_MOCK_TRADE=${mock_trade}
 VITE_STAGING=true
-VITE_QA_MOCK_DEPOSIT=true
+VITE_QA_MOCK_DEPOSIT=${qa_mock_deposit}
 VITE_SUPPORT_EMAIL=support@${DOMAIN}
 EOF
 }

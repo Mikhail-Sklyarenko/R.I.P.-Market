@@ -55,6 +55,7 @@ echo ""
 
 check "cryptoPaymentsEnabled" echo "$CONFIG" | grep -q '"cryptoPaymentsEnabled":true'
 check "mockDepositEnabled off" echo "$CONFIG" | grep -q '"mockDepositEnabled":false'
+check "mockTradeEnabled off" echo "$CONFIG" | grep -q '"mockTradeEnabled":false'
 check "real settlement off (Phase 1)" echo "$CONFIG" | grep -q '"enableRealSettlement":false'
 
 PROVIDER="$(echo "$CONFIG" | grep -o '"paymentProvider":"[^"]*"' | cut -d'"' -f4 || true)"
