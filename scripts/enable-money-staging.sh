@@ -84,7 +84,7 @@ if is_placeholder_xpub "$GATEWAY_XPUB"; then
     fi
     gen_out="$(node --input-type=module <<'NODE'
 import { generateMnemonic, mnemonicToSeedSync } from '@scure/bip39';
-import { wordlist } from '@scure/bip39/wordlists/english.js';
+import { wordlist } from '@scure/bip39/wordlists/english';
 import { HDKey } from '@scure/bip32';
 
 const mnemonic = generateMnemonic(wordlist, 128);
