@@ -172,7 +172,7 @@ function mergeSteamPricesForItems(
 
 export function CatalogPage() {
   const { token } = useAuth();
-  const { t, locale } = useLocale();
+  const { t } = useLocale();
   const [searchParams, setSearchParams] = useSearchParams();
   const weaponParam = searchParams.get('weapon');
 
