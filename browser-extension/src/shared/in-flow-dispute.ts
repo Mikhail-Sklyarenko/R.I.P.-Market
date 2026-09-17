@@ -195,7 +195,7 @@ export function buildDisputeStatusView(
       tone: 'error',
       primaryLabel: t('cta.openOrder'),
       primaryHref: orderHref,
-      secondaryLabel: t('cta.openDisputeSupport'),
+      secondaryLabel: t('cta.contactSupport'),
       secondaryHref: supportHref,
     };
   }

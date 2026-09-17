@@ -1130,7 +1130,8 @@ export const clientExtraEn = {
     canceling: 'Canceling…',
     cancelOrder: 'Cancel deal',
     failedMessage: 'The deal failed. Funds were refunded if needed.',
-    disputeMessage: 'A dispute is open. Support will review the situation.',
+    disputeMessage:
+      'A dispute is open. Only support or an admin can close it — describe the issue in a ticket; funds stay on hold.',
     completedMessage: 'The deal completed successfully.',
     canceledMessage: 'The deal was canceled. Funds were refunded if needed.',
     extensionTradeModeLabel: 'Extension trade mode:',
@@ -1285,6 +1286,10 @@ export const clientExtraEn = {
     STEAM_PROFILE_PRIVATE: 'Your Steam inventory is private. Make it public in your Steam privacy settings.',
     STEAM_BLOCKED:
       'Steam is temporarily blocking requests from the server. This is not a privacy setting — the cached inventory is available; prices and refresh may not work.',
+    STEAM_RATE_LIMITED:
+      'Steam is rate-limiting the server. Wait 1–2 minutes and refresh, or list from Steam inventory with the extension.',
+    STEAM_ACCOUNT_CHANGED:
+      'Your Steam account changed during sync. Refresh inventory again.',
     INVENTORY_STALE: 'Could not refresh the inventory from Steam. Please try again shortly.',
     TRADE_URL_REQUIRED: 'Add a Trade URL in account settings — you cannot buy or sell without it.',
     TRADE_URL_STEAM_MISMATCH:

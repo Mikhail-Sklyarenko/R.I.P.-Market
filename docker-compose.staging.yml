@@ -75,6 +75,9 @@ services:
       TRON_GRID_API_KEY: ${TRON_GRID_API_KEY:-}
       TRON_GRID_BASE_URL: ${TRON_GRID_BASE_URL:-https://api.trongrid.io}
       XPUB: ${GATEWAY_XPUB:?set GATEWAY_XPUB for deposit address derivation}
+      ALLOW_BACKEND_AUTHORIZED_WITHDRAWALS: ${ALLOW_BACKEND_AUTHORIZED_WITHDRAWALS:-true}
+      MAX_WITHDRAWAL_SUN: ${MAX_WITHDRAWAL_SUN:-100000000000}
+      BACKEND_AUTHORIZED_MAX_OPEN: ${BACKEND_AUTHORIZED_MAX_OPEN:-20}
     command: >
       sh -c "npm run prisma:migrate:deploy && node dist/api/server.js"
     healthcheck:

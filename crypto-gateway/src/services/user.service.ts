@@ -210,6 +210,36 @@ export async function createWithdrawal(params: {
   }
   if (params.amountSun <= 0n || params.feeSun < 0n)
     throw new Error('INVALID_AMOUNT');
+
+  const maxWithdrawalSun = BigInt(
+    process.env.MAX_WITHDRAWAL_SUN ?? '100000000000',
+  );
+  if (params.amountSun > maxWithdrawalSun) {
+    throw new Error('AMOUNT_EXCEEDS_LIMIT');
+  }
+
+  if (params.debitSource === 'backend_authorized') {
+    if (process.env.ALLOW_BACKEND_AUTHORIZED_WITHDRAWALS !== 'true') {
+      throw new Error('BACKEND_AUTHORIZED_DISABLED');
+    }
+    // Bound blast radius if API_KEY leaks: outstanding unpaid authorized
+    // withdrawals cannot exceed the per-payout max × concurrency budget.
+    const outstandingCap =
+      maxWithdrawalSun *
+      BigInt(Math.max(1, Number(process.env.BACKEND_AUTHORIZED_MAX_OPEN ?? '20')));
+    const open = await prisma.withdrawal.aggregate({
+      where: {
+        debitSource: 'backend_authorized',
+        status: { in: ['pending', 'processing'] },
+      },
+      _sum: { amountSun: true },
+    });
+    const openSum = open._sum.amountSun ?? 0n;
+    if (openSum + params.amountSun > outstandingCap) {
+      throw new Error('BACKEND_AUTHORIZED_CAP_EXCEEDED');
+    }
+  }
+
   const totalDebit = params.amountSun + params.feeSun;
   if (
     params.debitSource !== 'backend_authorized' &&

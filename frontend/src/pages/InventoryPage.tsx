@@ -35,6 +35,7 @@ import { SellerSaleInfo } from '../components/SellerSaleInfo';
 import { ExtensionAwareCommerceHint } from '../components/ExtensionAwareCommerceHint';
 import { canShowDevPanels, parseUsdToMinor, ERROR_MESSAGES } from '../utils/format';
 import { formatDataTimestamp } from '../utils/lot-display';
+import { isSteamPriceStale } from '../utils/steam-price-age';
 import { getRecommendedPriceMinor, minorToPriceInput, shouldAutofillListingPrice } from '../utils/inventory-pricing';
 import { hasLinkedSteamId } from '../utils/steam-id';
 import {
@@ -1076,6 +1077,18 @@ export function InventoryPage() {
                 sync.warning}
             </span>
           ) : null}
+        </p>
+      ) : null}
+
+      {isSteamPriceStale(steamPriceFetchedAt) ||
+      sync?.errorCode === 'STEAM_BLOCKED' ||
+      sync?.errorCode === 'STEAM_RATE_LIMITED' ? (
+        <p
+          className="alert alert-warning"
+          role="status"
+          data-testid="inventory-steam-prices-stale"
+        >
+          {t('catalog.steamPricesStale')}
         </p>
       ) : null}
 

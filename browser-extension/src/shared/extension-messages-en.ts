@@ -82,6 +82,7 @@ export const extensionMessagesEn: ExtensionMessageTree = {
   cta: {
     openDispute: 'Open dispute',
     openDisputeSupport: 'Open dispute / support',
+    contactSupport: 'Contact support',
     openOrder: 'Open order',
     confirmGuard: 'Confirm in Steam Mobile',
     openTradeUrl: 'Open Trade URL',
@@ -204,7 +205,7 @@ export const extensionMessagesEn: ExtensionMessageTree = {
   dispute: {
     openTitle: 'Dispute open',
     openBody:
-      'Support is reviewing the deal. Do not accept other offers for this order and do not send money in chat.',
+      'Only support or an admin can close a dispute. Do not accept other offers for this order and do not send money in chat.',
     needTitle: 'Dispute needed',
     needMismatch:
       'Offer does not match the order. Do not press Accept — open a dispute with evidence (offerId, verify, time).',
@@ -438,6 +439,7 @@ export const extensionMessagesEn: ExtensionMessageTree = {
     brand: 'R.I.P Market',
     openDispute: 'Open dispute',
     openDisputeSupport: 'Open dispute / support',
+    contactSupport: 'Contact support',
     openOrder: 'Open order',
   },
   inventory: {

@@ -34,15 +34,23 @@ describe('InventoryService', () => {
     applyBrowserAssistAssets: jest.fn(),
   };
 
+  const referencePrice = {
+    getPricesWithMeta: jest.fn().mockResolvedValue({}),
+    isEnabled: jest.fn().mockReturnValue(false),
+  };
+
   const service = new InventoryService(
     prisma as never,
     inventoryProvider as never,
     steamMarketPrice as never,
     steamInventoryProvider as never,
+    referencePrice as never,
   );
 
   beforeEach(() => {
     jest.clearAllMocks();
+    referencePrice.getPricesWithMeta.mockResolvedValue({});
+    referencePrice.isEnabled.mockReturnValue(false);
   });
 
   it('serves cached inventory immediately without waiting on Steam', async () => {

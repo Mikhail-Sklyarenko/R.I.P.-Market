@@ -48,6 +48,7 @@ import {
 import { parseUsdToMinor } from '../utils/format';
 import { formatDataTimestamp } from '../utils/lot-display';
 import { resolveCatalogCardDisplaySteamPriceName } from '../utils/steam-market-link';
+import { isSteamPriceStale } from '../utils/steam-price-age';
 import {
   clearCatalogReturnState,
   parseCatalogPageParam,
@@ -1126,12 +1127,9 @@ export function CatalogPage() {
                 {t('catalog.found', { count: total })}
               </p>
               {steamPriceFetchedAt &&
-              Date.now() - new Date(steamPriceFetchedAt).getTime() >
-                24 * 60 * 60 * 1000 ? (
+              isSteamPriceStale(steamPriceFetchedAt) ? (
                 <p className="alert alert-warning" role="status">
-                  {locale === 'ru'
-                    ? 'Данные о ценах Steam старше суток. Используйте их только как ориентир; текущая цена может отличаться.'
-                    : 'Steam price data is over a day old. Treat it as a guide; current prices may differ.'}
+                  {t('catalog.steamPricesStale')}
                 </p>
               ) : null}
               {formatDataTimestamp(steamPriceFetchedAt) ? (

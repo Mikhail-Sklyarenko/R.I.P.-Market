@@ -10,6 +10,7 @@ import { AppException } from '../common/errors/app.exception';
 import { ErrorCode } from '../common/errors/error-codes';
 import { toJsonSafe } from '../common/json-safe.util';
 import { PrismaService } from '../prisma/prisma.service';
+import { ReferencePriceService } from '../catalog/reference-price.service';
 import { SteamMarketPriceService } from '../catalog/steam-market-price.service';
 import { INVENTORY_PROVIDER } from '../providers/tokens';
 import type {
@@ -71,6 +72,7 @@ export class InventoryService {
     private readonly inventoryProvider: InventoryProvider,
     private readonly steamMarketPrice: SteamMarketPriceService,
     private readonly steamInventoryProvider: SteamInventoryProvider,
+    private readonly referencePrice: ReferencePriceService,
   ) {}
 
   async getUserInventory(
@@ -533,17 +535,21 @@ export class InventoryService {
       (name) => !steamPrices[name]?.priceMinor,
     );
 
-    const marketplacePrices = await this.loadMinMarketplacePrices(uniqueNames);
-    const bestBids = await this.loadBestBids(uniqueNames);
+    const [marketplacePrices, bestBids, referencePrices] = await Promise.all([
+      this.loadMinMarketplacePrices(uniqueNames),
+      this.loadBestBids(uniqueNames),
+      this.referencePrice.getPricesWithMeta(uniqueNames),
+    ]);
 
     const hints: Record<string, InventoryPriceHint> = {};
     for (const name of uniqueNames) {
       const bid = bestBids.get(name);
+      const reference = referencePrices[name];
       const base = {
         steamPriceMinor: steamPrices[name]?.priceMinor ?? null,
         steamMedianPriceMinor: steamPrices[name]?.medianPriceMinor ?? null,
-        buffPriceMinor: null,
-        csfloatPriceMinor: null,
+        buffPriceMinor: reference?.buffPriceMinor ?? null,
+        csfloatPriceMinor: reference?.csfloatPriceMinor ?? null,
         minMarketplacePriceMinor: marketplacePrices.get(name) ?? null,
         bestBidMinor: bid?.priceMinor ?? null,
         bestBidQuantity: bid?.quantity ?? null,
@@ -565,10 +571,17 @@ export class InventoryService {
         .sort()
         .at(-1) ?? null;
 
+    const referencePriceFetchedAt =
+      Object.values(referencePrices)
+        .map((entry) => entry.fetchedAt)
+        .filter((value): value is string => Boolean(value))
+        .sort()
+        .at(-1) ?? null;
+
     return toJsonSafe({
       hints,
       steamPriceFetchedAt,
-      referencePriceFetchedAt: null,
+      referencePriceFetchedAt,
       steamPriceMissing:
         stillMissing.length > 0 && this.steamMarketPrice.isEnabled()
           ? stillMissing

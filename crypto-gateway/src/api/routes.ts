@@ -86,6 +86,14 @@ export function createApiApp() {
         ? ('backend_authorized' as const)
         : ('gateway_balance' as const);
 
+    if (
+      debitSource === 'backend_authorized' &&
+      process.env.ALLOW_BACKEND_AUTHORIZED_WITHDRAWALS !== 'true'
+    ) {
+      res.status(403).json({ error: 'BACKEND_AUTHORIZED_DISABLED' });
+      return;
+    }
+
     if (!externalUserId || !toAddress || amountSunRaw === undefined) {
       res
         .status(400)
@@ -135,6 +143,17 @@ export function createApiApp() {
         return;
       }
       if (message === 'INSUFFICIENT_BALANCE') {
+        res.status(400).json({ error: message });
+        return;
+      }
+      if (
+        message === 'BACKEND_AUTHORIZED_DISABLED' ||
+        message === 'BACKEND_AUTHORIZED_CAP_EXCEEDED'
+      ) {
+        res.status(403).json({ error: message });
+        return;
+      }
+      if (message === 'AMOUNT_EXCEEDS_LIMIT') {
         res.status(400).json({ error: message });
         return;
       }

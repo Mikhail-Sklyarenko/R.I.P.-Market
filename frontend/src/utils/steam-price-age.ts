@@ -5,6 +5,9 @@ import type { Locale } from '../i18n/types.ts';
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
+/** Shared seller/buyer warning threshold: prices older than this are “stale”. */
+export const STEAM_PRICE_STALE_AFTER_DAYS = 1;
+
 const messagesByLocale = {
   ru: ruMessages,
   en: enMessages,
@@ -50,7 +53,7 @@ export function formatSteamPriceAge(
 
 export function isSteamPriceStale(
   fetchedAt: string | null | undefined,
-  staleAfterDays = 14,
+  staleAfterDays = STEAM_PRICE_STALE_AFTER_DAYS,
 ): boolean {
   if (!fetchedAt?.trim()) {
     return false;

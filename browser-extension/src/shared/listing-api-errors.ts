@@ -23,6 +23,12 @@ const MESSAGES_RU: Record<string, string> = {
   INVENTORY_ASSET_TRADE_LOCKED: 'Предмет в trade-lock Steam.',
   INVENTORY_ASSET_NOT_AVAILABLE: 'Предмет недоступен для выставления.',
   INVENTORY_ASSET_NOT_FOUND: 'Предмет не найден в инвентаре площадки.',
+  INVENTORY_ASSET_NOT_ON_PLATFORM:
+    'Предмет ещё не в инвентаре площадки. Нажмите «Синхронизировать с сайтом» в Steam и повторите.',
+  STEAM_BLOCKED:
+    'Steam временно блокирует сервер. Синхронизируйте инвентарь через расширение в Steam.',
+  STEAM_RATE_LIMITED:
+    'Steam ограничивает частоту запросов. Подождите минуту или синхронизируйте инвентарь в Steam.',
   LOT_ALREADY_EXISTS_FOR_ASSET: 'Для этого предмета уже есть активный лот.',
   SELLER_NOT_ACTIVE: 'Аккаунт продавца не активен.',
   EXTENSION_SESSION_REVOKED:
@@ -32,9 +38,19 @@ const MESSAGES_RU: Record<string, string> = {
 };
 
 const HARD_BAN_CODES = new Set(['STEAM_VAC_BANNED', 'STEAM_GAME_BANNED']);
+const NEEDS_SYNC_CODES = new Set([
+  'INVENTORY_ASSET_NOT_ON_PLATFORM',
+  'STEAM_BLOCKED',
+  'STEAM_RATE_LIMITED',
+]);
 
 export function isHardSteamTradeBanCode(code: string | null | undefined): boolean {
   return Boolean(code && HARD_BAN_CODES.has(code));
+}
+
+/** Listing cannot succeed until the user syncs — keep primary CTA disabled. */
+export function isListingNeedsSyncCode(code: string | null | undefined): boolean {
+  return Boolean(code && NEEDS_SYNC_CODES.has(code));
 }
 
 export function isRetryableBanCheckCode(

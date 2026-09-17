@@ -1228,12 +1228,37 @@ async function createInventoryLotFromRuntime(params: {
           if (refreshed.ok) {
             const body = (await refreshed.json()) as {
               assets?: Array<{ id?: string; assetExternalId?: string }>;
+              sync?: { errorCode?: string | null };
             };
             inventoryAssetId = findPlatformAssetIdByExternalId(
               body.assets ?? [],
               params.steamAssetId,
             );
+            if (
+              !inventoryAssetId &&
+              (body.sync?.errorCode === "STEAM_BLOCKED" ||
+                body.sync?.errorCode === "STEAM_RATE_LIMITED")
+            ) {
+              return {
+                ok: false,
+                error:
+                  "Сервер не смог синхронизировать инвентарь со Steam (блок/лимит). Нажмите «Синхронизировать с сайтом» в инвентаре Steam и повторите.",
+                errorCode: body.sync.errorCode,
+                listingsUrl,
+              };
+            }
           }
+        } else {
+          const assistError = await readListingApiError(
+            "/extension/inventory/browser-assist",
+            assistResponse,
+          );
+          return {
+            ok: false,
+            error: listingUserError(assistError),
+            errorCode: assistError.code,
+            listingsUrl,
+          };
         }
       }
     }
@@ -1243,6 +1268,7 @@ async function createInventoryLotFromRuntime(params: {
         ok: false,
         error:
           "Предмет ещё не в инвентаре площадки. Нажмите «Синхронизировать с сайтом» в Steam-инвентаре или обновите инвентарь в «Мои продажи», затем повторите.",
+        errorCode: "INVENTORY_ASSET_NOT_ON_PLATFORM",
         listingsUrl,
       };
     }

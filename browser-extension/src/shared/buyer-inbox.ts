@@ -237,7 +237,10 @@ function resolvePrimaryCta(
     return {
       kind: 'open_dispute',
       href: buildInFlowDisputeSupportUrl(trade),
-      label: t('cta.openDispute'),
+      label:
+        trade.orderStatus === 'DISPUTE'
+          ? t('cta.contactSupport')
+          : t('cta.openDispute'),
     };
   }
   if (phase === 'accept' && steamOfferUrl) {

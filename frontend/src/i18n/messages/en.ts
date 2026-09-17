@@ -51,6 +51,8 @@ const baseEnMessages = {
     all: 'All',
     found: 'Skins found: {{count}}',
     steamPricesUpdated: 'Steam prices updated: {{when}}',
+    steamPricesStale:
+      'Steam price data is over a day old. Treat it as a guide; current prices may differ.',
     emptyTitle: 'Nothing found',
     emptyMessage: 'Try different filters or wait for new items in the catalog.',
     emptyFilteredTitle: 'No matching items',
@@ -712,7 +714,8 @@ const baseEnMessages = {
     failedTitle: 'Deal failed',
     failedBody: 'Funds were refunded to the buyer, the listing is back in the catalog.',
     disputeTitle: 'Dispute opened',
-    disputeBody: 'The support team will review the situation and make a decision.',
+    disputeBody:
+      'Only support or an admin can close a dispute. Describe the issue in a ticket — funds stay on hold until resolved.',
     mismatchTitle: 'Trade does not match the order',
     mismatchBody:
       'Do not accept this trade offer. The Steam skin does not match the R.I.P Market order — contact support if needed.',

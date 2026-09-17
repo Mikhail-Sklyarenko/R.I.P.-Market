@@ -65,8 +65,8 @@ export const ADMIN_DISPUTE_CONTRACT = {
       reason: 'string (legacy)',
     },
     financialGuards: [
-      'BUYER: hold not captured',
-      'SELLER: hold not captured, balanced amounts',
+      'BUYER: hold not captured; lot → BLOCKED, asset → AVAILABLE (no auto-relist)',
+      'SELLER: hold not captured, balanced amounts; lot/asset → SOLD',
     ],
   },
   reverseSettlementHold: {

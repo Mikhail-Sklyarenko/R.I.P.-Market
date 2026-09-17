@@ -8,7 +8,7 @@ import {
   getRecommendedPriceMinor,
   minorToPriceInput,
 } from '../utils/inventory-pricing';
-import { formatSteamPriceAge } from '../utils/steam-price-age';
+import { formatSteamPriceAge, isSteamPriceStale } from '../utils/steam-price-age';
 import { ErrorAlert } from './ErrorAlert';
 import { LotItemHero } from './LotItemHero';
 import { MoneyDisplay } from './MoneyDisplay';
@@ -101,6 +101,7 @@ export function InventorySellPanel({
   const recommendedApplied =
     recommendedInput != null && priceInput.trim() === recommendedInput;
   const steamAge = formatSteamPriceAge(steamPriceFetchedAt, locale);
+  const steamPriceStale = isSteamPriceStale(steamPriceFetchedAt);
   const hasSteamPrice = Boolean(priceHint?.steamPriceMinor);
   const steamMedianMinor =
     priceHint?.steamMedianPriceMinor != null &&
@@ -296,6 +297,9 @@ export function InventorySellPanel({
                     {steamAge ? (
                       <span className="inventory-listing-hint-age muted small">
                         · {steamAge}
+                        {steamPriceStale ? (
+                          <> · {t('steamPriceAge.priceMaybeStale')}</>
+                        ) : null}
                       </span>
                     ) : null}
                   </span>

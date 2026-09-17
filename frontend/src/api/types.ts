@@ -228,7 +228,9 @@ export type InventoryPriceHint = {
   steamPriceMinor: number | null;
   /** Steam market median when known from a live priceoverview fetch. */
   steamMedianPriceMinor?: number | null;
+  /** Present only when referencePriceEnabled — otherwise always null. */
   buffPriceMinor: number | null;
+  /** Present only when referencePriceEnabled — otherwise always null. */
   csfloatPriceMinor: number | null;
   minMarketplacePriceMinor: string | null;
   bestBidMinor?: string | null;

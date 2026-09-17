@@ -1,20 +1,16 @@
-import { Body, Controller, Post, UseGuards } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Post,
+  Req,
+} from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
-import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
+import { ApiTags } from '@nestjs/swagger';
 import { UserRole, UserStatus } from '@prisma/client';
-import { CurrentUser } from '../common/current-user.decorator';
-import type { AuthUser } from '../common/auth-user.interface';
-import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+import type { Request } from 'express';
 import { PrismaService } from '../prisma/prisma.service';
 import { LedgerService } from '../wallet/ledger.service';
-import { DevTradeResetService } from './dev-trade-reset.service';
-
-function isDevResetEnabled(): boolean {
-  return (
-    process.env.ENABLE_TEST_ROUTES === 'true' ||
-    process.env.ENABLE_MOCK_TRADE === 'true'
-  );
-}
+import { TestRouteGuardService } from './test-route-guard.service';
 
 @ApiTags('test')
 @Controller('test')
@@ -23,27 +19,12 @@ export class TestResetController {
     private readonly prisma: PrismaService,
     private readonly ledgerService: LedgerService,
     private readonly jwtService: JwtService,
-    private readonly devTradeResetService: DevTradeResetService,
+    private readonly testRouteGuard: TestRouteGuardService,
   ) {}
 
-  @ApiBearerAuth()
-  @UseGuards(JwtAuthGuard)
-  @Post('reset-dev-trades')
-  async resetDevTrades(@CurrentUser() user: AuthUser) {
-    if (!isDevResetEnabled()) {
-      return { ok: false, reason: 'disabled' };
-    }
-    if (user.role !== UserRole.SELLER && user.role !== UserRole.ADMIN) {
-      return { ok: false, reason: 'seller_or_admin_required' };
-    }
-    return this.devTradeResetService.resetForSeller(user.sub);
-  }
-
   @Post('reset')
-  async reset() {
-    if (process.env.ENABLE_TEST_ROUTES !== 'true') {
-      return { ok: false, reason: 'disabled' };
-    }
+  async reset(@Req() req: Request) {
+    this.testRouteGuard.assertDestructiveAllowed(req);
 
     await this.prisma.$executeRawUnsafe(`
       TRUNCATE TABLE
@@ -83,10 +64,8 @@ export class TestResetController {
   }
 
   @Post('extra-seller-session')
-  async extraSellerSession() {
-    if (process.env.ENABLE_TEST_ROUTES !== 'true') {
-      return { ok: false, reason: 'disabled' };
-    }
+  async extraSellerSession(@Req() req: Request) {
+    this.testRouteGuard.assertDestructiveAllowed(req);
 
     const suffix = Date.now().toString(36);
     const user = await this.prisma.user.create({
@@ -109,10 +88,11 @@ export class TestResetController {
   }
 
   @Post('link-steam')
-  async linkSteam(@Body() body: { userId: string; steamId?: string }) {
-    if (process.env.ENABLE_TEST_ROUTES !== 'true') {
-      return { ok: false, reason: 'disabled' };
-    }
+  async linkSteam(
+    @Req() req: Request,
+    @Body() body: { userId: string; steamId?: string },
+  ) {
+    this.testRouteGuard.assertDestructiveAllowed(req);
 
     if (!body.userId) {
       return { ok: false, reason: 'userId required' };

@@ -19,6 +19,7 @@ import { PaymentsModule } from './payments/payments.module';
 import { ObservabilityModule } from './common/observability/observability.module';
 import { RequestIdMiddleware } from './common/observability/request-id.middleware';
 import { TestModule } from './test/test.module';
+import { DevTradeResetModule } from './test/dev-trade-reset.module';
 import { ExtensionModule } from './extension/extension.module';
 import { BuyRequestsModule } from './buy-requests/buy-requests.module';
 import { CatalogModule } from './catalog/catalog.module';
@@ -48,9 +49,12 @@ import { SupportModule } from './support/support.module';
     ...(process.env.ENABLE_EXTENSION_CHANNEL === 'true'
       ? [ExtensionModule]
       : []),
-    ...(process.env.ENABLE_TEST_ROUTES === 'true' ||
-    process.env.ENABLE_MOCK_TRADE === 'true'
-      ? [TestModule]
+    // Destructive wipe/mint-JWT routes — never load via ENABLE_MOCK_TRADE alone.
+    ...(process.env.ENABLE_TEST_ROUTES === 'true' ? [TestModule] : []),
+    // Seller mock-trade cleanup only (JWT + ENABLE_MOCK_TRADE).
+    ...(process.env.ENABLE_MOCK_TRADE === 'true' &&
+    process.env.NODE_ENV !== 'production'
+      ? [DevTradeResetModule]
       : []),
   ],
   controllers: [AppController],

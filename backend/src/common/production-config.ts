@@ -50,8 +50,8 @@ export function assertMoneyStagingSafety(
     );
   }
   if (env.ENABLE_TEST_ROUTES === 'true') {
-    warnings.push(
-      'ENABLE_TEST_ROUTES=true while PAYMENT_PROVIDER is live — disable test routes on money staging',
+    throw new Error(
+      'ENABLE_TEST_ROUTES=true while PAYMENT_PROVIDER is live — refuse to boot money staging with wipe routes',
     );
   }
   return warnings;

@@ -254,6 +254,25 @@ describe('buildBuyerInbox / sort', () => {
     expect(card?.problemHref).toContain('topic=deal');
   });
 
+  it('hides trade-window countdown when dispute is already open', () => {
+    const card = buildBuyerInboxCard(
+      baseTrade({
+        orderStatus: 'DISPUTE',
+        tradeTimeoutAt: new Date(Date.now() - 60_000).toISOString(),
+        nextAction: {
+          kind: 'report_issue',
+          title: 'Спор',
+          description: 'open',
+        },
+      }),
+    );
+    expect(card?.phase).toBe('dispute');
+    expect(card?.timeoutLabel).toBeNull();
+    expect(card?.dispute?.phase).toBe('dispute_open');
+    expect(card?.primary.label).toBe('Открыть заказ');
+    expect(card?.cta.overflow[0]?.label).toBe('Написать в поддержку');
+  });
+
   it('partitions buyer purchases from seller sales', () => {
     const { buyers, sellers } = partitionActiveTrades([
       baseTrade({ orderId: 'b1' }),

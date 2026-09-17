@@ -10,6 +10,7 @@ import {
   NON_LISTABLE_MARKET_HASH_NAME_FRAGMENTS,
 } from '../lots/listing-eligibility.util';
 import { ItemIconService } from './item-icon.service';
+import { ReferencePriceService } from './reference-price.service';
 import { SteamMarketPriceService } from './steam-market-price.service';
 import { SteamPriceHistoryService } from './steam-price-history.service';
 import type { ListCatalogItemsQueryDto } from './dto/list-catalog-items-query.dto';
@@ -111,6 +112,7 @@ export class CatalogService {
     private readonly steamMarketPrice: SteamMarketPriceService,
     private readonly steamPriceHistory: SteamPriceHistoryService,
     private readonly itemIcons: ItemIconService,
+    private readonly referencePrice: ReferencePriceService,
   ) {}
 
   /** Test helper: keep specs isolated when the service instance is reused. */
@@ -140,6 +142,7 @@ export class CatalogService {
       page,
       limit,
       hydrated.steamPriceFetchedAt,
+      hydrated.referencePriceFetchedAt,
     );
   }
 
@@ -164,10 +167,13 @@ export class CatalogService {
       item.marketHashName,
       availableWears,
     );
-    const steamPrices = await this.steamMarketPrice.getPricesWithMeta(
-      [steamLookupName, item.marketHashName],
-      { cacheOnly: true },
-    );
+    const [steamPrices, referencePrices] = await Promise.all([
+      this.steamMarketPrice.getPricesWithMeta(
+        [steamLookupName, item.marketHashName],
+        { cacheOnly: true },
+      ),
+      this.referencePrice.getPricesWithMeta([item.marketHashName]),
+    ]);
 
     const row = this.buildCatalogItemRow(
       item,
@@ -175,7 +181,7 @@ export class CatalogService {
       popularStats,
       aggregates.featuredLots,
       steamPrices,
-      {},
+      referencePrices,
     );
     const displayEntry = steamPrices[steamLookupName] ?? steamPrices[item.marketHashName];
     const changePcts = await this.steamPriceHistory.getChangePcts(
@@ -286,6 +292,7 @@ export class CatalogService {
     page: number,
     limit: number,
     steamPriceFetchedAt: string | null = null,
+    referencePriceFetchedAt: string | null = null,
   ) {
     return toJsonSafe({
       items,
@@ -293,15 +300,23 @@ export class CatalogService {
       page,
       limit,
       steamPriceFetchedAt,
-      referencePriceFetchedAt: null,
+      referencePriceFetchedAt,
     });
   }
 
   private async hydrateRowsWithCachedSteamPrices(
     rows: CatalogItemRow[],
-  ): Promise<{ rows: CatalogItemRow[]; steamPriceFetchedAt: string | null }> {
+  ): Promise<{
+    rows: CatalogItemRow[];
+    steamPriceFetchedAt: string | null;
+    referencePriceFetchedAt: string | null;
+  }> {
     if (rows.length === 0) {
-      return { rows, steamPriceFetchedAt: null };
+      return {
+        rows,
+        steamPriceFetchedAt: null,
+        referencePriceFetchedAt: null,
+      };
     }
 
     const steamLookupByRowId = new Map(
@@ -316,11 +331,16 @@ export class CatalogService {
     const steamLookupNames = [
       ...new Set(steamLookupByRowId.values()),
     ];
+    const marketHashNames = [
+      ...new Set(rows.map((row) => row.marketHashName)),
+    ];
 
-    const steamPrices = await this.steamMarketPrice.getPricesWithMeta(
-      steamLookupNames,
-      { cacheOnly: true },
-    );
+    const [steamPrices, referencePrices] = await Promise.all([
+      this.steamMarketPrice.getPricesWithMeta(steamLookupNames, {
+        cacheOnly: true,
+      }),
+      this.referencePrice.getPricesWithMeta(marketHashNames),
+    ]);
 
     const currentByName: Record<string, number | null> = {};
     for (const name of steamLookupNames) {
@@ -335,12 +355,15 @@ export class CatalogService {
       const lookupName = steamLookupByRowId.get(row.id) ?? row.marketHashName;
       const steamEntry = steamPrices[lookupName];
       const change = changePcts[lookupName];
+      const reference = referencePrices[row.marketHashName];
       return {
         ...row,
         steamPriceMinor: steamEntry?.priceMinor ?? null,
         steamPriceFetchedAt: steamEntry?.fetchedAt ?? null,
         steamPriceChange7dPct: change?.steamPriceChange7dPct ?? null,
         steamPriceChange30dPct: change?.steamPriceChange30dPct ?? null,
+        buffPriceMinor: reference?.buffPriceMinor ?? null,
+        csfloatPriceMinor: reference?.csfloatPriceMinor ?? null,
       };
     });
 
@@ -351,9 +374,17 @@ export class CatalogService {
         .sort()
         .at(-1) ?? null;
 
+    const latestReferencePriceFetch =
+      Object.values(referencePrices)
+        .map((entry) => entry.fetchedAt)
+        .filter((value): value is string => Boolean(value))
+        .sort()
+        .at(-1) ?? null;
+
     return {
       rows: hydratedRows,
       steamPriceFetchedAt: latestSteamPriceFetch,
+      referencePriceFetchedAt: latestReferencePriceFetch,
     };
   }
 

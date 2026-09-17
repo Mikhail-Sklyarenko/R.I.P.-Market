@@ -133,7 +133,7 @@ export function resolveTradeNextAction(
     return {
       primary: linkCta('open_order', t('cta.openOrder'), orderHref),
       overflow: [
-        linkCta('open_dispute', t('cta.openDisputeSupport'), problemHref),
+        linkCta('open_dispute', t('cta.contactSupport'), problemHref),
       ],
       hint: t('nextAction.hintDisputeOpen'),
     };

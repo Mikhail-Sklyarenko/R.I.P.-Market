@@ -900,10 +900,12 @@ export class AdminService {
           reason: reasonCode,
         });
 
+        // Never auto-relist: skin may already be gone from seller Steam.
+        // Block the old lot; return asset to AVAILABLE so seller re-lists after sync.
         await this.lotStateService.transition(tx, {
           lotId: current.lotId,
           from: current.lot.status,
-          to: LotStatus.ACTIVE,
+          to: LotStatus.BLOCKED,
           actorUserId,
           reason: reasonCode,
           extra: { reservedByUserId: null },
@@ -911,7 +913,7 @@ export class AdminService {
 
         await tx.inventoryAsset.update({
           where: { id: current.lot.inventoryAssetId },
-          data: { status: InventoryAssetStatus.LISTED },
+          data: { status: InventoryAssetStatus.AVAILABLE },
         });
       } else {
         this.disputeFinancialGuard.assertResolveSellerAllowed(

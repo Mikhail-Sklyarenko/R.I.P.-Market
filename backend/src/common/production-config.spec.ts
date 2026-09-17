@@ -29,4 +29,13 @@ describe('production-config', () => {
     } as NodeJS.ProcessEnv);
     expect(warnings.some((w) => w.includes('ENABLE_MOCK_TRADE'))).toBe(true);
   });
+
+  it('refuses to boot live payments with ENABLE_TEST_ROUTES', () => {
+    expect(() =>
+      assertMoneyStagingSafety({
+        PAYMENT_PROVIDER: 'crypto_tron',
+        ENABLE_TEST_ROUTES: 'true',
+      } as NodeJS.ProcessEnv),
+    ).toThrow(/ENABLE_TEST_ROUTES/);
+  });
 });

@@ -30,11 +30,17 @@ describe('CatalogService', () => {
     backfillFromListingSnapshots: jest.fn().mockResolvedValue(0),
   };
 
+  const referencePrice = {
+    getPricesWithMeta: jest.fn().mockResolvedValue({}),
+    isEnabled: jest.fn().mockReturnValue(false),
+  };
+
   const service = new CatalogService(
     prisma as never,
     steamMarketPrice as never,
     steamPriceHistory as never,
     itemIcons as never,
+    referencePrice as never,
   );
 
   beforeEach(() => {
@@ -44,6 +50,7 @@ describe('CatalogService', () => {
     prisma.itemDefinition.count.mockResolvedValue(0);
     steamMarketPrice.getPricesMinor.mockResolvedValue({});
     steamMarketPrice.getPricesWithMeta.mockResolvedValue({});
+    referencePrice.getPricesWithMeta.mockResolvedValue({});
   });
 
   it('returns seeded catalog cards without active lots', async () => {

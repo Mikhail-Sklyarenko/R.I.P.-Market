@@ -3,6 +3,7 @@ import { randomUUID } from 'node:crypto';
 const url = new URL(process.env.AUDIT_GATEWAY_DATABASE_URL || 'http://invalid');
 assert(['127.0.0.1','localhost'].includes(url.hostname) && url.pathname === '/rip_audit_gateway', 'Use only the disposable local rip_audit_gateway database');
 process.env.DATABASE_URL = url.href;
+process.env.ALLOW_BACKEND_AUTHORIZED_WITHDRAWALS = 'true';
 const {prisma, pool} = await import('../dist/db/client.js');
 const {ensureGatewayUser, createWithdrawal} = await import('../dist/services/user.service.js');
 const {processPayout} = await import('../dist/signer/payout-engine.js');

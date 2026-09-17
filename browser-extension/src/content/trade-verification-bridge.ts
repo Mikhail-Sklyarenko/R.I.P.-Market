@@ -691,7 +691,7 @@ function primaryCtaHtml(
       return `
       <p class="primary-hint block">${escapeHtml(t('dispute.openTitle'))}</p>
       <a class="btn primary" href="${escapeHtml(orderHref)}" target="_blank" rel="noreferrer">${escapeHtml(t('cta.openOrder'))}</a>
-      <a class="btn secondary" href="${escapeHtml(supportUrl)}" target="_blank" rel="noreferrer">${escapeHtml(t('cta.openDisputeSupport'))}</a>`;
+      <a class="btn secondary" href="${escapeHtml(supportUrl)}" target="_blank" rel="noreferrer">${escapeHtml(t('cta.contactSupport'))}</a>`;
     }
     return `
       <p class="primary-hint block">${

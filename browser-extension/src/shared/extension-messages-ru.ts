@@ -81,6 +81,7 @@ export const extensionMessagesRu: ExtensionMessageTree = {
   cta: {
     openDispute: 'Открыть спор',
     openDisputeSupport: 'Открыть спор / поддержку',
+    contactSupport: 'Написать в поддержку',
     openOrder: 'Открыть заказ',
     confirmGuard: 'Подтвердите в Steam Mobile',
     openTradeUrl: 'Открыть Trade URL',
@@ -106,7 +107,7 @@ export const extensionMessagesRu: ExtensionMessageTree = {
     hintDisputeOpen:
       'Спор уже открыт — данные проверки уйдут в тикет. Не принимайте другие офферы.',
     hintMismatch:
-      'Не принимайте обмен в Steam. Данные заказа и проверки подставится в тикет.',
+      'Не принимайте обмен в Steam. Данные заказа и проверки подставятся в тикет.',
     hintGuard: 'Расширение Guard не подтверждает — только вы в Steam Mobile.',
     hintManualWithUrl:
       'Отправьте скин вручную, затем вставьте offerId на заказе.',
@@ -206,12 +207,12 @@ export const extensionMessagesRu: ExtensionMessageTree = {
   dispute: {
     openTitle: 'Спор открыт',
     openBody:
-      'Поддержка разбирает сделку. Не принимайте другие офферы по этому заказу и не переводите деньги в чат.',
+      'Закрыть спор может только поддержка или админ. Не принимайте другие офферы и не переводите деньги в чат.',
     needTitle: 'Нужен спор',
     needMismatch:
-      'Оффер не совпал с заказом. Не нажимайте Accept — откройте спор с данные заказа и проверки.',
+      'Оффер не совпал с заказом. Не нажимайте Accept — откройте спор с данными заказа и проверки.',
     needGeneric:
-      'Есть проблема по сделке. Откройте спор — данные проверки подставится в тикет автоматически.',
+      'Есть проблема по сделке. Откройте спор — данные проверки подставятся в тикет автоматически.',
     ticketPlaceholder: '(опишите, что пошло не так)',
   },
   receipt: {
@@ -442,6 +443,7 @@ export const extensionMessagesRu: ExtensionMessageTree = {
     brand: 'R.I.P Market',
     openDispute: 'Открыть спор',
     openDisputeSupport: 'Открыть спор / поддержку',
+    contactSupport: 'Написать в поддержку',
     openOrder: 'Открыть заказ',
   },
   inventory: {

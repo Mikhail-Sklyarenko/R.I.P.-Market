@@ -219,6 +219,7 @@ describe('popup-next-action engine', () => {
     expect(openDispute.primary.id).toBe('open_order');
     expect(openDispute.primary.href).toBe('https://p2pcs.ru/orders/d2');
     expect(openDispute.overflow[0]?.id).toBe('open_dispute');
+    expect(openDispute.overflow[0]?.label).toBe('Написать в поддержку');
     expect(openDispute.overflow[0]?.href?.startsWith('https://p2pcs.ru/support?')).toBe(
       true,
     );

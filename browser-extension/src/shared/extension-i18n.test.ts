@@ -75,4 +75,12 @@ describe('extension-i18n', () => {
     expect(t('receipt.bought')).toBe('Bought');
     expect(t('receipt.sold')).toBe('Sold');
   });
+
+  it('keeps RU dispute/next-action grammar plural agreement', () => {
+    expect(tx('ru', 'nextAction.hintDisputeOpen')).toMatch(/уйдут/);
+    expect(tx('ru', 'nextAction.hintMismatch')).toMatch(/подставятся/);
+    expect(tx('ru', 'dispute.needGeneric')).toMatch(/подставятся/);
+    expect(tx('ru', 'dispute.needMismatch')).toMatch(/с данными/);
+    expect(tx('ru', 'cta.contactSupport')).toBe('Написать в поддержку');
+  });
 });

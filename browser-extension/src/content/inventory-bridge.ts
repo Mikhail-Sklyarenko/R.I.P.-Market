@@ -57,6 +57,7 @@ import {
 import {
   humanizeListingApiError,
   isHardSteamTradeBanCode,
+  isListingNeedsSyncCode,
 } from '../shared/listing-api-errors.js';
 import { resolveInventoryLayerView } from '../shared/inventory-layer.js';
 import { getStoredSiteLinkSnapshot } from '../shared/offline-safe-mode.js';
@@ -2036,16 +2037,19 @@ async function submitSellFromPanel(
         errorEl.textContent = message;
       }
       const hardBan = isHardSteamTradeBanCode(code);
+      const needsSync = isListingNeedsSyncCode(code);
       if (confirmBtn) {
-        confirmBtn.disabled = hardBan;
+        confirmBtn.disabled = hardBan || needsSync;
         confirmBtn.textContent = hardBan
           ? 'Выставить нельзя'
-          : isRetryableLabel(code)
-            ? 'Повторить'
-            : 'Выставить';
+          : needsSync
+            ? 'Сначала синхронизируйте'
+            : isRetryableLabel(code)
+              ? 'Повторить'
+              : 'Выставить';
       }
       if (bidBtn) {
-        bidBtn.disabled = hardBan;
+        bidBtn.disabled = hardBan || needsSync;
       }
       return;
     }

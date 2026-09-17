@@ -24,7 +24,7 @@ export function resolveInventorySteamPathReason(params: {
 }): InventorySteamPathReason | null {
   const code = params.errorCode?.trim() || null;
 
-  if (code === 'STEAM_BLOCKED') {
+  if (code === 'STEAM_BLOCKED' || code === 'STEAM_RATE_LIMITED') {
     return params.assetsCount > 0 ? 'stale_cache' : 'steam_blocked';
   }
 

@@ -7,10 +7,18 @@ import {
 } from './inventory-steam-path.ts';
 
 describe('inventory-steam-path', () => {
-  it('routes STEAM_BLOCKED to steam path (empty vs cached)', () => {
+  it('routes STEAM_BLOCKED / STEAM_RATE_LIMITED to steam path', () => {
     assert.equal(
       resolveInventorySteamPathReason({
         errorCode: 'STEAM_BLOCKED',
+        assetsCount: 0,
+        loading: false,
+      }),
+      'steam_blocked',
+    );
+    assert.equal(
+      resolveInventorySteamPathReason({
+        errorCode: 'STEAM_RATE_LIMITED',
         assetsCount: 0,
         loading: false,
       }),
