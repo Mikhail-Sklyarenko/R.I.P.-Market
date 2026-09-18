@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react';
 import { getAuthConfig } from '../api/marketplace';
-import { ExtensionAwareCommerceHint } from './ExtensionAwareCommerceHint';
 import { DealFlowSteps } from './DealFlowSteps';
 
 type ExtensionAwarePurchaseTrustProps = {
@@ -10,10 +9,9 @@ type ExtensionAwarePurchaseTrustProps = {
 };
 
 /**
- * I1: purchase-card trust block — extension hint + deal-flow copy variants.
+ * Purchase-card trust block — deal-flow steps (extension pairing lives on Account).
  */
 export function ExtensionAwarePurchaseTrust({
-  token = null,
   testId = 'purchase-trust',
 }: ExtensionAwarePurchaseTrustProps) {
   const [extensionAware, setExtensionAware] = useState(false);
@@ -36,11 +34,6 @@ export function ExtensionAwarePurchaseTrust({
 
   return (
     <div className="lot-purchase-trust" data-testid={testId}>
-      <ExtensionAwareCommerceHint
-        surface="buy"
-        token={token}
-        channelEnabled={extensionAware}
-      />
       <DealFlowSteps embedded extensionAware={extensionAware} />
     </div>
   );

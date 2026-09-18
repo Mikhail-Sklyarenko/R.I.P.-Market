@@ -48,7 +48,6 @@ import {
 import { parseUsdToMinor } from '../utils/format';
 import { formatDataTimestamp } from '../utils/lot-display';
 import { resolveCatalogCardDisplaySteamPriceName } from '../utils/steam-market-link';
-import { isSteamPriceStale } from '../utils/steam-price-age';
 import {
   clearCatalogReturnState,
   parseCatalogPageParam,
@@ -1126,12 +1125,6 @@ export function CatalogPage() {
               <p className="catalog-total" data-testid="catalog-total">
                 {t('catalog.found', { count: total })}
               </p>
-              {steamPriceFetchedAt &&
-              isSteamPriceStale(steamPriceFetchedAt) ? (
-                <p className="alert alert-warning" role="status">
-                  {t('catalog.steamPricesStale')}
-                </p>
-              ) : null}
               {formatDataTimestamp(steamPriceFetchedAt) ? (
                 <p
                   className="muted small"
