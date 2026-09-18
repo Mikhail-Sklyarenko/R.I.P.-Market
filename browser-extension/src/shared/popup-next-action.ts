@@ -135,7 +135,7 @@ export function resolveTradeNextAction(
       overflow: [
         linkCta('open_dispute', t('cta.contactSupport'), problemHref),
       ],
-      hint: t('nextAction.hintDisputeOpen'),
+      hint: null,
     };
   }
 

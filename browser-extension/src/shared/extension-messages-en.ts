@@ -166,7 +166,7 @@ export const extensionMessagesEn: ExtensionMessageTree = {
     wait_offer: 'Waiting for offer',
     accept: 'Accept',
     verifying: 'Verifying',
-    dispute: 'Dispute / issue',
+    dispute: 'With support',
   },
   timeout: {
     expired: 'Trade window expired',
@@ -203,9 +203,10 @@ export const extensionMessagesEn: ExtensionMessageTree = {
       'Item is in your inventory. Seller funds unlock after the on-platform review window.',
   },
   dispute: {
-    openTitle: 'Dispute open',
+    openEyebrow: 'Support',
+    openTitle: 'Support is handling this',
     openBody:
-      'Only support or an admin can close a dispute. Do not accept other offers for this order and do not send money in chat.',
+      'Nothing urgent on your side. Do not accept other offers for this deal — support or an admin will decide.',
     needTitle: 'Dispute needed',
     needMismatch:
       'Offer does not match the order. Do not press Accept — open a dispute with evidence (offerId, verify, time).',

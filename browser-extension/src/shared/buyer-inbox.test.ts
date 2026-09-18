@@ -267,8 +267,13 @@ describe('buildBuyerInbox / sort', () => {
       }),
     );
     expect(card?.phase).toBe('dispute');
+    expect(card?.tone).toBe('info');
     expect(card?.timeoutLabel).toBeNull();
+    expect(card?.settlement).toBeNull();
     expect(card?.dispute?.phase).toBe('dispute_open');
+    expect(card?.dispute?.tone).toBe('calm');
+    expect(card?.dispute?.title).toMatch(/команды|поддержк/i);
+    expect(card?.cta.hint).toBeNull();
     expect(card?.primary.label).toBe('Открыть заказ');
     expect(card?.cta.overflow[0]?.label).toBe('Написать в поддержку');
   });

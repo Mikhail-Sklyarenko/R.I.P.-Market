@@ -36,7 +36,8 @@ export type DisputeStatusView = {
   phase: DisputeStatusPhase;
   title: string;
   body: string;
-  tone: 'error' | 'warn';
+  tone: 'error' | 'warn' | 'calm';
+  eyebrow?: string | null;
   primaryLabel: string;
   primaryHref: string;
   secondaryLabel: string;
@@ -187,12 +188,13 @@ export function buildDisputeStatusView(
   const orderHref = safeOrderHref(trade);
 
   if (trade.orderStatus === 'DISPUTE') {
-    // Dispute already open — primary job is open the order, not "open dispute" again.
+    // One calm panel owns the whole story — no stacked nextAction / timeout / hint.
     return {
       phase: 'dispute_open',
+      eyebrow: t('dispute.openEyebrow'),
       title: t('dispute.openTitle'),
       body: t('dispute.openBody'),
-      tone: 'error',
+      tone: 'calm',
       primaryLabel: t('cta.openOrder'),
       primaryHref: orderHref,
       secondaryLabel: t('cta.contactSupport'),
@@ -218,11 +220,24 @@ export function buildDisputeStatusView(
 export function disputeStatusHtml(
   view: DisputeStatusView,
   escapeHtml: (value: string) => string,
+  options?: { withActions?: boolean },
 ): string {
+  const withActions = options?.withActions !== false;
+  const eyebrow = view.eyebrow?.trim()
+    ? `<p class="dispute-eyebrow">${escapeHtml(view.eyebrow)}</p>`
+    : '';
+  const actions = withActions
+    ? `<div class="dispute-actions">
+      <a class="btn primary" href="${escapeHtml(view.primaryHref)}" target="_blank" rel="noreferrer">${escapeHtml(view.primaryLabel)}</a>
+      <a class="btn ghost" href="${escapeHtml(view.secondaryHref)}" target="_blank" rel="noreferrer">${escapeHtml(view.secondaryLabel)}</a>
+    </div>`
+    : '';
   return `
     <div class="dispute-block tone-${escapeHtml(view.tone)}" data-dispute-phase="${escapeHtml(view.phase)}">
+      ${eyebrow}
       <p class="dispute-title">${escapeHtml(view.title)}</p>
       <p class="dispute-body">${escapeHtml(view.body)}</p>
+      ${actions}
     </div>
   `;
 }

@@ -288,7 +288,7 @@ export function buildBuyerInboxCard(
   );
   const tone =
     phase === 'dispute'
-      ? 'error'
+      ? 'info'
       : phase === 'accept'
         ? 'warn'
         : phase === 'verifying'
@@ -302,6 +302,9 @@ export function buildBuyerInboxCard(
       ? shield.item.lines.map((l) => `${l.label} ${l.value}`).join(' · ')
       : null;
 
+  const dispute = buildDisputeStatusView(trade, locale);
+  const disputeOpen = dispute?.phase === 'dispute_open';
+
   return {
     orderId: trade.orderId,
     orderShortId: trade.orderShortId,
@@ -309,8 +312,12 @@ export function buildBuyerInboxCard(
     amountMinor: trade.amountMinor,
     phase,
     phaseLabel: t(`buyerPhase.${phase}`),
-    title: confirmBanner?.title ?? trade.nextAction.title,
-    description: confirmBanner?.body ?? trade.nextAction.description,
+    title: disputeOpen
+      ? dispute.title
+      : (confirmBanner?.title ?? trade.nextAction.title),
+    description: disputeOpen
+      ? dispute.body
+      : (confirmBanner?.body ?? trade.nextAction.description),
     tone,
     primary: resolvePrimaryCta(trade, phase, steamOfferUrl, next, locale),
     offerId: trade.offerId,
@@ -323,8 +330,10 @@ export function buildBuyerInboxCard(
     }),
     problemHref: buildBuyerProblemSupportUrl(trade),
     cta: next,
-    settlement: buildSettlementTransparency(trade, { locale }),
-    dispute: buildDisputeStatusView(trade, locale),
+    settlement: disputeOpen
+      ? null
+      : buildSettlementTransparency(trade, { locale }),
+    dispute,
     partnerLabel: dealShieldPartnerSummary(shield),
     partnerAvatarUrl: shield.partner.avatarUrl,
     itemCharacteristics,

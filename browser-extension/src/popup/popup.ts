@@ -396,12 +396,17 @@ function renderShieldStrip(trade: TradeVerificationResult): string {
 }
 
 function renderBuyerCard(card: BuyerInboxCard): string {
+  const disputeOpen = card.dispute?.phase === 'dispute_open';
   const settlement =
-    card.settlement != null
+    !disputeOpen && card.settlement != null
       ? settlementTransparencyHtml(card.settlement, escapeHtml)
       : '';
   const dispute =
-    card.dispute != null ? disputeStatusHtml(card.dispute, escapeHtml) : '';
+    card.dispute != null
+      ? disputeStatusHtml(card.dispute, escapeHtml, {
+          withActions: disputeOpen || card.dispute.phase === 'needs_dispute',
+        })
+      : '';
   const cta = withSafeModeCta(card.cta);
   const avatar = card.partnerAvatarUrl
     ? `<img class="shield-avatar" src="${escapeHtml(card.partnerAvatarUrl)}" alt="" />`
@@ -428,6 +433,16 @@ function renderBuyerCard(card: BuyerInboxCard): string {
           </div>
         </div>`
       : '';
+  const nextCopy = disputeOpen
+    ? ''
+    : `<p class="next"><strong>${escapeHtml(card.title)}</strong><br />${escapeHtml(card.description)}</p>`;
+  const timeoutCopy =
+    !disputeOpen && card.timeoutLabel
+      ? `<p class="timeout-hint">${escapeHtml(card.timeoutLabel)}</p>`
+      : '';
+  const actions = disputeOpen
+    ? ''
+    : renderNextActionBlock(cta, { orderId: card.orderId });
   return `
     <article class="trade-card phase-${card.phase} tone-${card.tone}" data-buyer-phase="${card.phase}" data-primary-cta="${escapeHtml(cta.primary.id)}">
       <div class="phase-row">
@@ -436,15 +451,11 @@ function renderBuyerCard(card: BuyerInboxCard): string {
       <h2>${escapeHtml(card.itemName)}</h2>
       <p class="meta">#${escapeHtml(card.orderShortId)} · ${escapeHtml(formatMoneyMinor(card.amountMinor))}</p>
       ${shield}
-      <p class="next"><strong>${escapeHtml(card.title)}</strong><br />${escapeHtml(card.description)}</p>
-      ${
-        card.timeoutLabel
-          ? `<p class="timeout-hint">${escapeHtml(card.timeoutLabel)}</p>`
-          : ''
-      }
+      ${nextCopy}
+      ${timeoutCopy}
       ${dispute}
       ${settlement}
-      ${renderNextActionBlock(cta, { orderId: card.orderId })}
+      ${actions}
     </article>
   `;
 }
@@ -482,30 +493,42 @@ function renderSellerCard(trade: TradeVerificationResult): string {
       : trade.nextAction.kind === 'platform_verifying'
         ? 'verifying'
         : '';
-  const settlementView = buildSettlementTransparency(trade, {
-    locale: activeLocale,
-  });
+  const disputeView = buildDisputeStatusView(trade, activeLocale);
+  const disputeOpen = disputeView?.phase === 'dispute_open';
+  const settlementView = disputeOpen
+    ? null
+    : buildSettlementTransparency(trade, {
+        locale: activeLocale,
+      });
   const settlement =
     settlementView != null
       ? settlementTransparencyHtml(settlementView, escapeHtml)
       : '';
-  const disputeView = buildDisputeStatusView(trade, activeLocale);
   const dispute =
-    disputeView != null ? disputeStatusHtml(disputeView, escapeHtml) : '';
+    disputeView != null
+      ? disputeStatusHtml(disputeView, escapeHtml, {
+          withActions: true,
+        })
+      : '';
   const confirmBanner = buildDealConfirmBanner(trade, activeLocale);
-  const nextCopy = confirmBanner
-    ? `<p class="next"><strong>${escapeHtml(confirmBanner.title)}</strong><br />${escapeHtml(confirmBanner.body)}</p>`
-    : `<p class="next"><strong>${escapeHtml(trade.nextAction.title)}</strong><br />${escapeHtml(trade.nextAction.description)}</p>`;
+  const nextCopy = disputeOpen
+    ? ''
+    : confirmBanner
+      ? `<p class="next"><strong>${escapeHtml(confirmBanner.title)}</strong><br />${escapeHtml(confirmBanner.body)}</p>`
+      : `<p class="next"><strong>${escapeHtml(trade.nextAction.title)}</strong><br />${escapeHtml(trade.nextAction.description)}</p>`;
+  const actions = disputeOpen
+    ? ''
+    : renderNextActionBlock(cta, { orderId: trade.orderId });
 
   return `
-    <article class="trade-card ${statusClass}" data-primary-cta="${escapeHtml(cta.primary.id)}">
+    <article class="trade-card ${statusClass}${disputeOpen ? ' phase-dispute' : ''}" data-primary-cta="${escapeHtml(cta.primary.id)}">
       <h2>${escapeHtml(trade.item.marketHashName)}</h2>
       <p class="meta">#${escapeHtml(trade.orderShortId)} · ${escapeHtml(roleLabel(trade.role))} · ${escapeHtml(formatMoneyMinor(trade.amountMinor))}</p>
       ${renderShieldStrip(trade)}
       ${nextCopy}
       ${dispute}
       ${settlement}
-      ${renderNextActionBlock(cta, { orderId: trade.orderId })}
+      ${actions}
     </article>
   `;
 }

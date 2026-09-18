@@ -100,6 +100,8 @@ describe('in-flow-dispute', () => {
       }),
     );
     expect(view?.phase).toBe('dispute_open');
+    expect(view?.tone).toBe('calm');
+    expect(view?.eyebrow).toMatch(/поддержк/i);
     expect(view?.primaryLabel).toMatch(/заказ/i);
     expect(view?.primaryHref).toContain('/orders/');
     expect(view?.secondaryHref).toContain('/support?');

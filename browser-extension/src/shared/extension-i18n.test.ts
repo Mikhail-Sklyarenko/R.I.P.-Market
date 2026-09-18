@@ -81,6 +81,7 @@ describe('extension-i18n', () => {
     expect(tx('ru', 'nextAction.hintMismatch')).toMatch(/подставятся/);
     expect(tx('ru', 'dispute.needGeneric')).toMatch(/подставятся/);
     expect(tx('ru', 'dispute.needMismatch')).toMatch(/с данными/);
+    expect(tx('ru', 'dispute.openTitle')).toMatch(/команды|поддержк/i);
     expect(tx('ru', 'cta.contactSupport')).toBe('Написать в поддержку');
   });
 });
