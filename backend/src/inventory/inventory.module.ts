@@ -12,4 +12,3 @@ import { InventoryService } from './inventory.service';
   exports: [InventoryService],
 })
 export class InventoryModule {}
-

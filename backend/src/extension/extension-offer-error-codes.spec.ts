@@ -29,7 +29,9 @@ describe('extension-offer-error-codes', () => {
   });
 
   it('does not retry ITEM_ALREADY_GONE', () => {
-    expect(isOfferErrorRetryable('ITEM_MISSING', 'CONFIRM_PENDING')).toBe(false);
+    expect(isOfferErrorRetryable('ITEM_MISSING', 'CONFIRM_PENDING')).toBe(
+      false,
+    );
     expect(isOfferErrorRetryable('ITEM_ALREADY_GONE', null)).toBe(false);
   });
 
@@ -58,12 +60,14 @@ describe('extension-offer-error-codes', () => {
   });
 
   it('triggers delivery check for gone/missing item failures', () => {
-    expect(shouldTriggerDeliveryCheckAfterOfferFailure('ITEM_ALREADY_GONE')).toBe(
+    expect(
+      shouldTriggerDeliveryCheckAfterOfferFailure('ITEM_ALREADY_GONE'),
+    ).toBe(true);
+    expect(shouldTriggerDeliveryCheckAfterOfferFailure('ITEM_MISSING')).toBe(
       true,
     );
-    expect(shouldTriggerDeliveryCheckAfterOfferFailure('ITEM_MISSING')).toBe(true);
-    expect(shouldTriggerDeliveryCheckAfterOfferFailure('STEAM_UNAVAILABLE')).toBe(
-      false,
-    );
+    expect(
+      shouldTriggerDeliveryCheckAfterOfferFailure('STEAM_UNAVAILABLE'),
+    ).toBe(false);
   });
 });

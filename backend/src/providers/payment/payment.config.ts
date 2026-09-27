@@ -21,6 +21,25 @@ export type PaymentConfig = {
 export function parsePaymentProviderKind(
   value: string | undefined,
 ): PaymentProviderKind {
+  if (value === 'e2e_crypto') {
+    let database: URL;
+    try {
+      database = new URL(process.env.DATABASE_URL ?? '');
+    } catch {
+      throw new Error('e2e_crypto requires a disposable local database');
+    }
+    if (
+      process.env.NODE_ENV !== 'test' ||
+      process.env.HOST !== '127.0.0.1' ||
+      process.env.ENABLE_TEST_ROUTES !== 'true' ||
+      !['localhost', '127.0.0.1'].includes(database.hostname) ||
+      database.pathname !== '/p2pcs_e2e'
+    )
+      throw new Error(
+        'e2e_crypto requires test mode, loopback binding and p2pcs_e2e database',
+      );
+    return 'crypto_tron';
+  }
   if (value === 'crypto_tron' || value === 'north') {
     return value;
   }

@@ -80,10 +80,7 @@ export class TradesController {
   }
 
   @Get(':id')
-  async getTrade(
-    @CurrentUser() actor: AuthUser,
-    @Param('id') tradeId: string,
-  ) {
+  async getTrade(@CurrentUser() actor: AuthUser, @Param('id') tradeId: string) {
     return this.tradesService.getTradeById(tradeId, actor.sub, actor.role);
   }
 }

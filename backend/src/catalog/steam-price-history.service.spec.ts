@@ -10,13 +10,9 @@ describe('SteamPriceHistoryService pct math (via getChangePcts shape)', () => {
       $queryRaw: jest
         .fn()
         // 7d anchors
-        .mockResolvedValueOnce([
-          { marketHashName: 'AK', priceMinor: 1000 },
-        ])
+        .mockResolvedValueOnce([{ marketHashName: 'AK', priceMinor: 1000 }])
         // 30d anchors
-        .mockResolvedValueOnce([
-          { marketHashName: 'AK', priceMinor: 800 },
-        ]),
+        .mockResolvedValueOnce([{ marketHashName: 'AK', priceMinor: 800 }]),
     };
     const service = new SteamPriceHistoryService(prisma as never);
     const result = await service.getChangePcts(['AK'], { AK: 1100 });

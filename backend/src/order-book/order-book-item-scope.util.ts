@@ -2,7 +2,10 @@ import {
   buildMarketHashNameWithWear,
   deriveBaseMarketHashName,
 } from '../item-definitions/base-market-hash-name.util';
-import { isUuid, slugifyMarketHashName } from '../item-definitions/item-slug.util';
+import {
+  isUuid,
+  slugifyMarketHashName,
+} from '../item-definitions/item-slug.util';
 import type { PrismaService } from '../prisma/prisma.service';
 
 type CatalogItemRow = {

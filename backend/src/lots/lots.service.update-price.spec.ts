@@ -81,7 +81,9 @@ describe('LotsService.updatePrice', () => {
       { matchLotActivated: jest.fn() } as never,
     );
 
-    await expect(service.updatePrice('seller-1', 'lot-1', 1900)).rejects.toMatchObject({
+    await expect(
+      service.updatePrice('seller-1', 'lot-1', 1900),
+    ).rejects.toMatchObject({
       code: ErrorCode.LOT_NOT_ACTIVE,
     });
   });

@@ -172,7 +172,7 @@ describe('Steam inventory (e2e)', () => {
     expect(response.body.error.code).toBe('STEAM_PROFILE_PRIVATE');
   });
 
-  it('rejects forceRefresh for buyers', async () => {
+  it('allows a buyer to refresh their own inventory for unified trading', async () => {
     const buyer = await api.login(UserRole.BUYER);
     await prisma.user.update({
       where: { id: buyer.userId },
@@ -182,8 +182,8 @@ describe('Steam inventory (e2e)', () => {
     const response = await request(app.getHttpServer())
       .get('/api/v1/inventory?forceRefresh=true')
       .set('Authorization', `Bearer ${buyer.token}`)
-      .expect(403);
+      .expect(200);
 
-    expect(response.body.error.code).toBe('FORBIDDEN');
+    expect(response.body.assets).toEqual(expect.any(Array));
   });
 });

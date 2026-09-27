@@ -66,10 +66,24 @@ export class TradeInventoryDeltaService {
     if (
       sellerSync.status === 'FAILED' ||
       buyerSync.status === 'FAILED' ||
+      sellerSync.status === 'PARTIAL' ||
+      buyerSync.status === 'PARTIAL' ||
       sellerSync.stale ||
       buyerSync.stale
     ) {
       return 'unknown';
+    }
+
+    // Marketplace RESERVED/LISTED rows are not evidence of live Steam presence.
+    // Require complete fresh observations for the real provider.
+    if (this.inventoryProvider.type === 'steam') {
+      if (!sellerSync.observedAssetIds || !buyerSync.observedAssetIds)
+        return 'unknown';
+      if (sellerSync.observedAssetIds.includes(expectedAssetExternalId))
+        return 'seller_still_holds';
+      return buyerSync.observedAssetIds.includes(expectedAssetExternalId)
+        ? 'confirmed'
+        : 'pending';
     }
 
     const sellerLiveHolds = await this.prisma.inventoryAsset.findFirst({
@@ -94,8 +108,8 @@ export class TradeInventoryDeltaService {
 
     // A name/float/seed match (even newly synced) cannot establish this transfer:
     // another trade or an old item first imported today can match. Require exact
-    // asset evidence here; accepted Steam offer or explicit buyer receipt are
-    // handled by the delivery decision engine when Steam changes the asset ID.
+    // asset evidence here. A changed Steam asset ID requires an authoritative
+    // transfer mapping; neither a receipt nor a matching item name substitutes it.
 
     if (sellerLiveHolds) {
       return 'seller_still_holds';
@@ -103,5 +117,4 @@ export class TradeInventoryDeltaService {
 
     return 'pending';
   }
-
 }

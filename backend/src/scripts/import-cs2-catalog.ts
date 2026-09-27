@@ -41,7 +41,9 @@ function resolveSources(): Cs2CatalogSource[] {
       .map((entry) => entry.trim())
       .filter(Boolean),
   );
-  const selected = CS2_CATALOG_SOURCES.filter((source) => wanted.has(source.id));
+  const selected = CS2_CATALOG_SOURCES.filter((source) =>
+    wanted.has(source.id),
+  );
   if (selected.length === 0) {
     throw new Error(
       `No sources matched --sources=${raw}. Valid: ${CS2_CATALOG_SOURCES.map((s) => s.id).join(',')}`,
@@ -114,14 +116,17 @@ async function main() {
     const report = await importCs2CatalogSeeds(
       {
         itemDefinition: {
-          upsert: async () => null as unknown,
+          upsert: async () => null,
         },
       },
       seeds,
       { offset, limit, dryRun: true },
     );
     console.log(JSON.stringify({ ...report, bySource }, null, 2));
-    console.log('Sample:', seeds.slice(offset, offset + Math.min(3, limit ?? 3)));
+    console.log(
+      'Sample:',
+      seeds.slice(offset, offset + Math.min(3, limit ?? 3)),
+    );
     return;
   }
 

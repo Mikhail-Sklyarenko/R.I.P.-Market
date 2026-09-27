@@ -101,10 +101,7 @@ describe('UsersService (Steam identity)', () => {
     };
     prisma.user.upsert.mockResolvedValue(user);
 
-    const result = await service.upsertBySteamId(
-      '76561198195181115',
-      'R1ppeR',
-    );
+    const result = await service.upsertBySteamId('76561198195181115', 'R1ppeR');
 
     expect(prisma.user.upsert).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -241,7 +238,9 @@ describe('UsersService (Steam identity)', () => {
       throw new Error('Expected updateTradeUrl to fail');
     } catch (error: unknown) {
       expect(error).toBeInstanceOf(AppException);
-      expect((error as AppException).code).toBe(ErrorCode.TRADE_URL_STEAM_MISMATCH);
+      expect((error as AppException).code).toBe(
+        ErrorCode.TRADE_URL_STEAM_MISMATCH,
+      );
       expect((error as AppException).getStatus()).toBe(HttpStatus.BAD_REQUEST);
     }
 
@@ -274,21 +273,21 @@ describe('UsersService (Steam identity)', () => {
   });
 
   it('linkSteamId rejects when existing trade URL belongs to another account', async () => {
-    prisma.user.findUnique
-      .mockResolvedValueOnce(null)
-      .mockResolvedValueOnce({
-        id: 'user-2',
-        username: 'mock_seller',
-        tradeUrl:
-          'https://steamcommunity.com/tradeoffer/new/?partner=123456789&token=AbCdEfGh',
-      });
+    prisma.user.findUnique.mockResolvedValueOnce(null).mockResolvedValueOnce({
+      id: 'user-2',
+      username: 'mock_seller',
+      tradeUrl:
+        'https://steamcommunity.com/tradeoffer/new/?partner=123456789&token=AbCdEfGh',
+    });
 
     try {
       await service.linkSteamId('user-2', '76561198000000000');
       throw new Error('Expected linkSteamId to fail');
     } catch (error: unknown) {
       expect(error).toBeInstanceOf(AppException);
-      expect((error as AppException).code).toBe(ErrorCode.TRADE_URL_STEAM_MISMATCH);
+      expect((error as AppException).code).toBe(
+        ErrorCode.TRADE_URL_STEAM_MISMATCH,
+      );
     }
 
     expect(prisma.user.update).not.toHaveBeenCalled();

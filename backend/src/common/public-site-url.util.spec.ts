@@ -7,16 +7,14 @@ import {
 describe('public-site-url.util', () => {
   describe('normalizeSiteOriginCandidate', () => {
     it('accepts https origin and strips path', () => {
-      expect(
-        normalizeSiteOriginCandidate('https://p2pcs.ru/orders/abc'),
-      ).toBe('https://p2pcs.ru');
+      expect(normalizeSiteOriginCandidate('https://p2pcs.ru/orders/abc')).toBe(
+        'https://p2pcs.ru',
+      );
     });
 
     it('rejects comma-joined CORS blobs', () => {
       expect(
-        normalizeSiteOriginCandidate(
-          'https://p2pcs.ru,https://www.p2pcs.ru',
-        ),
+        normalizeSiteOriginCandidate('https://p2pcs.ru,https://www.p2pcs.ru'),
       ).toBeNull();
     });
 

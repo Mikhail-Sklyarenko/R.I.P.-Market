@@ -53,7 +53,9 @@ function mapNextAction(value: unknown): ActiveTradeNextAction | null {
   };
 }
 
-function mapFailedChecks(value: unknown): OrderTradeVerificationDto['failedChecks'] {
+function mapFailedChecks(
+  value: unknown,
+): OrderTradeVerificationDto['failedChecks'] {
   if (!Array.isArray(value)) {
     return [];
   }

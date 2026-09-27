@@ -74,31 +74,31 @@ describe('decideDeliveryVerification', () => {
         checkCount: 5,
       }),
     );
-    expect(decision.action).toBe('CONFIRM');
-    expect(decision.reason).toBe('OFFER_ACCEPTED_INVENTORY_LAG');
+    expect(decision.action).toBe('DISPUTE');
+    expect(decision.reason).toBe('DELIVERY_VERIFICATION_UNKNOWN');
     delete process.env.DELIVERY_ACCEPTED_INVENTORY_PENDING_MAX_CHECKS;
   });
 
-  it('confirms when offer accepted but inventory sync is unknown', () => {
+  it('waits when offer accepted but inventory sync is unknown', () => {
     const decision = decideDeliveryVerification(
       baseSignals({
         offerStatus: 'accepted',
         inventoryDelta: 'unknown',
       }),
     );
-    expect(decision.action).toBe('CONFIRM');
-    expect(decision.reason).toBe('OFFER_ACCEPTED_INVENTORY_UNKNOWN');
+    expect(decision.action).toBe('WAIT');
+    expect(decision.reason).toBe('INVENTORY_PENDING');
   });
 
-  it('confirms when inventory confirmed but offer status unknown', () => {
+  it('waits when inventory confirmed but offer status unknown', () => {
     const decision = decideDeliveryVerification(
       baseSignals({
         offerStatus: 'unknown',
         inventoryDelta: 'confirmed',
       }),
     );
-    expect(decision.action).toBe('CONFIRM');
-    expect(decision.reason).toBe('INVENTORY_CONFIRMED_OFFER_UNKNOWN');
+    expect(decision.action).toBe('WAIT');
+    expect(decision.reason).toBe('OFFER_UNKNOWN');
   });
 
   it('waits when offer still needs Steam Guard confirmation', () => {
@@ -128,7 +128,7 @@ describe('decideDeliveryVerification', () => {
     expect(decision.action).toBe('TIMEOUT');
   });
 
-  it('confirms when buyer ack received and inventory confirmed while offer pending', () => {
+  it('disputes contradictory signals despite buyer receipt', () => {
     const decision = decideDeliveryVerification(
       baseSignals({
         offerStatus: 'pending',
@@ -136,11 +136,11 @@ describe('decideDeliveryVerification', () => {
         buyerAckReceived: true,
       }),
     );
-    expect(decision.action).toBe('CONFIRM');
-    expect(decision.reasonCode).toBe('BUYER_ACK_INVENTORY_CONFIRMED');
+    expect(decision.action).toBe('DISPUTE');
+    expect(decision.reasonCode).toBe('DELIVERY_SIGNAL_CONFLICT');
   });
 
-  it('confirms when buyer ack received even if Steam still reports seller holds the item', () => {
+  it('waits despite buyer receipt while seller holds the item', () => {
     const decision = decideDeliveryVerification(
       baseSignals({
         offerStatus: 'pending',
@@ -148,8 +148,8 @@ describe('decideDeliveryVerification', () => {
         buyerAckReceived: true,
       }),
     );
-    expect(decision.action).toBe('CONFIRM');
-    expect(decision.reasonCode).toBe('BUYER_ACK_RECEIVED');
+    expect(decision.action).toBe('WAIT');
+    expect(decision.reasonCode).toBe('AWAITING_BUYER_STEAM_ACCEPT');
   });
 
   it('waits for Steam accept when seller still holds and buyer has not acked', () => {
@@ -163,7 +163,7 @@ describe('decideDeliveryVerification', () => {
     expect(decision.reasonCode).toBe('AWAITING_BUYER_STEAM_ACCEPT');
   });
 
-  it('confirms when buyer acked and seller asset is gone even if offer API is blind', () => {
+  it('waits despite buyer receipt when offer API is blind', () => {
     const decision = decideDeliveryVerification(
       baseSignals({
         offerStatus: 'unknown',
@@ -171,8 +171,8 @@ describe('decideDeliveryVerification', () => {
         buyerAckReceived: true,
       }),
     );
-    expect(decision.action).toBe('CONFIRM');
-    expect(decision.reasonCode).toBe('BUYER_ACK_SELLER_ASSET_GONE');
+    expect(decision.action).toBe('WAIT');
+    expect(decision.reasonCode).toBe('OFFER_UNKNOWN_RETRY');
   });
 
   it('does not dispute inventory-unknown flaps when no offer was ever sent', () => {
@@ -203,7 +203,7 @@ describe('decideDeliveryVerification', () => {
     delete process.env.DELIVERY_INVENTORY_UNKNOWN_MAX_CHECKS;
   });
 
-  it('legacy mode confirms buyer ack even when inventory lag and mock offer stays pending', () => {
+  it('legacy mode waits despite buyer receipt and inventory lag', () => {
     const decision = decideDeliveryVerification(
       baseSignals({
         engineEnabled: false,
@@ -212,11 +212,11 @@ describe('decideDeliveryVerification', () => {
         buyerAckReceived: true,
       }),
     );
-    expect(decision.action).toBe('CONFIRM');
-    expect(decision.reasonCode).toBe('BUYER_ACK_RECEIVED');
+    expect(decision.action).toBe('WAIT');
+    expect(decision.reasonCode).toBe('AWAITING_BUYER_STEAM_ACCEPT');
   });
 
-  it('legacy mode confirms buyer ack + inventory even when mock offer stays pending', () => {
+  it('legacy mode disputes contradictory offer and inventory', () => {
     const decision = decideDeliveryVerification(
       baseSignals({
         engineEnabled: false,
@@ -225,11 +225,11 @@ describe('decideDeliveryVerification', () => {
         buyerAckReceived: true,
       }),
     );
-    expect(decision.action).toBe('CONFIRM');
-    expect(decision.reasonCode).toBe('BUYER_ACK_INVENTORY_CONFIRMED');
+    expect(decision.action).toBe('DISPUTE');
+    expect(decision.reasonCode).toBe('DELIVERY_SIGNAL_CONFLICT');
   });
 
-  it('confirms when buyer ack received and offer accepted but inventory still pending', () => {
+  it('waits despite buyer receipt when inventory is pending', () => {
     const decision = decideDeliveryVerification(
       baseSignals({
         offerStatus: 'accepted',
@@ -238,11 +238,11 @@ describe('decideDeliveryVerification', () => {
         checkCount: 1,
       }),
     );
-    expect(decision.action).toBe('CONFIRM');
-    expect(decision.reasonCode).toBe('BUYER_ACK_OFFER_ACCEPTED');
+    expect(decision.action).toBe('WAIT');
+    expect(decision.reasonCode).toBe('INVENTORY_PENDING');
   });
 
-  it('keeps legacy offer-accepted confirm when engine disabled', () => {
+  it('disputes inventory mismatch even when engine disabled', () => {
     const decision = decideDeliveryVerification(
       baseSignals({
         engineEnabled: false,
@@ -250,7 +250,7 @@ describe('decideDeliveryVerification', () => {
         inventoryDelta: 'seller_still_holds',
       }),
     );
-    expect(decision.action).toBe('CONFIRM');
-    expect(decision.reason).toBe('LEGACY_OFFER_ACCEPTED');
+    expect(decision.action).toBe('DISPUTE');
+    expect(decision.reason).toBe('DELIVERY_INVENTORY_MISMATCH');
   });
 });

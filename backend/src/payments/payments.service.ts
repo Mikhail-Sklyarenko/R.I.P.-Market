@@ -505,7 +505,7 @@ export class PaymentsService {
       });
 
       return toJsonSafe(updated);
-    } catch (error) {
+    } catch {
       // A lost response (including a local DB failure) is not a rejected payout.
       // Keep the debit and PROCESSING state until provider reconciliation.
       throw new BadRequestException(

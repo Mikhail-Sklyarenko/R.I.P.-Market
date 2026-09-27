@@ -72,6 +72,20 @@ describe('DeliveryVerificationEngineService', () => {
     );
   });
 
+  it('does not promote a client-observed acceptance to authoritative Steam acceptance', async () => {
+    process.env.ENABLE_DELIVERY_VERIFICATION_ENGINE = 'true';
+    tradesService.verifyOffer.mockResolvedValue({ status: 'unknown' });
+    inventoryDelta.verify.mockResolvedValue('confirmed');
+    prisma.tradePollEvent.findFirst.mockResolvedValueOnce({
+      offerStatus: 'accepted',
+    });
+
+    const result = await service.evaluate(operation as never);
+
+    expect(result.offerStatus).toBe('unknown');
+    expect(result.decision.action).not.toBe('CONFIRM');
+  });
+
   it('returns BACKOFF decision on Steam 429', async () => {
     process.env.ENABLE_DELIVERY_VERIFICATION_ENGINE = 'true';
     tradesService.verifyOffer.mockRejectedValue(new SteamTradeRateLimitError());

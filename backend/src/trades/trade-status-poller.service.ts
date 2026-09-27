@@ -103,7 +103,10 @@ export class TradeStatusPollerService implements OnModuleInit {
       return false;
     }
 
-    return this.checkCoordinated(operation as DeliveryVerificationOperation, options?.force);
+    return this.checkCoordinated(
+      operation as DeliveryVerificationOperation,
+      options?.force,
+    );
   }
 
   async pollWaitingTrades(): Promise<{ checked: number; transitions: number }> {
@@ -164,9 +167,11 @@ export class TradeStatusPollerService implements OnModuleInit {
       if (until <= now) this.nextCheckAt.delete(id);
     }
     this.nextCheckAt.set(operation.orderId, now + this.minimumPollIntervalMs);
-    const check = Promise.resolve().then(() => this.checkOperation(operation)).finally(() => {
-      this.inFlight.delete(operation.orderId);
-    });
+    const check = Promise.resolve()
+      .then(() => this.checkOperation(operation))
+      .finally(() => {
+        this.inFlight.delete(operation.orderId);
+      });
     this.inFlight.set(operation.orderId, check);
     return check;
   }

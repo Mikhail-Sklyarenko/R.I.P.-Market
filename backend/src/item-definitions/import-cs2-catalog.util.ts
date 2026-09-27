@@ -236,7 +236,7 @@ function resolveWeaponLabel(
 export function buildCatalogSkinCardSeeds(
   rows: Cs2ApiCatalogRow[],
 ): CatalogSkinCardSeed[] {
-  return buildCatalogCardSeeds(rows, CS2_CATALOG_SOURCES[0]!);
+  return buildCatalogCardSeeds(rows, CS2_CATALOG_SOURCES[0]);
 }
 
 export function buildCatalogCardSeeds(
@@ -266,9 +266,7 @@ export function buildCatalogCardSeeds(
       ? collectWearCodeFromName(marketHashName)
       : null;
     const wearFromField = source.groupWear
-      ? wearCodesFromSteamWearNames(
-          row.wear?.name ? [row.wear.name] : [],
-        )[0]
+      ? wearCodesFromSteamWearNames(row.wear?.name ? [row.wear.name] : [])[0]
       : null;
     const wear = wearFromName ?? wearFromField ?? null;
     const weapon = resolveWeaponLabel(row, source);
@@ -296,7 +294,8 @@ export function buildCatalogCardSeeds(
     Object.assign(existing.wearIcons, wearIconFromRow(wear, row));
     if (!existing.iconUrl) {
       existing.iconUrl =
-        pickDefaultIconUrl(existing.wearIcons, existing.availableWears) ?? rowIcon;
+        pickDefaultIconUrl(existing.wearIcons, existing.availableWears) ??
+        rowIcon;
     }
     if (!existing.weapon && weapon) {
       existing.weapon = weapon;
@@ -313,7 +312,8 @@ export function buildCatalogCardSeeds(
         (a, b) => WEAR_ORDER.indexOf(a) - WEAR_ORDER.indexOf(b),
       ),
 
-      iconUrl: pickDefaultIconUrl(seed.wearIcons, seed.availableWears) ?? seed.iconUrl,
+      iconUrl:
+        pickDefaultIconUrl(seed.wearIcons, seed.availableWears) ?? seed.iconUrl,
     }))
     .sort((a, b) => a.marketHashName.localeCompare(b.marketHashName));
 }
@@ -363,7 +363,8 @@ export function mergeCatalogCardSeeds(
         (a, b) => WEAR_ORDER.indexOf(a) - WEAR_ORDER.indexOf(b),
       ),
 
-      iconUrl: pickDefaultIconUrl(seed.wearIcons, seed.availableWears) ?? seed.iconUrl,
+      iconUrl:
+        pickDefaultIconUrl(seed.wearIcons, seed.availableWears) ?? seed.iconUrl,
     }))
     .sort((a, b) => a.marketHashName.localeCompare(b.marketHashName));
 }

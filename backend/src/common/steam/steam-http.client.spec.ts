@@ -36,9 +36,9 @@ describe('steam-http.client', () => {
       'http://user:secret@gw.dataimpulse.com:823';
     delete process.env.STEAM_HTTP_PROXY_ALL;
     resetSteamHttpClientForTests();
-    expect(
-      shouldUseSteamProxy('https://steamcommunity.com/openid/login'),
-    ).toBe(true);
+    expect(shouldUseSteamProxy('https://steamcommunity.com/openid/login')).toBe(
+      true,
+    );
     expect(
       shouldUseSteamProxy(
         'https://api.steampowered.com/ISteamUser/GetPlayerSummaries/v0002/',

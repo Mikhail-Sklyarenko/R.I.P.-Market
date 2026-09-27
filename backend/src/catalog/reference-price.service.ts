@@ -149,8 +149,7 @@ export class ReferencePriceService {
       return null;
     }
     const item = items[marketHashName];
-    const buffUsd =
-      item?.buff?.starting_at?.price ?? item?.buff?.price ?? null;
+    const buffUsd = item?.buff?.starting_at?.price ?? item?.buff?.price ?? null;
     if (buffUsd === null || buffUsd === undefined) {
       return null;
     }

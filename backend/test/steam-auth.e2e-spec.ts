@@ -36,7 +36,9 @@ describe('Steam auth (e2e)', () => {
     app = await createE2eApp();
     prisma = app.get(PrismaService);
     jwt = app.get(JwtService);
-    jest.spyOn(steamOpenId, 'verifySteamOpenId').mockResolvedValue({ ok: true });
+    jest
+      .spyOn(steamOpenId, 'verifySteamOpenId')
+      .mockResolvedValue({ ok: true });
   });
 
   beforeEach(async () => {
@@ -54,16 +56,27 @@ describe('Steam auth (e2e)', () => {
     await app.close();
   });
 
-  it('callback redirects to frontend with JWT for new steam user', async () => {
+  it('callback exchanges a single-use code without exposing credentials in the URL', async () => {
     const response = await request(app.getHttpServer())
       .get('/api/v1/auth/steam/callback')
       .query(OPENID_PARAMS)
       .expect(302);
 
-    expect(response.headers.location).toMatch(
-      /\/login\/steam\/callback\?accessToken=/,
-    );
-    expect(response.headers.location).toContain('steamId=76561198999999999');
+    const callback = new URL(response.headers.location);
+    expect(callback.pathname).toBe('/login/steam/callback');
+    expect(callback.searchParams.has('accessToken')).toBe(false);
+    expect(callback.searchParams.has('steamId')).toBe(false);
+    const code = callback.searchParams.get('code');
+    expect(code).toBeTruthy();
+    const exchange = await request(app.getHttpServer())
+      .post('/api/v1/auth/steam/exchange')
+      .send({ code })
+      .expect(201);
+    expect(exchange.body.accessToken).toBeTruthy();
+    await request(app.getHttpServer())
+      .post('/api/v1/auth/steam/exchange')
+      .send({ code })
+      .expect(400);
 
     const user = await prisma.user.findUnique({
       where: { steamId: '76561198999999999' },
@@ -103,9 +116,9 @@ describe('Steam auth (e2e)', () => {
       .expect(302);
 
     expect(callbackResponse.headers.location).toContain('linked=1');
-    expect(callbackResponse.headers.location).toContain(
-      'steamId=76561198999999999',
-    );
+    expect(
+      new URL(callbackResponse.headers.location).searchParams.has('steamId'),
+    ).toBe(false);
 
     const updated = await prisma.user.findUnique({
       where: { id: existing.id },

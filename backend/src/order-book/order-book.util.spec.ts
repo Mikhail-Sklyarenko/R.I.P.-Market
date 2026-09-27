@@ -44,7 +44,9 @@ describe('order-book.util', () => {
     it('computes spread between best bid and best ask', () => {
       const snapshot = buildOrderBookSnapshot({
         bids: [{ priceMinor: '1100', quantity: 2 }],
-        asks: [{ lotId: 'lot-1', priceMinor: '1250', floatValue: null, wear: null }],
+        asks: [
+          { lotId: 'lot-1', priceMinor: '1250', floatValue: null, wear: null },
+        ],
         asksLevels: [{ priceMinor: '1250', quantity: 3 }],
         asksCount: 3,
         minAskPriceMinor: 1250n,
@@ -53,7 +55,9 @@ describe('order-book.util', () => {
       expect(snapshot.bestBidMinor).toBe('1100');
       expect(snapshot.bestAskMinor).toBe('1250');
       expect(snapshot.spreadMinor).toBe('150');
-      expect(snapshot.asksLevels).toEqual([{ priceMinor: '1250', quantity: 3 }]);
+      expect(snapshot.asksLevels).toEqual([
+        { priceMinor: '1250', quantity: 3 },
+      ]);
       expect(snapshot.asksSummary).toEqual({
         count: 3,
         minPriceMinor: '1250',

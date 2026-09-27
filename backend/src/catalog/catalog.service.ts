@@ -132,7 +132,9 @@ export class CatalogService {
     const total = index.rows.length;
     const pageRows = index.rows.slice(skip, skip + limit);
     const hydrated = await this.hydrateRowsWithCachedSteamPrices(pageRows);
-    const withIcons = await this.hydrateMissingIconsFromSnapshots(hydrated.rows);
+    const withIcons = await this.hydrateMissingIconsFromSnapshots(
+      hydrated.rows,
+    );
     this.scheduleMissingSteamPriceRefresh(withIcons);
     this.itemIcons.scheduleMissingIconRefresh(withIcons);
 
@@ -183,7 +185,8 @@ export class CatalogService {
       steamPrices,
       referencePrices,
     );
-    const displayEntry = steamPrices[steamLookupName] ?? steamPrices[item.marketHashName];
+    const displayEntry =
+      steamPrices[steamLookupName] ?? steamPrices[item.marketHashName];
     const changePcts = await this.steamPriceHistory.getChangePcts(
       [steamLookupName],
       { [steamLookupName]: displayEntry?.priceMinor ?? null },
@@ -259,7 +262,9 @@ export class CatalogService {
       .slice(0, capped);
 
     const hydrated = await this.hydrateRowsWithCachedSteamPrices(rows);
-    const withIcons = await this.hydrateMissingIconsFromSnapshots(hydrated.rows);
+    const withIcons = await this.hydrateMissingIconsFromSnapshots(
+      hydrated.rows,
+    );
     this.scheduleMissingSteamPriceRefresh(withIcons);
     this.itemIcons.scheduleMissingIconRefresh(withIcons);
 
@@ -328,12 +333,8 @@ export class CatalogService {
         ),
       ]),
     );
-    const steamLookupNames = [
-      ...new Set(steamLookupByRowId.values()),
-    ];
-    const marketHashNames = [
-      ...new Set(rows.map((row) => row.marketHashName)),
-    ];
+    const steamLookupNames = [...new Set(steamLookupByRowId.values())];
+    const marketHashNames = [...new Set(rows.map((row) => row.marketHashName))];
 
     const [steamPrices, referencePrices] = await Promise.all([
       this.steamMarketPrice.getPricesWithMeta(steamLookupNames, {
@@ -492,10 +493,16 @@ export class CatalogService {
 
   private buildCatalogItemRow(
     item: ItemDefinitionRecord,
-    lotStats: Map<string, { minPriceMinor: bigint; count: number; latestListedAt: Date | null }>,
+    lotStats: Map<
+      string,
+      { minPriceMinor: bigint; count: number; latestListedAt: Date | null }
+    >,
     popularStats: Map<string, number>,
     featuredLots: Map<string, string>,
-    steamPrices: Record<string, { priceMinor: number | null; fetchedAt?: string | null }>,
+    steamPrices: Record<
+      string,
+      { priceMinor: number | null; fetchedAt?: string | null }
+    >,
     referencePrices: Record<
       string,
       {
@@ -695,7 +702,9 @@ export class CatalogService {
         where: {
           status: LotStatus.ACTIVE,
           inventoryAsset: {
-            itemDefinition: this.buildLotItemDefinitionFilter(options.baseNames),
+            itemDefinition: this.buildLotItemDefinitionFilter(
+              options.baseNames,
+            ),
           },
         },
         orderBy: { priceMinor: 'asc' },
@@ -734,7 +743,9 @@ export class CatalogService {
     options: { baseNames?: string[] } = {},
   ): Promise<Map<string, number>> {
     const cacheKey = JSON.stringify({
-      baseNames: options.baseNames?.length ? [...options.baseNames].sort() : null,
+      baseNames: options.baseNames?.length
+        ? [...options.baseNames].sort()
+        : null,
     });
     return this.popularStatsCache.getOrSet(cacheKey, async () => {
       const since = new Date(Date.now() - POPULAR_WINDOW_MS);
@@ -831,7 +842,9 @@ export class CatalogService {
         const aPrice = Number(a.minMarketplacePriceMinor);
         const bPrice = Number(b.minMarketplacePriceMinor);
         if (aPrice !== bPrice) {
-          return effectiveSort === 'price_desc' ? bPrice - aPrice : aPrice - bPrice;
+          return effectiveSort === 'price_desc'
+            ? bPrice - aPrice
+            : aPrice - bPrice;
         }
         return a.marketHashName.localeCompare(b.marketHashName);
       });

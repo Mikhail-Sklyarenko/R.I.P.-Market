@@ -145,7 +145,14 @@ describe('MVP core flows (e2e)', () => {
 
     expect([200, 201]).toContain(resolveResponse.status);
     expect(resolveResponse.body.order.status).toBe('FAILED');
-    expect(resolveResponse.body.order.lot.status).toBe('ACTIVE');
+    expect(resolveResponse.body.order.lot.status).toBe('BLOCKED');
+    const repeated = await api.adminResolveDispute(
+      admin,
+      orderResponse.body.id,
+      'BUYER',
+      'resolve-buyer-1',
+    );
+    expect([200, 201]).toContain(repeated.status);
 
     const buyerWallet = await api.getWallet(buyer);
     const available = Number(

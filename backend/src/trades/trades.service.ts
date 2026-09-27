@@ -346,7 +346,9 @@ export class TradesService {
     }
 
     if (latestSteam === 'accepted') {
-      await this.applyTradeConfirmedFromPoll(orderId);
+      throw new BadRequestException(
+        'Independent offer and inventory verification is required before settlement',
+      );
     } else if (latestSteam === 'declined' || latestSteam === 'expired') {
       await this.applyTradeFailedFromPoll(orderId, latestSteam);
     } else if (latestSteam === 'timeout') {
@@ -759,6 +761,14 @@ export class TradesService {
       engineEnabled?: boolean;
     },
   ) {
+    if (
+      evidence?.offerStatus !== 'accepted' ||
+      evidence?.inventoryDelta !== 'confirmed'
+    ) {
+      throw new BadRequestException(
+        'Independent offer and inventory verification is required before settlement',
+      );
+    }
     const idempotencyKey = `poll-confirm:${orderId}`;
     const existingAudit = await this.prisma.auditLog.findFirst({
       where: {

@@ -36,11 +36,11 @@ export class TtlLruCache<T> {
     }
     this.entries.set(key, { value, expiresAt: Date.now() + this.ttlMs });
     while (this.entries.size > this.maxEntries) {
-      const oldest = this.entries.keys().next().value;
-      if (oldest === undefined) {
+      const oldest = this.entries.keys().next();
+      if (oldest.done) {
         break;
       }
-      this.entries.delete(oldest);
+      this.entries.delete(oldest.value);
     }
   }
 

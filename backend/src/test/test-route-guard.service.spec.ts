@@ -11,7 +11,11 @@ describe('TestRouteGuardService', () => {
   const guard = new TestRouteGuardService();
 
   beforeEach(() => {
-    process.env = { ...original, ENABLE_TEST_ROUTES: 'true', PAYMENT_PROVIDER: 'mock' };
+    process.env = {
+      ...original,
+      ENABLE_TEST_ROUTES: 'true',
+      PAYMENT_PROVIDER: 'mock',
+    };
   });
 
   afterEach(() => {
@@ -19,7 +23,9 @@ describe('TestRouteGuardService', () => {
   });
 
   it('allows loopback without secret', () => {
-    expect(() => guard.assertDestructiveAllowed(req('127.0.0.1'))).not.toThrow();
+    expect(() =>
+      guard.assertDestructiveAllowed(req('127.0.0.1')),
+    ).not.toThrow();
   });
 
   it('blocks non-loopback without secret', () => {

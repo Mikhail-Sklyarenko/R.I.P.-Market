@@ -147,7 +147,8 @@ export function resolveOfferFailureReason(
   reasonCode: string | null | undefined,
   executionPhase: string | null | undefined,
 ): ExtensionOfferErrorCodeType {
-  const raw = (reasonCode ?? 'OFFER_SEND_FAILED') as ExtensionOfferErrorCodeType;
+  const raw = (reasonCode ??
+    'OFFER_SEND_FAILED') as ExtensionOfferErrorCodeType;
   if (
     raw === ExtensionOfferErrorCode.ITEM_MISSING &&
     executionPhase &&

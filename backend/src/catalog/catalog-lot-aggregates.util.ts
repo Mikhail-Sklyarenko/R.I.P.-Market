@@ -49,7 +49,11 @@ function bumpLotStat(
 ): void {
   const current = map.get(key);
   if (!current) {
-    map.set(key, { minPriceMinor: priceMinor, count: 1, latestListedAt: listedAt });
+    map.set(key, {
+      minPriceMinor: priceMinor,
+      count: 1,
+      latestListedAt: listedAt,
+    });
     return;
   }
   current.count += 1;
@@ -128,9 +132,7 @@ export function catalogLotAggregatesCacheKey(
   });
 }
 
-export function catalogIndexCacheKey(
-  query: ListCatalogItemsQueryDto,
-): string {
+export function catalogIndexCacheKey(query: ListCatalogItemsQueryDto): string {
   const inStockOnly = query.inStock === 'true' || query.inStock === '1';
   return JSON.stringify({
     q: query.q ?? null,

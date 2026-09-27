@@ -169,7 +169,12 @@ export class SteamMarketPriceService {
     for (const name of unique) {
       const dbEntry = dbRows.get(name);
       if (dbEntry) {
-        this.syncMemoryFromDatabase(name, dbEntry, cacheTtlMs, failureCacheTtlMs);
+        this.syncMemoryFromDatabase(
+          name,
+          dbEntry,
+          cacheTtlMs,
+          failureCacheTtlMs,
+        );
       }
 
       if (options?.forceRefresh) {
@@ -208,7 +213,12 @@ export class SteamMarketPriceService {
       pending.push(name);
     }
 
-    await this.fetchAndCacheBatch(pending, result, cacheTtlMs, failureCacheTtlMs);
+    await this.fetchAndCacheBatch(
+      pending,
+      result,
+      cacheTtlMs,
+      failureCacheTtlMs,
+    );
 
     return result;
   }
@@ -244,8 +254,7 @@ export class SteamMarketPriceService {
     failureCacheTtlMs: number,
   ): void {
     const fetchedAt = dbEntry.fetchedAt.getTime();
-    const ttl =
-      dbEntry.priceMinor != null ? cacheTtlMs : failureCacheTtlMs;
+    const ttl = dbEntry.priceMinor != null ? cacheTtlMs : failureCacheTtlMs;
     this.memoryCache.set(name, {
       priceMinor: dbEntry.priceMinor,
       fetchedAt,
@@ -396,9 +405,7 @@ export class SteamMarketPriceService {
     for (const name of pending) {
       const previous = this.memoryCache.get(name);
       const priceMinor =
-        this.fallbackSnapshot?.prices.get(name) ??
-        previous?.priceMinor ??
-        null;
+        this.fallbackSnapshot?.prices.get(name) ?? previous?.priceMinor ?? null;
       const ttl = priceMinor !== null ? cacheTtlMs : failureCacheTtlMs;
       this.memoryCache.set(name, {
         priceMinor,
@@ -433,10 +440,7 @@ export class SteamMarketPriceService {
   }
 
   private async ensureFallbackSnapshot(): Promise<FallbackSnapshot | null> {
-    if (
-      this.fallbackSnapshot &&
-      this.fallbackSnapshot.expiresAt > Date.now()
-    ) {
+    if (this.fallbackSnapshot && this.fallbackSnapshot.expiresAt > Date.now()) {
       return this.fallbackSnapshot;
     }
     if (this.fallbackSnapshotInflight) {
@@ -458,9 +462,8 @@ export class SteamMarketPriceService {
   private async downloadFallbackSnapshot(): Promise<FallbackSnapshot | null> {
     const startedAt = Date.now();
     try {
-      const body = await this.requestJson<MarketCsgoPricesResponse>(
-        FALLBACK_PRICES_URL,
-      );
+      const body =
+        await this.requestJson<MarketCsgoPricesResponse>(FALLBACK_PRICES_URL);
       if (!body?.success || !Array.isArray(body.items)) {
         this.logger.warn('Steam price fallback snapshot returned no items');
         return this.fallbackSnapshot;
@@ -625,7 +628,10 @@ export class SteamMarketPriceService {
 
       return (await response.json()) as SteamPriceOverviewResponse;
     } catch (error) {
-      if (error instanceof SteamRateLimitError || error instanceof SteamAccessDeniedError) {
+      if (
+        error instanceof SteamRateLimitError ||
+        error instanceof SteamAccessDeniedError
+      ) {
         throw error;
       }
       if (error instanceof Error && error.name === 'AbortError') {
@@ -649,7 +655,11 @@ export class SteamMarketPriceService {
           timeout: 30_000,
         },
         (response) => {
-          if (response.statusCode && response.statusCode >= 300 && response.statusCode < 400) {
+          if (
+            response.statusCode &&
+            response.statusCode >= 300 &&
+            response.statusCode < 400
+          ) {
             const location = response.headers.location;
             response.resume();
             if (!location) {

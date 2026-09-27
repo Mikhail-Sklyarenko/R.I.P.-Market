@@ -1,9 +1,4 @@
-import {
-  Body,
-  Controller,
-  Post,
-  Req,
-} from '@nestjs/common';
+import { Body, Controller, Post, Req } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { ApiTags } from '@nestjs/swagger';
 import { UserRole, UserStatus } from '@prisma/client';

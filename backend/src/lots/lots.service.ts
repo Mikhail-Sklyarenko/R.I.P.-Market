@@ -28,10 +28,7 @@ import { assertListingEligible } from './listing-eligibility.util';
 import { assertBulkListingAssets } from './bulk-listing.util';
 import { buildLotListingSnapshotData } from './lot-listing-snapshot.util';
 import { ensureItemDefinitionIcon } from '../item-definitions/ensure-item-definition-icon.util';
-import {
-  buildInspectLink,
-  isUsableInspectLink,
-} from './inspect-link.util';
+import { buildInspectLink, isUsableInspectLink } from './inspect-link.util';
 import {
   buildSteamMarketListingUrl,
   resolveSteamMarketHashName,
@@ -115,7 +112,9 @@ export class LotsService {
     );
 
     if (lot?.id) {
-      void this.buyRequestMatching.matchLotActivated(lot.id).catch(() => undefined);
+      void this.buyRequestMatching
+        .matchLotActivated(lot.id)
+        .catch(() => undefined);
     }
 
     this.scheduleIconRefreshForLots([lot]);
@@ -204,7 +203,9 @@ export class LotsService {
     });
 
     for (const lot of lots) {
-      void this.buyRequestMatching.matchLotActivated(lot.id).catch(() => undefined);
+      void this.buyRequestMatching
+        .matchLotActivated(lot.id)
+        .catch(() => undefined);
     }
 
     this.scheduleIconRefreshForLots(lots);
@@ -212,7 +213,7 @@ export class LotsService {
     return toJsonSafe({
       lots,
       createdCount: lots.length,
-      marketHashName: assets[0]!.itemDefinition.marketHashName,
+      marketHashName: assets[0].itemDefinition.marketHashName,
     });
   }
 
@@ -839,7 +840,7 @@ export class LotsService {
 
     return {
       ...lot,
-      listingSnapshot: updatedSnapshot as T['listingSnapshot'],
+      listingSnapshot: updatedSnapshot,
     };
   }
 

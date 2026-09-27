@@ -161,7 +161,10 @@ export class CatalogPriceBulkImportService {
         failed += 1;
       }
 
-      if ((matched + failed) % 25 === 0 || matched + failed === catalogItems.length) {
+      if (
+        (matched + failed) % 25 === 0 ||
+        matched + failed === catalogItems.length
+      ) {
         options?.onProgress?.(progress());
       }
     }

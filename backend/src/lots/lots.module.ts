@@ -22,4 +22,3 @@ import { MyLotsController } from './my-lots.controller';
   exports: [LotsService, LotStateService],
 })
 export class LotsModule {}
-

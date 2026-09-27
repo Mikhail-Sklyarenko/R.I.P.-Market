@@ -66,7 +66,11 @@ export type ActiveTradeNextAction = {
     | 'report_issue';
 };
 
-export type ActiveTradeDeliverySignalTone = 'ok' | 'pending' | 'warn' | 'unknown';
+export type ActiveTradeDeliverySignalTone =
+  | 'ok'
+  | 'pending'
+  | 'warn'
+  | 'unknown';
 
 export type ActiveTradeDeliveryProgress = {
   offerTone: ActiveTradeDeliverySignalTone;

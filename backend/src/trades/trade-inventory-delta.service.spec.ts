@@ -121,13 +121,21 @@ describe('TradeInventoryDeltaService', () => {
   });
 
   it('confirms exact asset proof and rejects conflicting ownership', async () => {
-    prisma.inventoryAsset.findFirst.mockResolvedValueOnce(null).mockResolvedValueOnce({ id: 'exact' });
-    expect(await service.verify('s', 'b', 'ss', 'bs', 'asset', 'name')).toBe('confirmed');
-    prisma.inventoryAsset.findFirst.mockResolvedValueOnce({ id: 'seller' }).mockResolvedValueOnce({ id: 'buyer' });
-    expect(await service.verify('s', 'b', 'ss', 'bs', 'asset', 'name')).toBe('seller_still_holds');
+    prisma.inventoryAsset.findFirst
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce({ id: 'exact' });
+    expect(await service.verify('s', 'b', 'ss', 'bs', 'asset', 'name')).toBe(
+      'confirmed',
+    );
+    prisma.inventoryAsset.findFirst
+      .mockResolvedValueOnce({ id: 'seller' })
+      .mockResolvedValueOnce({ id: 'buyer' });
+    expect(await service.verify('s', 'b', 'ss', 'bs', 'asset', 'name')).toBe(
+      'seller_still_holds',
+    );
   });
 
-  it('returns unknown when steam ids are missing' , async () => {
+  it('returns unknown when steam ids are missing', async () => {
     const result = await service.verify(
       'seller-1',
       'buyer-1',
@@ -159,4 +167,34 @@ describe('TradeInventoryDeltaService', () => {
     expect(result).toBe('unknown');
     expect(prisma.inventoryAsset.findFirst).not.toHaveBeenCalled();
   });
+  it.each([
+    ['SUCCESS', ['asset'], [], 'seller_still_holds'],
+    ['SUCCESS', [], ['asset'], 'confirmed'],
+    ['SUCCESS', [], ['different-asset'], 'pending'],
+    ['PARTIAL', [], ['asset'], 'unknown'],
+    ['SUCCESS', undefined, ['asset'], 'unknown'],
+  ])(
+    'uses fresh Steam observations (%s, %j, %j)',
+    async (status, sellerIds, buyerIds, expected) => {
+      const live = new TradeInventoryDeltaService(
+        prisma as never,
+        {
+          type: 'steam',
+          syncInventory: jest
+            .fn()
+            .mockResolvedValueOnce({ status, observedAssetIds: sellerIds })
+            .mockResolvedValueOnce({
+              status: 'SUCCESS',
+              observedAssetIds: buyerIds,
+            }),
+        } as never,
+      );
+      expect(
+        await live.verify('s', 'b', 'ss', 'bs', 'asset', 'name', {
+          force: true,
+        }),
+      ).toBe(expected);
+      expect(prisma.inventoryAsset.findFirst).not.toHaveBeenCalled();
+    },
+  );
 });

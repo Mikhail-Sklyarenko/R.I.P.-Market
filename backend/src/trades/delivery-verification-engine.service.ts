@@ -19,7 +19,6 @@ import {
   type InventoryDeltaResult,
 } from './trade-inventory-delta.service';
 import { TradesService } from './trades.service';
-import { mergeSteamOfferStatus } from './merge-steam-offer-status';
 
 export type DeliveryVerificationOperation = {
   id: string;
@@ -126,30 +125,9 @@ export class DeliveryVerificationEngineService {
         offerStatus = verification.status;
       }
 
-      const pageObserved = await this.latestSteamPageObservedStatus(
-        operation.id,
-      );
-      const merged = mergeSteamOfferStatus(offerStatus, pageObserved);
-      if (
-        merged === 'pending' ||
-        merged === 'accepted' ||
-        merged === 'declined' ||
-        merged === 'expired' ||
-        merged === 'needs_confirmation' ||
-        merged === 'unknown'
-      ) {
-        offerStatus = merged;
-      } else if (merged === null) {
-        offerStatus = null;
-      }
-
-      // Always verify inventory for extension/live Guard flows and buyer-ack recovery,
-      // even when TRADE_PROVIDER=mock only stubs offer status as pending forever.
-      const shouldCheckInventory =
-        isDeliveryVerificationEngineEnabled() ||
-        !operation.externalOfferId ||
-        buyerAckReceived;
-      if (shouldCheckInventory) {
+      // Client DOM observations remain timeline evidence, never settlement authority.
+      // Both server-side signals are required even when the legacy engine flag is off.
+      {
         const expected =
           operation.expectedAssetId ??
           operation.order.lot.inventoryAsset.assetExternalId;
@@ -185,21 +163,6 @@ export class DeliveryVerificationEngineService {
       }
       throw error;
     }
-  }
-
-  private async latestSteamPageObservedStatus(
-    tradeOperationId: string,
-  ): Promise<string | null> {
-    const row = await this.prisma.tradePollEvent.findFirst({
-      where: {
-        tradeOperationId,
-        strategy: 'STEAM_PAGE_OBSERVED',
-        offerStatus: { not: null },
-      },
-      orderBy: { checkedAt: 'desc' },
-      select: { offerStatus: true },
-    });
-    return row?.offerStatus ?? null;
   }
 
   private async hasBuyerAckReceived(orderId: string): Promise<boolean> {

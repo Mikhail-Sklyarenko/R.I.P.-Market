@@ -9,7 +9,7 @@ import {
 import { JwtService } from '@nestjs/jwt';
 import { UserRole } from '@prisma/client';
 import { MockAuthProvider } from '../providers/auth/mock-auth.provider';
-import { getProvidersConfig } from '../providers/config';
+import { isMockLoginAllowed } from './mock-login.config';
 import { AUTH_PROVIDER } from '../providers/tokens';
 import type { AuthProvider } from '../providers/auth/auth-provider.interface';
 import { SteamAuthProvider } from '../providers/auth/steam-auth.provider';
@@ -36,15 +36,9 @@ export class AuthService {
   ) {}
 
   async mockLogin(dto: MockLoginDto) {
-    if (process.env.NODE_ENV === 'production')
-      throw new BadRequestException('Mock login disabled in production');
-    const config = getProvidersConfig();
-    if (
-      config.auth === 'steam' &&
-      process.env.ALLOW_MOCK_LOGIN_IN_STEAM_MODE !== 'true'
-    ) {
+    if (!isMockLoginAllowed()) {
       throw new BadRequestException(
-        'Mock login is disabled when AUTH_PROVIDER=steam',
+        'Mock login is disabled in this environment',
       );
     }
 

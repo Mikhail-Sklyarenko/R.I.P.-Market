@@ -59,6 +59,8 @@ export class NorthGatewayError extends Error {
   }
 }
 
-export function isNorthPaymentMethod(value: string): value is NorthPaymentMethod {
+export function isNorthPaymentMethod(
+  value: string,
+): value is NorthPaymentMethod {
   return (NORTH_PAYMENT_METHODS as readonly string[]).includes(value);
 }

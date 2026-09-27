@@ -24,6 +24,7 @@ export default defineConfig({
       env: {
         ...process.env,
         PORT: '3001',
+        NODE_ENV: 'test',
         HOST: '127.0.0.1',
         JWT_SECRET: process.env.JWT_SECRET ?? 'playwright-jwt-secret',
         FRONTEND_ORIGIN: APP_ORIGIN,
@@ -31,7 +32,7 @@ export default defineConfig({
         ENABLE_MOCK_TRADE: 'true',
         ENABLE_MOCK_DEPOSIT: 'false',
         ENABLE_EXTENSION_CHANNEL: 'true',
-        PAYMENT_PROVIDER: 'crypto_tron',
+        PAYMENT_PROVIDER: 'e2e_crypto',
         CRYPTO_GATEWAY_WEBHOOK_SECRET:
           process.env.CRYPTO_GATEWAY_WEBHOOK_SECRET ?? 'playwright-webhook-secret',
         MIN_DEPOSIT_MINOR: '100',

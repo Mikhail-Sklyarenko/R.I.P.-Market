@@ -21,7 +21,9 @@ describe('Payments crypto flow (e2e)', () => {
   let testProvider: TestCryptoPaymentProvider;
 
   beforeAll(async () => {
-    process.env.PAYMENT_PROVIDER = 'crypto_tron';
+    process.env.PAYMENT_PROVIDER = 'e2e_crypto';
+    process.env.HOST = '127.0.0.1';
+    process.env.ENABLE_TEST_ROUTES = 'true';
     process.env.ENABLE_MOCK_DEPOSIT = 'false';
     process.env.CRYPTO_GATEWAY_WEBHOOK_SECRET = WEBHOOK_SECRET;
     process.env.MIN_DEPOSIT_MINOR = '100';

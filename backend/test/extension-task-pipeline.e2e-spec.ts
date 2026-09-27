@@ -247,6 +247,22 @@ describe('Extension task pipeline (e2e)', () => {
     const task = await prisma.tradeTask.findFirst({ where: { orderId } });
     const taskId = task!.id;
     const ext = await extensionSessionFor(seller.token);
+    const poll = await request(app.getHttpServer())
+      .post('/api/v1/extension/tasks/poll')
+      .set('Authorization', `Bearer ${ext.accessToken}`)
+      .send(
+        signedEnvelope({
+          sessionId: ext.sessionId,
+          deviceId: ext.deviceId,
+          privateKey: ext.privateKey,
+          payload: {},
+        }),
+      )
+      .expect(200);
+    const leased = poll.body.tasks.find(
+      (entry: { id: string }) => entry.id === taskId,
+    );
+    expect(leased).toBeTruthy();
 
     await request(app.getHttpServer())
       .post('/api/v1/extension/tasks/progress')
@@ -258,6 +274,7 @@ describe('Extension task pipeline (e2e)', () => {
           privateKey: ext.privateKey,
           payload: {
             taskId,
+            leaseVersion: leased.leaseVersion,
             phase: TradeTaskExecutionPhase.CONFIRM_PENDING,
             idempotencyKey: `progress:${taskId}:CONFIRM_PENDING`,
             reasonCode: 'CONFIRM_PENDING',
@@ -278,6 +295,7 @@ describe('Extension task pipeline (e2e)', () => {
           privateKey: ext.privateKey,
           payload: {
             taskId,
+            leaseVersion: leased.leaseVersion,
             phase: TradeTaskExecutionPhase.OFFER_SENT,
             idempotencyKey: `progress:${taskId}:OFFER_SENT`,
             offerId: '88776655',
