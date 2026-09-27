@@ -19,6 +19,7 @@ export class SteamTradeRateLimitError extends Error {
 type SteamTradeOfferResponse = {
   response?: {
     offer?: {
+      tradeofferid?: string;
       trade_offer_state?: number;
     };
   };
@@ -29,8 +30,8 @@ const STATE_MAP: Record<number, TradeVerificationResult['status']> = {
   2: 'pending',
   // CreatedNeedsConfirmation — seller must confirm in Steam Mobile.
   9: 'needs_confirmation',
-  // 11 = In Escrow: buyer accepted; item may already be in buyer inventory.
-  11: 'accepted',
+  // In Escrow is not a completed delivery; Steam still holds the exchange.
+  11: 'pending',
   3: 'accepted',
   7: 'declined',
   5: 'expired',
@@ -57,6 +58,9 @@ export class SteamTradeProvider implements TradeProvider {
   async verifyTradeOffer(
     tradeOfferId: string,
   ): Promise<TradeVerificationResult> {
+    if (!/^[1-9][0-9]*$/.test(tradeOfferId)) {
+      return { status: 'unknown', tradable: null, tradeLockUntil: null };
+    }
     const apiKey = process.env.STEAM_WEB_API_KEY;
     if (!apiKey) {
       this.logger.warn(
@@ -85,7 +89,14 @@ export class SteamTradeProvider implements TradeProvider {
     }
 
     const data = (await response.json()) as SteamTradeOfferResponse;
-    const state = data.response?.offer?.trade_offer_state;
+    const offer = data.response?.offer;
+    if (!offer || offer.tradeofferid !== tradeOfferId) {
+      // HTTP 200 does not imply the key can see this participant's offer.
+      // Do not log the authenticated URL or turn missing evidence into success.
+      this.logger.warn('Steam offer unavailable or response ID mismatch');
+      return { status: 'unknown', tradable: null, tradeLockUntil: null };
+    }
+    const state = offer.trade_offer_state;
     const status =
       state !== undefined ? (STATE_MAP[state] ?? 'unknown') : 'unknown';
 

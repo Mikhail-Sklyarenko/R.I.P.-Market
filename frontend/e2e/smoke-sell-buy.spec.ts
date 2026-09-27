@@ -20,6 +20,8 @@ test.describe('Smoke: sell list and buyer complete', () => {
     await expect(page.getByTestId('inventory-sell-panel')).toBeVisible();
     await page.getByTestId('price-input').fill('1000');
     await page.getByTestId('submit-listing').click();
+    await expect(page.getByTestId('inventory-listing-success')).toBeVisible();
+    await page.getByTestId('inventory-listing-success-listings').click();
     await expect(page).toHaveURL(/\/deals/);
     await expect(page.getByTestId('lot-row-ACTIVE')).toBeVisible();
 

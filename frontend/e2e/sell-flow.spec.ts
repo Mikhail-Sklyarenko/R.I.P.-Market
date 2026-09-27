@@ -21,6 +21,8 @@ test.describe('Seller flow', () => {
     await expect(page.getByTestId('pricing-preview')).toContainText('$950.00');
 
     await page.getByTestId('submit-listing').click();
+    await expect(page.getByTestId('inventory-listing-success')).toBeVisible();
+    await page.getByTestId('inventory-listing-success-listings').click();
     await expect(page).toHaveURL(/\/deals/);
 
     const activeRow = page.getByTestId('lot-row-ACTIVE');
@@ -36,6 +38,8 @@ test.describe('Seller flow', () => {
     await page.locator('[data-testid^="list-asset-"]').first().click();
     await page.getByTestId('price-input').fill('1000');
     await page.getByTestId('submit-listing').click();
+    await expect(page.getByTestId('inventory-listing-success')).toBeVisible();
+    await page.getByTestId('inventory-listing-success-listings').click();
     await expect(page).toHaveURL(/\/deals/);
 
     await page.getByTestId('deals-tab-listings').click();
@@ -64,6 +68,8 @@ test.describe('Seller flow', () => {
     await listButton.click();
     await page.getByTestId('price-input').fill('500');
     await page.getByTestId('submit-listing').click();
+    await expect(page.getByTestId('inventory-listing-success')).toBeVisible();
+    await page.getByTestId('inventory-listing-success-listings').click();
     await expect(page).toHaveURL(/\/deals/);
 
     await page.goto(`/sell/lots/new?assetId=${assetId}`);

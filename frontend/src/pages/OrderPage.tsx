@@ -905,22 +905,6 @@ export function OrderPage() {
                       </Link>
                       {t('orderPage.supportLinkSuffix')}
                     </p>
-
-                    {canBuyerCancel ? (
-                      <div className="stack" data-testid="cancel-order-panel">
-                        <button
-                          type="button"
-                          className="button secondary"
-                          disabled={canceling}
-                          data-testid="cancel-order-button"
-                          onClick={() => void handleCancel()}
-                        >
-                          {canceling
-                            ? t('orderPage.canceling')
-                            : t('orderPage.cancelOrder')}
-                        </button>
-                      </div>
-                    ) : null}
                   </div>
                 </details>
               ) : (
@@ -983,6 +967,10 @@ export function OrderPage() {
                       </div>
                     ) : null}
                   </div>
+                </>
+              )}
+
+
 
                   {canBuyerCancel ? (
                     <div className="stack" data-testid="cancel-order-panel">
@@ -999,8 +987,6 @@ export function OrderPage() {
                       </button>
                     </div>
                   ) : null}
-                </>
-              )}
 
               {showMockTradePanel ? (
                 <div className="order-dev-panel" data-testid="mock-trade-panel">

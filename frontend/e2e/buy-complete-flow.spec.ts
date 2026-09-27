@@ -16,12 +16,12 @@ test.describe('Buy complete flow', () => {
     page,
     request,
   }) => {
-    const { priceMinor } = await seedActiveLot(request);
+    const { lotId, priceMinor } = await seedActiveLot(request);
 
     await loginAsBuyer(page);
 
     await expect(page.getByTestId('catalog-grid').locator('article').first()).toBeVisible();
-    await page.getByTestId('catalog-open-lot').first().locator('[data-testid^="catalog-item-buy-"]').click();
+    await page.goto(`/lots/${lotId}`);
 
     await expect(page.getByTestId('lot-purchase-card')).toBeVisible();
     await page.getByTestId('checkout-deposit-link').click();
