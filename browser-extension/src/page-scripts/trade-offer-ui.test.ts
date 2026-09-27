@@ -11,6 +11,16 @@ import {
 } from './trade-offer-ui.js';
 
 function mockSteamJquery() {
+  const ready = document.createElement('div');
+  ready.id = 'you_ready';
+  const send = document.createElement('button');
+  send.id = 'trade_confirmbtn';
+  document.onclick = (event) => {
+    if ((event.target as HTMLElement)?.id === 'trade_confirmbtn') {
+      (window as { ConfirmTradeOffer?: () => void }).ConfirmTradeOffer?.();
+    }
+  };
+  document.body.append(ready, send);
   const handlers: Array<
     (
       event: unknown,
@@ -33,6 +43,8 @@ describe('trade-offer-ui', () => {
   afterEach(() => {
     vi.restoreAllMocks();
     document.body.innerHTML = '';
+    document.onclick = null;
+    delete (window as { ConfirmTradeOffer?: unknown }).ConfirmTradeOffer;
     delete (window as { UserYou?: unknown }).UserYou;
     delete (window as { g_ActiveInventory?: unknown }).g_ActiveInventory;
     delete (window as { MoveItemToTrade?: unknown }).MoveItemToTrade;
@@ -139,15 +151,47 @@ describe('trade-offer-ui', () => {
     });
   });
 
-  it('submitTradeOffer calls ConfirmTradeOffer when available', () => {
-    const confirmTradeOffer = vi.fn();
-    (
-      window as { ConfirmTradeOffer?: typeof confirmTradeOffer }
-    ).ConfirmTradeOffer = confirmTradeOffer;
+  it('confirms readiness and the gift dialog before exactly one send', async () => {
+    document.body.innerHTML = '<div id="you_notready"></div><div id="you_ready" style="display:none"></div><button id="trade_confirmbtn"></button>';
+    const send = vi.fn();
+    document.getElementById('trade_confirmbtn')!.onclick = send;
+    document.getElementById('you_notready')!.onclick = () => {
+      const gift = document.createElement('button');
+      gift.textContent = 'Yes, this is a gift';
+      gift.onclick = () => { document.getElementById('you_ready')!.style.display = 'block'; };
+      document.body.append(gift);
+    };
+    const directSend = vi.fn();
+    (window as { ConfirmTradeOffer?: () => void }).ConfirmTradeOffer = directSend;
+    await submitTradeOffer(() => true);
+    expect(send).toHaveBeenCalledTimes(1);
+    expect(directSend).not.toHaveBeenCalled();
+  });
 
-    submitTradeOffer();
+  it('does not send when the composition changes during readiness', async () => {
+    document.body.innerHTML = '<div id="you_notready"></div><div id="you_ready" style="display:none"></div><button id="trade_confirmbtn"></button>';
+    let matches = true;
+    const send = vi.fn();
+    document.getElementById('trade_confirmbtn')!.onclick = send;
+    document.getElementById('you_notready')!.onclick = () => { matches = false; };
+    await expect(submitTradeOffer(() => matches)).rejects.toThrow(/composition/);
+    expect(send).not.toHaveBeenCalled();
+  });
 
-    expect(confirmTradeOffer).toHaveBeenCalled();
+  it('fails closed when Steam never confirms readiness', async () => {
+    document.body.innerHTML = '<div id="you_notready"></div><div id="you_ready" style="display:none"></div><button id="trade_confirmbtn"></button>';
+    const send = vi.fn();
+    document.getElementById('trade_confirmbtn')!.onclick = send;
+    await expect(submitTradeOffer(() => true, 0)).rejects.toThrow(/readiness/);
+    expect(send).not.toHaveBeenCalled();
+  });
+
+  it('cancels the send interceptor when submission fails', async () => {
+    mockSteamJquery();
+    const abort = new AbortController();
+    const pending = installSendInterceptor(30_000, abort.signal);
+    abort.abort();
+    await expect(pending).rejects.toThrow(/cancelled/);
   });
 
   it('runAutofillFlow completes happy path with intercepted send response', async () => {

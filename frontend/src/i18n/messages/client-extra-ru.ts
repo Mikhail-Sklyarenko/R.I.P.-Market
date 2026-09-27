@@ -350,6 +350,7 @@ export const clientExtraRu = {
       'Подтвердите, что на странице Steam тот же скин и продавец, что в заказе. Это не заменяет Accept.',
     preAcceptCta: 'Вижу верное предложение',
     preAcceptDone: 'Отметили: предложение верное. Дальше — Accept кнопкой Steam.',
+    receivedTitle: 'Предмет уже в моём инвентаре',
     receivedBody:
       'Уже приняли обмен в Steam и получили предмет? Подтвердите получение здесь, если сайт всё ещё ожидает обмена.',
     receivedCta: 'Предмет у меня',
@@ -956,6 +957,7 @@ export const clientExtraRu = {
   ledgerEntry: {
     DEPOSIT: 'Пополнение',
     HOLD_RESERVE: 'Резерв (hold)',
+    SETTLEMENT_CAPTURE: 'Оплата из резерва',
     HOLD_RELEASE: 'Снятие резерва',
     SETTLEMENT_SELLER: 'Выплата продавцу',
     SETTLEMENT_PLATFORM_COMMISSION: 'Комиссия платформы',

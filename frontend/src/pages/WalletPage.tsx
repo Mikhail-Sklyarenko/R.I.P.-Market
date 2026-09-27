@@ -56,6 +56,9 @@ export function WalletPage() {
   const { t, locale } = useLocale();
   const { token, user } = useAuth();
   const { wallet, transactions, loading, error, refresh, applyWallet } = useWallet();
+  useEffect(() => {
+    void refresh();
+  }, [refresh]);
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const returnUrl = safeAppReturnPath(searchParams.get('returnUrl'));
@@ -937,7 +940,7 @@ export function WalletPage() {
                       return (
                         <tr key={tx.id} data-testid={`wallet-tx-${tx.type}`}>
                           <td data-label={t('wallet.colType')}>
-                            {formatLedgerEntryType(tx.type, locale)}
+                            {formatLedgerEntryType(tx.type, locale, tx.metadata)}
                           </td>
                           <td data-label={t('wallet.colAmount')}>
                             <span className={ledgerAmountClass(tx.amountMinor)}>

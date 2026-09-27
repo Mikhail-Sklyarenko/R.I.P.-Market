@@ -5,6 +5,7 @@ import { mockTradeFail, mockTradeTimeout } from '../api/admin';
 import { getSettlementEligibility } from '../api/settlement';
 import type { Order } from '../api/types';
 import { useAuth } from '../auth/AuthContext';
+import { useWallet } from '../wallet/WalletContext';
 import { useLocale } from '../i18n';
 import { ErrorAlert } from '../components/ErrorAlert';
 import { ItemPreview } from '../components/ItemPreview';
@@ -69,7 +70,11 @@ export function OrderPage() {
   const { id } = useParams();
   const { t, locale } = useLocale();
   const { token, user } = useAuth();
+  const { refresh: refreshWallet } = useWallet();
   const [order, setOrder] = useState<Order | null>(null);
+  useEffect(() => {
+    if (order?.status) void refreshWallet();
+  }, [order?.id, order?.status, refreshWallet]);
   const [mockTradeEnabled, setMockTradeEnabled] = useState(MOCK_TRADE_ENABLED);
   const [tradeProvider, setTradeProvider] = useState<'mock' | 'steam'>('mock');
   const [tradeTimeoutMinutes, setTradeTimeoutMinutes] = useState(60);
@@ -99,6 +104,9 @@ export function OrderPage() {
 
   const isBuyer = user?.id === order?.buyerId;
   const isSeller = user?.id === order?.sellerId;
+  const displayedHoldMinor = order?.status === 'COMPLETED'
+    ? '0'
+    : order?.hold?.amountMinor ?? order?.holdAmountMinor ?? '0';
   const role = isBuyer ? 'buyer' : isSeller ? 'seller' : 'other';
   const canBuyerCancel =
     isBuyer && order !== null && BUYER_CANCELABLE_STATUSES.has(order.status) &&
@@ -859,7 +867,7 @@ export function OrderPage() {
                         <span>{t('orderPage.onHold')}</span>
                         <MoneyDisplay
                           minor={
-                            order.hold?.amountMinor ?? order.holdAmountMinor
+                            displayedHoldMinor
                           }
                           strong
                         />
@@ -947,7 +955,7 @@ export function OrderPage() {
                     <div className="order-money-row">
                       <span>{t('orderPage.onHold')}</span>
                       <MoneyDisplay
-                        minor={order.hold?.amountMinor ?? order.holdAmountMinor}
+                        minor={displayedHoldMinor}
                         strong
                       />
                     </div>

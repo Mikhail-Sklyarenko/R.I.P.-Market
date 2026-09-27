@@ -941,6 +941,7 @@ export const clientExtraEn = {
   ledgerEntry: {
     DEPOSIT: 'Deposit',
     HOLD_RESERVE: 'Hold reserved',
+    SETTLEMENT_CAPTURE: 'Payment from hold',
     HOLD_RELEASE: 'Hold released',
     SETTLEMENT_SELLER: 'Seller payout',
     SETTLEMENT_PLATFORM_COMMISSION: 'Platform fee',

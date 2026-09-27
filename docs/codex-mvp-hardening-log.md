@@ -36,13 +36,13 @@ Extension task ownership/leaseVersion must be obtained by poll before progress r
 
 Public p2pcs.ru health/database/gateway responded. Public configuration reports Steam auth/inventory, mock/hybrid trade, crypto_tron payments, live verification and real settlement flag off. User explicitly confirmed funds on this site are test funds. Download manifest and source manifest report extension 0.6.62. Download manifest is not proof of the installed extension version or exact deployed commit.
 
-Edge profile shows authenticated Steam-linked account, saved Trade URL, connected extension session and inventory UI (stale-copy warning). No listing/purchase/Steam acceptance was performed by this run yet. User reports second account is open in Chrome and will perform Steam Guard; User is connecting a second Edge profile; it is not exposed to the current browser connector yet.
+Two Edge profiles are now connected: seller R1ppeR and buyer p2ptradecs. User manually credited $1,000 test funds to the buyer. A real Steam item transfer and the deployed marketplace settlement completed on 2026-09-27; see the reproducible evidence below. This was not an unattended happy path and did not exercise the local hardening branch.
 
 ## Unfinished release gates
 
 No deployment or push completed. Git dry-run push fails: credential helper shell signal-pipe Access denied and no available username credential. No tokens were requested in chat.
 
-Real seller -> buyer -> Guard -> accept -> independent verification -> settlement has not run. Current exact-asset delta intentionally stays pending when Steam changes asset ID: authoritative transfer mapping and expected offer/partner/asset binding still require implementation and real API evidence. No name/float/receipt fallback may be restored to make a test green.
+Real seller -> buyer -> Guard -> accept -> buyer receipt -> deployed settlement ran with manual fallback. Independent server-authority verification of that completion has NOT been established; the deployed buyer receipt completed the order after the item was genuinely received. Current exact-asset delta intentionally stays pending when Steam changes asset ID: authoritative transfer mapping and expected offer/partner/asset binding still require implementation and real API evidence. No name/float/receipt fallback may be restored to make a test green.
 
 Docker Desktop installed but engine needs Windows virtualization features/reboot. Native local PostgreSQL allowed database tests to proceed independently.
 
@@ -53,3 +53,26 @@ Use disposable `p2pcs_e2e` DB for backend E2E and frontend Playwright. Backend s
 ## Rollback
 
 Nothing was deployed. Keep existing deployed release until release gates pass. For a later rollback use reviewed revert commits or a versioned deployment of the known-good artifact; do not reset shared work or force-push. Do not roll back database/ledger rows by deleting evidence.
+
+
+## 2026-09-27 two-account live smoke test and follow-up fixes
+
+- Order: 894f7781-c49b-42a5-8a78-8c05f964db2d; lot: 3dcd5d50-6729-4ff6-8c12-64c72c7560ea.
+- Seller R1ppeR (76561198195181115) -> buyer p2ptradecs (76561198655632881).
+- UMP-45 | Green Swirl (Battle-Scarred), $1.00 test balance; actual Steam offer 9391832342; receipt trade 744938690018752002.
+- Seller asset 50586823960, context 2 -> buyer asset 53954582039, context 16. The buyer inventory visibly showed wear 0.661949813, paint seed 397 and Steam protection until 2026-10-04 22:00 Moscow. This observation proves why original-asset exact matching cannot establish delivery after transfer, but is not itself server-authoritative mapping.
+- Auto-send exhausted 5 attempts: initial null.hide error, then send interceptor timeout. After selecting the CS2 inventory, extension placed the expected asset. Agent used the standard Steam readiness/gift/send controls; user confirmed Steam Guard. The sent offer ID was saved through the seller order UI.
+- Buyer extension shield matched the expected Steam partner and original asset ID. Its double-confirm action acknowledged pre-accept but did not itself accept. Agent then used Steam's readiness and Accept controls; Steam receipt and buyer inventory confirmed receipt.
+- Site initially remained WAITING_TRADE. After truthful buyer receipt acknowledgement, the deployed order became COMPLETED at 21:26:55 Moscow. This is a fallback success, not proof of independent verification or the fixed authority implementation.
+- Buyer available $1000.00 -> $999.00; HOLD $0.00 after fresh load. Seller available $2034.85 -> $2035.80; single seller payout +$0.95 associated with this order. Marketplace receipt shows $0.05 fee. Platform account DB entry was not independently inspected.
+- No real crypto payment, signer operation, withdrawal, manual order completion, or admin dispute override was used. Test credit was performed by the user and appeared as MANUAL_ADJUSTMENT.
+
+Local follow-up changes (not deployed):
+1. Trade UI distinguishes #you_notready readiness from #trade_confirmbtn submission, handles the specific gift confirmation for the validated one-way order, rechecks composition, and sends once. Failed preparation cancels the interceptor. Already-selected assets are not toggled out during retries; loaded inventory is not needlessly reselected.
+2. Wallet refreshes on entry and when order status changes, preventing stale hold/transaction display after in-app completion.
+3. Settlement capture is labelled payment from hold using existing ledger metadata; no ledger data or financial semantics changed.
+4. Restored Russian buyer receipt heading and corrected stale Steam-price translation namespace.
+
+Validation: frontend 278 unit tests pass with Node test isolation disabled (ordinary test-worker spawn is restricted). Frontend typecheck passes; lint 0 errors / 14 existing warnings. Browser extension typecheck passes. Seven source-executing jsdom regressions pass for readiness/gift/send order, one send only, changed composition refusal, readiness timeout, disabled send refusal, interceptor cleanup, repeat item selection and complete intercepted autofill (several assertions share a check). Vitest regressions were added but the normal runner is blocked before collecting tests by Vite/esbuild Windows spawn EPERM. No updated extension has been installed or live-tested. UI fixes are locally verified, not deployed.
+
+The completed order also rendered the historical hold amount as current hold. Its COMPLETED summary now shows zero; wallet remains the authoritative aggregate. Typecheck and targeted lint passed after this change. New changes remain uncommitted: Git index.lock creation was denied even after a .git write grant. Full uncommitted patch is preserved in outputs/hardening-evidence/post-live-e2e-fixes.patch.
