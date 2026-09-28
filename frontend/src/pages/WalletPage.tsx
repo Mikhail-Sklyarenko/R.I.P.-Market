@@ -125,7 +125,10 @@ export function WalletPage() {
 
   const withdrawAmountMinor = parseUsdToMinor(withdrawAmountInput) ?? 0;
   const withdrawNetMinor = Math.max(withdrawAmountMinor - withdrawFeeMinor, 0);
-  const awaitingDeposit = (depositStatus?.intents.length ?? 0) > 0;
+  // Address allocation creates a PENDING intent before any transfer exists.
+  // Only an explicitly created checkout establishes an expected payment.
+  const awaitingDeposit =
+    depositMode === 'checkout' && (depositStatus?.intents.length ?? 0) > 0;
 
   const loadCryptoData = useCallback(async () => {
     if (!token || !cryptoPaymentsEnabled) {
