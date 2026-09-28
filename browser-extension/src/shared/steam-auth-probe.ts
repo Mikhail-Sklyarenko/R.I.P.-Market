@@ -39,11 +39,11 @@ export async function runSteamAuthProbe(): Promise<Record<string, boolean | numb
   try {
     const result = await post('', { accessToken, consent: true });
     const safe: Record<string, boolean | number> = {};
-    for (const key of ['diagnosticOnly', 'exactOffer', 'offerMatchesOrder', 'offerAccepted', 'exactReceipt', 'receiptPartnerMatches', 'receiptComplete', 'protectedContext', 'receiptMappingVerified', 'settlementAuthorized']) {
+    for (const key of ['offerOutgoing', 'offerPartnerMatches', 'offerPartnerIsString', 'offerReceivedEmpty', 'receiptReceivedEmpty', 'receiptNewContextIs2', 'receiptNewContextIs16Number', 'receiptNewContextIsNumber', 'receiptNewContextPresent', 'receiptNewAssetValid', 'receiptNewAssetIsNumber', 'receiptRollbackFieldsPresent', 'offerItemAppMatches', 'offerItemContextMatches', 'offerItemAssetMatches', 'offerItemAmountMatches', 'offerItemMarkedMissing', 'offerItemAppIsString', 'offerItemContextIsNumber', 'offerItemAssetIsNumber', 'offerItemAmountIsNumber', 'receiptItemAppMatches', 'receiptItemContextMatches', 'receiptItemAssetMatches', 'receiptItemAmountMatches', 'receiptItemMarkedMissing', 'receiptItemAppIsString', 'receiptItemContextIsNumber', 'receiptItemAssetIsNumber', 'receiptItemAmountIsNumber', 'diagnosticOnly', 'exactOffer', 'offerMatchesOrder', 'offerAccepted', 'exactReceipt', 'receiptPartnerMatches', 'receiptComplete', 'protectedContext', 'receiptMappingVerified', 'settlementAuthorized']) {
       if (typeof result[key] === 'boolean') safe[key] = result[key];
     }
-    for (const key of ['offerHttpStatus', 'receiptHttpStatus']) {
-      if (typeof result[key] === 'number' && Number.isInteger(result[key]) && result[key] >= 0 && result[key] <= 599) safe[key] = result[key];
+    for (const key of ['offerHttpStatus', 'receiptHttpStatus', 'offerGivenCount', 'receiptGivenCount']) {
+      if (typeof result[key] === 'number' && Number.isInteger(result[key]) && result[key] >= -1 && result[key] <= 599) safe[key] = result[key];
     }
     return safe;
   } finally { accessToken = null; }

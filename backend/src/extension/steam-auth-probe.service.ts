@@ -5,6 +5,7 @@ import {
   HttpException,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { probeFields } from './steam-auth-probe-fields';
 import {
   steamOfferMatchesOrder,
   receivedAssetFromSteamReceipt,
@@ -95,6 +96,7 @@ export class SteamAuthProbeService {
         Array.isArray(given) && given.length === 1 ? record(given[0]) : {};
       // Only fixed booleans/numbers leave the probe. Never echo Steam strings or errors.
       return {
+        ...probeFields(offer, receipt, context.assetId, context.buyerSteamId),
         diagnosticOnly: true,
         offerHttpStatus: offerReply.status,
         exactOffer,
