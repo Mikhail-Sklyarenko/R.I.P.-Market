@@ -96,19 +96,19 @@ export class SettlementService {
         return { settled: true, inHold: false, guard: guardResult };
       }
 
+      // The persisted hold is an obligation, independent of configuration for
+      // newly confirmed trades. A manual retry cannot turn it into legacy payout.
+      if (order.status === OrderStatus.SETTLEMENT_HOLD) {
+        if (!this.isHoldReleaseDue(order.hold)) {
+          return { settled: false, inHold: true, guard: guardResult };
+        }
+        await this.releaseSettlementHold(client, order, idempotencyKey);
+        return { settled: true, inHold: false, guard: guardResult };
+      }
+
       if (this.shouldUseHoldWindow()) {
         if (order.status === OrderStatus.TRADE_CONFIRMED) {
           await this.enterSettlementHold(client, order, idempotencyKey);
-          return { settled: false, inHold: true, guard: guardResult };
-        }
-        if (
-          order.status === OrderStatus.SETTLEMENT_HOLD &&
-          this.isHoldReleaseDue(order.hold)
-        ) {
-          await this.releaseSettlementHold(client, order, idempotencyKey);
-          return { settled: true, inHold: false, guard: guardResult };
-        }
-        if (order.status === OrderStatus.SETTLEMENT_HOLD) {
           return { settled: false, inHold: true, guard: guardResult };
         }
       }
@@ -305,17 +305,26 @@ export class SettlementService {
       return order;
     }
 
+    if (order.status === OrderStatus.SETTLEMENT_HOLD) {
+      if (!isRealSettlementEnabled() || !this.isHoldReleaseDue(order.hold)) {
+        return order;
+      }
+      const guardResult = await this.guard.canSettle(order, tx);
+      if (!guardResult.allowed) {
+        await this.emitSettlementBlocked(tx, order.id, guardResult);
+        return order;
+      }
+      return this.releaseSettlementHold(
+        tx,
+        order,
+        settlementHoldReleaseIdempotencyKey(order.id),
+        actorUserId,
+      );
+    }
+
     if (this.shouldUseHoldWindow()) {
       if (order.status === OrderStatus.TRADE_CONFIRMED) {
         return this.enterSettlementHold(tx, order, idempotencyKey, actorUserId);
-      }
-      if (order.status === OrderStatus.SETTLEMENT_HOLD) {
-        return this.releaseSettlementHold(
-          tx,
-          order,
-          settlementHoldReleaseIdempotencyKey(order.id),
-          actorUserId,
-        );
       }
     }
 
@@ -416,6 +425,13 @@ export class SettlementService {
     }
 
     if (
+      order.status === OrderStatus.SETTLEMENT_HOLD &&
+      (!isRealSettlementEnabled() || !this.isHoldReleaseDue(order.hold))
+    ) {
+      return order;
+    }
+
+    if (
       this.shouldUseHoldWindow() &&
       !options?.skipHoldWindowCheck &&
       !this.isHoldReleaseDue(order.hold)
@@ -463,7 +479,7 @@ export class SettlementService {
       },
     });
 
-    if (this.shouldUseHoldWindow() && !options?.legacyImmediate) {
+    if (order.status === OrderStatus.SETTLEMENT_HOLD) {
       await this.orderStateService.transitionByEvent(tx, {
         orderId: order.id,
         from: OrderStatus.SETTLEMENT_HOLD,
