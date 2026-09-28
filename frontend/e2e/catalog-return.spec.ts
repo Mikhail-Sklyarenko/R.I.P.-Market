@@ -58,7 +58,7 @@ test.describe('Catalog return to results', () => {
       });
     });
 
-    await page.route(/\/api\/v1\/catalog\/items\/[^/?]+/, async (route) => {
+    await page.route(/\/api\/v1\/catalog\/items\/[^/?]+(?:\?.*)?$/, async (route) => {
       const url = new URL(route.request().url());
       const id = url.pathname.split('/').pop()!;
       const index = Number.parseInt(id.replace('mock-item-', ''), 10) || 1;
@@ -70,6 +70,19 @@ test.describe('Catalog return to results', () => {
           availableWears: ['FT'],
           catalogSeeded: true,
         }),
+      });
+    });
+
+    await page.route(/\/api\/v1\/catalog\/items\/[^/?]+\/order-book(?:\?.*)?$/, async (route) => {
+      const url = new URL(route.request().url());
+      await route.fulfill({
+        json: {
+          itemDefinitionId: url.pathname.split('/').at(-2),
+          wear: url.searchParams.get('wear'),
+          bids: [], asks: [], asksLevels: [],
+          asksSummary: { count: 0, minPriceMinor: null },
+          bestBidMinor: null, bestAskMinor: null, spreadMinor: null,
+        },
       });
     });
 

@@ -115,7 +115,7 @@ export class CatalogService {
     private readonly referencePrice: ReferencePriceService,
   ) {}
 
-  /** Test helper: keep specs isolated when the service instance is reused. */
+  /** Invalidate after committed catalog mutations or an isolated database reset. */
   resetQueryCaches(): void {
     this.catalogIndexCache.clear();
     this.lotAggregatesCache.clear();
