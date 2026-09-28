@@ -7,6 +7,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { LedgerService } from '../wallet/ledger.service';
 import { TestRouteGuardService } from './test-route-guard.service';
 import { SensitiveRateLimitService } from '../common/observability/sensitive-rate-limit.service';
+import { CatalogService } from '../catalog/catalog.service';
 
 @ApiTags('test')
 @Controller('test')
@@ -17,6 +18,7 @@ export class TestResetController {
     private readonly jwtService: JwtService,
     private readonly testRouteGuard: TestRouteGuardService,
     private readonly rateLimits: SensitiveRateLimitService,
+    private readonly catalog: CatalogService,
   ) {}
 
   @Post('reset')
@@ -58,6 +60,7 @@ export class TestResetController {
     `);
 
     this.rateLimits.resetIsolatedTestState();
+    this.catalog.resetQueryCaches();
     return { ok: true };
   }
 

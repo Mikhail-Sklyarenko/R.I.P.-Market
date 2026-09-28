@@ -57,12 +57,16 @@ export class TtlLruCache<T> {
 
     const promise = factory()
       .then((value) => {
-        this.set(key, value);
-        this.inflight.delete(key);
+        if (this.inflight.get(key) === promise) {
+          this.set(key, value);
+          this.inflight.delete(key);
+        }
         return value;
       })
       .catch((error: unknown) => {
-        this.inflight.delete(key);
+        if (this.inflight.get(key) === promise) {
+          this.inflight.delete(key);
+        }
         throw error;
       });
 

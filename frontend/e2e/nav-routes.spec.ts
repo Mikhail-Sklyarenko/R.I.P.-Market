@@ -63,7 +63,9 @@ test.describe('Main navigation', () => {
     await page.goto('/');
     await expect(page.getByTestId('catalog-grid')).toBeVisible();
 
-    await page.getByTestId('catalog-open-lot').first().click();
+    await page.getByTestId('catalog-open-lot').filter({
+      has: page.locator('[data-testid^="catalog-item-buy-"]'),
+    }).first().click();
     await expect(page).toHaveURL(/\/catalog\/items\//);
     await expect(page.getByTestId('item-page')).toBeVisible();
     await expect(page.getByTestId('lot-preview-card')).toBeVisible();

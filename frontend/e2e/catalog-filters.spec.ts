@@ -103,7 +103,9 @@ test.describe('Catalog filters', () => {
     await seedCatalogLots(request);
 
     await page.goto('/catalog');
-    const firstCard = page.getByTestId('catalog-open-lot').first();
+    const firstCard = page.getByTestId('catalog-open-lot').filter({
+      has: page.locator('[data-testid^="catalog-item-buy-"]'),
+    }).first();
 
     await expect(firstCard.getByTestId(/catalog-item-.*-primary-price/)).toBeVisible();
     await expect(firstCard.getByTestId(/catalog-item-.*-steam-price/)).toBeVisible();
