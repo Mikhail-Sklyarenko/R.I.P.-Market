@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Inject, Injectable } from '@nestjs/common';
 import {
   LedgerEntryType,
   OrderStatus,
@@ -19,6 +19,8 @@ import type {
   SettlementGuardResult,
   SettlementBlockCode,
 } from './settlement.types';
+import { TRADE_PROVIDER } from '../providers/tokens';
+import type { TradeProvider } from '../providers/trade/trade-provider.interface';
 
 export type SettlementOrderContext = {
   id: string;
@@ -31,7 +33,10 @@ export type SettlementOrderContext = {
 
 @Injectable()
 export class SettlementGuardService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    @Inject(TRADE_PROVIDER) private readonly tradeProvider: TradeProvider,
+  ) {}
 
   async canSettle(
     order: SettlementOrderContext,
@@ -142,6 +147,45 @@ export class SettlementGuardService {
         'DAILY_VOLUME_LIMIT',
         `Daily settlement volume would exceed limit ${maxDailyVolume.toString()}`,
       );
+    }
+
+    // A historical DELIVERY_VERIFIED row is not proof that Steam has not
+    // reversed the trade during the hold. Both settlement entry points use
+    // this guard, so neither the worker nor a manual retry can skip this read.
+    if (order.status === OrderStatus.SETTLEMENT_HOLD) {
+      try {
+        const operation = await db.tradeOperation.findUnique({
+          where: { orderId: order.id },
+          select: { externalOfferId: true, expectedAssetId: true },
+        });
+        if (
+          !operation?.externalOfferId ||
+          !operation.expectedAssetId ||
+          !this.tradeProvider.verifyTradeOffer
+        ) {
+          return blocked(
+            'STEAM_RECHECK_UNAVAILABLE',
+            'Fresh Steam settlement evidence is unavailable',
+          );
+        }
+        const proof = await this.tradeProvider.verifyTradeOffer(
+          operation.externalOfferId,
+          { sellerSteamId, buyerSteamId, assetId: operation.expectedAssetId },
+        );
+        if (proof.status !== 'accepted' || !proof.receivedAssetId) {
+          return blocked(
+            'STEAM_RECHECK_UNAVAILABLE',
+            'Steam has not reconfirmed the bound exchange',
+          );
+        }
+      } catch {
+        // Authenticated transport errors can contain credentials. Neither
+        // expose nor persist their text; leave the money held for retry/review.
+        return blocked(
+          'STEAM_RECHECK_UNAVAILABLE',
+          'Fresh Steam settlement evidence is unavailable',
+        );
+      }
     }
 
     return { allowed: true };

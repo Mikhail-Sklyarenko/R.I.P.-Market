@@ -143,6 +143,61 @@ describe('Steam order-bound receipt verification', () => {
     ).toBe('unknown');
     expect(fetchMock).toHaveBeenCalledTimes(1);
   });
+  it('reads a receipt for accepted missing items but does not invent its destination mapping', async () => {
+    fetchMock
+      .mockResolvedValueOnce(
+        response({
+          response: {
+            offer: {
+              ...offer,
+              items_to_give: [{ ...item, missing: true }],
+            },
+          },
+        }),
+      )
+      .mockResolvedValueOnce(
+        response({
+          response: {
+            trades: [
+              {
+                ...receipt,
+                assets_given: [item],
+              },
+            ],
+          },
+        }),
+      );
+    expect(
+      await provider.verifyTradeOffer(offer.tradeofferid, context),
+    ).toEqual({
+      status: 'unknown',
+      tradable: null,
+      tradeLockUntil: null,
+    });
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+  it('accepts a historical missing item only with an independently valid receipt mapping', async () => {
+    fetchMock
+      .mockResolvedValueOnce(
+        response({
+          response: {
+            offer: {
+              ...offer,
+              items_to_give: [{ ...item, missing: true }],
+            },
+          },
+        }),
+      )
+      .mockResolvedValueOnce(response({ response: { trades: [receipt] } }));
+    expect(
+      await provider.verifyTradeOffer(offer.tradeofferid, context),
+    ).toEqual({
+      status: 'accepted',
+      tradable: null,
+      tradeLockUntil: null,
+      receivedAssetId: '53954582039',
+    });
+  });
   it.each([
     null,
     {},

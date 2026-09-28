@@ -47,10 +47,18 @@ export function steamOfferMatchesOrder(
       (!Array.isArray(received) || received.length !== 0))
   )
     return false;
-  return matchesItem(given[0], context.assetId);
+  // Accepted offers describe the original asset, which may no longer be in
+  // the sender's inventory. `missing` is not an identity mismatch in that
+  // historical record. This only binds the offer; receipt mapping and fresh
+  // inventories still independently determine delivery.
+  return matchesItem(given[0], context.assetId, offer.trade_offer_state === 3);
 }
 
-function matchesItem(value: unknown, assetId: string): boolean {
+function matchesItem(
+  value: unknown,
+  assetId: string,
+  allowHistoricalMissing = false,
+): boolean {
   const item = record(value);
   return (
     !!item &&
@@ -58,7 +66,7 @@ function matchesItem(value: unknown, assetId: string): boolean {
     item.contextid === '2' &&
     item.assetid === assetId &&
     item.amount === '1' &&
-    item.missing !== true
+    (item.missing !== true || allowHistoricalMissing)
   );
 }
 

@@ -30,6 +30,48 @@ const receipt = {
 };
 
 describe('Steam proof binding', () => {
+  it('binds a historical accepted offer even when the original item is marked missing', () => {
+    expect(
+      steamOfferMatchesOrder(
+        {
+          ...offer,
+          trade_offer_state: 3,
+          items_to_give: [{ ...item, missing: true }],
+        },
+        context,
+        context.sellerSteamId,
+      ),
+    ).toBe(true);
+  });
+  it.each([undefined, 2, 9, 11, 5, 6, 7, '3'])(
+    'does not relax missing-item checks for state %s',
+    (state) => {
+      expect(
+        steamOfferMatchesOrder(
+          {
+            ...offer,
+            trade_offer_state: state,
+            items_to_give: [{ ...item, missing: true }],
+          },
+          context,
+          context.sellerSteamId,
+        ),
+      ).toBe(false);
+    },
+  );
+  it('still rejects the wrong historical asset', () => {
+    expect(
+      steamOfferMatchesOrder(
+        {
+          ...offer,
+          trade_offer_state: 3,
+          items_to_give: [{ ...item, assetid: '999', missing: true }],
+        },
+        context,
+        context.sellerSteamId,
+      ),
+    ).toBe(false);
+  });
   it('binds the exact seller, buyer, item and quantity', () => {
     expect(steamOfferMatchesOrder(offer, context, context.sellerSteamId)).toBe(
       true,
@@ -87,6 +129,8 @@ describe('Steam proof binding', () => {
     },
   );
   it.each([
+    { new_assetid: undefined, new_contextid: undefined },
+    { missing: true },
     { new_contextid: '16' },
     { new_assetid: '0' },
     { new_assetid: 53954582039 },
