@@ -15,6 +15,8 @@ export type InventoryDeltaResult =
   | 'unknown';
 
 export type InventoryDeltaVerifyOptions = {
+  /** Internal only: exact destination asset from validated server Steam receipt. */
+  receivedAssetId?: string;
   force?: boolean;
   expectedFloatValue?: number | null;
   expectedPaintSeed?: number | null;
@@ -81,7 +83,9 @@ export class TradeInventoryDeltaService {
         return 'unknown';
       if (sellerSync.observedAssetIds.includes(expectedAssetExternalId))
         return 'seller_still_holds';
-      return buyerSync.observedAssetIds.includes(expectedAssetExternalId)
+      return buyerSync.observedAssetIds.includes(
+        options?.receivedAssetId ?? expectedAssetExternalId,
+      )
         ? 'confirmed'
         : 'pending';
     }

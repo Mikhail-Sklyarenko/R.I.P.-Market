@@ -116,13 +116,23 @@ export class DeliveryVerificationEngineService {
 
     let offerStatus: TradeVerificationResult['status'] | null = null;
     let inventoryDelta: InventoryDeltaResult | null = null;
+    let receivedAssetId: string | undefined;
 
     try {
       if (operation.externalOfferId) {
         const verification = await this.tradesService.verifyOffer(
           operation.externalOfferId,
+          {
+            sellerSteamId: operation.order.seller.steamId,
+            buyerSteamId: operation.order.buyer.steamId,
+            assetId:
+              operation.expectedAssetId ??
+              operation.order.lot.inventoryAsset.assetExternalId,
+          },
         );
         offerStatus = verification.status;
+        if (verification.status === 'accepted')
+          receivedAssetId = verification.receivedAssetId;
       }
 
       // Client DOM observations remain timeline evidence, never settlement authority.
@@ -142,6 +152,7 @@ export class DeliveryVerificationEngineService {
           snapshot?.marketHashName ?? asset.itemDefinition.marketHashName,
           {
             force: true,
+            receivedAssetId,
             expectedFloatValue:
               snapshot?.floatValue ?? asset.floatValue ?? null,
             expectedPaintSeed: snapshot?.paintSeed ?? asset.paintSeed ?? null,

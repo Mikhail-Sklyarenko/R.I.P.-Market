@@ -7,7 +7,12 @@ import {
   TradeCompletionType,
   TradeProvider,
   TradeVerificationResult,
+  TradeVerificationContext,
 } from './trade-provider.interface';
+import {
+  steamOfferMatchesOrder,
+  receivedAssetFromSteamReceipt,
+} from './steam-delivery-proof';
 
 export class SteamTradeRateLimitError extends Error {
   constructor() {
@@ -21,6 +26,7 @@ type SteamTradeOfferResponse = {
     offer?: {
       tradeofferid?: string;
       trade_offer_state?: number;
+      tradeid?: string;
     };
   };
 };
@@ -57,6 +63,7 @@ export class SteamTradeProvider implements TradeProvider {
 
   async verifyTradeOffer(
     tradeOfferId: string,
+    context?: TradeVerificationContext,
   ): Promise<TradeVerificationResult> {
     if (!/^[1-9][0-9]*$/.test(tradeOfferId)) {
       return { status: 'unknown', tradable: null, tradeLockUntil: null };
@@ -80,7 +87,7 @@ export class SteamTradeProvider implements TradeProvider {
     url.searchParams.set('tradeofferid', tradeOfferId);
     url.searchParams.set('language', 'english');
 
-    const response = await steamFetch(url.toString());
+    const response = await steamFetch(url.toString(), { redirect: 'error' });
     if (response.status === 429) {
       throw new SteamTradeRateLimitError();
     }
@@ -88,8 +95,8 @@ export class SteamTradeProvider implements TradeProvider {
       throw new Error(`Steam GetTradeOffer returned ${response.status}`);
     }
 
-    const data = (await response.json()) as SteamTradeOfferResponse;
-    const offer = data.response?.offer;
+    const data = (await response.json()) as SteamTradeOfferResponse | null;
+    const offer = data?.response?.offer;
     if (!offer || offer.tradeofferid !== tradeOfferId) {
       // HTTP 200 does not imply the key can see this participant's offer.
       // Do not log the authenticated URL or turn missing evidence into success.
@@ -97,10 +104,54 @@ export class SteamTradeProvider implements TradeProvider {
       return { status: 'unknown', tradable: null, tradeLockUntil: null };
     }
     const state = offer.trade_offer_state;
+    if (
+      context &&
+      !steamOfferMatchesOrder(
+        offer,
+        context,
+        process.env.STEAM_WEB_API_KEY_OWNER_STEAM_ID,
+      )
+    ) {
+      return { status: 'unknown', tradable: null, tradeLockUntil: null };
+    }
     const status =
       state !== undefined ? (STATE_MAP[state] ?? 'unknown') : 'unknown';
 
+    // An accepted status alone is not evidence for a marketplace order.
+    if (status === 'accepted' && !context) {
+      return { status: 'unknown', tradable: null, tradeLockUntil: null };
+    }
+
+    let receivedAssetId: string | undefined;
+    if (context && status === 'accepted') {
+      if (!offer.tradeid || !/^[1-9][0-9]{0,19}$/.test(offer.tradeid)) {
+        return { status: 'unknown', tradable: null, tradeLockUntil: null };
+      }
+      const receiptUrl = new URL(
+        'https://api.steampowered.com/IEconService/GetTradeStatus/v1/',
+      );
+      receiptUrl.searchParams.set('key', apiKey);
+      receiptUrl.searchParams.set('tradeid', offer.tradeid);
+      const receiptResponse = await steamFetch(receiptUrl, {
+        redirect: 'error',
+      });
+      if (receiptResponse.status === 429) throw new SteamTradeRateLimitError();
+      if (!receiptResponse.ok)
+        return { status: 'unknown', tradable: null, tradeLockUntil: null };
+      const receiptData = (await receiptResponse.json()) as {
+        response?: { trades?: unknown[] };
+      } | null;
+      const trades = receiptData?.response?.trades;
+      if (Array.isArray(trades) && trades.length === 1) {
+        receivedAssetId =
+          receivedAssetFromSteamReceipt(trades[0], offer.tradeid, context) ??
+          undefined;
+      }
+      if (!receivedAssetId)
+        return { status: 'unknown', tradable: null, tradeLockUntil: null };
+    }
     return {
+      ...(receivedAssetId ? { receivedAssetId } : {}),
       status,
       tradable: null,
       tradeLockUntil: null,

@@ -57,6 +57,14 @@ describe('DeliveryVerificationEngineService', () => {
     const result = await service.evaluate(operation as never);
 
     expect(result.decision.action).toBe('CONFIRM');
+    expect(tradesService.verifyOffer).toHaveBeenCalledWith(
+      operation.externalOfferId,
+      {
+        sellerSteamId: 'seller-steam',
+        buyerSteamId: 'buyer-steam',
+        assetId: 'asset-1',
+      },
+    );
     expect(result.evidence.reasonCode).toBe('DUAL_SIGNAL_CONFIRMED');
     expect(inventoryDelta.verify).toHaveBeenCalledWith(
       'seller-1',
@@ -84,6 +92,28 @@ describe('DeliveryVerificationEngineService', () => {
 
     expect(result.offerStatus).toBe('unknown');
     expect(result.decision.action).not.toBe('CONFIRM');
+  });
+
+  it('passes the server-verified destination asset only for accepted exchanges', async () => {
+    inventoryDelta.verify.mockResolvedValue('pending');
+    for (const status of ['accepted', 'unknown']) {
+      tradesService.verifyOffer.mockResolvedValue({
+        status,
+        receivedAssetId: 'new-asset',
+      });
+      await service.evaluate(operation as never);
+      expect(inventoryDelta.verify).toHaveBeenLastCalledWith(
+        'seller-1',
+        'buyer-1',
+        'seller-steam',
+        'buyer-steam',
+        'asset-1',
+        'AK-47 | Redline (Field-Tested)',
+        expect.objectContaining({
+          receivedAssetId: status === 'accepted' ? 'new-asset' : undefined,
+        }),
+      );
+    }
   });
 
   it('returns BACKOFF decision on Steam 429', async () => {

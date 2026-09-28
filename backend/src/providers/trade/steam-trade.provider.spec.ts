@@ -48,7 +48,7 @@ describe('SteamTradeProvider evidence', () => {
     [2, 'pending'],
     [9, 'needs_confirmation'],
     [11, 'pending'],
-    [3, 'accepted'],
+    [3, 'unknown'],
     [7, 'declined'],
     [6, 'expired'],
     [99, 'unknown'],
@@ -69,5 +69,100 @@ describe('SteamTradeProvider evidence', () => {
     delete process.env.STEAM_WEB_API_KEY;
     expect((await provider.verifyTradeOffer(offerId)).status).toBe('unknown');
     expect(fetchMock).not.toHaveBeenCalled();
+  });
+});
+
+describe('Steam order-bound receipt verification', () => {
+  const originalOwner = process.env.STEAM_WEB_API_KEY_OWNER_STEAM_ID;
+  const originalKey = process.env.STEAM_WEB_API_KEY;
+  const fetchMock = jest.mocked(steamFetch);
+  const provider = new SteamTradeProvider();
+  const context = {
+    sellerSteamId: '76561198195181115',
+    buyerSteamId: '76561198655632881',
+    assetId: '50586823960',
+  };
+  const item = {
+    appid: 730,
+    contextid: '2',
+    assetid: context.assetId,
+    amount: '1',
+  };
+  const offer = {
+    tradeofferid: '9391832342',
+    tradeid: '744938690018752002',
+    trade_offer_state: 3,
+    is_our_offer: true,
+    accountid_other: 695367153,
+    items_to_give: [item],
+    items_to_receive: [],
+  };
+  const receipt = {
+    tradeid: offer.tradeid,
+    steamid_other: context.buyerSteamId,
+    status: 3,
+    assets_given: [{ ...item, new_assetid: '53954582039', new_contextid: '2' }],
+    assets_received: [],
+  };
+  const response = (body: unknown) =>
+    ({ ok: true, status: 200, json: async () => body }) as Response;
+  beforeEach(() => {
+    fetchMock.mockReset();
+    process.env.STEAM_WEB_API_KEY = 'test-key';
+    process.env.STEAM_WEB_API_KEY_OWNER_STEAM_ID = context.sellerSteamId;
+  });
+  afterEach(() => {
+    if (originalOwner === undefined)
+      delete process.env.STEAM_WEB_API_KEY_OWNER_STEAM_ID;
+    else process.env.STEAM_WEB_API_KEY_OWNER_STEAM_ID = originalOwner;
+    if (originalKey === undefined) delete process.env.STEAM_WEB_API_KEY;
+    else process.env.STEAM_WEB_API_KEY = originalKey;
+  });
+  it('gets the receipt ID from Steam, then returns its validated destination asset', async () => {
+    fetchMock
+      .mockResolvedValueOnce(response({ response: { offer } }))
+      .mockResolvedValueOnce(response({ response: { trades: [receipt] } }));
+    expect(
+      await provider.verifyTradeOffer(offer.tradeofferid, context),
+    ).toEqual({
+      status: 'accepted',
+      tradable: null,
+      tradeLockUntil: null,
+      receivedAssetId: '53954582039',
+    });
+    const requested = new URL(String(fetchMock.mock.calls[1][0]));
+    expect(requested.pathname).toBe('/IEconService/GetTradeStatus/v1/');
+    expect(requested.searchParams.get('tradeid')).toBe(offer.tradeid);
+    expect(fetchMock.mock.calls[1][1]).toEqual({ redirect: 'error' });
+  });
+  it('does not look up a receipt when the credential owner is unknown', async () => {
+    delete process.env.STEAM_WEB_API_KEY_OWNER_STEAM_ID;
+    fetchMock.mockResolvedValueOnce(response({ response: { offer } }));
+    expect(
+      (await provider.verifyTradeOffer(offer.tradeofferid, context)).status,
+    ).toBe('unknown');
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+  it.each([
+    null,
+    {},
+    { response: { trades: [] } },
+    { response: { trades: [{ ...receipt, status: 6 }] } },
+    { response: { trades: [receipt, receipt] } },
+  ])('does not accept an unusable receipt %j', async (body) => {
+    fetchMock
+      .mockResolvedValueOnce(response({ response: { offer } }))
+      .mockResolvedValueOnce(response(body));
+    expect(
+      (await provider.verifyTradeOffer(offer.tradeofferid, context)).status,
+    ).toBe('unknown');
+  });
+  it('propagates receipt rate limits for retry backoff', async () => {
+    fetchMock
+      .mockResolvedValueOnce(response({ response: { offer } }))
+      .mockResolvedValueOnce({ ok: false, status: 429 } as Response);
+    await expect(
+      provider.verifyTradeOffer(offer.tradeofferid, context),
+    ).rejects.toBeInstanceOf(SteamTradeRateLimitError);
   });
 });

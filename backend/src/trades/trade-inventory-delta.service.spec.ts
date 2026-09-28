@@ -2,6 +2,36 @@ import { InventoryAssetStatus } from '@prisma/client';
 import { TradeInventoryDeltaService } from './trade-inventory-delta.service';
 
 describe('TradeInventoryDeltaService', () => {
+  it.each([
+    [[], ['new'], 'confirmed'],
+    [['old'], ['new'], 'seller_still_holds'],
+    [[], ['old'], 'pending'],
+    [[], ['other'], 'pending'],
+  ])(
+    'requires the mapped buyer asset and absence of seller original (%j, %j)',
+    async (sellerIds, buyerIds, expected) => {
+      const syncInventory = jest
+        .fn()
+        .mockResolvedValueOnce({
+          status: 'SUCCESS',
+          observedAssetIds: sellerIds,
+        })
+        .mockResolvedValueOnce({
+          status: 'SUCCESS',
+          observedAssetIds: buyerIds,
+        });
+      const live = new TradeInventoryDeltaService(
+        {} as never,
+        { type: 'steam', syncInventory } as never,
+      );
+      expect(
+        await live.verify('s', 'b', 'ss', 'bs', 'old', 'item', {
+          force: true,
+          receivedAssetId: 'new',
+        }),
+      ).toBe(expected);
+    },
+  );
   const prisma = {
     inventoryAsset: {
       findFirst: jest.fn(),

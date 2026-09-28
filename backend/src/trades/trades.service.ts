@@ -23,6 +23,7 @@ import { SteamTradeRateLimitError } from '../providers/trade/steam-trade.provide
 import type {
   TradeProvider,
   TradeVerificationResult,
+  TradeVerificationContext,
 } from '../providers/trade/trade-provider.interface';
 import { LedgerService } from '../wallet/ledger.service';
 import { isRealSettlementEnabled } from '../settlement/settlement.config';
@@ -732,21 +733,22 @@ export class TradesService {
     return toJsonSafe(order);
   }
 
-  async verifyOffer(tradeOfferId: string): Promise<TradeVerificationResult> {
+  async verifyOffer(
+    tradeOfferId: string,
+    context?: TradeVerificationContext,
+  ): Promise<TradeVerificationResult> {
     if (!this.tradeProvider.verifyTradeOffer) {
       return { status: 'unknown', tradable: null, tradeLockUntil: null };
     }
     try {
-      return await this.tradeProvider.verifyTradeOffer(tradeOfferId);
+      return await this.tradeProvider.verifyTradeOffer(tradeOfferId, context);
     } catch (error) {
       if (error instanceof SteamTradeRateLimitError) {
         throw error;
       }
-      this.logger.warn(
-        `Trade offer verification failed for ${tradeOfferId}: ${
-          error instanceof Error ? error.message : 'unknown'
-        }`,
-      );
+      // Network errors can contain authenticated URLs or proxy credentials.
+      // Log a fixed event only; even the supplied offer ID is untrusted input.
+      this.logger.warn('Steam trade verification request failed');
       return { status: 'unknown', tradable: null, tradeLockUntil: null };
     }
   }
