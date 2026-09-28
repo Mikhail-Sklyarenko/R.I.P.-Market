@@ -8,6 +8,11 @@ describe('Steam probe cookie scope', () => {
   it('extracts only the explicitly authorized account token', () => {
     expect(tokenForProbe(`76561198195181115%7C%7C${token}`)).toBe(token);
   });
+  it('binds the buyer token only to a buyer preflight and rejects other owners', () => {
+    expect(tokenForProbe(`76561198655632881||${token}`, '76561198655632881')).toBe(token);
+    expect(tokenForProbe(`76561198195181115||${token}`, '76561198655632881')).toBeNull();
+    expect(tokenForProbe(`76561198000000000||${token}`, '76561198000000000')).toBeNull();
+  });
   it.each([undefined, '%bad', '76561198655632881||' + token, '76561198195181115||short', '76561198195181115||' + token + '||extra'])('rejects wrong account or malformed value %s', value => {
     expect(tokenForProbe(value)).toBeNull();
   });
@@ -38,7 +43,7 @@ describe('Steam probe transmission boundary', () => {
     expect(outbound).not.toHaveBeenCalled();
   });
   it('transmits only to fixed HTTPS endpoint and drops untrusted response strings', async () => {
-    outbound.mockResolvedValueOnce({ ok: true, json: async () => ({ allowed: true }) })
+    outbound.mockResolvedValueOnce({ ok: true, json: async () => ({ allowed: true, ownerSteamId: '76561198195181115' }) })
       .mockResolvedValueOnce({ ok: true, json: async () => ({ exactOffer: true, offerHttpStatus: 200, secret: 'do-not-return', exactReceipt: 'do-not-return' }) });
     expect(await runSteamAuthProbe()).toEqual({ exactOffer: true, offerHttpStatus: 200 });
     expect(outbound).toHaveBeenCalledTimes(2);

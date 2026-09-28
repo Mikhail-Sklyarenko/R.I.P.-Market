@@ -4,6 +4,15 @@ Not a delivery provider or settlement mechanism. This probe reads only offer
 9391832342 and receipt 744938690018752002 for the explicitly consenting test seller
 76561198195181115. It never changes order, inventory, wallet or payment state.
 
+Version 0.6.66 also supports the explicitly consenting buyer 76561198655632881
+with its existing ACTIVE BUYER role. Buyer access requires the separate
+STEAM_BUYER_PROBE_UNTIL window; the seller window cannot authorize it. Preflight
+returns the allowed owner Steam ID, which the extension binds to the cookie
+before transmission. Only these two fixed owners are accepted. The buyer result
+reports incoming-offer and assets_received predicates, including comparison to
+the previously observed destination asset, without returning any raw values.
+Those comparisons are diagnostic hypotheses, never new settlement evidence.
+
 The endpoint is disabled unless STEAM_AUTH_PROBE_UNTIL is a future ISO timestamp
 no more than one hour away. An expired/missing/malformed window is rejected.
 Both preflight and execution require a valid signed extension session and an
@@ -30,7 +39,7 @@ is used. Steam has not granted this credential read-only scope.
 
 Operator procedure: deploy the reviewed backend and extension, verify seller's
 existing ADMIN role (do not widen roles merely for this probe), enable a short
-window, reconnect extension 0.6.64 in the seller profile, expand Support / emergency
+window, reconnect extension 0.6.66 in the authorized profile, expand Support / emergency
 access, explicitly consent, and invoke the diagnostic. Remove the temporary window
 after the result; it also expires automatically. Do not enable real settlement.
 The runtime must be restarted if its environment is changed. Deployment and

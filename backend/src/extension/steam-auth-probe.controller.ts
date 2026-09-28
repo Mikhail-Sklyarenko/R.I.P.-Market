@@ -13,8 +13,8 @@ export class SteamAuthProbeController {
   @Post('preflight')
   @Header('Cache-Control', 'no-store')
   async preflight(@CurrentExtensionAuth() auth: { userId: string }) {
-    await this.probe.authorize(auth.userId);
-    return { allowed: true };
+    const ownerSteamId = await this.probe.authorize(auth.userId);
+    return { allowed: true, ownerSteamId };
   }
 
   @Post()

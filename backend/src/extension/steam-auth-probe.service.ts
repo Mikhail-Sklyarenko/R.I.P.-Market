@@ -12,6 +12,7 @@ import {
 } from '../providers/trade/steam-delivery-proof';
 
 export const PROBE_SELLER = '76561198195181115';
+export const PROBE_BUYER = '76561198655632881';
 const OFFER = '9391832342';
 const TRADE = '744938690018752002';
 const context = {
@@ -30,30 +31,36 @@ export class SteamAuthProbeService {
   private nextAllowedAt = 0;
   constructor(private readonly prisma: PrismaService) {}
 
-  async authorize(userId: string): Promise<void> {
-    const until = Date.parse(process.env.STEAM_AUTH_PROBE_UNTIL ?? '');
+  async authorize(userId: string): Promise<string> {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { steamId: true, role: true, status: true },
+    });
+    const buyer = user?.steamId === PROBE_BUYER && user.role === 'BUYER';
+    const until = Date.parse(
+      (buyer
+        ? process.env.STEAM_BUYER_PROBE_UNTIL
+        : process.env.STEAM_AUTH_PROBE_UNTIL) ?? '',
+    );
     const now = Date.now();
     // Operator enables a short window; absent, expired or excessive windows fail closed.
     if (!Number.isFinite(until) || until <= now || until > now + 3600000) {
       throw new ForbiddenException('Steam diagnostic window is closed');
     }
-    const user = await this.prisma.user.findUnique({
-      where: { id: userId },
-      select: { steamId: true, role: true, status: true },
-    });
     if (
-      user?.steamId !== PROBE_SELLER ||
-      user.role !== 'ADMIN' ||
+      !user ||
+      (!buyer && (user.steamId !== PROBE_SELLER || user.role !== 'ADMIN')) ||
       user.status !== 'ACTIVE'
     ) {
       throw new ForbiddenException(
         'Steam diagnostic account is not authorized',
       );
     }
+    return user.steamId!;
   }
 
   async run(userId: string, payload: Record<string, unknown>) {
-    await this.authorize(userId);
+    const owner = await this.authorize(userId);
     let token = payload.accessToken;
     // Drop the request-body reference before any asynchronous Steam work.
     delete payload.accessToken;
@@ -91,6 +98,55 @@ export class SteamAuthProbeService {
         record(trades[0]).tradeid === TRADE
           ? record(trades[0])
           : null;
+      if (owner === PROBE_BUYER) {
+        const items = receipt?.assets_received;
+        const received =
+          Array.isArray(items) && items.length === 1 ? record(items[0]) : {};
+        const offerItems = record(offer).items_to_receive;
+        const incoming =
+          Array.isArray(offerItems) && offerItems.length === 1
+            ? record(offerItems[0])
+            : {};
+        const empty = (value: unknown) =>
+          value === undefined || (Array.isArray(value) && value.length === 0);
+        return {
+          diagnosticOnly: true,
+          buyerPerspective: true,
+          settlementAuthorized: false,
+          offerHttpStatus: offerReply.status,
+          receiptHttpStatus: receiptReply.status,
+          exactOffer,
+          exactReceipt: receipt !== null,
+          offerAccepted: exactOffer && record(offer).trade_offer_state === 3,
+          offerIncoming: record(offer).is_our_offer === false,
+          offerPartnerMatches:
+            record(offer).accountid_other ===
+            Number(BigInt(PROBE_SELLER) - 76561197960265728n),
+          offerGivenEmpty: empty(record(offer).items_to_give),
+          offerReceivedCount: Array.isArray(offerItems)
+            ? offerItems.length
+            : -1,
+          offerOriginalAssetMatches: incoming.assetid === context.assetId,
+          receiptComplete: receipt?.status === 3,
+          receiptPartnerMatches: receipt?.steamid_other === PROBE_SELLER,
+          receiptGivenEmpty: empty(receipt?.assets_given),
+          receiptReceivedCount: Array.isArray(items) ? items.length : -1,
+          receiptOriginalAssetMatches: received.assetid === context.assetId,
+          receiptAssetMatchesObservedBuyerItem:
+            received.assetid === '53954582039',
+          receiptNewAssetMatchesObservedBuyerItem:
+            received.new_assetid === '53954582039',
+          receiptItemAppMatches: received.appid === 730,
+          receiptItemAmountMatches: received.amount === '1',
+          receiptItemContextIs2: received.contextid === '2',
+          receiptItemContextIs16: received.contextid === '16',
+          receiptNewAssetPresent: received.new_assetid !== undefined,
+          receiptNewContextPresent: received.new_contextid !== undefined,
+          receiptRollbackFieldsPresent:
+            received.rollback_new_assetid !== undefined ||
+            received.rollback_new_contextid !== undefined,
+        };
+      }
       const given = receipt?.assets_given;
       const item =
         Array.isArray(given) && given.length === 1 ? record(given[0]) : {};
