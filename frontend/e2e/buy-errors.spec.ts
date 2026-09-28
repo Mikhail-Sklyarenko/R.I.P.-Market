@@ -57,7 +57,7 @@ test.describe('Buy error handling', () => {
     await loginAsBuyer(page);
     await page.goto(`/lots/${lotId}`);
 
-    await expect(page.getByTestId('lot-unavailable-message')).toContainText('RESERVED');
+    await expect(page.getByTestId('lot-unavailable-message')).toContainText('В сделке');
     await expect(page.getByTestId('buy-lot-button')).toBeDisabled();
   });
 });

@@ -38,7 +38,7 @@ test.describe('Catalog load more', () => {
           items,
           page: pageNumber,
           limit,
-          total: 60,
+          total: 240,
           steamPriceFetchedAt: null,
         }),
       });
@@ -52,13 +52,13 @@ test.describe('Catalog load more', () => {
       });
     });
 
-    await page.goto('/catalog?limit=24');
-    await expect(page.getByTestId('catalog-grid').locator('article')).toHaveCount(24);
+    await page.goto('/catalog');
+    await expect(page.getByTestId('catalog-grid').locator('article')).toHaveCount(96);
     await expect(page.getByTestId('catalog-load-more-button')).toBeVisible();
 
     await page.getByTestId('catalog-load-more-button').click();
-    await expect(page.getByTestId('catalog-grid').locator('article')).toHaveCount(48);
+    await expect(page.getByTestId('catalog-grid').locator('article')).toHaveCount(192);
     await expect(page).toHaveURL(/page=2/);
-    await expect(page.getByTestId('catalog-load-more-count')).toContainText('48');
+    await expect(page.getByTestId('catalog-load-more-count')).toContainText('192');
   });
 });

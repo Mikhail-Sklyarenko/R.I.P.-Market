@@ -42,6 +42,7 @@ export default defineConfig({
         WITHDRAW_MANUAL_REVIEW_COUNT: '5',
         WITHDRAW_REQUIRE_STEAM_LINKED: 'true',
         AUTH_PROVIDER: 'mock',
+        ALLOW_MOCK_ADMIN_LOGIN: 'true',
         INVENTORY_PROVIDER: 'mock',
         TRADE_PROVIDER: 'mock',
         STEAM_MARKET_PRICE_ENABLED: 'false',

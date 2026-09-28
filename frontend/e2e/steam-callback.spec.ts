@@ -1,12 +1,23 @@
 import { expect, test } from '@playwright/test';
 
 test.describe('Steam callback page', () => {
-  test('stores JWT from callback query and navigates home', async ({ page }) => {
-    await page.goto(
-      '/login/steam/callback?accessToken=test-token&userId=user-1&username=steam_user&role=BUYER&status=ACTIVE&steamId=76561198000000000',
-    );
+  test('exchanges a one-time code once and navigates home', async ({ page }) => {
+    let exchanges = 0;
+    const user = {
+      id: 'user-1', username: 'steam_user', role: 'BUYER', status: 'ACTIVE',
+      steamId: '76561198000000000',
+    };
+    await page.route('**/api/v1/auth/steam/exchange', async (route) => {
+      expect(route.request().method()).toBe('POST');
+      expect(route.request().postDataJSON()).toEqual({ code: 'test-code' });
+      exchanges += 1;
+      await route.fulfill({ json: { accessToken: 'test-token', user } });
+    });
+    await page.route('**/api/v1/auth/me', (route) => route.fulfill({ json: user }));
+    await page.goto('/login/steam/callback?code=test-code');
 
     await expect(page).toHaveURL(/\/($|catalog\/?$)/);
+    expect(exchanges).toBe(1);
     await expect
       .poll(async () =>
         page.evaluate(() => {

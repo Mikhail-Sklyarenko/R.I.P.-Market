@@ -42,7 +42,7 @@ test.describe('Catalog return to results', () => {
           items,
           page: pageNumber,
           limit,
-          total: 60,
+          total: 240,
           steamPriceFetchedAt: null,
         }),
       });
@@ -81,13 +81,13 @@ test.describe('Catalog return to results', () => {
       });
     });
 
-    await page.goto('/catalog?limit=24');
-    await expect(page.getByTestId('catalog-grid').locator('article')).toHaveCount(24);
+    await page.goto('/catalog');
+    await expect(page.getByTestId('catalog-grid').locator('article')).toHaveCount(96);
     await page.getByTestId('catalog-load-more-button').click();
-    await expect(page.getByTestId('catalog-grid').locator('article')).toHaveCount(48);
+    await expect(page.getByTestId('catalog-grid').locator('article')).toHaveCount(192);
     await expect(page).toHaveURL(/page=2/);
 
-    const targetCard = page.getByTestId('catalog-grid').locator('article').nth(30);
+    const targetCard = page.getByTestId('catalog-grid').locator('article').nth(110);
     const targetId = await targetCard.getAttribute('data-catalog-item-id');
     expect(targetId).toBeTruthy();
     await targetCard.click();
@@ -95,7 +95,7 @@ test.describe('Catalog return to results', () => {
     await page.getByTestId('catalog-back-to-results').click();
 
     await expect(page).toHaveURL(/page=2/);
-    await expect(page.getByTestId('catalog-grid').locator('article')).toHaveCount(48);
+    await expect(page.getByTestId('catalog-grid').locator('article')).toHaveCount(192);
     const restoredCard = page.locator(
       `[data-testid="catalog-grid"] [data-catalog-item-id="${targetId}"]`,
     );

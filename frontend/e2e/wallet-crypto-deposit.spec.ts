@@ -27,7 +27,8 @@ test.describe('Wallet crypto deposit', () => {
     await expect(page.getByTestId('wallet-mock-deposit-form')).toHaveCount(0);
     await expect(page.getByTestId('deposit-warnings')).toBeVisible();
     await expect(page.getByTestId('deposit-trc20-address')).toBeVisible();
-    await expect(page.getByTestId('deposit-awaiting-status')).toBeVisible();
+    // No deposit intent exists yet; do not claim that a transfer is pending.
+    await expect(page.getByTestId('deposit-awaiting-status')).toHaveCount(0);
 
     const address = await page.getByTestId('deposit-trc20-address').inputValue();
     expect(address).toMatch(/^T/);
