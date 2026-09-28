@@ -1,4 +1,5 @@
 import { getCachedSentOffer } from "../shared/trade-offer-sent-cache.js";
+import { runSteamAuthProbe } from "../shared/steam-auth-probe.js";
 import {
   DurableTaskProgressReporter,
   taskProgressScope,
@@ -2648,6 +2649,15 @@ chrome.runtime.onMessageExternal.addListener(
 );
 
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+  if (message?.type === 'RIP_MARKET_STEAM_AUTH_PROBE') {
+    if (sender.id !== chrome.runtime.id || sender.url !== chrome.runtime.getURL('popup/popup.html') || message.consent !== true) {
+      sendResponse({ ok: false });
+      return false;
+    }
+    void runSteamAuthProbe().then(result => sendResponse({ ok: true, result }))
+      .catch(() => sendResponse({ ok: false, error: 'Диагностика недоступна: проверьте аккаунт, подключение и разрешённое сервером окно.' }));
+    return true;
+  }
   if (handleTradeVerificationRuntimeMessage(message, sender, sendResponse)) {
     return true;
   }

@@ -5,6 +5,8 @@ import { DisputesModule } from '../disputes/disputes.module';
 import { TradesModule } from '../trades/trades.module';
 import { InventoryModule } from '../inventory/inventory.module';
 import { ExtensionController } from './extension.controller';
+import { SteamAuthProbeController } from './steam-auth-probe.controller';
+import { SteamAuthProbeService } from './steam-auth-probe.service';
 import { ExtensionSecurityModule } from './extension-security.module';
 import { ExtensionTradeTaskService } from './extension-trade-task.service';
 import { ExtensionTradeAckModule } from './extension-trade-ack.module';
@@ -21,8 +23,9 @@ import { ExtensionSignatureGuard } from './guards/extension-signature.guard';
     forwardRef(() => TradesModule),
     ExtensionTradeAckModule,
   ],
-  controllers: [ExtensionController],
+  controllers: [ExtensionController, SteamAuthProbeController],
   providers: [
+    SteamAuthProbeService,
     ExtensionTradeTaskService,
     ExtensionSessionGuard,
     ExtensionSignatureGuard,

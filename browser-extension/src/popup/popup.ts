@@ -1,4 +1,20 @@
 import type { TradeVerificationResult } from '@rip-market/extension-orchestrator';
+
+const probeConsent = document.getElementById('steam-probe-consent') as HTMLInputElement | null;
+const probeRun = document.getElementById('steam-probe-run') as HTMLButtonElement | null;
+const probeResult = document.getElementById('steam-probe-result');
+probeConsent?.addEventListener('change', () => { if (probeRun) probeRun.disabled = !probeConsent.checked; });
+probeRun?.addEventListener('click', async () => {
+  if (!probeConsent?.checked || !probeResult) return;
+  probeRun.disabled = true;
+  probeConsent.disabled = true;
+  probeResult.textContent = 'Проверка известного обмена…';
+  try {
+    const response = await chrome.runtime.sendMessage({ type: 'RIP_MARKET_STEAM_AUTH_PROBE', consent: true });
+    probeResult.textContent = response?.ok ? JSON.stringify(response.result, null, 2) : 'Диагностика недоступна. Проверьте подключение и разрешённое сервером окно.';
+  } catch { probeResult.textContent = 'Диагностика недоступна.'; }
+  finally { probeConsent.checked = false; probeConsent.disabled = false; }
+});
 import {
   clearSteamWebApiKey,
   getSteamWebApiKey,
