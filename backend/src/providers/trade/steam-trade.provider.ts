@@ -1,3 +1,4 @@
+import { steamTokenOwner } from './steam-token-owner';
 import { requestCredential } from './steam-request-credential';
 import { steamTokenRead } from './steam-token-read';
 import { HttpStatus, Injectable, Logger } from '@nestjs/common';
@@ -203,12 +204,11 @@ export class SteamTradeProvider implements TradeProvider {
     // Do not trust a client-supplied SteamID or an unsigned JWT claim.
     const identity = await read('GetTokenDetails');
     const identityData = identity.data as {
+      steamid?: unknown;
       response?: { steamid?: unknown };
     } | null;
-    if (
-      identity.status !== 200 ||
-      identityData?.response?.steamid !== context.sellerSteamId
-    ) {
+    const verifiedOwner = steamTokenOwner(identity.data);
+    if (identity.status !== 200 || verifiedOwner !== context.sellerSteamId) {
       // Fixed scalars only: never log URL, token, upstream strings or identity.
       this.logger.warn(
         JSON.stringify({
@@ -217,8 +217,9 @@ export class SteamTradeProvider implements TradeProvider {
           responsePresent: identityData?.response !== undefined,
           steamIdPresent: identityData?.response?.steamid !== undefined,
           steamIdIsString: typeof identityData?.response?.steamid === 'string',
-          ownerMatches:
-            identityData?.response?.steamid === context.sellerSteamId,
+          rootSteamIdPresent: identityData?.steamid !== undefined,
+          rootSteamIdIsString: typeof identityData?.steamid === 'string',
+          ownerMatches: verifiedOwner === context.sellerSteamId,
         }),
       );
       return unknown('STEAM_TOKEN_OWNER_UNVERIFIED');

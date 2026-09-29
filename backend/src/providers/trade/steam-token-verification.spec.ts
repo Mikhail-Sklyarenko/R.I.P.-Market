@@ -145,3 +145,20 @@ it('clears credential from inherited asynchronous work on failure', async () => 
   release();
   await delayed!;
 });
+
+it('uses root-level Steam identity without weakening receipt verification', async () => {
+  read
+    .mockResolvedValueOnce({
+      status: 200,
+      data: { steamid: context.sellerSteamId },
+    })
+    .mockResolvedValueOnce({ status: 200, data: { response: { offer } } })
+    .mockResolvedValueOnce({
+      status: 200,
+      data: { response: { trades: [receipt] } },
+    });
+  expect(await verify()).toMatchObject({
+    status: 'accepted',
+    receivedAssetId: '53954582039',
+  });
+});
