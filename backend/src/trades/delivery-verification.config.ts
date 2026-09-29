@@ -38,6 +38,11 @@ export function getTradeFailMode(): 'SAFE' | 'DISPUTE' {
   return process.env.TRADE_FAIL_MODE === 'SAFE' ? 'SAFE' : 'DISPUTE';
 }
 
+export function getOfferUnknownMaxChecks(): number {
+  const value = Number(process.env.DELIVERY_OFFER_UNKNOWN_MAX_CHECKS ?? 20);
+  return Number.isFinite(value) && value > 0 ? value : 20;
+}
+
 export function computeRateLimitBackoffMs(rateLimitHits: number): number {
   const base = getPollBackoffBaseMs();
   const max = getPollBackoffMaxMs();

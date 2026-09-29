@@ -1,7 +1,25 @@
 import { InventoryAssetStatus } from '@prisma/client';
-import { TradeInventoryDeltaService } from './trade-inventory-delta.service';
+import {
+  TradeInventoryDeltaService,
+  InventoryVerificationRateLimitError,
+} from './trade-inventory-delta.service';
 
 describe('TradeInventoryDeltaService', () => {
+  it('preserves inventory throttling and does not fetch the buyer after seller throttling', async () => {
+    const syncInventory = jest.fn().mockResolvedValue({
+      status: 'FAILED',
+      stale: true,
+      errorCode: 'STEAM_RATE_LIMITED',
+    });
+    const live = new TradeInventoryDeltaService(
+      {} as never,
+      { type: 'steam', syncInventory } as never,
+    );
+    await expect(
+      live.verify('s', 'b', 'ss', 'bs', 'old', 'item', { force: true }),
+    ).rejects.toBeInstanceOf(InventoryVerificationRateLimitError);
+    expect(syncInventory).toHaveBeenCalledTimes(1);
+  });
   it.each([
     [[], ['new'], 'confirmed'],
     [['old'], ['new'], 'seller_still_holds'],

@@ -111,6 +111,28 @@ describe('TradeStatusPollerService', () => {
     });
   });
 
+  it('routes exhausted offer evidence to review, never settlement or safe failure', async () => {
+    const { poller, tradesService } = buildPoller({
+      operations: [baseOperation],
+      evaluation: {
+        decision: {
+          action: 'DISPUTE',
+          reason: 'OFFER_UNKNOWN',
+          reasonCode: 'OFFER_UNKNOWN_EXHAUSTED',
+          pollOutcome: 'FAILED_DISPUTE',
+        },
+        offerStatus: 'unknown',
+        inventoryDelta: 'pending',
+        evidence: {},
+      },
+    });
+    await poller.pollWaitingTrades();
+    expect(tradesService.applyUnknownTradeStateFromPoll).toHaveBeenCalled();
+    expect(tradesService.applyTradeConfirmedFromPoll).not.toHaveBeenCalled();
+    expect(tradesService.applyTradeFailedFromPoll).not.toHaveBeenCalled();
+    expect(tradesService.applyTradeTimeout).not.toHaveBeenCalled();
+  });
+
   it('confirms trade when dual-signal decision is CONFIRM', async () => {
     const evidence = {
       offerStatus: 'accepted',
@@ -167,7 +189,7 @@ describe('TradeStatusPollerService', () => {
   });
 
   it('does not transition on rate-limit backoff', async () => {
-    const { poller, tradesService, deliveryEngine } = buildPoller({
+    const { poller, tradesService, deliveryEngine, prisma } = buildPoller({
       operations: [baseOperation],
       evaluation: {
         decision: {
@@ -184,6 +206,10 @@ describe('TradeStatusPollerService', () => {
     const result = await poller.pollWaitingTrades();
 
     expect(result.transitions).toBe(0);
+    expect(prisma.tradeOperation.update).toHaveBeenCalledWith({
+      where: { id: 'trade-1' },
+      data: { lastCheckedAt: expect.any(Date) },
+    });
     expect(deliveryEngine.registerRateLimitBackoff).toHaveBeenCalledWith(
       'order-1',
     );

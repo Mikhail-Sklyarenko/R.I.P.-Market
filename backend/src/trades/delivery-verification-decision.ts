@@ -5,6 +5,7 @@ import type {
 import {
   getAcceptedInventoryPendingMaxChecks,
   getInventoryUnknownMaxChecks,
+  getOfferUnknownMaxChecks,
 } from './delivery-verification.config';
 
 /**
@@ -34,6 +35,16 @@ function decide(s: DeliveryVerificationSignals): DeliveryVerificationDecision {
   const offer = s.offerStatus;
   const inventory = s.inventoryDelta;
   if (s.rateLimited) {
+    if (s.timedOut && s.hasOfferId) {
+      return decision(
+        'DISPUTE',
+        'DELIVERY_VERIFICATION_UNKNOWN',
+        'STEAM_UNAVAILABLE_TIMEOUT',
+        offer,
+        inventory,
+        'FAILED_DISPUTE',
+      );
+    }
     return decision(
       'BACKOFF',
       'RATE_LIMITED',
@@ -145,7 +156,20 @@ function decide(s: DeliveryVerificationSignals): DeliveryVerificationDecision {
       inventory,
     );
   }
-  if (inventory === 'seller_still_holds') {
+  if (
+    (offer === 'unknown' || offer === null) &&
+    s.checkCount >= getOfferUnknownMaxChecks()
+  ) {
+    return decision(
+      'DISPUTE',
+      'OFFER_UNKNOWN',
+      'OFFER_UNKNOWN_EXHAUSTED',
+      offer,
+      inventory,
+      'FAILED_DISPUTE',
+    );
+  }
+  if (inventory === 'seller_still_holds' && !s.buyerAckReceived) {
     return decision(
       'WAIT',
       'OFFER_PENDING',

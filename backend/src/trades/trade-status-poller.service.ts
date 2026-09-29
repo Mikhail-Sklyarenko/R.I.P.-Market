@@ -180,10 +180,12 @@ export class TradeStatusPollerService implements OnModuleInit {
     operation: DeliveryVerificationOperation,
   ): Promise<boolean> {
     const isShadow = operation.verificationMode === 'SHADOW';
+    let countVerification = true;
 
     try {
       const evaluation = await this.deliveryEngine.evaluate(operation);
       const { decision, offerStatus, inventoryDelta, evidence } = evaluation;
+      countVerification = decision.action !== 'BACKOFF';
 
       await this.recordPollEvent(operation.id, {
         outcome: decision.pollOutcome,
@@ -291,7 +293,7 @@ export class TradeStatusPollerService implements OnModuleInit {
         where: { id: operation.id },
         data: {
           lastCheckedAt: new Date(),
-          checkCount: { increment: 1 },
+          ...(countVerification ? { checkCount: { increment: 1 } } : {}),
         },
       });
     }

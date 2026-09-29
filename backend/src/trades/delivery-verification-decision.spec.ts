@@ -20,6 +20,43 @@ function baseSignals(
 }
 
 describe('decideDeliveryVerification', () => {
+  it('escalates prolonged Steam unavailability without refunding a sent item', () => {
+    const result = decideDeliveryVerification(
+      baseSignals({ rateLimited: true, timedOut: true, failMode: 'SAFE' }),
+    );
+    expect(result.action).toBe('DISPUTE');
+    expect(result.reasonCode).toBe('STEAM_UNAVAILABLE_TIMEOUT');
+  });
+  it.each(['pending', 'confirmed', 'seller_still_holds'] as const)(
+    'escalates exhausted unknown offers with %s inventory without releasing funds',
+    (inventoryDelta) => {
+      const result = decideDeliveryVerification(
+        baseSignals({
+          offerStatus: 'unknown',
+          inventoryDelta,
+          checkCount: 20,
+          buyerAckReceived: true,
+          failMode: 'SAFE',
+        }),
+      );
+      expect(result.action).toBe('DISPUTE');
+      expect(result.reason).toBe('OFFER_UNKNOWN');
+      expect(result.reasonCode).toBe('OFFER_UNKNOWN_EXHAUSTED');
+      expect(result.pollOutcome).toBe('FAILED_DISPUTE');
+    },
+  );
+
+  it('keeps retrying unknown offers before exhaustion', () => {
+    const result = decideDeliveryVerification(
+      baseSignals({
+        offerStatus: 'unknown',
+        checkCount: 19,
+        buyerAckReceived: true,
+      }),
+    );
+    expect(result.action).toBe('WAIT');
+  });
+
   it('confirms when offer accepted and inventory delta ok', () => {
     const decision = decideDeliveryVerification(
       baseSignals({
@@ -149,7 +186,7 @@ describe('decideDeliveryVerification', () => {
       }),
     );
     expect(decision.action).toBe('WAIT');
-    expect(decision.reasonCode).toBe('AWAITING_BUYER_STEAM_ACCEPT');
+    expect(decision.reasonCode).toBe('OFFER_UNKNOWN_RETRY');
   });
 
   it('waits for Steam accept when seller still holds and buyer has not acked', () => {
@@ -213,7 +250,7 @@ describe('decideDeliveryVerification', () => {
       }),
     );
     expect(decision.action).toBe('WAIT');
-    expect(decision.reasonCode).toBe('AWAITING_BUYER_STEAM_ACCEPT');
+    expect(decision.reasonCode).toBe('OFFER_UNKNOWN_RETRY');
   });
 
   it('legacy mode disputes contradictory offer and inventory', () => {

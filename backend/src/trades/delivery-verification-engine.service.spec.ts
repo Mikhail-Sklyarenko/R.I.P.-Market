@@ -1,5 +1,6 @@
 import { DeliveryVerificationEngineService } from './delivery-verification-engine.service';
 import { SteamTradeRateLimitError } from '../providers/trade/steam-trade.provider';
+import { InventoryVerificationRateLimitError } from './trade-inventory-delta.service';
 
 describe('DeliveryVerificationEngineService', () => {
   const prisma = {
@@ -78,6 +79,16 @@ describe('DeliveryVerificationEngineService', () => {
         orderCreatedAt: operation.order.createdAt,
       }),
     );
+  });
+
+  it('backs off when inventory is throttled instead of exhausting delivery checks', async () => {
+    tradesService.verifyOffer.mockResolvedValue({ status: 'unknown' });
+    inventoryDelta.verify.mockRejectedValueOnce(
+      new InventoryVerificationRateLimitError(),
+    );
+    const result = await service.evaluate(operation as never);
+    expect(result.decision.action).toBe('BACKOFF');
+    expect(result.decision.reasonCode).toBe('rate_limited');
   });
 
   it('does not promote a client-observed acceptance to authoritative Steam acceptance', async () => {

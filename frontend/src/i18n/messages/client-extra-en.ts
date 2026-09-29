@@ -743,7 +743,7 @@ export const clientExtraEn = {
     itemAlreadyReceived: 'I already have the item in Steam',
     speedUpCheckSummary: 'Speed up the check',
     receivedAckPendingSteam:
-      "There's a mark on the site, but the skin isn't visible in your Steam yet. Accept the incoming trade offer — the status will update itself.",
+      'You confirmed receipt. Server verification of the item transfer is still pending, and the funds remain reserved. You do not need to accept or send the trade again.',
     receivedAck: 'Receipt marked. If the skin is already in Steam, the deal will close soon.',
     extensionAck: 'Got it. Just accept the trade in Steam now.',
     extensionHintNoAck: 'With the R.I.P Market extension, the Steam trade page will verify the deal.',

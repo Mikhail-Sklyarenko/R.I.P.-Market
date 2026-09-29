@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { Inject } from '@nestjs/common';
 import { InventoryAssetStatus } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
+import { AppException } from '../common/errors/app.exception';
 import { INVENTORY_PROVIDER } from '../providers/tokens';
 import type {
   InventoryProvider,
@@ -13,6 +14,8 @@ export type InventoryDeltaResult =
   | 'confirmed'
   | 'seller_still_holds'
   | 'unknown';
+
+export class InventoryVerificationRateLimitError extends Error {}
 
 export type InventoryDeltaVerifyOptions = {
   /** Internal only: exact destination asset from validated server Steam receipt. */
@@ -55,12 +58,26 @@ export class TradeInventoryDeltaService {
         sellerSteamId,
         { force },
       );
+      if (sellerSync.errorCode === 'STEAM_RATE_LIMITED') {
+        throw new InventoryVerificationRateLimitError();
+      }
       buyerSync = await this.inventoryProvider.syncInventory(
         buyerId,
         buyerSteamId,
         { force },
       );
-    } catch {
+      if (buyerSync.errorCode === 'STEAM_RATE_LIMITED') {
+        throw new InventoryVerificationRateLimitError();
+      }
+    } catch (error) {
+      if (
+        error instanceof InventoryVerificationRateLimitError ||
+        (error instanceof AppException &&
+          (error.code === 'STEAM_RATE_LIMITED' ||
+            error.details?.errorCode === 'STEAM_RATE_LIMITED'))
+      ) {
+        throw new InventoryVerificationRateLimitError();
+      }
       return 'unknown';
     }
 

@@ -16,6 +16,7 @@ import type {
 } from './delivery-verification.types';
 import {
   TradeInventoryDeltaService,
+  InventoryVerificationRateLimitError,
   type InventoryDeltaResult,
 } from './trade-inventory-delta.service';
 import { TradesService } from './trades.service';
@@ -167,7 +168,10 @@ export class DeliveryVerificationEngineService {
       const decision = decideDeliveryVerification(signals);
       return this.pack(decision, offerStatus, inventoryDelta);
     } catch (error) {
-      if (error instanceof SteamTradeRateLimitError) {
+      if (
+        error instanceof SteamTradeRateLimitError ||
+        error instanceof InventoryVerificationRateLimitError
+      ) {
         signals.rateLimited = true;
         const decision = decideDeliveryVerification(signals);
         return this.pack(decision, offerStatus, inventoryDelta);
