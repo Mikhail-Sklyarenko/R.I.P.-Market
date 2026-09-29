@@ -1,3 +1,5 @@
+import { requestCredential } from './steam-request-credential';
+import { steamTokenRead } from './steam-token-read';
 import { HttpStatus, Injectable, Logger } from '@nestjs/common';
 import { AppException } from '../../common/errors/app.exception';
 import { ErrorCode } from '../../common/errors/error-codes';
@@ -32,9 +34,9 @@ type SteamTradeOfferResponse = {
 };
 
 const STATE_MAP: Record<number, TradeVerificationResult['status']> = {
-  // Active — Guard already confirmed (or never required).
+  // Active вЂ” Guard already confirmed (or never required).
   2: 'pending',
-  // CreatedNeedsConfirmation — seller must confirm in Steam Mobile.
+  // CreatedNeedsConfirmation вЂ” seller must confirm in Steam Mobile.
   9: 'needs_confirmation',
   // In Escrow is not a completed delivery; Steam still holds the exchange.
   11: 'pending',
@@ -68,6 +70,9 @@ export class SteamTradeProvider implements TradeProvider {
     if (!/^[1-9][0-9]*$/.test(tradeOfferId)) {
       return { status: 'unknown', tradable: null, tradeLockUntil: null };
     }
+    const token = requestCredential(tradeOfferId, context);
+    if (token && context)
+      return this.verifyWithToken(tradeOfferId, context, token);
     const apiKey = process.env.STEAM_WEB_API_KEY;
     if (!apiKey) {
       this.logger.warn(
@@ -172,6 +177,73 @@ export class SteamTradeProvider implements TradeProvider {
     return {
       ...(receivedAssetId ? { receivedAssetId } : {}),
       status,
+      tradable: null,
+      tradeLockUntil: null,
+    };
+  }
+  private async verifyWithToken(
+    offerId: string,
+    context: TradeVerificationContext,
+    token: string,
+  ): Promise<TradeVerificationResult> {
+    const unknown = (reasonCode: string): TradeVerificationResult => ({
+      status: 'unknown',
+      reasonCode,
+      tradable: null,
+      tradeLockUntil: null,
+    });
+    const read = async (
+      method: 'GetTokenDetails' | 'GetTradeOffer' | 'GetTradeStatus',
+      params: Record<string, string> = {},
+    ) => {
+      const result = await steamTokenRead(method, token, params);
+      if (result.status === 429) throw new SteamTradeRateLimitError();
+      return result;
+    };
+    // Do not trust a client-supplied SteamID or an unsigned JWT claim.
+    const identity = await read('GetTokenDetails');
+    const identityData = identity.data as {
+      response?: { steamid?: unknown };
+    } | null;
+    if (
+      identity.status !== 200 ||
+      identityData?.response?.steamid !== context.sellerSteamId
+    )
+      return unknown('STEAM_TOKEN_OWNER_UNVERIFIED');
+    const reply = await read('GetTradeOffer', {
+      tradeofferid: offerId,
+      language: 'english',
+    });
+    if (reply.status !== 200) return unknown('STEAM_TOKEN_READ_UNAVAILABLE');
+    const data = reply.data as SteamTradeOfferResponse | null;
+    const offer = data?.response?.offer;
+    if (!offer || offer.tradeofferid !== offerId)
+      return unknown('STEAM_OFFER_UNAVAILABLE');
+    if (
+      !steamOfferMatchesOrder(
+        offer,
+        context,
+        context.sellerSteamId ?? undefined,
+      )
+    )
+      return unknown('STEAM_OFFER_ORDER_MISMATCH');
+    const status = STATE_MAP[offer.trade_offer_state ?? -1] ?? 'unknown';
+    if (status !== 'accepted')
+      return { status, tradable: null, tradeLockUntil: null };
+    if (!offer.tradeid || !/^[1-9][0-9]{0,19}$/.test(offer.tradeid))
+      return unknown('STEAM_RECEIPT_MAPPING_UNAVAILABLE');
+    const receipt = await read('GetTradeStatus', { tradeid: offer.tradeid });
+    const trades = (
+      receipt.data as { response?: { trades?: unknown[] } } | null
+    )?.response?.trades;
+    const receivedAssetId =
+      receipt.status === 200 && Array.isArray(trades) && trades.length === 1
+        ? receivedAssetFromSteamReceipt(trades[0], offer.tradeid, context)
+        : null;
+    if (!receivedAssetId) return unknown('STEAM_RECEIPT_MAPPING_UNAVAILABLE');
+    return {
+      status: 'accepted',
+      receivedAssetId,
       tradable: null,
       tradeLockUntil: null,
     };

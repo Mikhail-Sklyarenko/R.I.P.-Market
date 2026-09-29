@@ -8,11 +8,11 @@ probeRun?.addEventListener('click', async () => {
   if (!probeConsent?.checked || !probeResult) return;
   probeRun.disabled = true;
   probeConsent.disabled = true;
-  probeResult.textContent = 'Проверка известного обмена…';
+  probeResult.textContent = 'РџСЂРѕРІРµСЂРєР° РёР·РІРµСЃС‚РЅРѕРіРѕ РѕР±РјРµРЅР°вЂ¦';
   try {
     const response = await chrome.runtime.sendMessage({ type: 'RIP_MARKET_STEAM_AUTH_PROBE', consent: true });
-    probeResult.textContent = response?.ok ? JSON.stringify(response.result, null, 2) : 'Диагностика недоступна. Проверьте подключение и разрешённое сервером окно.';
-  } catch { probeResult.textContent = 'Диагностика недоступна.'; }
+    probeResult.textContent = response?.ok ? JSON.stringify(response.result, null, 2) : 'Р”РёР°РіРЅРѕСЃС‚РёРєР° РЅРµРґРѕСЃС‚СѓРїРЅР°. РџСЂРѕРІРµСЂСЊС‚Рµ РїРѕРґРєР»СЋС‡РµРЅРёРµ Рё СЂР°Р·СЂРµС€С‘РЅРЅРѕРµ СЃРµСЂРІРµСЂРѕРј РѕРєРЅРѕ.';
+  } catch { probeResult.textContent = 'Р”РёР°РіРЅРѕСЃС‚РёРєР° РЅРµРґРѕСЃС‚СѓРїРЅР°.'; }
   finally { probeConsent.checked = false; probeConsent.disabled = false; }
 });
 import {
@@ -107,7 +107,7 @@ const languageSelectEl = document.getElementById(
 let activeLocale: ExtensionLocale = 'ru';
 let t = createExtensionT(activeLocale);
 let activeSiteLink: SiteLinkSnapshot = defaultSiteLinkSnapshot();
-/** True when extension has a pair session — distinct from site page being open. */
+/** True when extension has a pair session вЂ” distinct from site page being open. */
 let activePaired = false;
 const disconnectBtn = document.getElementById('disconnect') as HTMLButtonElement;
 const openSiteBtn = document.getElementById('open-site') as HTMLButtonElement;
@@ -279,7 +279,7 @@ function renderOpsHealth(view: OpsHealthView | null): void {
   opsHealthEl.hidden = false;
   opsHealthEl.innerHTML = `
     <div class="ops-health-row">
-      <span class="ops-health-label">Опрос</span>
+      <span class="ops-health-label">РћРїСЂРѕСЃ</span>
       <span class="ops-health-value ${view.pollTone}">${escapeHtml(view.pollLine)}</span>
     </div>
     <div class="ops-health-row">
@@ -287,7 +287,7 @@ function renderOpsHealth(view: OpsHealthView | null): void {
       <span class="ops-health-value ${view.rateLimitTone}">${escapeHtml(view.rateLimitLine)}</span>
     </div>
     <div class="ops-health-row">
-      <span class="ops-health-label">Сборка</span>
+      <span class="ops-health-label">РЎР±РѕСЂРєР°</span>
       <span class="ops-health-value muted">${escapeHtml(view.versionLine)}</span>
       <a class="btn secondary ops-health-update" href="${escapeHtml(view.updateUrl)}" target="_blank" rel="noreferrer">${escapeHtml(view.updateLabel)}</a>
     </div>
@@ -350,7 +350,7 @@ function renderActionCard(item: ActionRequiredItem): string {
       ${item.itemName ? `<h2>${escapeHtml(item.itemName)}</h2>` : `<h2>${escapeHtml(item.title)}</h2>`}
       ${
         metaParts.length > 0
-          ? `<p class="meta">${escapeHtml(metaParts.join(' · '))}</p>`
+          ? `<p class="meta">${escapeHtml(metaParts.join(' В· '))}</p>`
           : ''
       }
       <p class="next"><strong>${escapeHtml(item.title)}</strong><br />${escapeHtml(item.description)}</p>
@@ -398,7 +398,7 @@ function renderShieldStrip(trade: TradeVerificationResult): string {
   const chars =
     shield.item.lines.length > 0
       ? `<p class="shield-chars">${escapeHtml(
-          shield.item.lines.map((l) => `${l.label} ${l.value}`).join(' · '),
+          shield.item.lines.map((l) => `${l.label} ${l.value}`).join(' В· '),
         )}</p>`
       : '';
   return `
@@ -465,7 +465,7 @@ function renderBuyerCard(card: BuyerInboxCard): string {
         <span class="phase-badge">${escapeHtml(card.phaseLabel)}</span>
       </div>
       <h2>${escapeHtml(card.itemName)}</h2>
-      <p class="meta">#${escapeHtml(card.orderShortId)} · ${escapeHtml(formatMoneyMinor(card.amountMinor))}</p>
+      <p class="meta">#${escapeHtml(card.orderShortId)} В· ${escapeHtml(formatMoneyMinor(card.amountMinor))}</p>
       ${shield}
       ${nextCopy}
       ${timeoutCopy}
@@ -539,7 +539,7 @@ function renderSellerCard(trade: TradeVerificationResult): string {
   return `
     <article class="trade-card ${statusClass}${disputeOpen ? ' phase-dispute' : ''}" data-primary-cta="${escapeHtml(cta.primary.id)}">
       <h2>${escapeHtml(trade.item.marketHashName)}</h2>
-      <p class="meta">#${escapeHtml(trade.orderShortId)} · ${escapeHtml(roleLabel(trade.role))} · ${escapeHtml(formatMoneyMinor(trade.amountMinor))}</p>
+      <p class="meta">#${escapeHtml(trade.orderShortId)} В· ${escapeHtml(roleLabel(trade.role))} В· ${escapeHtml(formatMoneyMinor(trade.amountMinor))}</p>
       ${renderShieldStrip(trade)}
       ${nextCopy}
       ${dispute}
@@ -614,7 +614,7 @@ async function acknowledgeFromPopup(button: HTMLButtonElement): Promise<void> {
   }
   button.disabled = true;
   const previous = button.textContent;
-  button.textContent = 'Сохраняем…';
+  button.textContent = 'РЎРѕС…СЂР°РЅСЏРµРјвЂ¦';
   if (ackType === 'BUYER_ACK_RECEIVED') {
     void bumpDealFlowMetric('received_ack_clicked');
   }
@@ -626,10 +626,10 @@ async function acknowledgeFromPopup(button: HTMLButtonElement): Promise<void> {
     idempotencyKey: `ack:${orderId}:${ackType}`,
   });
   if (response?.ok) {
-    button.textContent = 'Готово ✓';
+    button.textContent = 'Р“РѕС‚РѕРІРѕ вњ“';
     await render();
   } else {
-    button.textContent = previous ?? 'Повторить';
+    button.textContent = previous ?? 'РџРѕРІС‚РѕСЂРёС‚СЊ';
     button.disabled = false;
   }
 }
@@ -637,19 +637,19 @@ async function acknowledgeFromPopup(button: HTMLButtonElement): Promise<void> {
 async function retrySendFromPopup(button: HTMLButtonElement): Promise<void> {
   button.disabled = true;
   const previous = button.textContent;
-  button.textContent = 'Повторяем…';
+  button.textContent = 'РџРѕРІС‚РѕСЂСЏРµРјвЂ¦';
   try {
     await chrome.runtime.sendMessage({ type: 'RIP_MARKET_POLL_NOW' });
-    button.textContent = 'Запущено ✓';
+    button.textContent = 'Р—Р°РїСѓС‰РµРЅРѕ вњ“';
     await render();
   } catch {
-    button.textContent = previous ?? 'Повторить отправку';
+    button.textContent = previous ?? 'РџРѕРІС‚РѕСЂРёС‚СЊ РѕС‚РїСЂР°РІРєСѓ';
     button.disabled = false;
     return;
   }
   window.setTimeout(() => {
     if (button.isConnected) {
-      button.textContent = previous ?? 'Повторить отправку';
+      button.textContent = previous ?? 'РџРѕРІС‚РѕСЂРёС‚СЊ РѕС‚РїСЂР°РІРєСѓ';
       button.disabled = false;
     }
   }, 1500);
@@ -806,8 +806,8 @@ async function renderQuietNotifySettings(): Promise<void> {
       ${muted
         .map(
           (orderId) => `<div class="muted-row">
-            <span>Скрыта · ${escapeHtml(orderId.slice(0, 8))}…</span>
-            <button type="button" class="secondary" data-unmute="${escapeHtml(orderId)}">Вернуть</button>
+            <span>РЎРєСЂС‹С‚Р° В· ${escapeHtml(orderId.slice(0, 8))}вЂ¦</span>
+            <button type="button" class="secondary" data-unmute="${escapeHtml(orderId)}">Р’РµСЂРЅСѓС‚СЊ</button>
           </div>`,
         )
         .join('')}
@@ -1101,3 +1101,34 @@ quietNotifyEnabledEl?.addEventListener('change', () => {
 });
 
 void render();
+
+const orderConsent = document.getElementById('steam-order-consent') as HTMLInputElement | null;
+const orderRun = document.getElementById('steam-order-run') as HTMLButtonElement | null;
+const orderResult = document.getElementById('steam-order-result');
+orderConsent?.addEventListener('change', () => { if(orderRun) orderRun.disabled=!orderConsent.checked; });
+orderRun?.addEventListener('click', async () => {
+  if(!orderConsent?.checked || !orderResult) return;
+  orderRun.disabled=true;
+  orderConsent.disabled=true;
+  try {
+    const [tab]=await chrome.tabs.query({active:true,currentWindow:true});
+    const url=new URL(tab?.url ?? '');
+    const orderId=url.origin==='https://p2pcs.ru' ? /^\/orders\/([a-f0-9-]{36})\/?$/i.exec(url.pathname)?.[1] : undefined;
+    if(!orderId) { orderResult.textContent='Откройте страницу нужного заказа на p2pcs.ru и повторите.'; return; }
+    orderResult.textContent='Сервер проверяет обмен в Steam…';
+    const reply=await chrome.runtime.sendMessage({type:'RIP_MARKET_STEAM_ORDER_VERIFY',orderId,consent:true});
+    const reasons: Record<string,string>={
+      STEAM_TOKEN_OWNER_UNVERIFIED:'Steam не подтвердил владельца токена. Расчёт заблокирован.',
+      STEAM_TOKEN_READ_UNAVAILABLE:'Steam не предоставил данные обмена.',
+      STEAM_OFFER_UNAVAILABLE:'Обмен недоступен через текущую авторизацию Steam.',
+      STEAM_OFFER_ORDER_MISMATCH:'Состав или участники обмена не соответствуют заказу.',
+      STEAM_RECEIPT_MAPPING_UNAVAILABLE:'Steam не вернул связь с полученным предметом. Доставка пока не подтверждена.',
+    };
+    orderResult.textContent=reply?.ok ? (reasons[reply.result?.reasonCode] ?? 'Проверка выполнена. Актуальный статус смотрите на странице заказа.') : 'Проверка недоступна: нужны подключение и аккаунт продавца.';
+  } catch { orderResult.textContent='Проверка недоступна. Откройте заказ и проверьте подключение.'; }
+  finally { orderConsent.checked=false; orderConsent.disabled=false; }
+});
+document.getElementById('steam-order-stop')?.addEventListener('click',async()=>{
+  await chrome.runtime.sendMessage({type:'RIP_MARKET_STEAM_ORDER_STOP'});
+  if(orderResult) orderResult.textContent='Будущая передача остановлена. Уже отправленный запрос может завершиться.';
+});

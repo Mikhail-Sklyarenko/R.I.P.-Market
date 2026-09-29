@@ -530,10 +530,10 @@
       }
       .receipts-fold > summary.receipts-fold-summary::-webkit-details-marker { display: none; }
       .receipts-fold > summary.receipts-fold-summary .section-count::after {
-        content: ' ▸';
+        content: ' в–ё';
         color: var(--rip-muted);
       }
-      .receipts-fold[open] > summary.receipts-fold-summary .section-count::after { content: ' ▾'; }
+      .receipts-fold[open] > summary.receipts-fold-summary .section-count::after { content: ' в–ѕ'; }
       .receipts-fold[open] > summary.receipts-fold-summary { margin-bottom: 8px; }
       .receipts-fold > .receipts-list,
       .receipts-fold > .receipts-site-link {
@@ -838,10 +838,10 @@
       }
       .advanced summary::-webkit-details-marker { display: none; }
       .advanced summary::before {
-        content: '▸ ';
+        content: 'в–ё ';
         color: var(--rip-muted);
       }
-      .advanced[open] summary::before { content: '▾ '; }
+      .advanced[open] summary::before { content: 'в–ѕ '; }
       .advanced[open] > summary { color: var(--rip-soft); }
       .advanced-body { margin-top: 12px; }
       .advanced-tools {
@@ -891,10 +891,10 @@
       }
       .support-emergency > summary::-webkit-details-marker { display: none; }
       .support-emergency > summary::before {
-        content: '▸ ';
+        content: 'в–ё ';
         color: var(--rip-muted);
       }
-      .support-emergency[open] > summary::before { content: '▾ '; }
+      .support-emergency[open] > summary::before { content: 'в–ѕ '; }
       .support-emergency-body { margin-top: 8px; }
       .permissions-list {
         margin: 0 0 10px;
@@ -976,10 +976,10 @@
       }
       .card-more summary::-webkit-details-marker { display: none; }
       .card-more summary::before {
-        content: '▸ ';
+        content: 'в–ё ';
         color: var(--rip-muted);
       }
-      .card-more[open] summary::before { content: '▾ '; }
+      .card-more[open] summary::before { content: 'в–ѕ '; }
       .card-more .btn,
       .card-more button {
         margin-bottom: 6px;
@@ -992,13 +992,13 @@
   <body>
     <header class="brand">
       <h1 class="brand-mark">R.I.P Market</h1>
-      <p class="lead">Сделки и статус · p2pcs</p>
+      <p class="lead">РЎРґРµР»РєРё Рё СЃС‚Р°С‚СѓСЃ В· p2pcs</p>
     </header>
 
     <section id="connection" class="connection off" aria-live="polite">
       <span class="connection-dot" aria-hidden="true"></span>
       <div class="connection-copy">
-        <p class="connection-title">Загрузка…</p>
+        <p class="connection-title">Р—Р°РіСЂСѓР·РєР°вЂ¦</p>
       </div>
     </section>
 
@@ -1013,74 +1013,82 @@
 
     <div id="toolbar" class="toolbar">
       <div class="toolbar-primary">
-        <button id="open-site" class="primary" type="button">Открыть сайт</button>
+        <button id="open-site" class="primary" type="button">РћС‚РєСЂС‹С‚СЊ СЃР°Р№С‚</button>
       </div>
     </div>
-    <p id="pair-hint" class="hint">Подключите расширение на странице аккаунта на сайте.</p>
+    <p id="pair-hint" class="hint">РџРѕРґРєР»СЋС‡РёС‚Рµ СЂР°СЃС€РёСЂРµРЅРёРµ РЅР° СЃС‚СЂР°РЅРёС†Рµ Р°РєРєР°СѓРЅС‚Р° РЅР° СЃР°Р№С‚Рµ.</p>
 
     <details id="advanced-settings" class="advanced">
-      <summary>Дополнительно</summary>
+      <summary>Р”РѕРїРѕР»РЅРёС‚РµР»СЊРЅРѕ</summary>
       <div class="advanced-body">
         <div class="advanced-tools">
-          <button id="refresh-health" class="secondary" type="button">Обновить статус</button>
-          <button id="refresh-trades" class="secondary" type="button" hidden>Обновить сделки</button>
-          <button id="copy-debug" class="secondary" type="button">Скопировать отчёт</button>
-          <button id="disconnect" class="secondary" type="button" hidden>Отключить</button>
+          <button id="refresh-health" class="secondary" type="button">РћР±РЅРѕРІРёС‚СЊ СЃС‚Р°С‚СѓСЃ</button>
+          <button id="refresh-trades" class="secondary" type="button" hidden>РћР±РЅРѕРІРёС‚СЊ СЃРґРµР»РєРё</button>
+          <button id="copy-debug" class="secondary" type="button">РЎРєРѕРїРёСЂРѕРІР°С‚СЊ РѕС‚С‡С‘С‚</button>
+          <button id="disconnect" class="secondary" type="button" hidden>РћС‚РєР»СЋС‡РёС‚СЊ</button>
         </div>
-        <p class="advanced-block-title">Состояние</p>
+        <p class="advanced-block-title">РЎРѕСЃС‚РѕСЏРЅРёРµ</p>
         <section id="ops-health" class="ops-health" hidden></section>
 
-        <p class="advanced-block-title">Доверие</p>
+        <p class="advanced-block-title">Р”РѕРІРµСЂРёРµ</p>
         <section id="privacy-transparency" class="privacy" aria-label="Privacy"></section>
 
         <div class="field">
-          <label for="extension-locale">Язык интерфейса</label>
+          <label for="extension-locale">РЇР·С‹Рє РёРЅС‚РµСЂС„РµР№СЃР°</label>
           <select id="extension-locale">
-            <option value="ru">Русский</option>
+            <option value="ru">Р СѓСЃСЃРєРёР№</option>
             <option value="en">English</option>
           </select>
           <p class="advanced-note" id="extension-locale-hint" style="margin-top: 6px">
-            Синхронизируется с сайтом при подключении; можно сменить здесь.
+            РЎРёРЅС…СЂРѕРЅРёР·РёСЂСѓРµС‚СЃСЏ СЃ СЃР°Р№С‚РѕРј РїСЂРё РїРѕРґРєР»СЋС‡РµРЅРёРё; РјРѕР¶РЅРѕ СЃРјРµРЅРёС‚СЊ Р·РґРµСЃСЊ.
           </p>
         </div>
         <div class="field" id="quiet-notify-field">
           <label class="notify-toggle" for="quiet-notify-enabled">
             <input id="quiet-notify-enabled" type="checkbox" checked />
-            Тихие уведомления (Guard / Accept / Mismatch)
+            РўРёС…РёРµ СѓРІРµРґРѕРјР»РµРЅРёСЏ (Guard / Accept / Mismatch)
           </label>
           <p class="advanced-note" id="quiet-notify-note" style="margin-top: 6px">
-            Только при смене статуса сделки, без спама. Несколько событий → одно
-            групповое. «Скрыть на сделку» в уведомлении глушит эту сделку.
+            РўРѕР»СЊРєРѕ РїСЂРё СЃРјРµРЅРµ СЃС‚Р°С‚СѓСЃР° СЃРґРµР»РєРё, Р±РµР· СЃРїР°РјР°. РќРµСЃРєРѕР»СЊРєРѕ СЃРѕР±С‹С‚РёР№ в†’ РѕРґРЅРѕ
+            РіСЂСѓРїРїРѕРІРѕРµ. В«РЎРєСЂС‹С‚СЊ РЅР° СЃРґРµР»РєСѓВ» РІ СѓРІРµРґРѕРјР»РµРЅРёРё РіР»СѓС€РёС‚ СЌС‚Сѓ СЃРґРµР»РєСѓ.
           </p>
           <div id="quiet-notify-muted" class="hint"></div>
         </div>
-        <p class="advanced-note" id="permissions-title">Зачем нужны права</p>
+        <p class="advanced-note" id="permissions-title">Р—Р°С‡РµРј РЅСѓР¶РЅС‹ РїСЂР°РІР°</p>
         <ul id="permissions-rationale" class="permissions-list"></ul>
+        <details>
+          <summary>Серверная проверка текущей сделки Steam</summary>
+          <p>Откройте заказ на p2pcs.ru в этом браузере продавца. На 30 минут разрешите расширению передавать временный Steam access token серверу p2pcs.ru для чтения обмена и квитанции. Токен не сохраняется сервером. Сам токен имеет более широкие права: разрешайте передачу только доверенному серверу.</p>
+          <label><input id="steam-order-consent" type="checkbox" /> Разрешаю проверку этого заказа до 30 минут</label>
+          <button id="steam-order-run" type="button" disabled>Проверять текущую сделку</button>
+          <button id="steam-order-stop" type="button" class="secondary">Остановить передачу</button>
+          <p id="steam-order-result" role="status"></p>
+        </details>
         <details id="support-emergency" class="support-emergency">
-          <summary id="support-emergency-summary">Поддержка · аварийный доступ</summary>
+          <summary id="support-emergency-summary">РџРѕРґРґРµСЂР¶РєР° В· Р°РІР°СЂРёР№РЅС‹Р№ РґРѕСЃС‚СѓРї</summary>
           <div class="support-emergency-body">
             <details>
-              <summary>Ограниченная диагностика Steam · тестовый обмен</summary>
-              <p>Однократно передать access token текущего аккаунта Steam (R1ppeR или p2ptradecs) серверу p2pcs.ru для чтения только обмена 9391832342. Сервер разрешает конкретный аккаунт в отдельном временном окне. Токен не сохраняется. Это credential с более широкими правами, чем чтение; при компрометации сервера возможен доступ к аккаунту. Заказ и деньги не изменяются.</p>
-              <label><input id="steam-probe-consent" type="checkbox" /> Разрешаю эту временную передачу</label>
-              <button id="steam-probe-run" type="button" class="secondary" disabled>Проверить известный обмен</button>
+              <summary>РћРіСЂР°РЅРёС‡РµРЅРЅР°СЏ РґРёР°РіРЅРѕСЃС‚РёРєР° Steam В· С‚РµСЃС‚РѕРІС‹Р№ РѕР±РјРµРЅ</summary>
+              <p>РћРґРЅРѕРєСЂР°С‚РЅРѕ РїРµСЂРµРґР°С‚СЊ access token С‚РµРєСѓС‰РµРіРѕ Р°РєРєР°СѓРЅС‚Р° Steam (R1ppeR РёР»Рё p2ptradecs) СЃРµСЂРІРµСЂСѓ p2pcs.ru РґР»СЏ С‡С‚РµРЅРёСЏ С‚РѕР»СЊРєРѕ РѕР±РјРµРЅР° 9391832342. РЎРµСЂРІРµСЂ СЂР°Р·СЂРµС€Р°РµС‚ РєРѕРЅРєСЂРµС‚РЅС‹Р№ Р°РєРєР°СѓРЅС‚ РІ РѕС‚РґРµР»СЊРЅРѕРј РІСЂРµРјРµРЅРЅРѕРј РѕРєРЅРµ. РўРѕРєРµРЅ РЅРµ СЃРѕС…СЂР°РЅСЏРµС‚СЃСЏ. Р­С‚Рѕ credential СЃ Р±РѕР»РµРµ С€РёСЂРѕРєРёРјРё РїСЂР°РІР°РјРё, С‡РµРј С‡С‚РµРЅРёРµ; РїСЂРё РєРѕРјРїСЂРѕРјРµС‚Р°С†РёРё СЃРµСЂРІРµСЂР° РІРѕР·РјРѕР¶РµРЅ РґРѕСЃС‚СѓРї Рє Р°РєРєР°СѓРЅС‚Сѓ. Р—Р°РєР°Р· Рё РґРµРЅСЊРіРё РЅРµ РёР·РјРµРЅСЏСЋС‚СЃСЏ.</p>
+              <label><input id="steam-probe-consent" type="checkbox" /> Р Р°Р·СЂРµС€Р°СЋ СЌС‚Сѓ РІСЂРµРјРµРЅРЅСѓСЋ РїРµСЂРµРґР°С‡Сѓ</label>
+              <button id="steam-probe-run" type="button" class="secondary" disabled>РџСЂРѕРІРµСЂРёС‚СЊ РёР·РІРµСЃС‚РЅС‹Р№ РѕР±РјРµРЅ</button>
               <pre id="steam-probe-result" role="status" style="white-space:pre-wrap;overflow-wrap:anywhere"></pre>
             </details>
             <p class="advanced-note" id="api-key-note">
-              Не для обычной работы. Вставьте ключ только если поддержка R.I.P Market явно
-              попросила — и только на время сбоя Steam.
+              РќРµ РґР»СЏ РѕР±С‹С‡РЅРѕР№ СЂР°Р±РѕС‚С‹. Р’СЃС‚Р°РІСЊС‚Рµ РєР»СЋС‡ С‚РѕР»СЊРєРѕ РµСЃР»Рё РїРѕРґРґРµСЂР¶РєР° R.I.P Market СЏРІРЅРѕ
+              РїРѕРїСЂРѕСЃРёР»Р° вЂ” Рё С‚РѕР»СЊРєРѕ РЅР° РІСЂРµРјСЏ СЃР±РѕСЏ Steam.
             </p>
             <div class="field">
-              <label for="steam-api-key">Запасной Steam Web API key</label>
+              <label for="steam-api-key">Р—Р°РїР°СЃРЅРѕР№ Steam Web API key</label>
               <input
                 id="steam-api-key"
                 type="password"
                 autocomplete="off"
-                placeholder="Только по рекомендации поддержки"
+                placeholder="РўРѕР»СЊРєРѕ РїРѕ СЂРµРєРѕРјРµРЅРґР°С†РёРё РїРѕРґРґРµСЂР¶РєРё"
               />
               <div class="field-actions">
-                <button id="save-api-key" class="primary" type="button">Сохранить</button>
-                <button id="clear-api-key" class="secondary" type="button">Очистить</button>
+                <button id="save-api-key" class="primary" type="button">РЎРѕС…СЂР°РЅРёС‚СЊ</button>
+                <button id="clear-api-key" class="secondary" type="button">РћС‡РёСЃС‚РёС‚СЊ</button>
               </div>
               <p id="api-key-status" class="hint"></p>
             </div>

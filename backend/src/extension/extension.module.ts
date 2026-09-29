@@ -1,3 +1,5 @@
+import { SteamOrderVerificationService } from './steam-order-verification.service';
+import { SteamOrderVerificationController } from './steam-order-verification.controller';
 import { Module, forwardRef } from '@nestjs/common';
 import { AuthModule } from '../auth/auth.module';
 import { OrdersModule } from '../orders/orders.module';
@@ -23,9 +25,14 @@ import { ExtensionSignatureGuard } from './guards/extension-signature.guard';
     forwardRef(() => TradesModule),
     ExtensionTradeAckModule,
   ],
-  controllers: [ExtensionController, SteamAuthProbeController],
+  controllers: [
+    ExtensionController,
+    SteamAuthProbeController,
+    SteamOrderVerificationController,
+  ],
   providers: [
     SteamAuthProbeService,
+    SteamOrderVerificationService,
     ExtensionTradeTaskService,
     ExtensionSessionGuard,
     ExtensionSignatureGuard,
