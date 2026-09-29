@@ -171,6 +171,7 @@ describe('Steam order-bound receipt verification', () => {
       await provider.verifyTradeOffer(offer.tradeofferid, context),
     ).toEqual({
       status: 'unknown',
+      reasonCode: 'STEAM_RECEIPT_MAPPING_UNAVAILABLE',
       tradable: null,
       tradeLockUntil: null,
     });

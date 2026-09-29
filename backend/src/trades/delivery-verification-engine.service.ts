@@ -118,6 +118,7 @@ export class DeliveryVerificationEngineService {
     let offerStatus: TradeVerificationResult['status'] | null = null;
     let inventoryDelta: InventoryDeltaResult | null = null;
     let receivedAssetId: string | undefined;
+    let offerReasonCode: string | undefined;
 
     try {
       if (operation.externalOfferId) {
@@ -132,6 +133,7 @@ export class DeliveryVerificationEngineService {
           },
         );
         offerStatus = verification.status;
+        offerReasonCode = verification.reasonCode;
         if (verification.status === 'accepted')
           receivedAssetId = verification.receivedAssetId;
       }
@@ -166,6 +168,13 @@ export class DeliveryVerificationEngineService {
       signals.inventoryDelta = inventoryDelta;
 
       const decision = decideDeliveryVerification(signals);
+      if (
+        decision.action === 'WAIT' &&
+        decision.reason === 'OFFER_UNKNOWN' &&
+        offerReasonCode
+      ) {
+        decision.reasonCode = offerReasonCode;
+      }
       return this.pack(decision, offerStatus, inventoryDelta);
     } catch (error) {
       if (

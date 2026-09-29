@@ -794,6 +794,8 @@ export const clientExtraRu = {
     offerLabel: 'Предложение обмена:',
     pollStatusLabel: 'Статус проверки:',
     scamWarningTitle: 'Проверьте отправителя обмена',
+    recipientWarningTitle: 'Проверьте получателя предмета',
+    recipientWarningBody: 'Перед отправкой сверьте SteamID64 получателя с данными покупателя ниже. В Steam Guard подтверждайте только этот обмен.',
     scamWarningBody:
       'Мошенники могут прислать offer с другого Steam-аккаунта. Перед принятием сверьте SteamID64 отправителя с данными продавца ниже.',
     sellerLabel: 'Продавец',

@@ -12,6 +12,8 @@ export type TradeCompletionResult = {
 };
 
 export type TradeVerificationResult = {
+  /** Safe diagnostic category, never an upstream message or credential. */
+  reasonCode?: string;
   /** Set only from a validated server-side Steam receipt. */
   receivedAssetId?: string;
   status:

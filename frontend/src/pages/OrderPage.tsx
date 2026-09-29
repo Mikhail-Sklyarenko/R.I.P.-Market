@@ -13,6 +13,7 @@ import { LoadingState } from '../components/LoadingState';
 import { MoneyDisplay } from '../components/MoneyDisplay';
 import { OrderStepper } from '../components/OrderStepper';
 import { OrderTradeBuyerPanel } from '../components/OrderTradeBuyerPanel';
+import { DeliveryWaitReason } from '../components/DeliveryWaitReason';
 import { OrderTradeSellerPanel } from '../components/OrderTradeSellerPanel';
 import { CopyableDealId } from '../components/CopyableDealId';
 import { DealHealthBanner } from '../components/DealHealthBanner';
@@ -712,6 +713,7 @@ export function OrderPage() {
                 </p>
               ) : null}
 
+              <DeliveryWaitReason order={order} />
               {isSeller && showTradePanels ? (
                 <OrderTradeSellerPanel
                   order={order}

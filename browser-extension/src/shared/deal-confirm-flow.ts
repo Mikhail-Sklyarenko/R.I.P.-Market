@@ -44,7 +44,7 @@ export function isDeliveryDualSignalOk(
  */
 export function needsBuyerReceivedConfirm(
   trade: TradeVerificationResult,
-  options?: { acceptAssistDone?: boolean },
+  options?: { steamAcceptanceObserved?: boolean },
 ): boolean {
   if (trade.role !== 'buyer') {
     return false;
@@ -76,7 +76,7 @@ export function needsBuyerReceivedConfirm(
     return true;
   }
   if (
-    options?.acceptAssistDone === true &&
+    options?.steamAcceptanceObserved === true &&
     trade.orderStatus === 'WAITING_TRADE'
   ) {
     return true;
@@ -86,7 +86,7 @@ export function needsBuyerReceivedConfirm(
 
 export function resolveDealConfirmPhase(
   trade: TradeVerificationResult,
-  options?: { acceptAssistDone?: boolean },
+  options?: { steamAcceptanceObserved?: boolean },
 ): DealConfirmPhase {
   if (trade.nextAction.kind === 'confirm_guard') {
     return 'guard';
@@ -97,10 +97,12 @@ export function resolveDealConfirmPhase(
   // Hold / completed beat "platform_verifying" copy — calm "done", not another tap.
   if (
     trade.orderStatus === 'SETTLEMENT_HOLD' ||
-    trade.nextAction.kind === 'completed' ||
-    trade.acknowledgments.buyerReceived
+    trade.nextAction.kind === 'completed'
   ) {
     return 'done';
+  }
+  if (trade.acknowledgments.buyerReceived && trade.orderStatus === 'WAITING_TRADE') {
+    return 'verifying';
   }
   if (
     trade.nextAction.kind === 'accept_in_steam' ||
@@ -122,7 +124,7 @@ export function resolveDealConfirmPhase(
 export function buildDealConfirmBanner(
   trade: TradeVerificationResult,
   locale: ExtensionLocale = DEFAULT_EXTENSION_LOCALE,
-  options?: { acceptAssistDone?: boolean },
+  options?: { steamAcceptanceObserved?: boolean },
 ): DealConfirmBanner | null {
   const t = createExtensionT(locale);
   const phase = resolveDealConfirmPhase(trade, options);

@@ -75,6 +75,7 @@ export class SteamTradeProvider implements TradeProvider {
       );
       return {
         status: 'unknown',
+        reasonCode: 'STEAM_API_KEY_MISSING',
         tradable: null,
         tradeLockUntil: null,
       };
@@ -101,7 +102,12 @@ export class SteamTradeProvider implements TradeProvider {
       // HTTP 200 does not imply the key can see this participant's offer.
       // Do not log the authenticated URL or turn missing evidence into success.
       this.logger.warn('Steam offer unavailable or response ID mismatch');
-      return { status: 'unknown', tradable: null, tradeLockUntil: null };
+      return {
+        status: 'unknown',
+        reasonCode: 'STEAM_OFFER_UNAVAILABLE',
+        tradable: null,
+        tradeLockUntil: null,
+      };
     }
     const state = offer.trade_offer_state;
     if (
@@ -112,7 +118,15 @@ export class SteamTradeProvider implements TradeProvider {
         process.env.STEAM_WEB_API_KEY_OWNER_STEAM_ID,
       )
     ) {
-      return { status: 'unknown', tradable: null, tradeLockUntil: null };
+      return {
+        status: 'unknown',
+        reasonCode:
+          process.env.STEAM_WEB_API_KEY_OWNER_STEAM_ID !== context.sellerSteamId
+            ? 'STEAM_KEY_OWNER_UNVERIFIED'
+            : 'STEAM_OFFER_ORDER_MISMATCH',
+        tradable: null,
+        tradeLockUntil: null,
+      };
     }
     const status =
       state !== undefined ? (STATE_MAP[state] ?? 'unknown') : 'unknown';
@@ -148,7 +162,12 @@ export class SteamTradeProvider implements TradeProvider {
           undefined;
       }
       if (!receivedAssetId)
-        return { status: 'unknown', tradable: null, tradeLockUntil: null };
+        return {
+          status: 'unknown',
+          reasonCode: 'STEAM_RECEIPT_MAPPING_UNAVAILABLE',
+          tradable: null,
+          tradeLockUntil: null,
+        };
     }
     return {
       ...(receivedAssetId ? { receivedAssetId } : {}),

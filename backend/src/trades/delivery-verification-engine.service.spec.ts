@@ -80,6 +80,18 @@ describe('DeliveryVerificationEngineService', () => {
       }),
     );
   });
+  it('retains the safe provider reason while waiting without authorizing delivery', async () => {
+    tradesService.verifyOffer.mockResolvedValue({
+      status: 'unknown',
+      reasonCode: 'STEAM_RECEIPT_MAPPING_UNAVAILABLE',
+    });
+    inventoryDelta.verify.mockResolvedValue('pending');
+    const result = await service.evaluate(operation as never);
+    expect(result.decision.action).toBe('WAIT');
+    expect(result.decision.reasonCode).toBe(
+      'STEAM_RECEIPT_MAPPING_UNAVAILABLE',
+    );
+  });
 
   it('backs off when inventory is throttled instead of exhausting delivery checks', async () => {
     tradesService.verifyOffer.mockResolvedValue({ status: 'unknown' });

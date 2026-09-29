@@ -780,6 +780,8 @@ export const clientExtraEn = {
     offerLabel: 'Trade offer:',
     pollStatusLabel: 'Check status:',
     scamWarningTitle: 'Verify the trade sender',
+    recipientWarningTitle: 'Verify the recipient',
+    recipientWarningBody: 'Before sending, compare the recipient SteamID64 with the buyer below. Confirm only this trade in Steam Guard.',
     scamWarningBody:
       'Scammers may send an offer from a different Steam account. Before accepting, compare the sender SteamID64 with the seller details below.',
     sellerLabel: 'Seller',

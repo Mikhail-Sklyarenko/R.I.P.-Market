@@ -107,6 +107,7 @@ function controlFromElement(element: HTMLElement): SteamAcceptControl | null {
   }
   if (
     element.getAttribute('aria-disabled') === 'true' ||
+    element.classList.contains('disabled') ||
     (element instanceof HTMLButtonElement && element.disabled)
   ) {
     return null;
@@ -156,6 +157,16 @@ export function findSteamAcceptControls(
   };
 
   if (root instanceof Document || root instanceof Element) {
+    const readiness = root.querySelector<HTMLElement>('#you_notready');
+    if (readiness) {
+      const style = readiness.ownerDocument.defaultView?.getComputedStyle(readiness);
+      if (style?.display !== 'none' && style?.visibility !== 'hidden') {
+        found.push({ element: readiness, kind: 'confirm', label: normalizeLabel(readiness.textContent) });
+        // Readiness is a prerequisite, not a successful Accept. Require a new
+        // explicit gesture for the resulting Steam Accept control.
+        return found;
+      }
+    }
     push(root.querySelector('#trade_confirmbtn'));
     push(root.querySelector('#trade_offer_accept_button'));
     push(root.querySelector('#accept_trade_button'));
