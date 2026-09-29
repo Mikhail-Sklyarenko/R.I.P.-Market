@@ -1,3 +1,9 @@
+import { steamCommunityOwner } from './steam-community-owner';
+jest.mock('./steam-community-owner', () => ({
+  steamCommunityOwner: jest
+    .fn()
+    .mockResolvedValue({ owner: null, status: 302 }),
+}));
 import {
   requestCredential,
   withSteamRequestCredential,
@@ -161,4 +167,32 @@ it('uses root-level Steam identity without weakening receipt verification', asyn
     status: 'accepted',
     receivedAssetId: '53954582039',
   });
+});
+
+it('uses authenticated community identity when legacy OAuth has no identity', async () => {
+  jest
+    .mocked(steamCommunityOwner)
+    .mockResolvedValueOnce({ owner: context.sellerSteamId, status: 302 });
+  read
+    .mockResolvedValueOnce({ status: 200, data: {} })
+    .mockResolvedValueOnce({ status: 200, data: { response: { offer } } })
+    .mockResolvedValueOnce({
+      status: 200,
+      data: { response: { trades: [receipt] } },
+    });
+  expect(await verify()).toMatchObject({
+    status: 'accepted',
+    receivedAssetId: '53954582039',
+  });
+});
+it('rejects a community identity for another seller', async () => {
+  jest
+    .mocked(steamCommunityOwner)
+    .mockResolvedValueOnce({ owner: context.buyerSteamId, status: 302 });
+  read.mockResolvedValueOnce({ status: 200, data: {} });
+  expect(await verify()).toMatchObject({
+    status: 'unknown',
+    reasonCode: 'STEAM_TOKEN_OWNER_UNVERIFIED',
+  });
+  expect(read).toHaveBeenCalledTimes(1);
 });

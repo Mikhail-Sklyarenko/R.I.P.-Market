@@ -1,3 +1,4 @@
+import { steamCommunityOwner } from './steam-community-owner';
 import { steamTokenOwner } from './steam-token-owner';
 import { requestCredential } from './steam-request-credential';
 import { steamTokenRead } from './steam-token-read';
@@ -207,13 +208,28 @@ export class SteamTradeProvider implements TradeProvider {
       steamid?: unknown;
       response?: { steamid?: unknown };
     } | null;
-    const verifiedOwner = steamTokenOwner(identity.data);
+    let verifiedOwner = steamTokenOwner(identity.data);
+    // Legacy OAuth may return no identity for a browser token. Do not override
+    // an explicit mismatching/ambiguous identity with a second auth mechanism.
+    let communityStatus: number | undefined;
+    if (
+      identity.status === 200 &&
+      identityData?.steamid === undefined &&
+      identityData?.response?.steamid === undefined &&
+      context.sellerSteamId
+    ) {
+      const community = await steamCommunityOwner(token, context.sellerSteamId);
+      communityStatus = community.status;
+      if (community.status === 429) throw new SteamTradeRateLimitError();
+      verifiedOwner = community.owner;
+    }
     if (identity.status !== 200 || verifiedOwner !== context.sellerSteamId) {
       // Fixed scalars only: never log URL, token, upstream strings or identity.
       this.logger.warn(
         JSON.stringify({
           event: 'steam_token_identity_unverified',
           httpStatus: identity.status,
+          ...(communityStatus !== undefined ? { communityStatus } : {}),
           responsePresent: identityData?.response !== undefined,
           steamIdPresent: identityData?.response?.steamid !== undefined,
           steamIdIsString: typeof identityData?.response?.steamid === 'string',
