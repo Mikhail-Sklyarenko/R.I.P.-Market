@@ -8,11 +8,11 @@ probeRun?.addEventListener('click', async () => {
   if (!probeConsent?.checked || !probeResult) return;
   probeRun.disabled = true;
   probeConsent.disabled = true;
-  probeResult.textContent = 'РџСЂРѕРІРµСЂРєР° РёР·РІРµСЃС‚РЅРѕРіРѕ РѕР±РјРµРЅР°вЂ¦';
+  probeResult.textContent = 'Проверка известного обмена…';
   try {
     const response = await chrome.runtime.sendMessage({ type: 'RIP_MARKET_STEAM_AUTH_PROBE', consent: true });
-    probeResult.textContent = response?.ok ? JSON.stringify(response.result, null, 2) : 'Р”РёР°РіРЅРѕСЃС‚РёРєР° РЅРµРґРѕСЃС‚СѓРїРЅР°. РџСЂРѕРІРµСЂСЊС‚Рµ РїРѕРґРєР»СЋС‡РµРЅРёРµ Рё СЂР°Р·СЂРµС€С‘РЅРЅРѕРµ СЃРµСЂРІРµСЂРѕРј РѕРєРЅРѕ.';
-  } catch { probeResult.textContent = 'Р”РёР°РіРЅРѕСЃС‚РёРєР° РЅРµРґРѕСЃС‚СѓРїРЅР°.'; }
+    probeResult.textContent = response?.ok ? JSON.stringify(response.result, null, 2) : 'Диагностика недоступна. Проверьте подключение и разрешённое сервером окно.';
+  } catch { probeResult.textContent = 'Диагностика недоступна.'; }
   finally { probeConsent.checked = false; probeConsent.disabled = false; }
 });
 import {
@@ -107,7 +107,7 @@ const languageSelectEl = document.getElementById(
 let activeLocale: ExtensionLocale = 'ru';
 let t = createExtensionT(activeLocale);
 let activeSiteLink: SiteLinkSnapshot = defaultSiteLinkSnapshot();
-/** True when extension has a pair session вЂ” distinct from site page being open. */
+/** True when extension has a pair session — distinct from site page being open. */
 let activePaired = false;
 const disconnectBtn = document.getElementById('disconnect') as HTMLButtonElement;
 const openSiteBtn = document.getElementById('open-site') as HTMLButtonElement;
@@ -279,7 +279,7 @@ function renderOpsHealth(view: OpsHealthView | null): void {
   opsHealthEl.hidden = false;
   opsHealthEl.innerHTML = `
     <div class="ops-health-row">
-      <span class="ops-health-label">РћРїСЂРѕСЃ</span>
+      <span class="ops-health-label">Опрос</span>
       <span class="ops-health-value ${view.pollTone}">${escapeHtml(view.pollLine)}</span>
     </div>
     <div class="ops-health-row">
@@ -287,7 +287,7 @@ function renderOpsHealth(view: OpsHealthView | null): void {
       <span class="ops-health-value ${view.rateLimitTone}">${escapeHtml(view.rateLimitLine)}</span>
     </div>
     <div class="ops-health-row">
-      <span class="ops-health-label">РЎР±РѕСЂРєР°</span>
+      <span class="ops-health-label">Сборка</span>
       <span class="ops-health-value muted">${escapeHtml(view.versionLine)}</span>
       <a class="btn secondary ops-health-update" href="${escapeHtml(view.updateUrl)}" target="_blank" rel="noreferrer">${escapeHtml(view.updateLabel)}</a>
     </div>
@@ -350,7 +350,7 @@ function renderActionCard(item: ActionRequiredItem): string {
       ${item.itemName ? `<h2>${escapeHtml(item.itemName)}</h2>` : `<h2>${escapeHtml(item.title)}</h2>`}
       ${
         metaParts.length > 0
-          ? `<p class="meta">${escapeHtml(metaParts.join(' В· '))}</p>`
+          ? `<p class="meta">${escapeHtml(metaParts.join(' · '))}</p>`
           : ''
       }
       <p class="next"><strong>${escapeHtml(item.title)}</strong><br />${escapeHtml(item.description)}</p>
@@ -398,7 +398,7 @@ function renderShieldStrip(trade: TradeVerificationResult): string {
   const chars =
     shield.item.lines.length > 0
       ? `<p class="shield-chars">${escapeHtml(
-          shield.item.lines.map((l) => `${l.label} ${l.value}`).join(' В· '),
+          shield.item.lines.map((l) => `${l.label} ${l.value}`).join(' · '),
         )}</p>`
       : '';
   return `
@@ -465,7 +465,7 @@ function renderBuyerCard(card: BuyerInboxCard): string {
         <span class="phase-badge">${escapeHtml(card.phaseLabel)}</span>
       </div>
       <h2>${escapeHtml(card.itemName)}</h2>
-      <p class="meta">#${escapeHtml(card.orderShortId)} В· ${escapeHtml(formatMoneyMinor(card.amountMinor))}</p>
+      <p class="meta">#${escapeHtml(card.orderShortId)} · ${escapeHtml(formatMoneyMinor(card.amountMinor))}</p>
       ${shield}
       ${nextCopy}
       ${timeoutCopy}
@@ -539,7 +539,7 @@ function renderSellerCard(trade: TradeVerificationResult): string {
   return `
     <article class="trade-card ${statusClass}${disputeOpen ? ' phase-dispute' : ''}" data-primary-cta="${escapeHtml(cta.primary.id)}">
       <h2>${escapeHtml(trade.item.marketHashName)}</h2>
-      <p class="meta">#${escapeHtml(trade.orderShortId)} В· ${escapeHtml(roleLabel(trade.role))} В· ${escapeHtml(formatMoneyMinor(trade.amountMinor))}</p>
+      <p class="meta">#${escapeHtml(trade.orderShortId)} · ${escapeHtml(roleLabel(trade.role))} · ${escapeHtml(formatMoneyMinor(trade.amountMinor))}</p>
       ${renderShieldStrip(trade)}
       ${nextCopy}
       ${dispute}
@@ -614,7 +614,7 @@ async function acknowledgeFromPopup(button: HTMLButtonElement): Promise<void> {
   }
   button.disabled = true;
   const previous = button.textContent;
-  button.textContent = 'РЎРѕС…СЂР°РЅСЏРµРјвЂ¦';
+  button.textContent = 'Сохраняем…';
   if (ackType === 'BUYER_ACK_RECEIVED') {
     void bumpDealFlowMetric('received_ack_clicked');
   }
@@ -626,10 +626,10 @@ async function acknowledgeFromPopup(button: HTMLButtonElement): Promise<void> {
     idempotencyKey: `ack:${orderId}:${ackType}`,
   });
   if (response?.ok) {
-    button.textContent = 'Р“РѕС‚РѕРІРѕ вњ“';
+    button.textContent = 'Готово ✓';
     await render();
   } else {
-    button.textContent = previous ?? 'РџРѕРІС‚РѕСЂРёС‚СЊ';
+    button.textContent = previous ?? 'Повторить';
     button.disabled = false;
   }
 }
@@ -637,19 +637,19 @@ async function acknowledgeFromPopup(button: HTMLButtonElement): Promise<void> {
 async function retrySendFromPopup(button: HTMLButtonElement): Promise<void> {
   button.disabled = true;
   const previous = button.textContent;
-  button.textContent = 'РџРѕРІС‚РѕСЂСЏРµРјвЂ¦';
+  button.textContent = 'Повторяем…';
   try {
     await chrome.runtime.sendMessage({ type: 'RIP_MARKET_POLL_NOW' });
-    button.textContent = 'Р—Р°РїСѓС‰РµРЅРѕ вњ“';
+    button.textContent = 'Запущено ✓';
     await render();
   } catch {
-    button.textContent = previous ?? 'РџРѕРІС‚РѕСЂРёС‚СЊ РѕС‚РїСЂР°РІРєСѓ';
+    button.textContent = previous ?? 'Повторить отправку';
     button.disabled = false;
     return;
   }
   window.setTimeout(() => {
     if (button.isConnected) {
-      button.textContent = previous ?? 'РџРѕРІС‚РѕСЂРёС‚СЊ РѕС‚РїСЂР°РІРєСѓ';
+      button.textContent = previous ?? 'Повторить отправку';
       button.disabled = false;
     }
   }, 1500);
@@ -806,8 +806,8 @@ async function renderQuietNotifySettings(): Promise<void> {
       ${muted
         .map(
           (orderId) => `<div class="muted-row">
-            <span>РЎРєСЂС‹С‚Р° В· ${escapeHtml(orderId.slice(0, 8))}вЂ¦</span>
-            <button type="button" class="secondary" data-unmute="${escapeHtml(orderId)}">Р’РµСЂРЅСѓС‚СЊ</button>
+            <span>Скрыта · ${escapeHtml(orderId.slice(0, 8))}…</span>
+            <button type="button" class="secondary" data-unmute="${escapeHtml(orderId)}">Вернуть</button>
           </div>`,
         )
         .join('')}

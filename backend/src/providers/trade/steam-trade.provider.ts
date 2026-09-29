@@ -208,8 +208,21 @@ export class SteamTradeProvider implements TradeProvider {
     if (
       identity.status !== 200 ||
       identityData?.response?.steamid !== context.sellerSteamId
-    )
+    ) {
+      // Fixed scalars only: never log URL, token, upstream strings or identity.
+      this.logger.warn(
+        JSON.stringify({
+          event: 'steam_token_identity_unverified',
+          httpStatus: identity.status,
+          responsePresent: identityData?.response !== undefined,
+          steamIdPresent: identityData?.response?.steamid !== undefined,
+          steamIdIsString: typeof identityData?.response?.steamid === 'string',
+          ownerMatches:
+            identityData?.response?.steamid === context.sellerSteamId,
+        }),
+      );
       return unknown('STEAM_TOKEN_OWNER_UNVERIFIED');
+    }
     const reply = await read('GetTradeOffer', {
       tradeofferid: offerId,
       language: 'english',

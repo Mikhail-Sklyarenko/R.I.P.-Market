@@ -165,7 +165,7 @@ async function invalidateSessionOnAuthError(
     return;
   }
   console.warn(
-    "[rip-market] extension session invalid вЂ” clearing local session",
+    "[rip-market] extension session invalid — clearing local session",
   );
 
   if (options?.taskId && options.reporter) {
@@ -176,7 +176,7 @@ async function invalidateSessionOnAuthError(
         idempotencyKey: `progress:${options.taskId}:OFFER_FAILED:SESSION_REVOKED`,
         reasonCode: OfferErrorCode.SESSION_REVOKED,
         details: {
-          message: "Extension session revoked вЂ” reconnect from Account page",
+          message: "Extension session revoked — reconnect from Account page",
         },
       });
     } catch {
@@ -187,7 +187,7 @@ async function invalidateSessionOnAuthError(
   const health = buildSessionHealth({
     code: "SESSION_REVOKED",
     messageOverride:
-      "РЎРµСЃСЃРёСЏ СЂР°СЃС€РёСЂРµРЅРёСЏ РёСЃС‚РµРєР»Р°. РћС‚РєСЂРѕР№С‚Рµ СЃР°Р№С‚ в†’ РђРєРєР°СѓРЅС‚ в†’ В«РџРѕРґРєР»СЋС‡РёС‚СЊ СЂР°СЃС€РёСЂРµРЅРёРµВ».",
+      "Сессия расширения истекла. Откройте сайт → Аккаунт → «Подключить расширение».",
   });
   await saveLastSessionDiag(health);
   await clearSessionState();
@@ -392,7 +392,7 @@ async function readStoredPollMode(): Promise<PollScheduleMode | null> {
 }
 
 /**
- * I4: flip idle в†” active alarm cadence when deal state changes.
+ * I4: flip idle ↔ active alarm cadence when deal state changes.
  * Returns true when mode changed (caller may want an immediate wake poll).
  */
 export async function syncPollSchedule(params: {
@@ -776,7 +776,7 @@ async function acknowledgeTradeFromRuntime(params: {
 
   const auth = await buildAuthenticatedClient();
   if (!auth) {
-    return { ok: false, error: "Р Р°СЃС€РёСЂРµРЅРёРµ РЅРµ РїРѕРґРєР»СЋС‡РµРЅРѕ" };
+    return { ok: false, error: "Расширение не подключено" };
   }
 
   try {
@@ -809,7 +809,7 @@ async function reportSteamOfferPageFromRuntime(params: {
 }> {
   const auth = await buildAuthenticatedClient();
   if (!auth) {
-    return { ok: false, error: "Р Р°СЃС€РёСЂРµРЅРёРµ РЅРµ РїРѕРґРєР»СЋС‡РµРЅРѕ" };
+    return { ok: false, error: "Расширение не подключено" };
   }
 
   try {
@@ -1150,7 +1150,7 @@ async function createInventoryLotFromRuntime(params: {
   if (!state?.accessToken || !state.apiBaseUrl) {
     return {
       ok: false,
-      error: "РџРѕРґРєР»СЋС‡РёС‚Рµ СЂР°СЃС€РёСЂРµРЅРёРµ РЅР° СЃР°Р№С‚Рµ (Account в†’ РџРѕРґРєР»СЋС‡РёС‚СЊ).",
+      error: "Подключите расширение на сайте (Account → Подключить).",
     };
   }
 
@@ -1244,7 +1244,7 @@ async function createInventoryLotFromRuntime(params: {
               return {
                 ok: false,
                 error:
-                  "РЎРµСЂРІРµСЂ РЅРµ СЃРјРѕРі СЃРёРЅС…СЂРѕРЅРёР·РёСЂРѕРІР°С‚СЊ РёРЅРІРµРЅС‚Р°СЂСЊ СЃРѕ Steam (Р±Р»РѕРє/Р»РёРјРёС‚). РќР°Р¶РјРёС‚Рµ В«РЎРёРЅС…СЂРѕРЅРёР·РёСЂРѕРІР°С‚СЊ СЃ СЃР°Р№С‚РѕРјВ» РІ РёРЅРІРµРЅС‚Р°СЂРµ Steam Рё РїРѕРІС‚РѕСЂРёС‚Рµ.",
+                  "Сервер не смог синхронизировать инвентарь со Steam (блок/лимит). Нажмите «Синхронизировать с сайтом» в инвентаре Steam и повторите.",
                 errorCode: body.sync.errorCode,
                 listingsUrl,
               };
@@ -1269,7 +1269,7 @@ async function createInventoryLotFromRuntime(params: {
       return {
         ok: false,
         error:
-          "РџСЂРµРґРјРµС‚ РµС‰С‘ РЅРµ РІ РёРЅРІРµРЅС‚Р°СЂРµ РїР»РѕС‰Р°РґРєРё. РќР°Р¶РјРёС‚Рµ В«РЎРёРЅС…СЂРѕРЅРёР·РёСЂРѕРІР°С‚СЊ СЃ СЃР°Р№С‚РѕРјВ» РІ Steam-РёРЅРІРµРЅС‚Р°СЂРµ РёР»Рё РѕР±РЅРѕРІРёС‚Рµ РёРЅРІРµРЅС‚Р°СЂСЊ РІ В«РњРѕРё РїСЂРѕРґР°Р¶РёВ», Р·Р°С‚РµРј РїРѕРІС‚РѕСЂРёС‚Рµ.",
+          "Предмет ещё не в инвентаре площадки. Нажмите «Синхронизировать с сайтом» в Steam-инвентаре или обновите инвентарь в «Мои продажи», затем повторите.",
         errorCode: "INVENTORY_ASSET_NOT_ON_PLATFORM",
         listingsUrl,
       };
@@ -1306,7 +1306,7 @@ async function createInventoryLotFromRuntime(params: {
       return {
         ok: false,
         error:
-          eligibility.error ?? "РџСЂРµРґРјРµС‚ РЅРµ РїСЂРѕС€С‘Р» РїСЂРѕРІРµСЂРєСѓ РїРµСЂРµРґ РІС‹СЃС‚Р°РІРєРѕР№",
+          eligibility.error ?? "Предмет не прошёл проверку перед выставкой",
         listingsUrl,
       };
     }
@@ -1331,7 +1331,7 @@ async function createInventoryLotFromRuntime(params: {
 
     const lot = (await createResponse.json()) as { id?: string };
     if (!lot.id) {
-      return { ok: false, error: "Р›РѕС‚ СЃРѕР·РґР°РЅ, РЅРѕ id РЅРµ РІРµСЂРЅСѓР»СЃСЏ" };
+      return { ok: false, error: "Лот создан, но id не вернулся" };
     }
 
     void recordTwoMinuteFirstList().catch(() => undefined);
@@ -1347,7 +1347,7 @@ async function createInventoryLotFromRuntime(params: {
     return {
       ok: false,
       error:
-        error instanceof Error ? error.message : "РќРµ СѓРґР°Р»РѕСЃСЊ РІС‹СЃС‚Р°РІРёС‚СЊ Р»РѕС‚",
+        error instanceof Error ? error.message : "Не удалось выставить лот",
     };
   }
 }
@@ -1419,7 +1419,7 @@ async function createInventoryLotsBatchFromRuntime(params: {
       ok: false,
       created: [],
       failed: [],
-      error: "РџРѕРґРєР»СЋС‡РёС‚Рµ СЂР°СЃС€РёСЂРµРЅРёРµ РЅР° СЃР°Р№С‚Рµ (Account в†’ РџРѕРґРєР»СЋС‡РёС‚СЊ).",
+      error: "Подключите расширение на сайте (Account → Подключить).",
     };
   }
 
@@ -1481,7 +1481,7 @@ async function createInventoryLotsBatchFromRuntime(params: {
             failed.push({
               steamAssetId: item.steamAssetId,
               error:
-                "РџСЂРµРґРјРµС‚ РµС‰С‘ РЅРµ РІ РёРЅРІРµРЅС‚Р°СЂРµ РїР»РѕС‰Р°РґРєРё. РћР±РЅРѕРІРёС‚Рµ РёРЅРІРµРЅС‚Р°СЂСЊ РЅР° СЃР°Р№С‚Рµ.",
+                "Предмет ещё не в инвентаре площадки. Обновите инвентарь на сайте.",
             });
             continue;
           }
@@ -1505,7 +1505,7 @@ async function createInventoryLotsBatchFromRuntime(params: {
             } else {
               failed.push({
                 steamAssetId,
-                error: single.error ?? "РќРµ СѓРґР°Р»РѕСЃСЊ РІС‹СЃС‚Р°РІРёС‚СЊ",
+                error: single.error ?? "Не удалось выставить",
               });
             }
           }
@@ -1575,7 +1575,7 @@ async function createInventoryLotsBatchFromRuntime(params: {
           }
           failed.push({
             steamAssetId,
-            error: "Р›РѕС‚ РІ РїР°РєРµС‚Рµ РЅРµ РїРѕРґС‚РІРµСЂР¶РґС‘РЅ",
+            error: "Лот в пакете не подтверждён",
           });
         }
         continue;
@@ -1597,7 +1597,7 @@ async function createInventoryLotsBatchFromRuntime(params: {
         } else {
           failed.push({
             steamAssetId: item.steamAssetId,
-            error: single.error ?? "РќРµ СѓРґР°Р»РѕСЃСЊ РІС‹СЃС‚Р°РІРёС‚СЊ",
+            error: single.error ?? "Не удалось выставить",
           });
         }
       }
@@ -1610,7 +1610,7 @@ async function createInventoryLotsBatchFromRuntime(params: {
       listingsUrl,
       error:
         created.length === 0
-          ? (failed[0]?.error ?? "РќРµ СѓРґР°Р»РѕСЃСЊ РІС‹СЃС‚Р°РІРёС‚СЊ Р»РѕС‚С‹")
+          ? (failed[0]?.error ?? "Не удалось выставить лоты")
           : undefined,
     };
   } catch (error) {
@@ -1621,7 +1621,7 @@ async function createInventoryLotsBatchFromRuntime(params: {
       failed,
       listingsUrl,
       error:
-        error instanceof Error ? error.message : "РќРµ СѓРґР°Р»РѕСЃСЊ РІС‹СЃС‚Р°РІРёС‚СЊ Р»РѕС‚С‹",
+        error instanceof Error ? error.message : "Не удалось выставить лоты",
     };
   }
 }
@@ -1649,14 +1649,14 @@ async function updateInventoryLotPriceFromRuntime(params: {
   }
   const lotId = params.lotId.trim();
   if (!lotId) {
-    return { ok: false, error: "РќРµ СѓРєР°Р·Р°РЅ Р»РѕС‚" };
+    return { ok: false, error: "Не указан лот" };
   }
 
   const state = await getSessionState();
   if (!state?.accessToken || !state.apiBaseUrl) {
     return {
       ok: false,
-      error: "РџРѕРґРєР»СЋС‡РёС‚Рµ СЂР°СЃС€РёСЂРµРЅРёРµ РЅР° СЃР°Р№С‚Рµ (Account в†’ РџРѕРґРєР»СЋС‡РёС‚СЊ).",
+      error: "Подключите расширение на сайте (Account → Подключить).",
     };
   }
 
@@ -1704,7 +1704,7 @@ async function updateInventoryLotPriceFromRuntime(params: {
       ok: false,
       listingsUrl,
       error:
-        error instanceof Error ? error.message : "РќРµ СѓРґР°Р»РѕСЃСЊ РѕР±РЅРѕРІРёС‚СЊ С†РµРЅСѓ",
+        error instanceof Error ? error.message : "Не удалось обновить цену",
     };
   }
 }
@@ -1725,14 +1725,14 @@ async function cancelInventoryLotFromRuntime(params: {
 
   const lotId = params.lotId.trim();
   if (!lotId) {
-    return { ok: false, error: "РќРµ СѓРєР°Р·Р°РЅ Р»РѕС‚" };
+    return { ok: false, error: "Не указан лот" };
   }
 
   const state = await getSessionState();
   if (!state?.accessToken || !state.apiBaseUrl) {
     return {
       ok: false,
-      error: "РџРѕРґРєР»СЋС‡РёС‚Рµ СЂР°СЃС€РёСЂРµРЅРёРµ РЅР° СЃР°Р№С‚Рµ (Account в†’ РџРѕРґРєР»СЋС‡РёС‚СЊ).",
+      error: "Подключите расширение на сайте (Account → Подключить).",
     };
   }
 
@@ -1774,7 +1774,7 @@ async function cancelInventoryLotFromRuntime(params: {
       ok: false,
       listingsUrl,
       error:
-        error instanceof Error ? error.message : "РќРµ СѓРґР°Р»РѕСЃСЊ СЃРЅСЏС‚СЊ СЃ РїСЂРѕРґР°Р¶Рё",
+        error instanceof Error ? error.message : "Не удалось снять с продажи",
     };
   }
 }
@@ -1793,7 +1793,7 @@ async function manualCreateOfferFromRuntime(orderId: string): Promise<{
 
   const trimmed = orderId.trim();
   if (!trimmed) {
-    return { ok: false, error: "orderId РѕР±СЏР·Р°С‚РµР»РµРЅ" };
+    return { ok: false, error: "orderId обязателен" };
   }
 
   let trades: TradeVerificationResult[] = [];
@@ -1806,7 +1806,7 @@ async function manualCreateOfferFromRuntime(orderId: string): Promise<{
 
   const trade = trades.find((entry) => entry.orderId === trimmed);
   if (!trade) {
-    return { ok: false, error: "РђРєС‚РёРІРЅР°СЏ СЃРґРµР»РєР° РЅРµ РЅР°Р№РґРµРЅР°. РћР±РЅРѕРІРёС‚Рµ СЃРїРёСЃРѕРє." };
+    return { ok: false, error: "Активная сделка не найдена. Обновите список." };
   }
 
   const candidate = buildManualCreateCandidate(trade);
@@ -1814,12 +1814,12 @@ async function manualCreateOfferFromRuntime(orderId: string): Promise<{
     return {
       ok: false,
       error:
-        "Р”Р»СЏ СЌС‚РѕР№ СЃРґРµР»РєРё РЅРµР»СЊР·СЏ СЃРѕР±СЂР°С‚СЊ РѕС„С„РµСЂ (РЅСѓР¶РЅС‹ Trade URL РїРѕРєСѓРїР°С‚РµР»СЏ Рё asset, Р±РµР· СѓР¶Рµ РїСЂРёРІСЏР·Р°РЅРЅРѕРіРѕ offer).",
+        "Для этой сделки нельзя собрать оффер (нужны Trade URL покупателя и asset, без уже привязанного offer).",
     };
   }
 
   const auth = await buildAuthenticatedClient();
-  if (!auth) return { ok: false, error: "РџРѕРґРєР»СЋС‡РёС‚Рµ СЂР°СЃС€РёСЂРµРЅРёРµ Рє СЃР°Р№С‚Сѓ." };
+  if (!auth) return { ok: false, error: "Подключите расширение к сайту." };
   const reporter = new DurableTaskProgressReporter(
     auth.client,
     taskProgressScope(auth.state),
@@ -1831,7 +1831,7 @@ async function manualCreateOfferFromRuntime(orderId: string): Promise<{
     return {
       ok: false,
       error:
-        "РћС‚РїСЂР°РІРєР° СѓР¶Рµ РІС‹РїРѕР»РЅСЏРµС‚СЃСЏ РёР»Рё РѕР¶РёРґР°РµС‚ РїСЂРѕРІРµСЂРєРё Steam. РџРѕРІС‚РѕСЂРЅС‹Р№ РѕС„С„РµСЂ РЅРµ СЃРѕР·РґР°РЅ.",
+        "Отправка уже выполняется или ожидает проверки Steam. Повторный оффер не создан.",
     };
   }
   processingTasks.add(task.id);
@@ -1854,7 +1854,7 @@ async function manualCreateOfferFromRuntime(orderId: string): Promise<{
       : {
           ok: false,
           error:
-            "РћС„С„РµСЂ РЅРµ РїРѕРґС‚РІРµСЂР¶РґС‘РЅ. РџСЂРѕРІРµСЂСЊС‚Рµ СЃРѕСЃС‚РѕСЏРЅРёРµ СЃРґРµР»РєРё РЅР° СЃР°Р№С‚Рµ РїРµСЂРµРґ РїРѕРІС‚РѕСЂРЅРѕР№ РїРѕРїС‹С‚РєРѕР№.",
+            "Оффер не подтверждён. Проверьте состояние сделки на сайте перед повторной попыткой.",
         };
   } finally {
     processingTasks.delete(task.id);
@@ -1971,7 +1971,7 @@ function handleTradeVerificationRuntimeMessage(
           error:
             error instanceof Error
               ? error.message
-              : "РќРµ СѓРґР°Р»РѕСЃСЊ РїСЂРѕРІРµСЂРёС‚СЊ РѕС‚РїСЂР°РІРєСѓ РѕС„С„РµСЂР°",
+              : "Не удалось проверить отправку оффера",
         }),
     );
     return true;
@@ -2340,7 +2340,7 @@ async function pollAndProcessTasksInner(): Promise<void> {
       pendingTaskCount: tasks.length,
     });
     if (schedule.changed && schedule.mode === "active") {
-      // Mode just woke вЂ” don't wait for the next alarm tick.
+      // Mode just woke — don't wait for the next alarm tick.
       void pollActiveTrades({ force: true }).catch(() => undefined);
     }
   } catch (error) {
@@ -2667,7 +2667,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       return false;
     }
     void runSteamAuthProbe().then(result => sendResponse({ ok: true, result }))
-      .catch(() => sendResponse({ ok: false, error: 'Р”РёР°РіРЅРѕСЃС‚РёРєР° РЅРµРґРѕСЃС‚СѓРїРЅР°: РїСЂРѕРІРµСЂСЊС‚Рµ Р°РєРєР°СѓРЅС‚, РїРѕРґРєР»СЋС‡РµРЅРёРµ Рё СЂР°Р·СЂРµС€С‘РЅРЅРѕРµ СЃРµСЂРІРµСЂРѕРј РѕРєРЅРѕ.' }));
+      .catch(() => sendResponse({ ok: false, error: 'Диагностика недоступна: проверьте аккаунт, подключение и разрешённое сервером окно.' }));
     return true;
   }
   if (handleTradeVerificationRuntimeMessage(message, sender, sendResponse)) {
