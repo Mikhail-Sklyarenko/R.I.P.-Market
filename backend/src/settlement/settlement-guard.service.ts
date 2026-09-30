@@ -156,7 +156,11 @@ export class SettlementGuardService {
       try {
         const operation = await db.tradeOperation.findUnique({
           where: { orderId: order.id },
-          select: { externalOfferId: true, expectedAssetId: true },
+          select: {
+            externalOfferId: true,
+            expectedAssetId: true,
+            deliveryProof: true,
+          },
         });
         if (
           !operation?.externalOfferId ||
@@ -172,7 +176,38 @@ export class SettlementGuardService {
           operation.externalOfferId,
           { sellerSteamId, buyerSteamId, assetId: operation.expectedAssetId },
         );
-        if (proof.status !== 'accepted' || !proof.receivedAssetId) {
+        if (proof.reversalDetected)
+          return blocked(
+            'STEAM_REVERSAL_DETECTED',
+            'Steam reported a reversal; held funds require review',
+          );
+        const stored = operation.deliveryProof as {
+          version?: number;
+          offerId?: string;
+          tradeId?: string;
+          originalAssetId?: string;
+          sellerSteamId?: string;
+          buyerSteamId?: string;
+          protectionUntil?: string;
+        } | null;
+        const immutableProofMatches =
+          stored?.version === 2 &&
+          stored.offerId === operation.externalOfferId &&
+          stored.tradeId === proof.tradeId &&
+          stored.originalAssetId === operation.expectedAssetId &&
+          stored.sellerSteamId === sellerSteamId &&
+          stored.buyerSteamId === buyerSteamId &&
+          !!stored.protectionUntil &&
+          Number.isFinite(Date.parse(stored.protectionUntil)) &&
+          Date.parse(stored.protectionUntil) <= Date.now();
+        if (
+          proof.status !== 'accepted' ||
+          proof.reversalDetected ||
+          proof.identityConflict ||
+          (stored
+            ? !proof.receiptVerified || !immutableProofMatches
+            : !proof.receivedAssetId)
+        ) {
           return blocked(
             'STEAM_RECHECK_UNAVAILABLE',
             'Steam has not reconfirmed the bound exchange',

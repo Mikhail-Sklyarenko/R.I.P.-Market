@@ -12,7 +12,7 @@ it.each([
   [],
   {},
   { response: {} },
-  { steamid: 76561198195181115 },
+  { steamid: Number('76561198195181115') },
   { steamid: owner, response: { steamid: '76561198655632881' } },
   { steamid: owner, response: { steamid: 123 } },
   { sub: owner },

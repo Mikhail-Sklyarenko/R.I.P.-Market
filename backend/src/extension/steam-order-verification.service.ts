@@ -3,6 +3,7 @@ import {
   ForbiddenException,
   HttpException,
   Injectable,
+  Optional,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { TradeStatusPollerService } from '../trades/trade-status-poller.service';
@@ -11,13 +12,19 @@ import {
   SteamTradeRateLimitError,
 } from '../providers/trade/steam-trade.provider';
 import { withSteamRequestCredential } from '../providers/trade/steam-request-credential';
+import { SettlementService } from '../settlement/settlement.service';
+import { DeliveryWorkflowService } from '../trades/delivery-workflow.service';
 @Injectable()
 export class SteamOrderVerificationService {
   private readonly nextAllowed = new Map<string, number>();
   constructor(
     private readonly prisma: PrismaService,
     private readonly poller: TradeStatusPollerService,
+    @Optional() private readonly settlement?: SettlementService,
   ) {}
+  async prepare(orderId: string) {
+    return new DeliveryWorkflowService(this.prisma).prepare(orderId);
+  }
   async authorize(userId: string, orderId: unknown) {
     if (typeof orderId !== 'string' || !/^[a-f0-9-]{36}$/i.test(orderId))
       throw new BadRequestException('Invalid order');
@@ -35,8 +42,8 @@ export class SteamOrderVerificationService {
       order.sellerId !== userId ||
       order.seller.status !== 'ACTIVE' ||
       !order.seller.steamId ||
-      !['WAITING_TRADE', 'DISPUTE'].includes(order.status) ||
-      !order.tradeOperation?.externalOfferId
+      !['WAITING_TRADE', 'DISPUTE', 'SETTLEMENT_HOLD'].includes(order.status) ||
+      !order.tradeOperation
     )
       throw new ForbiddenException('Order verification unavailable');
     return order;
@@ -55,6 +62,8 @@ export class SteamOrderVerificationService {
         );
       const order = await this.authorize(userId, payload.orderId);
       const offerId = order.tradeOperation!.externalOfferId!;
+      if (!offerId)
+        return { reasonCode: 'WAITING_FOR_OFFER', transitioned: false };
       if (payload.offerId !== offerId)
         throw new BadRequestException('Order offer changed');
       const now = Date.now();
@@ -64,6 +73,9 @@ export class SteamOrderVerificationService {
         throw new HttpException('Verification cooldown', 429);
       this.nextAllowed.set(userId, now + 60000);
       const context = {
+        ...(order.tradeOperation!.tradeBinding
+          ? { tradeBinding: order.tradeOperation!.tradeBinding }
+          : {}),
         sellerSteamId: order.seller.steamId,
         buyerSteamId: order.buyer.steamId,
         assetId:
@@ -79,15 +91,47 @@ export class SteamOrderVerificationService {
             offerId,
             context,
           );
+          if (
+            order.status !== 'DISPUTE' &&
+            (proof.identityConflict || proof.reversalDetected)
+          ) {
+            await this.prisma.tradeOperation.updateMany({
+              where: {
+                orderId: order.id,
+                order: { status: { in: ['WAITING_TRADE', 'SETTLEMENT_HOLD'] } },
+              },
+              data: {
+                verificationStage: 'MANUAL_REVIEW',
+                failReasonCode: proof.reasonCode ?? 'STEAM_EVIDENCE_CONFLICT',
+                nextVerificationAt: null,
+              },
+            });
+            return {
+              offerStatus: proof.status,
+              reasonCode: proof.reasonCode,
+              transitioned: false,
+              mappingVerified: false,
+              diagnosticOnly: false,
+            };
+          }
           // DISPUTE is read-only. Unknown evidence does not force extra failed checks.
           const transitioned =
             order.status === 'WAITING_TRADE' && proof.status === 'accepted'
-              ? await this.poller.pollOrderById(order.id)
-              : false;
+              ? await this.poller.pollOrderById(order.id, { force: true })
+              : order.status === 'SETTLEMENT_HOLD' &&
+                  proof.receiptVerified &&
+                  this.settlement
+                ? (await this.settlement.releaseDueSettlementHold(order.id))
+                    .settled
+                : false;
           return {
             offerStatus: proof.status,
-            reasonCode: proof.reasonCode ?? null,
-            mappingVerified: !!proof.receivedAssetId,
+            reasonCode: transitioned
+              ? order.status === 'SETTLEMENT_HOLD'
+                ? 'SETTLED'
+                : 'DELIVERY_VERIFIED'
+              : (proof.reasonCode ?? null),
+            mappingVerified: !!proof.receivedAssetId || transitioned,
             transitioned,
             diagnosticOnly: order.status === 'DISPUTE',
           };

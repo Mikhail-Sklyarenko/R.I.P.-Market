@@ -133,6 +133,31 @@ describe('SettlementService hold window', () => {
     expect(ledgerService.settleSale).toHaveBeenCalledTimes(1);
   });
 
+  it('real delivery proof enforces eight-day hold even with both release flags disabled', async () => {
+    process.env.ENABLE_REAL_SETTLEMENT = 'false';
+    process.env.ENABLE_SETTLEMENT_HOLD_WINDOW = 'false';
+    process.env.SETTLEMENT_HOLD_DAYS = '1';
+    const { service, tx, ledgerService } = buildService();
+    const order = {
+      ...baseOrder,
+      tradeOperation: {
+        status: 'DELIVERY_VERIFIED',
+        deliveryProof: { version: 2 },
+      },
+    };
+    const before = Date.now();
+    await service.settleCompletedOrder(
+      tx as never,
+      order as never,
+      'proof-hold',
+    );
+    expect(ledgerService.settleSale).not.toHaveBeenCalled();
+    expect(tx.hold.update).toHaveBeenCalledTimes(1);
+    const until = tx.hold.update.mock.calls[0][0].data
+      .settlementHoldUntil as Date;
+    expect(until.getTime()).toBeGreaterThanOrEqual(before + 8 * 86400000);
+  });
+
   it('keeps existing hold protected when real settlement is disabled', async () => {
     delete process.env.ENABLE_REAL_SETTLEMENT;
     const { service, prisma, ledgerService, tx } = buildService();

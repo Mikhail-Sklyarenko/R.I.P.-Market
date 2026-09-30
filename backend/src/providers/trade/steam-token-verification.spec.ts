@@ -1,9 +1,3 @@
-import { steamCommunityOwner } from './steam-community-owner';
-jest.mock('./steam-community-owner', () => ({
-  steamCommunityOwner: jest
-    .fn()
-    .mockResolvedValue({ owner: null, status: 302 }),
-}));
 import {
   requestCredential,
   withSteamRequestCredential,
@@ -73,7 +67,7 @@ it('requires Steam-authenticated token owner before reading offer', async () => 
   });
   expect(await verify()).toMatchObject({
     status: 'unknown',
-    reasonCode: 'STEAM_TOKEN_OWNER_UNVERIFIED',
+    reasonCode: 'STEAM_IDENTITY_CONFLICT',
   });
   expect(read).toHaveBeenCalledTimes(1);
 });
@@ -91,22 +85,14 @@ it('accepts only complete exact receipt mapping', async () => {
 });
 it.each([
   {},
-  { ...receipt, assets_given: [item] },
-  {
-    ...receipt,
-    assets_given: [
-      { ...item, new_contextid: '16', new_assetid: '53954582039' },
-    ],
-  },
   {
     ...receipt,
     assets_given: [{ ...receipt.assets_given[0], rollback_new_assetid: '123' }],
   },
-])('fails closed on missing/protected/rollback mapping', async (value) => {
+])('fails closed on missing receipt or rollback', async (value) => {
   replies(offer, value);
   expect(await verify()).toMatchObject({
     status: 'unknown',
-    reasonCode: 'STEAM_RECEIPT_MAPPING_UNAVAILABLE',
   });
 });
 it('rejects wrong offer before receipt query', async () => {
@@ -115,7 +101,9 @@ it('rejects wrong offer before receipt query', async () => {
   expect(read).toHaveBeenCalledTimes(2);
 });
 it('preserves rate limiting', async () => {
-  read.mockResolvedValueOnce({ status: 429, data: null });
+  read
+    .mockResolvedValueOnce({ status: 200, data: {} })
+    .mockResolvedValueOnce({ status: 429, data: null });
   await expect(verify()).rejects.toBeInstanceOf(SteamTradeRateLimitError);
 });
 it('isolates concurrent requests and binds all context fields', async () => {
@@ -169,10 +157,7 @@ it('uses root-level Steam identity without weakening receipt verification', asyn
   });
 });
 
-it('uses authenticated community identity when legacy OAuth has no identity', async () => {
-  jest
-    .mocked(steamCommunityOwner)
-    .mockResolvedValueOnce({ owner: context.sellerSteamId, status: 302 });
+it('uses exact seller perspective when legacy OAuth has no identity', async () => {
   read
     .mockResolvedValueOnce({ status: 200, data: {} })
     .mockResolvedValueOnce({ status: 200, data: { response: { offer } } })
@@ -185,14 +170,35 @@ it('uses authenticated community identity when legacy OAuth has no identity', as
     receivedAssetId: '53954582039',
   });
 });
-it('rejects a community identity for another seller', async () => {
-  jest
-    .mocked(steamCommunityOwner)
-    .mockResolvedValueOnce({ owner: context.buyerSteamId, status: 302 });
-  read.mockResolvedValueOnce({ status: 200, data: {} });
+it('accepts completed receipt without destination mapping as intermediate evidence', async () => {
+  replies(offer, { ...receipt, assets_given: [item] });
+  expect(await verify()).toMatchObject({
+    status: 'accepted',
+    receiptVerified: true,
+    tradeId: receipt.tradeid,
+  });
+});
+it.each([
+  { is_our_offer: false },
+  { accountid_other: 1 },
+  { items_to_give: [{ ...item, assetid: '999' }] },
+])('missing identity never bypasses exact offer binding %j', async (patch) => {
+  read.mockResolvedValueOnce({ status: 200, data: {} }).mockResolvedValueOnce({
+    status: 200,
+    data: { response: { offer: { ...offer, ...patch } } },
+  });
   expect(await verify()).toMatchObject({
     status: 'unknown',
-    reasonCode: 'STEAM_TOKEN_OWNER_UNVERIFIED',
+    reasonCode: 'STEAM_OFFER_ORDER_MISMATCH',
   });
-  expect(read).toHaveBeenCalledTimes(1);
+  expect(read).toHaveBeenCalledTimes(2);
 });
+it.each([403, 500, 503])(
+  'temporary offer HTTP %s does not prove delivery',
+  async (status) => {
+    read
+      .mockResolvedValueOnce({ status: 200, data: {} })
+      .mockResolvedValueOnce({ status, data: null });
+    expect(await verify()).toMatchObject({ status: 'unknown' });
+  },
+);

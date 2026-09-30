@@ -1,3 +1,5 @@
+import { DeliveryWorkflowService } from './delivery-workflow.service';
+import { Prisma } from '@prisma/client';
 import { Injectable, Logger } from '@nestjs/common';
 import { SteamTradeRateLimitError } from '../providers/trade/steam-trade.provider';
 import type { TradeVerificationResult } from '../providers/trade/trade-provider.interface';
@@ -27,6 +29,7 @@ export type DeliveryVerificationOperation = {
   externalOfferId: string | null;
   expectedAssetId: string | null;
   verificationMode: string | null;
+  tradeBinding?: string | null;
   checkCount: number;
   order: {
     id: string;
@@ -118,6 +121,7 @@ export class DeliveryVerificationEngineService {
     let offerStatus: TradeVerificationResult['status'] | null = null;
     let inventoryDelta: InventoryDeltaResult | null = null;
     let receivedAssetId: string | undefined;
+    let serverProof: TradeVerificationResult | undefined;
     let offerReasonCode: string | undefined;
 
     try {
@@ -125,6 +129,9 @@ export class DeliveryVerificationEngineService {
         const verification = await this.tradesService.verifyOffer(
           operation.externalOfferId,
           {
+            ...(operation.tradeBinding
+              ? { tradeBinding: operation.tradeBinding }
+              : {}),
             sellerSteamId: operation.order.seller.steamId,
             buyerSteamId: operation.order.buyer.steamId,
             assetId:
@@ -132,6 +139,32 @@ export class DeliveryVerificationEngineService {
               operation.order.lot.inventoryAsset.assetExternalId,
           },
         );
+        serverProof = verification;
+        if (verification.reversalDetected || verification.identityConflict) {
+          const decision: DeliveryVerificationDecision = {
+            action: verification.reversalDetected ? 'DISPUTE' : 'MANUAL_REVIEW',
+            reason: 'DELIVERY_SIGNAL_CONFLICT',
+            reasonCode: verification.reasonCode ?? 'STEAM_EVIDENCE_CONFLICT',
+            pollOutcome: 'MANUAL_REVIEW',
+            offerStatus: verification.status,
+            inventoryDelta: null,
+          };
+          return this.pack(decision, verification.status, null);
+        }
+        if (verification.receiptVerified || verification.offerAccepted) {
+          await this.prisma.tradeOperation.updateMany({
+            where: {
+              id: operation.id,
+              status: 'WAITING',
+              deliveryProof: { equals: Prisma.DbNull },
+            },
+            data: {
+              verificationStage: verification.receiptVerified
+                ? 'RECEIPT_VERIFIED'
+                : 'OFFER_ACCEPTED',
+            },
+          });
+        }
         offerStatus = verification.status;
         offerReasonCode = verification.reasonCode;
         if (verification.status === 'accepted')
@@ -146,22 +179,30 @@ export class DeliveryVerificationEngineService {
           operation.order.lot.inventoryAsset.assetExternalId;
         const snapshot = operation.order.lot.listingSnapshot;
         const asset = operation.order.lot.inventoryAsset;
-        inventoryDelta = await this.inventoryDelta.verify(
-          operation.order.sellerId,
-          operation.order.buyerId,
-          operation.order.seller.steamId,
-          operation.order.buyer.steamId,
-          expected,
-          snapshot?.marketHashName ?? asset.itemDefinition.marketHashName,
-          {
-            force: true,
-            receivedAssetId,
-            expectedFloatValue:
-              snapshot?.floatValue ?? asset.floatValue ?? null,
-            expectedPaintSeed: snapshot?.paintSeed ?? asset.paintSeed ?? null,
-            orderCreatedAt: operation.order.createdAt,
-          },
-        );
+        inventoryDelta = serverProof?.receiptVerified
+          ? (
+              await new DeliveryWorkflowService(this.prisma).verify(
+                operation.orderId,
+                serverProof,
+              )
+            ).result
+          : await this.inventoryDelta.verify(
+              operation.order.sellerId,
+              operation.order.buyerId,
+              operation.order.seller.steamId,
+              operation.order.buyer.steamId,
+              expected,
+              snapshot?.marketHashName ?? asset.itemDefinition.marketHashName,
+              {
+                force: true,
+                receivedAssetId,
+                expectedFloatValue:
+                  snapshot?.floatValue ?? asset.floatValue ?? null,
+                expectedPaintSeed:
+                  snapshot?.paintSeed ?? asset.paintSeed ?? null,
+                orderCreatedAt: operation.order.createdAt,
+              },
+            );
       }
 
       signals.offerStatus = offerStatus;
@@ -176,16 +217,25 @@ export class DeliveryVerificationEngineService {
         decision.reasonCode = offerReasonCode;
       }
       return this.pack(decision, offerStatus, inventoryDelta);
-    } catch (error) {
+    } catch (error: unknown) {
       if (
         error instanceof SteamTradeRateLimitError ||
-        error instanceof InventoryVerificationRateLimitError
+        error instanceof InventoryVerificationRateLimitError ||
+        (error &&
+          typeof error === 'object' &&
+          'code' in error &&
+          error.code === 'STEAM_RATE_LIMITED')
       ) {
         signals.rateLimited = true;
         const decision = decideDeliveryVerification(signals);
         return this.pack(decision, offerStatus, inventoryDelta);
       }
-      throw error;
+      // Transport/partial inventory failure is persisted retry/review, never a
+      // user dispute or arbitrary upstream error text in financial logs.
+      signals.offerStatus = offerStatus;
+      signals.inventoryDelta = 'unknown';
+      const decision = decideDeliveryVerification(signals);
+      return this.pack(decision, offerStatus, 'unknown');
     }
   }
 

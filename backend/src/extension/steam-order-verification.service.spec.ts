@@ -30,7 +30,10 @@ beforeEach(() => {
     },
     lot: { inventoryAsset: { assetExternalId: context.assetId } },
   };
-  prisma = { order: { findUnique: jest.fn(async () => order) } };
+  prisma = {
+    order: { findUnique: jest.fn(async () => order) },
+    tradeOperation: { updateMany: jest.fn(async () => ({ count: 1 })) },
+  };
   poller = { pollOrderById: jest.fn(async () => true) };
   service = new SteamOrderVerificationService(prisma, poller);
 });
@@ -63,7 +66,7 @@ it('deletes payload token and binds independent verification to request', async 
     transitioned: true,
   });
   expect(payload).not.toHaveProperty('accessToken');
-  expect(poller.pollOrderById).toHaveBeenCalledWith(id);
+  expect(poller.pollOrderById).toHaveBeenCalledWith(id, { force: true });
   expect(requestCredential('9394782030', context)).toBeUndefined();
   await expect(service.run('seller', body())).rejects.toThrow('cooldown');
 });
@@ -106,3 +109,28 @@ it('suppresses unexpected errors containing credentials', async () => {
     'Steam verification unavailable',
   );
 });
+
+it.each(['WAITING_TRADE', 'SETTLEMENT_HOLD'])(
+  'fresh credential conflict freezes %s without release',
+  async (status) => {
+    order.status = status;
+    jest
+      .spyOn(SteamTradeProvider.prototype, 'verifyTradeOffer')
+      .mockResolvedValue({
+        status: 'unknown',
+        identityConflict: true,
+        reasonCode: 'STEAM_IDENTITY_CONFLICT',
+        tradable: null,
+        tradeLockUntil: null,
+      });
+    expect(await service.run('seller', body())).toMatchObject({
+      transitioned: false,
+    });
+    expect(prisma.tradeOperation.updateMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ verificationStage: 'MANUAL_REVIEW' }),
+      }),
+    );
+    expect(poller.pollOrderById).not.toHaveBeenCalled();
+  },
+);

@@ -129,6 +129,9 @@ describe('Steam order-bound receipt verification', () => {
       tradable: null,
       tradeLockUntil: null,
       receivedAssetId: '53954582039',
+      receivedContextId: '2',
+      receiptVerified: true,
+      tradeId: offer.tradeid,
     });
     const requested = new URL(String(fetchMock.mock.calls[1][0]));
     expect(requested.pathname).toBe('/IEconService/GetTradeStatus/v1/');
@@ -170,8 +173,11 @@ describe('Steam order-bound receipt verification', () => {
     expect(
       await provider.verifyTradeOffer(offer.tradeofferid, context),
     ).toEqual({
-      status: 'unknown',
-      reasonCode: 'STEAM_RECEIPT_MAPPING_UNAVAILABLE',
+      status: 'accepted',
+      receiptVerified: true,
+      tradeId: offer.tradeid,
+      receivedAssetId: undefined,
+      receivedContextId: undefined,
       tradable: null,
       tradeLockUntil: null,
     });
@@ -197,6 +203,9 @@ describe('Steam order-bound receipt verification', () => {
       tradable: null,
       tradeLockUntil: null,
       receivedAssetId: '53954582039',
+      receivedContextId: '2',
+      receiptVerified: true,
+      tradeId: offer.tradeid,
     });
   });
   it.each([

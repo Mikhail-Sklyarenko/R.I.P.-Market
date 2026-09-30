@@ -829,7 +829,25 @@ export class TradesService {
       });
 
       let finalStatus: OrderStatus = OrderStatus.TRADE_CONFIRMED;
-      if (settle) {
+      if (current.tradeOperation.deliveryProof) {
+        // A real Steam proof always starts protection, including test balances.
+        // Disabling releases cannot cause an immediate legacy payout.
+        const confirmed = {
+          ...current,
+          hold: current.hold,
+          status: OrderStatus.TRADE_CONFIRMED,
+          tradeOperation: {
+            ...current.tradeOperation,
+            status: tradeVerifiedStatus,
+          },
+        };
+        await this.settlementService.enterSettlementHold(
+          tx,
+          confirmed,
+          `poll-settle:${orderId}`,
+        );
+        finalStatus = OrderStatus.SETTLEMENT_HOLD;
+      } else if (settle) {
         const settleResult =
           await this.settlementService.trySettleConfirmedOrder(
             current.id,
@@ -924,7 +942,10 @@ export class TradesService {
 
   async applyTradeFailedFromPoll(orderId: string, reason: string) {
     const mode =
-      process.env.TRADE_FAIL_MODE === 'SAFE'
+      process.env.TRADE_FAIL_MODE === 'SAFE' &&
+      ['OFFER_DECLINED', 'OFFER_EXPIRED', 'declined', 'expired'].includes(
+        reason,
+      )
         ? MockFailMode.SAFE
         : MockFailMode.DISPUTE;
     const idempotencyKey = `poll-fail:${orderId}:${reason}`;
@@ -1073,93 +1094,26 @@ export class TradesService {
   }
 
   async applyUnknownTradeStateFromPoll(orderId: string, observedState: string) {
-    const idempotencyKey = `poll-unknown:${orderId}:${observedState}`;
-    const existingAudit = await this.prisma.auditLog.findFirst({
+    await this.prisma.tradeOperation.updateMany({
       where: {
-        entityType: 'order',
-        entityId: orderId,
-        action: 'TRADE_POLL_UNKNOWN',
-        idempotencyKey,
+        orderId,
+        status: TradeOperationStatus.WAITING,
+        order: { status: OrderStatus.WAITING_TRADE },
+      },
+      data: {
+        verificationStage: 'MANUAL_REVIEW',
+        failReasonCode: observedState,
+        nextVerificationAt: null,
       },
     });
-    if (existingAudit) {
-      return this.getOrderDetails(orderId);
-    }
-
-    const order = await this.prisma.$transaction(async (tx) => {
-      const current = await tx.order.findUnique({
-        where: { id: orderId },
-        include: { hold: true, lot: true, tradeOperation: true },
-      });
-      if (!current || !current.tradeOperation) {
-        throw new NotFoundException('Trade operation not found');
-      }
-      if (current.status !== OrderStatus.WAITING_TRADE) {
-        return current;
-      }
-
-      await this.tradeOperationStateService.transitionByEvent(tx, {
-        tradeOperationId: current.tradeOperation.id,
-        from: current.tradeOperation.status,
-        event: 'UNKNOWN_STATE_DETECTED',
-        reason: observedState,
-        failReasonCode: observedState,
-        providerRef: `poll-unknown-${orderId}`,
-      });
-
-      await this.orderStateService.transitionByEvent(tx, {
-        orderId: current.id,
-        from: OrderStatus.WAITING_TRADE,
-        event: 'UNKNOWN_STATE_DETECTED',
-        reason: observedState,
-      });
-
-      await this.lotStateService.transition(tx, {
-        lotId: current.lotId,
-        from: current.lot.status,
-        to: LotStatus.BLOCKED,
-      });
-      await tx.inventoryAsset.update({
-        where: { id: current.lot.inventoryAssetId },
-        data: { status: InventoryAssetStatus.BLOCKED },
-      });
-
-      await tx.auditLog.create({
-        data: {
-          entityType: 'order',
-          entityId: current.id,
-          action: 'TRADE_POLL_UNKNOWN',
-          idempotencyKey,
-          afterState: {
-            status: OrderStatus.DISPUTE,
-            tradeStatus: TradeOperationStatus.FAILED_DISPUTE,
-            observedState,
-          },
-          ...getAuditContext(),
-        },
-      });
-      await tx.outboxEvent.create({
-        data: {
-          eventType: 'ORDER_DISPUTE_OPENED',
-          aggregateType: 'order',
-          aggregateId: current.id,
-          payload: { orderId: current.id, reasonCode: observedState },
-        },
-      });
-
-      return tx.order.findUnique({
-        where: { id: current.id },
-        include: {
-          lot: {
-            include: { inventoryAsset: { include: { itemDefinition: true } } },
-          },
-          hold: true,
-          tradeOperation: true,
-        },
-      });
-    });
-
-    return toJsonSafe(order);
+    this.logger.warn(
+      JSON.stringify({
+        event: 'delivery_verification_manual_review',
+        orderId,
+        reasonCode: observedState,
+      }),
+    );
+    return this.getOrderDetails(orderId);
   }
 
   async getTradeById(

@@ -1058,9 +1058,9 @@
         <ul id="permissions-rationale" class="permissions-list"></ul>
         <details>
           <summary>Серверная проверка текущей сделки Steam</summary>
-          <p>Откройте заказ на p2pcs.ru в этом браузере продавца. На 30 минут разрешите расширению передавать временный Steam access token серверу p2pcs.ru для чтения обмена и квитанции. Токен не сохраняется сервером. Сам токен имеет более широкие права: разрешайте передачу только доверенному серверу.</p>
+          <p>Перед отправкой откройте заказ на p2pcs.ru в этом браузере продавца. После согласия расширение продолжит создание обмена и проверку автоматически. На 30 минут разрешите расширению передавать временный Steam access token серверу p2pcs.ru для чтения обмена и квитанции. Токен не сохраняется сервером. Сам токен имеет более широкие права: разрешайте передачу только доверенному серверу.</p>
           <label><input id="steam-order-consent" type="checkbox" /> Разрешаю проверку этого заказа до 30 минут</label>
-          <button id="steam-order-run" type="button" disabled>Проверять текущую сделку</button>
+          <button id="steam-order-run" type="button" disabled>Разрешить проверку и продолжить обмен</button>
           <button id="steam-order-stop" type="button" class="secondary">Остановить передачу</button>
           <p id="steam-order-result" role="status"></p>
         </details>

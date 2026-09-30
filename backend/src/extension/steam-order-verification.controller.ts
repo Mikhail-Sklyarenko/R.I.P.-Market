@@ -18,8 +18,16 @@ export class SteamOrderVerificationController {
       auth.userId,
       body.payload.orderId,
     );
+    const baselineReady = order.tradeOperation!.externalOfferId
+      ? null
+      : await this.service.prepare(order.id);
     return {
-      allowed: true,
+      allowed: baselineReady !== false,
+      baselineReady,
+      ...(baselineReady === false
+        ? { reasonCode: 'BEFORE_BASELINE_NOT_READY' }
+        : {}),
+      waitingForOffer: !order.tradeOperation!.externalOfferId,
       ownerSteamId: order.seller.steamId,
       offerId: order.tradeOperation!.externalOfferId,
     };

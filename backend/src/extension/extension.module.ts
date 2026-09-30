@@ -1,4 +1,5 @@
 import { SteamOrderVerificationService } from './steam-order-verification.service';
+import { SettlementModule } from '../settlement/settlement.module';
 import { SteamOrderVerificationController } from './steam-order-verification.controller';
 import { Module, forwardRef } from '@nestjs/common';
 import { AuthModule } from '../auth/auth.module';
@@ -17,6 +18,7 @@ import { ExtensionSignatureGuard } from './guards/extension-signature.guard';
 
 @Module({
   imports: [
+    forwardRef(() => SettlementModule),
     AuthModule,
     ExtensionSecurityModule,
     InventoryModule,

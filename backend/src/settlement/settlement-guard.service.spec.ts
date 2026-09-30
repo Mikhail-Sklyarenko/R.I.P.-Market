@@ -137,6 +137,74 @@ describe('SettlementGuardService', () => {
     expect(JSON.stringify(result)).not.toContain('secret');
   });
 
+  it.each([false, true])(
+    'rechecks immutable delta proof without demanding new_assetid; reversal=%s',
+    async (reversalDetected) => {
+      prisma.settlementAllowlistEntry.findUnique.mockResolvedValue({
+        enabled: true,
+      });
+      prisma.tradeOperation.findUnique.mockResolvedValue({
+        externalOfferId: '9394782030',
+        expectedAssetId: '50586848789',
+        deliveryProof: {
+          version: 2,
+          offerId: '9394782030',
+          tradeId: '744938690018816549',
+          originalAssetId: '50586848789',
+          sellerSteamId: baseOrder.seller.steamId,
+          buyerSteamId: baseOrder.buyer.steamId,
+          protectionUntil: new Date(Date.now() - 1000).toISOString(),
+        },
+      });
+      verifyTradeOffer.mockResolvedValue({
+        status: 'accepted',
+        receiptVerified: true,
+        tradeId: '744938690018816549',
+        reversalDetected,
+      });
+      expect(
+        (
+          await service.canSettle({
+            ...baseOrder,
+            status: OrderStatus.SETTLEMENT_HOLD,
+          })
+        ).allowed,
+      ).toBe(!reversalDetected);
+    },
+  );
+
+  it('immutable proof cannot authorize an early release', async () => {
+    prisma.settlementAllowlistEntry.findUnique.mockResolvedValue({
+      enabled: true,
+    });
+    prisma.tradeOperation.findUnique.mockResolvedValue({
+      externalOfferId: '9394782030',
+      expectedAssetId: '50586848789',
+      deliveryProof: {
+        version: 2,
+        offerId: '9394782030',
+        tradeId: '744938690018816549',
+        originalAssetId: '50586848789',
+        sellerSteamId: baseOrder.seller.steamId,
+        buyerSteamId: baseOrder.buyer.steamId,
+        protectionUntil: new Date(Date.now() + 86400000).toISOString(),
+      },
+    });
+    verifyTradeOffer.mockResolvedValue({
+      status: 'accepted',
+      receiptVerified: true,
+      tradeId: '744938690018816549',
+    });
+    expect(
+      (
+        await service.canSettle({
+          ...baseOrder,
+          status: OrderStatus.SETTLEMENT_HOLD,
+        })
+      ).allowed,
+    ).toBe(false);
+  });
+
   it('blocks when the persisted trade reference is absent', async () => {
     prisma.settlementAllowlistEntry.findUnique.mockResolvedValue({
       enabled: true,

@@ -1,27 +1,53 @@
-# Order-bound Steam delivery proof
+# Server-owned Steam delivery workflow v2
 
-The live and hybrid trade providers receive the expected seller, buyer and original CS2 asset from the stored order, not an extension payload. A bare accepted offer is no longer delivery evidence.
+This is a local release candidate, not a statement that the deployed service is fixed. Production remains at the operator's last deployed release until explicit manual activation. See the delivery completion report for actual validation limits.
 
-For the existing API-key adapter, `STEAM_WEB_API_KEY_OWNER_STEAM_ID` must explicitly identify the verified owner of `STEAM_WEB_API_KEY`. Missing or mismatched ownership fails closed. This is operator-managed credential metadata, not an automatic way to establish key ownership. Do not set it to each incoming seller or assume a marketplace-wide key can read every participant's trades. No environment values are changed by this patch.
+## Authority and authentication
 
-The adapter requires an outgoing offer to the expected buyer, exactly one unit of the listed asset in app 730/context 2, and no requested items. For an accepted offer (numeric state 3), the original item being marked `missing` does not invalidate that identity binding. Missing items in other states still fail the check. This exception does not apply to receipt items and does not prove delivery. The adapter obtains the trade ID from that server response, then reads GetTradeStatus and validates the exact receipt, counterparty and original item. Only a complete receipt with a nonzero string destination asset ID in context 2 and no rollback metadata produces a destination mapping.
+The stored order supplies seller, buyer, original asset and offer ID. Browser acknowledgements, inventory DOM and cookie SteamID prefixes never authorize money. A temporary seller token is scoped to one request/order/offer using AsyncLocalStorage, used over HTTPS only for Steam reads, and cleared in finally. The extension stores only a 30-minute consent record in session storage; it does not store the Steam token. Signed preflight runs before cookie access. Stopping permission prevents future reads/sends but cannot recall an already submitted HTTP request.
 
-The inventory verifier still fetches fresh, complete observations independently. It checks the seller's original asset has disappeared and the buyer's mapped asset is present. Failed, partial or stale inventories do not confirm delivery. Names, floats and client acknowledgements cannot substitute for the mapping.
+GetTokenDetails is an additional identity signal. Explicit missing/invalid/conflicting identity fields fail closed when present; an entirely absent identity signal can be supplemented by the exact authenticated outgoing offer, expected buyer and original asset. HTTP 200 alone has no authority. The global API key still requires operator-verified STEAM_WEB_API_KEY_OWNER_STEAM_ID; changing that setting cannot give the key access to other sellers.
 
-Protected context 16, missing mappings, escrow, rollback and inaccessible API responses remain unverified. This conservative path does NOT implement settlement during trade protection or solve participant authentication. It must not be advertised as a complete Steam integration. On 2026-09-28 the user's consented access-token diagnostic returned the exact accepted outgoing offer and complete receipt, with matching partner and original item. The offer item was marked missing; the receipt omitted destination asset/context fields. The production API-key adapter is a separate authentication path and this diagnostic does not establish its visibility.
+## Receipt is separate from mapping
 
-Do not retry indefinitely expecting destination fields to appear, infer context 2 from an absent field, or use name/float/seed matching as an authoritative mapping. Missing destination fields are also reported by CS2 integrators after the protection period: https://dev.doctormckay.com/topic/5934-new_assetid-from-getexchangedetails-is-undefined/ . These reports support investigating an API behavior change, not a guarantee about every trade. A new production proof design must explicitly address participant authentication, unavailable mappings and reversal verification before any financial rollout.
+The provider validates exact offer ID, seller perspective, partner account, exactly one given app 730/context 2/original asset/amount 1, no requested items, and numeric accepted state. The historical offer item's missing flag is permitted only after acceptance. The server obtains tradeid from that offer, then validates an exact completed receipt (status 3), partner, original asset/amount and no rollback metadata.
 
-Credential transport has not been added. Authenticated Steam requests reject redirects. Network exception text is not logged by TradesService, since it can contain credentials. Existing rate-limit exceptions still reach delivery backoff.
+receiptVerified does not require new_assetid or new_contextid. A valid destination ID in context 2 or 16 provides preferred STEAM_RECEIPT mapping. Otherwise the workflow attempts INVENTORY_DELTA. ETradeStatus 10 (InEscrow) is not a reversal; 11 (EscrowRollback), statuses 4–9 and rollback asset fields block release. Offer state numbers are a different enumeration. Reference: https://github.com/DoctorMcKay/node-steam-tradeoffer-manager/blob/master/resources/ETradeStatus.js .
 
-References for the exchange-details response and statuses:
-- https://github.com/DoctorMcKay/node-steam-tradeoffer-manager/blob/master/lib/classes/TradeOffer.js
-- https://github.com/DoctorMcKay/node-steam-tradeoffer-manager/blob/master/resources/ETradeStatus.js
+## Before sending
 
-Rollout remains blocked on verifying real authenticated responses, protection/reversal handling, and a new end-to-end trade. Existing financial flags and secrets must remain unchanged during this validation.
+The seller authorizes the current order in extension 0.6.70. Backend preflight acquires durable mapping leases for BOTH Steam accounts in sorted order, reads complete fresh server inventories in contexts 2 and 16, and persists the original seller item plus both snapshots. Only then is the CREATE_OFFER task dispatched. A UUID p2pcs: message binds the offer as an additional signal; it never substitutes for participant/asset/receipt validation. No baseline is manufactured after sendStartedAt or externalOfferId exists.
 
-## Held settlement recheck
+A baseline older than 30 minutes without an attached offer requires manual review. An incomplete/blocked context does not become an empty inventory. Preparation retries after 120–150 seconds. Existing unresolved orders without a baseline cannot use delta mapping; authoritative receipt mapping can still work.
 
-Before releasing a SETTLEMENT_HOLD, SettlementGuardService rereads the stored offer ID and expected original asset and requests fresh order-bound verification from the trade provider. Unknown, reversed/incomplete, inaccessible or unmapped exchanges block release with STEAM_RECHECK_UNAVAILABLE. Transport error text is not exposed or persisted. The common guard protects both automatic release and retry paths. A previously settled ledger entry retains its existing idempotency behavior.
+## Destination verification
 
-This is a conservative release gate, not automatic reversal classification or a solution to missing destination mappings. The current Steam adapter returns unknown for rollback and unavailable proof, so these holds require retry or review rather than automatic refund. Authentication and receipt-mapping limitations still block the observed live exchange. No financial flags or live hold durations are changed.
+Observations preserve asset/context/app/class/instance/name/float/seed/stickers. Both contexts and every page must be complete. Seller original disappearance and buyer destination presence are required. Delta candidates must be absent from the buyer's combined BEFORE inventory and match app/class/instance/name plus valid exact float, seed and stickers. Name or float alone never suffices. Movement of a pre-existing ID between contexts is not a gain.
+
+Zero candidates means retry; multiple candidates mean MANUAL_REVIEW. Missing float/seed prevents the conservative delta fallback. This is deliberate: the implementation does not invent metadata or assume every Steam inventory response supplies it. Authoritative receipt mapping can operate without that fingerprint.
+
+After exact receipt + unique mapping the server CAS-persists deliveryProof v2 with parties, original and destination IDs/context, offer/trade IDs, method, verification time and protectionUntil. A PostgreSQL trigger forbids replacing or clearing a non-null proof. No credential is included. Account leases are released only after proof persistence; a restarted worker can recover from the saved proof without reconstructing the original delta.
+
+## Durable state and retries
+
+TradeOperation.verificationStage supplements existing enums: WAITING_FOR_STEAM, OFFER_CREATED, OFFER_ACCEPTED, RECEIPT_VERIFIED, DELIVERY_VERIFIED, PROTECTION_RECHECK, MANUAL_REVIEW. Existing order/trade state machines retain their guarded delivery/hold/completed transitions.
+
+Polling uses persisted nextVerificationAt, checkCount and a five-minute lease with a random fencing token. Normal claims recheck due time in the database. Forced authenticated receipt checks may bypass delay, but cannot bypass the lease, manual review or financial checks. Backoff is exponential with jitter and a 15-minute cap. Technical exhaustion uses MANUAL_REVIEW, keeps the original hold, and does not accuse either participant of a dispute. Actual contradictory delivery/reversal evidence can use DISPUTE. SAFE failure mode cannot refund contradictory evidence.
+
+Mapping leases have a 30-minute deadline but an expired unresolved transfer is quarantined, not reassigned to another order. Time alone does not prove that an offer was never sent. Terminal mapped orders and orders canceled before sending are eligible for safe cleanup. Support must resolve uncertainty before allowing another mapping window; do not delete leases or reset states merely to force a payout.
+
+## Funds and recovery
+
+Every new real delivery proof enters SETTLEMENT_HOLD, including test balances and disabled payout/hold flags. Hold duration is at least eight days from verification/entry. ENABLE_REAL_SETTLEMENT=false pauses release; this change does not enable it. Existing allowlists/limits continue to apply.
+
+Release rereads the exact Steam offer and receipt, compares the immutable proof, checks elapsed protection and reversal, then uses existing guarded ledger/idempotency transitions. Repeating a worker cannot authorize a second ledger settlement. Missing fresh Steam access leaves money held with bounded retry/manual review. No automatic refund is inferred from rollback metadata alone.
+
+Tokens are intentionally not saved for eight days. Automatic release requires the configured server credential to read the trade at release time. A fresh explicitly consented seller request can also invoke the normal held-order release path. If neither source is available, unattended release is not guaranteed and remains blocked; do not weaken that boundary to make a test green.
+
+## Compatibility and rollout
+
+The additive migration 20260929180000_delivery_workflow adds workflow columns, SteamMappingLease and an immutable-proof trigger inside a transaction. It changes no existing order outcome, wallet balance, flag, key or secret. Old disputes stay read-only. The historic control regression uses its IDs with synthetic before/after observations; it is not a reconstruction of the real missing BEFORE snapshot.
+
+Generate a fresh Prisma client in an isolated build. Never regenerate the live client's node_modules during staging. Existing simple release scripts that forbid schema/shared-extension changes are unsuitable for this candidate. Use the separately prepared migration-aware handoff only after all blocked local checks pass. Application rollback keeps this additive schema; database restoration is a separate operator decision.
+
+Unit/type checks are not a substitute for PostgreSQL migration/concurrency tests, Vite/extension tests, artifact inspection or the final consented Steam trade. Do not advertise this candidate as production-ready until those gates pass.

@@ -1,4 +1,5 @@
 export type SettlementBlockCode =
+  | 'STEAM_REVERSAL_DETECTED'
   | 'STEAM_RECHECK_UNAVAILABLE'
   | 'REAL_SETTLEMENT_DISABLED'
   | 'NOT_LIVE_MODE'

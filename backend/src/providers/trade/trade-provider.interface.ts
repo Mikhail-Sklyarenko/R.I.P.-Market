@@ -16,6 +16,13 @@ export type TradeVerificationResult = {
   reasonCode?: string;
   /** Set only from a validated server-side Steam receipt. */
   receivedAssetId?: string;
+  receivedContextId?: string;
+  receiptVerified?: boolean;
+  offerAccepted?: boolean;
+  bindingVerified?: boolean;
+  tradeId?: string;
+  identityConflict?: boolean;
+  reversalDetected?: boolean;
   status:
     | 'needs_confirmation'
     | 'pending'
@@ -28,6 +35,7 @@ export type TradeVerificationResult = {
 };
 
 export type TradeVerificationContext = {
+  tradeBinding?: string;
   sellerSteamId: string | null;
   buyerSteamId: string | null;
   assetId: string;

@@ -6,12 +6,10 @@ jest.mock('./steam-token-read', () => ({ steamTokenRead: jest.fn() }));
 afterEach(() => jest.restoreAllMocks());
 it('logs only fixed identity failure scalars, never credentials or upstream content', async () => {
   const secret = 'synthetic-test-secret-do-not-log';
-  jest
-    .mocked(steamTokenRead)
-    .mockResolvedValue({
-      status: 403,
-      data: { response: { steamid: secret, error: secret } },
-    });
+  jest.mocked(steamTokenRead).mockResolvedValue({
+    status: 403,
+    data: { response: { steamid: secret, error: secret } },
+  });
   const warn = jest
     .spyOn(Logger.prototype, 'warn')
     .mockImplementation(() => undefined);
@@ -29,11 +27,6 @@ it('logs only fixed identity failure scalars, never credentials or upstream cont
   expect(JSON.parse(line)).toEqual({
     event: 'steam_token_identity_unverified',
     httpStatus: 403,
-    responsePresent: true,
-    steamIdPresent: true,
-    steamIdIsString: true,
-    rootSteamIdPresent: false,
-    rootSteamIdIsString: false,
     ownerMatches: false,
   });
 });

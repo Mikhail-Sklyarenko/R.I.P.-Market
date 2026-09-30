@@ -5,6 +5,11 @@ const CONSENT = 'steam-order-verification-consent-v1';
 let running = false;
 let nextAt = 0;
 type Consent = { permissionId: string; orderId: string; sessionId: string; expiresAt: number };
+export async function hasSteamOrderVerificationConsent(orderId:string):Promise<boolean> {
+  const consent=(await chrome.storage.session.get(CONSENT))[CONSENT] as Consent|undefined;
+  const state=await getSessionState();
+  return !!consent && !!state && consent.orderId===orderId && consent.sessionId===state.sessionId && consent.expiresAt>Date.now() && Date.parse(state.expiresAt)>Date.now() && state.apiBaseUrl.replace(/\/$/,'')===BASE;
+}
 export function tokenForOrder(value: string | undefined, owner: unknown): string | null {
   try {
     if (typeof owner !== 'string' || !/^7656119[0-9]{10}$/.test(owner)) return null;
@@ -58,6 +63,9 @@ export async function tickSteamOrderVerification(): Promise<Record<string, unkno
       return await response.json() as Record<string,unknown>;
     };
     const preflight = await post('/preflight',{orderId:consent.orderId});
+    // Consent may be granted at the beginning of the order. No credential is
+    // read until the server has bound an offer; the heartbeat resumes itself.
+    if(preflight.allowed===true && preflight.waitingForOffer===true) return {reasonCode:'WAITING_FOR_OFFER'};
     if (preflight.allowed!==true || typeof preflight.offerId!=='string' || !/^[1-9][0-9]{0,19}$/.test(preflight.offerId)) throw new Error('VERIFICATION_UNAVAILABLE');
     await assertConsent();
     const cookie = await chrome.cookies.get({url:'https://steamcommunity.com/',name:'steamLoginSecure'});
@@ -69,10 +77,10 @@ export async function tickSteamOrderVerification(): Promise<Record<string, unkno
       const result=await post('',{orderId:consent.orderId,offerId:preflight.offerId,consent:true,accessToken});
       const safe: Record<string,unknown>={};
       for(const key of ['mappingVerified','transitioned','diagnosticOnly']) if(typeof result[key]==='boolean') safe[key]=result[key];
-      const reasons=['STEAM_TOKEN_OWNER_UNVERIFIED','STEAM_TOKEN_READ_UNAVAILABLE','STEAM_OFFER_UNAVAILABLE','STEAM_OFFER_ORDER_MISMATCH','STEAM_RECEIPT_MAPPING_UNAVAILABLE'];
+      const reasons=['DELIVERY_VERIFIED','SETTLED','STEAM_TRADE_REVERSAL','STEAM_IDENTITY_CONFLICT','WAITING_FOR_OFFER','STEAM_DESTINATION_MAPPING_PENDING','STEAM_RECEIPT_VERIFIED','STEAM_RECEIPT_UNAVAILABLE','STEAM_TOKEN_OWNER_UNVERIFIED','STEAM_TOKEN_READ_UNAVAILABLE','STEAM_OFFER_UNAVAILABLE','STEAM_OFFER_ORDER_MISMATCH','STEAM_RECEIPT_MAPPING_UNAVAILABLE'];
       if(typeof result.reasonCode==='string' && reasons.includes(result.reasonCode)) safe.reasonCode=result.reasonCode;
       if(typeof result.offerStatus==='string' && ['unknown','pending','needs_confirmation','accepted','declined','expired'].includes(result.offerStatus)) safe.offerStatus=result.offerStatus;
-      if(result.diagnosticOnly===true || result.transitioned===true || ['declined','expired'].includes(String(result.offerStatus))) await stopSteamOrderVerification();
+      if(['STEAM_IDENTITY_CONFLICT','STEAM_TRADE_REVERSAL'].includes(String(result.reasonCode)) || result.diagnosticOnly===true || result.transitioned===true || ['declined','expired'].includes(String(result.offerStatus))) await stopSteamOrderVerification();
       return safe;
     } finally { accessToken=null; }
   } finally { running=false; }

@@ -1,4 +1,3 @@
-import { steamCommunityOwner } from './steam-community-owner';
 import { steamTokenOwner } from './steam-token-owner';
 import { requestCredential } from './steam-request-credential';
 import { steamTokenRead } from './steam-token-read';
@@ -15,6 +14,8 @@ import {
 } from './trade-provider.interface';
 import {
   steamOfferMatchesOrder,
+  steamReceiptComplete,
+  steamReceiptReversed,
   receivedAssetFromSteamReceipt,
 } from './steam-delivery-proof';
 
@@ -31,6 +32,7 @@ type SteamTradeOfferResponse = {
       tradeofferid?: string;
       trade_offer_state?: number;
       tradeid?: string;
+      message?: string;
     };
   };
 };
@@ -144,6 +146,8 @@ export class SteamTradeProvider implements TradeProvider {
     }
 
     let receivedAssetId: string | undefined;
+    let receivedContextId: string | undefined;
+    let receiptVerified = false;
     if (context && status === 'accepted') {
       if (!offer.tradeid || !/^[1-9][0-9]{0,19}$/.test(offer.tradeid)) {
         return { status: 'unknown', tradable: null, tradeLockUntil: null };
@@ -164,20 +168,48 @@ export class SteamTradeProvider implements TradeProvider {
       } | null;
       const trades = receiptData?.response?.trades;
       if (Array.isArray(trades) && trades.length === 1) {
+        if (steamReceiptReversed(trades[0], offer.tradeid, context))
+          return {
+            status: 'unknown',
+            reversalDetected: true,
+            reasonCode: 'STEAM_TRADE_REVERSAL',
+            tradable: null,
+            tradeLockUntil: null,
+          };
+        receiptVerified = steamReceiptComplete(
+          trades[0],
+          offer.tradeid,
+          context,
+        );
         receivedAssetId =
           receivedAssetFromSteamReceipt(trades[0], offer.tradeid, context) ??
           undefined;
       }
-      if (!receivedAssetId)
+      if (receivedAssetId)
+        receivedContextId = (
+          trades![0] as { assets_given: { new_contextid: string }[] }
+        ).assets_given[0].new_contextid;
+      if (!receiptVerified)
         return {
           status: 'unknown',
-          reasonCode: 'STEAM_RECEIPT_MAPPING_UNAVAILABLE',
+          offerAccepted: true,
+          reasonCode: 'STEAM_RECEIPT_UNAVAILABLE',
           tradable: null,
           tradeLockUntil: null,
         };
     }
     return {
-      ...(receivedAssetId ? { receivedAssetId } : {}),
+      ...(context?.tradeBinding
+        ? { bindingVerified: offer.message === context.tradeBinding }
+        : {}),
+      ...(receiptVerified
+        ? {
+            receiptVerified,
+            tradeId: offer.tradeid,
+            receivedAssetId,
+            receivedContextId,
+          }
+        : {}),
       status,
       tradable: null,
       tradeLockUntil: null,
@@ -202,43 +234,29 @@ export class SteamTradeProvider implements TradeProvider {
       if (result.status === 429) throw new SteamTradeRateLimitError();
       return result;
     };
-    // Do not trust a client-supplied SteamID or an unsigned JWT claim.
-    const identity = await read('GetTokenDetails');
+    // An explicit identity contradiction fails closed. Missing legacy OAuth
+    // identity is not authority; the exact server-read seller perspective below is.
+    const identity = await steamTokenRead('GetTokenDetails', token, {});
     const identityData = identity.data as {
       steamid?: unknown;
       response?: { steamid?: unknown };
     } | null;
-    let verifiedOwner = steamTokenOwner(identity.data);
-    // Legacy OAuth may return no identity for a browser token. Do not override
-    // an explicit mismatching/ambiguous identity with a second auth mechanism.
-    let communityStatus: number | undefined;
+    const owner = steamTokenOwner(identity.data);
+    const explicit =
+      identityData?.steamid !== undefined ||
+      identityData?.response?.steamid !== undefined;
     if (
-      identity.status === 200 &&
-      identityData?.steamid === undefined &&
-      identityData?.response?.steamid === undefined &&
-      context.sellerSteamId
+      explicit &&
+      (identity.status !== 200 || owner !== context.sellerSteamId)
     ) {
-      const community = await steamCommunityOwner(token, context.sellerSteamId);
-      communityStatus = community.status;
-      if (community.status === 429) throw new SteamTradeRateLimitError();
-      verifiedOwner = community.owner;
-    }
-    if (identity.status !== 200 || verifiedOwner !== context.sellerSteamId) {
-      // Fixed scalars only: never log URL, token, upstream strings or identity.
       this.logger.warn(
         JSON.stringify({
           event: 'steam_token_identity_unverified',
           httpStatus: identity.status,
-          ...(communityStatus !== undefined ? { communityStatus } : {}),
-          responsePresent: identityData?.response !== undefined,
-          steamIdPresent: identityData?.response?.steamid !== undefined,
-          steamIdIsString: typeof identityData?.response?.steamid === 'string',
-          rootSteamIdPresent: identityData?.steamid !== undefined,
-          rootSteamIdIsString: typeof identityData?.steamid === 'string',
-          ownerMatches: verifiedOwner === context.sellerSteamId,
+          ownerMatches: false,
         }),
       );
-      return unknown('STEAM_TOKEN_OWNER_UNVERIFIED');
+      return { ...unknown('STEAM_IDENTITY_CONFLICT'), identityConflict: true };
     }
     const reply = await read('GetTradeOffer', {
       tradeofferid: offerId,
@@ -266,14 +284,49 @@ export class SteamTradeProvider implements TradeProvider {
     const trades = (
       receipt.data as { response?: { trades?: unknown[] } } | null
     )?.response?.trades;
+    const exactReceipt =
+      receipt.status === 200 && Array.isArray(trades) && trades.length === 1;
+    if (
+      exactReceipt &&
+      steamReceiptReversed(trades[0], offer.tradeid, context)
+    ) {
+      this.logger.warn(
+        JSON.stringify({ event: 'steam_trade_reversal_detected', offerId }),
+      );
+      return { ...unknown('STEAM_TRADE_REVERSAL'), reversalDetected: true };
+    }
+    if (
+      !exactReceipt ||
+      !steamReceiptComplete(trades[0], offer.tradeid, context)
+    )
+      return { ...unknown('STEAM_RECEIPT_UNAVAILABLE'), offerAccepted: true };
     const receivedAssetId =
-      receipt.status === 200 && Array.isArray(trades) && trades.length === 1
-        ? receivedAssetFromSteamReceipt(trades[0], offer.tradeid, context)
-        : null;
-    if (!receivedAssetId) return unknown('STEAM_RECEIPT_MAPPING_UNAVAILABLE');
+      receivedAssetFromSteamReceipt(trades[0], offer.tradeid, context) ??
+      undefined;
+    const receiptItem = (
+      trades[0] as { assets_given: { new_contextid?: string }[] }
+    ).assets_given[0];
+    this.logger.log(
+      JSON.stringify({ event: 'steam_receipt_verified', offerId }),
+    );
+    if (!receivedAssetId)
+      this.logger.log(
+        JSON.stringify({ event: 'steam_destination_mapping_missing', offerId }),
+      );
     return {
       status: 'accepted',
+      ...(context.tradeBinding
+        ? { bindingVerified: offer.message === context.tradeBinding }
+        : {}),
+      receiptVerified: true,
+      tradeId: offer.tradeid,
       receivedAssetId,
+      receivedContextId: receivedAssetId
+        ? receiptItem.new_contextid
+        : undefined,
+      reasonCode: receivedAssetId
+        ? 'STEAM_RECEIPT_VERIFIED'
+        : 'STEAM_DESTINATION_MAPPING_PENDING',
       tradable: null,
       tradeLockUntil: null,
     };

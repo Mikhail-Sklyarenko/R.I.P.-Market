@@ -70,12 +70,12 @@ function matchesItem(
   );
 }
 
-/** No name/float matching, numeric uint64 coercion, protected context or rollback fallback. */
-export function receivedAssetFromSteamReceipt(
+/** Receipt authenticity/completion is independent of destination mapping. */
+export function steamReceiptComplete(
   value: unknown,
   tradeId: string,
   context: TradeVerificationContext,
-): string | null {
+): boolean {
   const receipt = record(value);
   if (
     !receipt ||
@@ -84,7 +84,7 @@ export function receivedAssetFromSteamReceipt(
     receipt.status !== 3 ||
     receipt.steamid_other !== context.buyerSteamId
   )
-    return null;
+    return false;
   const given = receipt.assets_given;
   const received = receipt.assets_received;
   if (
@@ -93,16 +93,52 @@ export function receivedAssetFromSteamReceipt(
     (received !== undefined &&
       (!Array.isArray(received) || received.length !== 0))
   )
-    return null;
+    return false;
   const item = record(given[0]);
+  return (
+    !!item &&
+    matchesItem(item, context.assetId) &&
+    !Object.keys(item).some((key) => key.startsWith('rollback')) &&
+    !Object.keys(receipt).some((key) => key.startsWith('rollback'))
+  );
+}
+
+export function receivedAssetFromSteamReceipt(
+  value: unknown,
+  tradeId: string,
+  context: TradeVerificationContext,
+): string | null {
+  if (!steamReceiptComplete(value, tradeId, context)) return null;
+  const item = record((record(value)!.assets_given as unknown[])[0])!;
+  return (item.new_contextid === '2' || item.new_contextid === '16') &&
+    id(item.new_assetid)
+    ? item.new_assetid
+    : null;
+}
+
+export function steamReceiptReversed(
+  value: unknown,
+  tradeId: string,
+  context: TradeVerificationContext,
+): boolean {
+  const receipt = record(value);
   if (
-    !item ||
-    !matchesItem(item, context.assetId) ||
-    item.new_contextid !== '2' ||
-    !id(item.new_assetid) ||
-    item.rollback_new_assetid !== undefined ||
-    item.rollback_new_contextid !== undefined
+    !receipt ||
+    receipt.tradeid !== tradeId ||
+    receipt.steamid_other !== context.buyerSteamId
   )
-    return null;
-  return item.new_assetid;
+    return false;
+  const assets = Array.isArray(receipt.assets_given)
+    ? receipt.assets_given
+    : [];
+  // ETradeStatus differs from ETradeOfferState: 10 is escrow, 11 its rollback.
+  return (
+    [4, 5, 6, 7, 8, 9, 11].includes(receipt.status as number) ||
+    assets.some((value) => {
+      const item = record(value);
+      return (
+        !!item && Object.keys(item).some((key) => key.startsWith('rollback'))
+      );
+    })
+  );
 }

@@ -122,14 +122,15 @@ export function OrderPage() {
     !mockBlockedByLiveSettlement &&
     canShowDevPanels(user?.role) &&
     (user?.role === 'ADMIN' || (MOCK_TRADE_ENABLED && isBuyer && tradeProvider === 'mock'));
-  const nextAction = order
+  const nextAction = order && order.tradeOperation?.verificationStage !== 'MANUAL_REVIEW'
     ? getOrderNextAction(order, role, locale, {
         extensionConnected: extensionStatus.connected,
         extensionTradeAckEnabled,
         extensionTaskPipeline,
       })
     : null;
-  const showTradePanels = order?.status === 'WAITING_TRADE';
+  const manualReview = order?.tradeOperation?.verificationStage === 'MANUAL_REVIEW';
+  const showTradePanels = order?.status === 'WAITING_TRADE' && !manualReview;
   const isShadowVerification = tradeVerificationMode === 'shadow';
   const showShadowTradeBanner =
     isShadowVerification && showTradePanels && tradeProvider === 'steam';
@@ -300,7 +301,7 @@ export function OrderPage() {
       void requestExtensionPoll();
     }, 4_000);
     return () => window.clearInterval(timer);
-  }, [isSeller, showTradePanels, order?.tradeTask?.id, order?.tradeTask?.executionPhase]);
+  }, [isSeller, showTradePanels, order?.tradeTask]);
 
   async function handleSaveTradeReference() {
     if (!token || !order || !offerInput.trim()) {
@@ -443,6 +444,7 @@ export function OrderPage() {
 
   return (
     <div className="page order-page">
+      {manualReview && <div role="status" className="card">{locale === 'ru' ? 'Нужна дополнительная проверка — средства остаются защищёнными. Повторять обмен не нужно.' : 'Additional verification is needed. Funds remain protected. Do not repeat the trade.'}</div>}
       <PageHeader
         title={t('orderPage.title')}
         subtitle={
@@ -602,7 +604,7 @@ export function OrderPage() {
               <div className="order-action-header">
                 <StatusBadge
                   status={order.status}
-                  label={formatOrderStatus(order.status, locale)}
+                  label={manualReview ? (locale === 'ru' ? 'Дополнительная проверка' : 'Additional verification') : formatOrderStatus(order.status, locale)}
                   compact
                 />
                 <span data-testid="order-status" className="sr-only">
@@ -695,7 +697,7 @@ export function OrderPage() {
                 </div>
               ) : null}
 
-              {dealHealth && actionFocus?.showDealHealthInline ? (
+              {!manualReview && dealHealth && actionFocus?.showDealHealthInline ? (
                 <DealHealthBanner
                   health={dealHealth}
                   onCopyDebugPack={() => void handleCopyDebugPack()}
@@ -714,6 +716,7 @@ export function OrderPage() {
               ) : null}
 
               <DeliveryWaitReason order={order} />
+              {showTradePanels && isSeller && !order.tradeOperation?.externalOfferId && <p className="alert alert-info">{locale === 'ru' ? 'Перед отправкой откройте расширение и разрешите автоматическую проверку этого заказа. После Steam Guard и принятия обмена проверка продолжится сама.' : 'Before sending, open the extension and authorize automatic verification for this order. Verification continues automatically after Steam Guard and acceptance.'}</p>}
               {isSeller && showTradePanels ? (
                 <OrderTradeSellerPanel
                   order={order}
@@ -758,7 +761,7 @@ export function OrderPage() {
 
               {showTradePanels &&
               actionFocus &&
-              actionFocus.timeoutMode !== 'hidden' ? (
+              actionFocus.timeoutMode !== 'hidden' && !manualReview ? (
                 <TradeTimeoutEscalationPanel
                   order={order}
                   role={role}
@@ -799,7 +802,7 @@ export function OrderPage() {
                 >
                   <summary>{t('orderPage.moreForSupport')}</summary>
                   <div className="order-action-more-body">
-                    {dealHealth && !actionFocus.showDealHealthInline ? (
+                    {!manualReview && dealHealth && !actionFocus.showDealHealthInline ? (
                       <DealHealthBanner
                         health={dealHealth}
                         onCopyDebugPack={() => void handleCopyDebugPack()}

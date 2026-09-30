@@ -379,6 +379,8 @@ export type PricingPreview = {
 };
 
 export type TradeOperation = {
+  verificationStage?: string;
+  nextVerificationAt?: string | null;
   id: string;
   status: string;
   providerRef?: string | null;

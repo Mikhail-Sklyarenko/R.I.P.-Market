@@ -24,7 +24,7 @@ describe('decideDeliveryVerification', () => {
     const result = decideDeliveryVerification(
       baseSignals({ rateLimited: true, timedOut: true, failMode: 'SAFE' }),
     );
-    expect(result.action).toBe('DISPUTE');
+    expect(result.action).toBe('MANUAL_REVIEW');
     expect(result.reasonCode).toBe('STEAM_UNAVAILABLE_TIMEOUT');
   });
   it.each(['pending', 'confirmed', 'seller_still_holds'] as const)(
@@ -39,10 +39,10 @@ describe('decideDeliveryVerification', () => {
           failMode: 'SAFE',
         }),
       );
-      expect(result.action).toBe('DISPUTE');
+      expect(result.action).toBe('MANUAL_REVIEW');
       expect(result.reason).toBe('OFFER_UNKNOWN');
       expect(result.reasonCode).toBe('OFFER_UNKNOWN_EXHAUSTED');
-      expect(result.pollOutcome).toBe('FAILED_DISPUTE');
+      expect(result.pollOutcome).toBe('MANUAL_REVIEW');
     },
   );
 
@@ -111,7 +111,7 @@ describe('decideDeliveryVerification', () => {
         checkCount: 5,
       }),
     );
-    expect(decision.action).toBe('DISPUTE');
+    expect(decision.action).toBe('MANUAL_REVIEW');
     expect(decision.reason).toBe('DELIVERY_VERIFICATION_UNKNOWN');
     delete process.env.DELIVERY_ACCEPTED_INVENTORY_PENDING_MAX_CHECKS;
   });
@@ -162,7 +162,7 @@ describe('decideDeliveryVerification', () => {
     const decision = decideDeliveryVerification(
       baseSignals({ timedOut: true }),
     );
-    expect(decision.action).toBe('TIMEOUT');
+    expect(decision.action).toBe('MANUAL_REVIEW');
   });
 
   it('disputes contradictory signals despite buyer receipt', () => {
@@ -235,7 +235,7 @@ describe('decideDeliveryVerification', () => {
         checkCount: 10,
       }),
     );
-    expect(decision.action).toBe('DISPUTE');
+    expect(decision.action).toBe('MANUAL_REVIEW');
     expect(decision.reasonCode).toBe('INVENTORY_UNKNOWN_EXHAUSTED');
     delete process.env.DELIVERY_INVENTORY_UNKNOWN_MAX_CHECKS;
   });
@@ -290,4 +290,12 @@ describe('decideDeliveryVerification', () => {
     expect(decision.action).toBe('DISPUTE');
     expect(decision.reason).toBe('DELIVERY_INVENTORY_MISMATCH');
   });
+});
+
+it('bounds a rate-limited pre-offer workflow instead of retrying forever', () => {
+  const result = decideDeliveryVerification(
+    baseSignals({ hasOfferId: false, rateLimited: true, timedOut: true }),
+  );
+  expect(result.action).toBe('MANUAL_REVIEW');
+  expect(result.pollOutcome).toBe('MANUAL_REVIEW');
 });

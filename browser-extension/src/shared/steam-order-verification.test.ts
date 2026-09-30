@@ -36,3 +36,8 @@ it('rejects alternate backend before reading Steam',async()=>{
  vi.mocked(getSessionState).mockResolvedValue({apiBaseUrl:'https://other.invalid',sessionId:'session',deviceId:'device',accessToken:'site-token',expiresAt:new Date(Date.now()+600000).toISOString()});
  await expect(enableSteamOrderVerification(id)).rejects.toThrow();expect(cookie).not.toHaveBeenCalled();expect(outbound).not.toHaveBeenCalled();
 });
+it('consent before offer creation waits automatically without reading a token',async()=>{
+ outbound.mockResolvedValueOnce({ok:true,json:async()=>({allowed:true,waitingForOffer:true,offerId:null})});
+ expect(await enableSteamOrderVerification(id)).toEqual({reasonCode:'WAITING_FOR_OFFER'});
+ expect(cookie).not.toHaveBeenCalled();expect(JSON.stringify(values)).not.toContain(token);
+});

@@ -1,6 +1,7 @@
 import {
   receivedAssetFromSteamReceipt,
   steamOfferMatchesOrder,
+  steamReceiptReversed,
 } from './steam-delivery-proof';
 
 export const context = {
@@ -131,7 +132,6 @@ describe('Steam proof binding', () => {
   it.each([
     { new_assetid: undefined, new_contextid: undefined },
     { missing: true },
-    { new_contextid: '16' },
     { new_assetid: '0' },
     { new_assetid: 53954582039 },
     { rollback_new_assetid: '123' },
@@ -149,4 +149,18 @@ describe('Steam proof binding', () => {
       ),
     ).toBeNull();
   });
+});
+
+it.each([4, 5, 6, 7, 8, 9, 11])(
+  'receipt reversal status %s blocks release',
+  (status) => {
+    expect(steamReceiptReversed({ ...receipt, status }, tradeId, context)).toBe(
+      true,
+    );
+  },
+);
+it('receipt InEscrow (10) is pending, not EscrowRollback (11)', () => {
+  expect(
+    steamReceiptReversed({ ...receipt, status: 10 }, tradeId, context),
+  ).toBe(false);
 });

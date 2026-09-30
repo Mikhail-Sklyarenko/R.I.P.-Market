@@ -1,6 +1,10 @@
 export function toJsonSafe<T>(value: T): T {
   return JSON.parse(
     JSON.stringify(value, (_key, nestedValue: unknown) => {
+      // Server-only verification state must not disclose either party's entire
+      // inventory or worker fencing tokens through existing order serializers.
+      if (['inventoryBaseline', 'verificationLeaseToken'].includes(_key))
+        return undefined;
       if (typeof nestedValue === 'bigint') {
         return nestedValue.toString();
       }

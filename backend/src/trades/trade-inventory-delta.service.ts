@@ -13,7 +13,8 @@ export type InventoryDeltaResult =
   | 'pending'
   | 'confirmed'
   | 'seller_still_holds'
-  | 'unknown';
+  | 'unknown'
+  | 'ambiguous';
 
 export class InventoryVerificationRateLimitError extends Error {}
 

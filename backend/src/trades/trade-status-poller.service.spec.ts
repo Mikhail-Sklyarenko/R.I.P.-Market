@@ -20,6 +20,7 @@ describe('TradeStatusPollerService', () => {
   }) {
     const prisma = {
       tradeOperation: {
+        updateMany: jest.fn().mockResolvedValue({ count: 1 }),
         findMany: jest.fn().mockResolvedValue(deps.operations ?? []),
         findFirst: jest.fn().mockResolvedValue(deps.singleOperation ?? null),
         update: jest.fn().mockResolvedValue({}),
@@ -206,9 +207,15 @@ describe('TradeStatusPollerService', () => {
     const result = await poller.pollWaitingTrades();
 
     expect(result.transitions).toBe(0);
-    expect(prisma.tradeOperation.update).toHaveBeenCalledWith({
-      where: { id: 'trade-1' },
-      data: { lastCheckedAt: expect.any(Date) },
+    expect(prisma.tradeOperation.updateMany).toHaveBeenCalledWith({
+      where: { id: 'trade-1', verificationLeaseToken: expect.any(String) },
+      data: {
+        lastCheckedAt: expect.any(Date),
+        nextVerificationAt: expect.any(Date),
+        verificationLeaseUntil: null,
+        verificationLeaseToken: null,
+        checkCount: { increment: 1 },
+      },
     });
     expect(deliveryEngine.registerRateLimitBackoff).toHaveBeenCalledWith(
       'order-1',
@@ -327,5 +334,64 @@ describe('TradeStatusPollerService', () => {
     finish(evaluation);
     await Promise.all([first, receipt]);
     expect(deliveryEngine.evaluate).toHaveBeenCalledTimes(2);
+  });
+  it('database lease excludes a second process and fences a stale worker', async () => {
+    const evaluation = {
+      decision: {
+        action: 'CONFIRM',
+        pollOutcome: 'CONFIRMED',
+        reasonCode: 'DUAL_SIGNAL_CONFIRMED',
+      },
+      offerStatus: 'accepted',
+      inventoryDelta: 'confirmed',
+      evidence: { offerStatus: 'accepted', inventoryDelta: 'confirmed' },
+    };
+    const a = buildPoller({ singleOperation: baseOperation, evaluation });
+    const b = buildPoller({ singleOperation: baseOperation, evaluation });
+    let owner: string | null = null;
+    const updateMany = jest.fn(async ({ where, data }) => {
+      if (data.verificationLeaseToken) {
+        if (owner) return { count: 0 };
+        owner = data.verificationLeaseToken;
+        return { count: 1 };
+      }
+      if (where.verificationLeaseToken !== owner) return { count: 0 };
+      if (data.verificationLeaseToken === null) owner = null;
+      return { count: 1 };
+    });
+    a.prisma.tradeOperation.updateMany = updateMany;
+    b.prisma.tradeOperation.updateMany = updateMany;
+    let finish!: (value: typeof evaluation) => void;
+    a.deliveryEngine.evaluate.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          finish = resolve;
+        }),
+    );
+    const first = a.poller.pollOrderById('order-1');
+    await new Promise((resolve) => setImmediate(resolve));
+    await b.poller.pollOrderById('order-1');
+    expect(b.deliveryEngine.evaluate).not.toHaveBeenCalled();
+    owner = 'replacement-after-expiry';
+    finish(evaluation);
+    await first;
+    expect(a.tradesService.applyTradeConfirmedFromPoll).not.toHaveBeenCalled();
+    expect(owner).toBe('replacement-after-expiry');
+  });
+  it('a restarted process honors persisted retry schedule', async () => {
+    const { poller, deliveryEngine } = buildPoller({
+      singleOperation: {
+        ...baseOperation,
+        nextVerificationAt: new Date(Date.now() + 60000),
+      },
+      evaluation: {
+        decision: { action: 'WAIT', pollOutcome: 'WAIT', reasonCode: 'WAIT' },
+        offerStatus: 'unknown',
+        inventoryDelta: 'unknown',
+        evidence: {},
+      },
+    });
+    await poller.pollOrderById('order-1');
+    expect(deliveryEngine.evaluate).not.toHaveBeenCalled();
   });
 });

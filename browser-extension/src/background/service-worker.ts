@@ -1,4 +1,4 @@
-import { enableSteamOrderVerification, stopSteamOrderVerification, tickSteamOrderVerification } from "../shared/steam-order-verification.js";
+import { enableSteamOrderVerification, stopSteamOrderVerification, tickSteamOrderVerification, hasSteamOrderVerificationConsent } from "../shared/steam-order-verification.js";
 import { getCachedSentOffer } from "../shared/trade-offer-sent-cache.js";
 import { runSteamAuthProbe } from "../shared/steam-auth-probe.js";
 import {
@@ -1836,6 +1836,7 @@ async function manualCreateOfferFromRuntime(orderId: string): Promise<{
   }
   processingTasks.add(task.id);
   try {
+    if(task.payload.tradeBinding && !(await hasSteamOrderVerificationConsent(task.orderId))) return {ok:false,error:'Откройте заказ и разрешите автоматическую проверку в окне расширения перед отправкой.'};
     await reporter.remember(task);
     await applyTaskUiTradeFlowFlag(task.payload.uiTradeFlow);
     await new CreateOfferOrchestrator(
@@ -2410,6 +2411,10 @@ async function pollAndProcessTasksInner(): Promise<void> {
   ]);
 
   for (const task of tasks) {
+    if(task.payload.tradeBinding && !(await hasSteamOrderVerificationConsent(task.orderId))) {
+      await chrome.action.setBadgeText({text:'!'});
+      continue;
+    }
     if (processingTasks.has(task.id)) {
       continue;
     }
@@ -2657,7 +2662,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       void stopSteamOrderVerification().then(() => sendResponse({ok:true})); return true;
     }
     if (message.consent !== true || typeof message.orderId !== 'string') { sendResponse({ok:false}); return false; }
-    void enableSteamOrderVerification(message.orderId).then(result => sendResponse({ok:true,result}))
+    void enableSteamOrderVerification(message.orderId).then(result => { sendResponse({ok:true,result}); void chrome.action.setBadgeText({text:''}); void pollAndProcessTasks().catch(()=>undefined); })
       .catch(() => sendResponse({ok:false,error:'Проверка недоступна. Проверьте аккаунт продавца и подключение.'}));
     return true;
   }

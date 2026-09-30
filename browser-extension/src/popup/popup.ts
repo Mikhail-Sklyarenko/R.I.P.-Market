@@ -1118,6 +1118,14 @@ orderRun?.addEventListener('click', async () => {
     orderResult.textContent='Сервер проверяет обмен в Steam…';
     const reply=await chrome.runtime.sendMessage({type:'RIP_MARKET_STEAM_ORDER_VERIFY',orderId,consent:true});
     const reasons: Record<string,string>={
+      DELIVERY_VERIFIED:'Получение предмета подтверждено. Средства находятся на защите Steam.',
+      SETTLED:'Защита завершена. Расчёт выполнен.',
+      STEAM_TRADE_REVERSAL:'Steam сообщил об отмене передачи. Средства заблокированы для проверки.',
+      WAITING_FOR_OFFER:'Автоматическая проверка разрешена. После создания обмена она начнётся сама.',
+      STEAM_IDENTITY_CONFLICT:'Steam сообщил другой аккаунт. Проверка остановлена; средства защищены.',
+      STEAM_DESTINATION_MAPPING_PENDING:'Обмен подтверждён Steam. Проверяем получение предмета автоматически.',
+      STEAM_RECEIPT_UNAVAILABLE:'Steam задерживает данные. Проверка продолжится автоматически.',
+      STEAM_RECEIPT_VERIFIED:'Квитанция Steam проверена. Проверяем доставку предмета.',
       STEAM_TOKEN_OWNER_UNVERIFIED:'Steam не подтвердил владельца токена. Расчёт заблокирован.',
       STEAM_TOKEN_READ_UNAVAILABLE:'Steam не предоставил данные обмена.',
       STEAM_OFFER_UNAVAILABLE:'Обмен недоступен через текущую авторизацию Steam.',

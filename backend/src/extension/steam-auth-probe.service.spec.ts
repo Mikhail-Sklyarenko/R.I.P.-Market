@@ -268,7 +268,7 @@ describe('temporary Steam auth probe', () => {
       offerMatchesOrder: true,
       exactReceipt: true,
       protectedContext: true,
-      receiptMappingVerified: false,
+      receiptMappingVerified: true,
       settlementAuthorized: false,
     });
   });

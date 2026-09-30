@@ -47,6 +47,13 @@ export class SettlementReleaseWorkerService {
             settlementReleasedAt: null,
             settlementHoldUntil: { lte: new Date() },
           },
+          tradeOperation: {
+            verificationStage: { not: 'MANUAL_REVIEW' },
+            OR: [
+              { nextVerificationAt: null },
+              { nextVerificationAt: { lte: new Date() } },
+            ],
+          },
         },
         select: { id: true },
         take: getSettlementReleaseBatchSize(),
@@ -62,15 +69,58 @@ export class SettlementReleaseWorkerService {
           );
           if (result.settled) {
             released += 1;
+          } else if (
+            !result.guard.allowed &&
+            ['STEAM_RECHECK_UNAVAILABLE', 'STEAM_REVERSAL_DETECTED'].includes(
+              result.guard.code,
+            )
+          ) {
+            const operation = await this.prisma.tradeOperation.findUnique({
+              where: { orderId: order.id },
+            });
+            if (operation) {
+              const exhausted =
+                operation.checkCount >= 20 ||
+                result.guard.code === 'STEAM_REVERSAL_DETECTED';
+              await this.prisma.tradeOperation.updateMany({
+                where: {
+                  id: operation.id,
+                  order: { status: OrderStatus.SETTLEMENT_HOLD },
+                },
+                data: {
+                  checkCount: { increment: 1 },
+                  verificationStage: exhausted
+                    ? 'MANUAL_REVIEW'
+                    : 'PROTECTION_RECHECK',
+                  failReasonCode: result.guard.code,
+                  nextVerificationAt: new Date(
+                    Date.now() +
+                      Math.min(
+                        3_600_000,
+                        60_000 * 2 ** Math.min(operation.checkCount, 6),
+                      ),
+                  ),
+                },
+              });
+              this.logger.warn(
+                JSON.stringify({
+                  event: exhausted
+                    ? 'delivery_verification_manual_review'
+                    : 'settlement_release_recheck',
+                  orderId: order.id,
+                  reasonCode: result.guard.code,
+                }),
+              );
+            }
           }
-        } catch (error) {
+        } catch {
           this.logger.error(
             JSON.stringify({
               event: 'settlement_release_failed',
               metric: 'settlement_release_failed_total',
               alert: true,
               orderId: order.id,
-              error: error instanceof Error ? error.message : 'unknown',
+              error: 'SETTLEMENT_RELEASE_UNAVAILABLE',
             }),
           );
         }

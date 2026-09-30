@@ -21,7 +21,7 @@ export function decideDeliveryVerification(
   const result = decide(signals);
   if (signals.timedOut && result.action === 'WAIT') {
     return decision(
-      'TIMEOUT',
+      'MANUAL_REVIEW',
       'TRADE_TIMEOUT',
       'TRADE_TIMEOUT',
       offer,
@@ -34,10 +34,19 @@ export function decideDeliveryVerification(
 function decide(s: DeliveryVerificationSignals): DeliveryVerificationDecision {
   const offer = s.offerStatus;
   const inventory = s.inventoryDelta;
+  if (inventory === 'ambiguous')
+    return decision(
+      'MANUAL_REVIEW',
+      'DELIVERY_VERIFICATION_UNKNOWN',
+      'DESTINATION_AMBIGUOUS',
+      offer,
+      inventory,
+      'MANUAL_REVIEW',
+    );
   if (s.rateLimited) {
-    if (s.timedOut && s.hasOfferId) {
+    if (s.timedOut) {
       return decision(
-        'DISPUTE',
+        'MANUAL_REVIEW',
         'DELIVERY_VERIFICATION_UNKNOWN',
         'STEAM_UNAVAILABLE_TIMEOUT',
         offer,
@@ -129,7 +138,7 @@ function decide(s: DeliveryVerificationSignals): DeliveryVerificationDecision {
     s.checkCount >= getInventoryUnknownMaxChecks()
   ) {
     return decision(
-      'DISPUTE',
+      'MANUAL_REVIEW',
       'INVENTORY_UNKNOWN_EXHAUSTED',
       'INVENTORY_UNKNOWN_EXHAUSTED',
       offer,
@@ -140,7 +149,7 @@ function decide(s: DeliveryVerificationSignals): DeliveryVerificationDecision {
   if (offer === 'accepted') {
     if (s.checkCount >= getAcceptedInventoryPendingMaxChecks()) {
       return decision(
-        'DISPUTE',
+        'MANUAL_REVIEW',
         'DELIVERY_VERIFICATION_UNKNOWN',
         'DELIVERY_VERIFICATION_UNKNOWN',
         offer,
@@ -161,7 +170,7 @@ function decide(s: DeliveryVerificationSignals): DeliveryVerificationDecision {
     s.checkCount >= getOfferUnknownMaxChecks()
   ) {
     return decision(
-      'DISPUTE',
+      'MANUAL_REVIEW',
       'OFFER_UNKNOWN',
       'OFFER_UNKNOWN_EXHAUSTED',
       offer,
@@ -199,7 +208,8 @@ function decision(
     action,
     reason,
     reasonCode,
-    pollOutcome: pollOutcome ?? action,
+    pollOutcome:
+      action === 'MANUAL_REVIEW' ? 'MANUAL_REVIEW' : (pollOutcome ?? action),
     offerStatus,
     inventoryDelta,
   };

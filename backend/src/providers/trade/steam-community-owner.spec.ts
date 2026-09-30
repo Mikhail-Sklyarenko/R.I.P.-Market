@@ -27,14 +27,12 @@ it('requires authenticated redirect, never accepts a public 200 profile', async 
 });
 it('reads identity selected by Steam and does not infer it from expected owner', async () => {
   const other = '76561198655632881';
-  const mock = jest
-    .spyOn(global, 'fetch')
-    .mockResolvedValue(
-      new Response(null, {
-        status: 302,
-        headers: { location: '/profiles/' + other + '/' },
-      }),
-    );
+  const mock = jest.spyOn(global, 'fetch').mockResolvedValue(
+    new Response(null, {
+      status: 302,
+      headers: { location: '/profiles/' + other + '/' },
+    }),
+  );
   expect((await steamCommunityOwner(token, owner)).owner).toBe(other);
   expect(mock.mock.calls[0][0]).toBe('https://steamcommunity.com/my/?xml=1');
   expect(mock.mock.calls[0][1]?.redirect).toBe('manual');

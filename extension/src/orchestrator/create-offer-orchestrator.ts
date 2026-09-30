@@ -190,6 +190,7 @@ export class CreateOfferOrchestrator {
         buyerTradeUrl,
         item,
         taskId: task.id,
+        note: typeof task.payload.tradeBinding === 'string' && /^p2pcs:[a-f0-9-]{36}$/.test(task.payload.tradeBinding) ? task.payload.tradeBinding : undefined,
       });
       if (!draft.ok) {
         await this.failTask(
