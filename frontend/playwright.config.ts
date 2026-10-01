@@ -16,8 +16,8 @@ export default defineConfig({
   },
   webServer: [
     {
-      command:
-        'sh -c "cd ../backend && npm run prisma:migrate:deploy && PORT=3001 npm run start:dev"',
+      command: 'npm run prisma:migrate:deploy && npm run start:dev',
+      cwd: '../backend',
       url: `${API_ORIGIN}/api/v1/health`,
       reuseExistingServer: !process.env.CI,
       timeout: 120_000,

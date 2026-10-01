@@ -17,3 +17,7 @@ copyFileSync(
 cpSync(resolve(root, 'icons'), resolve(dist, 'icons'), { recursive: true });
 
 console.log('Copied manifest, popup, and icons to dist/');
+
+copyFileSync(resolve(root, 'src/popup/order-consent.html'), resolve(dist, 'popup/order-consent.html'));
+
+copyFileSync(resolve(root, 'src/popup/order-consent.css'), resolve(dist, 'popup/order-consent.css'));

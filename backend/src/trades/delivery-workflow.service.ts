@@ -78,8 +78,18 @@ export class DeliveryWorkflowService {
         }
         return true;
       })
-      .catch(() => false);
-    if (!acquired) return false;
+      .catch((error: unknown) => {
+        if (error instanceof Error && error.message === 'MAPPING_WINDOW_BUSY')
+          return false;
+        throw error;
+      });
+    if (!acquired) {
+      await this.prisma.tradeOperation.updateMany({
+        where: { id: operation.id, status: 'WAITING' },
+        data: { failReasonCode: 'MAPPING_WINDOW_BUSY' },
+      });
+      return false;
+    }
     try {
       const seller = await observeSteamInventory(
         operation.order.seller.steamId,
@@ -104,6 +114,8 @@ export class DeliveryWorkflowService {
           ) as Prisma.InputJsonValue,
           tradeBinding: `p2pcs:${randomUUID()}`,
           verificationStage: 'OFFER_CREATED',
+          failReasonCode: null,
+          nextPreparationAt: null,
         },
       });
       return (
@@ -111,7 +123,11 @@ export class DeliveryWorkflowService {
         !!(await this.prisma.tradeOperation.findUnique({ where: { orderId } }))
           ?.inventoryBaseline
       );
-    } catch {
+    } catch (error: unknown) {
+      const reasonCode =
+        error instanceof Error && error.message === 'BASELINE_ORIGINAL_MISSING'
+          ? 'BASELINE_ORIGINAL_MISSING'
+          : 'BASELINE_UNAVAILABLE';
       // No task was handed out on this failed preparation attempt.
       await this.prisma
         .$executeRaw`DELETE FROM "SteamMappingLease" WHERE "orderId"=${orderId} AND NOT EXISTS (SELECT 1 FROM "TradeOperation" WHERE "orderId"=${orderId} AND ("inventoryBaseline" IS NOT NULL OR "externalOfferId" IS NOT NULL))`;
@@ -121,14 +137,14 @@ export class DeliveryWorkflowService {
           nextPreparationAt: new Date(
             Date.now() + 120_000 + Math.floor(Math.random() * 30_000),
           ),
-          failReasonCode: 'BASELINE_UNAVAILABLE',
+          failReasonCode: reasonCode,
         },
       });
       this.logger.warn(
         JSON.stringify({
           event: 'delivery_verification_retry',
           orderId,
-          reasonCode: 'BASELINE_UNAVAILABLE',
+          reasonCode,
         }),
       );
       return false;

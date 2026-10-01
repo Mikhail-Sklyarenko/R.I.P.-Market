@@ -25,6 +25,26 @@ export class SteamOrderVerificationService {
   async prepare(orderId: string) {
     return new DeliveryWorkflowService(this.prisma).prepare(orderId);
   }
+  async preparationFailure(userId: string, orderId: string) {
+    const order = await this.authorize(userId, orderId);
+    const operation = order.tradeOperation!;
+    if (!order.buyer.steamId) return 'BUYER_STEAM_ID_MISSING';
+    if (operation.verificationStage === 'MANUAL_REVIEW') return 'MANUAL_REVIEW';
+    const safeReasons = [
+      'BASELINE_EXPIRED',
+      'BASELINE_ORIGINAL_MISSING',
+      'BASELINE_UNAVAILABLE',
+      'MAPPING_WINDOW_BUSY',
+    ];
+    if (
+      operation.failReasonCode &&
+      safeReasons.includes(operation.failReasonCode)
+    )
+      return operation.failReasonCode;
+    if (operation.nextPreparationAt && operation.nextPreparationAt > new Date())
+      return 'BASELINE_RETRY_SCHEDULED';
+    return 'BEFORE_BASELINE_NOT_READY';
+  }
   async authorize(userId: string, orderId: unknown) {
     if (typeof orderId !== 'string' || !/^[a-f0-9-]{36}$/i.test(orderId))
       throw new BadRequestException('Invalid order');

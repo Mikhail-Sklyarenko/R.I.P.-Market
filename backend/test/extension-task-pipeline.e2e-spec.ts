@@ -310,6 +310,8 @@ describe('Extension task pipeline (e2e)', () => {
     const task = await prisma.tradeTask.findFirst({ where: { orderId } });
     expect(task).toBeTruthy();
     expect(task?.type).toBe('create_offer');
+    expect(task?.status).toBe(TradeTaskStatus.CREATED);
+    expect(task?.dispatchedAt).toBeNull();
 
     const ext = await extensionSessionFor(seller.token);
     await prepareOrderBeforeDispatch(ext, orderId);
@@ -328,6 +330,11 @@ describe('Extension task pipeline (e2e)', () => {
 
     expect(poll.body.tasks).toHaveLength(1);
     const taskId = poll.body.tasks[0].id as string;
+    const dispatched = await prisma.tradeTask.findUniqueOrThrow({
+      where: { id: taskId },
+    });
+    expect(dispatched.status).toBe(TradeTaskStatus.DISPATCHED);
+    expect(dispatched.dispatchedAt).not.toBeNull();
 
     const progress = await request(app.getHttpServer())
       .post('/api/v1/extension/tasks/progress')

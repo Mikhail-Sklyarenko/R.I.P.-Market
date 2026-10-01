@@ -65,7 +65,12 @@ export async function tickSteamOrderVerification(): Promise<Record<string, unkno
     const preflight = await post('/preflight',{orderId:consent.orderId});
     // Consent may be granted at the beginning of the order. No credential is
     // read until the server has bound an offer; the heartbeat resumes itself.
-    if(preflight.allowed===true && preflight.waitingForOffer===true) return {reasonCode:'WAITING_FOR_OFFER'};
+    await assertConsent();
+    if(preflight.allowed===true && preflight.waitingForOffer===true && preflight.baselineReady===true) return {reasonCode:'WAITING_FOR_OFFER',baselineReady:true};
+    if(preflight.baselineReady===false) {
+      const reasons=['BUYER_STEAM_ID_MISSING','MANUAL_REVIEW','BASELINE_EXPIRED','BASELINE_ORIGINAL_MISSING','BASELINE_UNAVAILABLE','MAPPING_WINDOW_BUSY','BASELINE_RETRY_SCHEDULED'];
+      return {reasonCode:reasons.includes(String(preflight.preparationReason)) ? preflight.preparationReason : 'BEFORE_BASELINE_NOT_READY',baselineReady:false};
+    }
     if (preflight.allowed!==true || typeof preflight.offerId!=='string' || !/^[1-9][0-9]{0,19}$/.test(preflight.offerId)) throw new Error('VERIFICATION_UNAVAILABLE');
     await assertConsent();
     const cookie = await chrome.cookies.get({url:'https://steamcommunity.com/',name:'steamLoginSecure'});

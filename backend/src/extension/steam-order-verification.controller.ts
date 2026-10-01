@@ -25,7 +25,13 @@ export class SteamOrderVerificationController {
       allowed: baselineReady !== false,
       baselineReady,
       ...(baselineReady === false
-        ? { reasonCode: 'BEFORE_BASELINE_NOT_READY' }
+        ? {
+            reasonCode: 'BEFORE_BASELINE_NOT_READY',
+            preparationReason: await this.service.preparationFailure(
+              auth.userId,
+              order.id,
+            ),
+          }
         : {}),
       waitingForOffer: !order.tradeOperation!.externalOfferId,
       ownerSteamId: order.seller.steamId,

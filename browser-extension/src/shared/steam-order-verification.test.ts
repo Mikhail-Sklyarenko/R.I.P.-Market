@@ -37,7 +37,25 @@ it('rejects alternate backend before reading Steam',async()=>{
  await expect(enableSteamOrderVerification(id)).rejects.toThrow();expect(cookie).not.toHaveBeenCalled();expect(outbound).not.toHaveBeenCalled();
 });
 it('consent before offer creation waits automatically without reading a token',async()=>{
- outbound.mockResolvedValueOnce({ok:true,json:async()=>({allowed:true,waitingForOffer:true,offerId:null})});
- expect(await enableSteamOrderVerification(id)).toEqual({reasonCode:'WAITING_FOR_OFFER'});
+ outbound.mockResolvedValueOnce({ok:true,json:async()=>({allowed:true,baselineReady:true,waitingForOffer:true,offerId:null})});
+ expect(await enableSteamOrderVerification(id)).toEqual({reasonCode:'WAITING_FOR_OFFER',baselineReady:true});
  expect(cookie).not.toHaveBeenCalled();expect(JSON.stringify(values)).not.toContain(token);
+});
+it('keeps a failed baseline blocked and returns only an allowed preparation reason',async()=>{
+ outbound.mockResolvedValueOnce({ok:true,json:async()=>({allowed:false,baselineReady:false,preparationReason:'MAPPING_WINDOW_BUSY'})});
+ expect(await enableSteamOrderVerification(id)).toEqual({reasonCode:'MAPPING_WINDOW_BUSY',baselineReady:false});
+ expect(cookie).not.toHaveBeenCalled();
+});
+it('cannot turn a legacy allowed response without baselineReady into readiness',async()=>{
+ outbound.mockResolvedValueOnce({ok:true,json:async()=>({allowed:true,waitingForOffer:true,offerId:null})});
+ await expect(enableSteamOrderVerification(id)).rejects.toThrow('VERIFICATION_UNAVAILABLE');
+ expect(cookie).not.toHaveBeenCalled();
+});
+it('does not authorize dispatch when permission is revoked while preflight runs',async()=>{
+ outbound.mockImplementationOnce(async()=>{
+   await stopSteamOrderVerification();
+   return {ok:true,json:async()=>({allowed:true,baselineReady:true,waitingForOffer:true})};
+ });
+ await expect(enableSteamOrderVerification(id)).rejects.toThrow('CONSENT_EXPIRED');
+ expect(cookie).not.toHaveBeenCalled();
 });

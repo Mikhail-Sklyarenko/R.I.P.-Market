@@ -38,6 +38,27 @@ beforeEach(() => {
   service = new SteamOrderVerificationService(prisma, poller);
 });
 afterEach(() => jest.restoreAllMocks());
+it('explains a missing buyer identity without granting preparation', async () => {
+  order.buyer.steamId = null;
+  expect(await service.preparationFailure('seller', id)).toBe(
+    'BUYER_STEAM_ID_MISSING',
+  );
+});
+it.each([
+  'BASELINE_ORIGINAL_MISSING',
+  'BASELINE_UNAVAILABLE',
+  'MAPPING_WINDOW_BUSY',
+  'BASELINE_EXPIRED',
+])('returns safe preparation reason %s', async (reason) => {
+  order.tradeOperation.failReasonCode = reason;
+  expect(await service.preparationFailure('seller', id)).toBe(reason);
+});
+it('does not expose arbitrary upstream errors as preparation reasons', async () => {
+  order.tradeOperation.failReasonCode = 'upstream-secret-detail';
+  expect(await service.preparationFailure('seller', id)).toBe(
+    'BEFORE_BASELINE_NOT_READY',
+  );
+});
 it('rejects buyer, changed offer and missing consent before Steam read', async () => {
   const spy = jest.spyOn(SteamTradeProvider.prototype, 'verifyTradeOffer');
   await expect(service.run('buyer', body())).rejects.toThrow();

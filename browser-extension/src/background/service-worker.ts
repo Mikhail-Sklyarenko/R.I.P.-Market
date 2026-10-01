@@ -1,3 +1,4 @@
+import { consentOrderFromSender, isOrderConsentPage, prepareAndDispatch } from '../shared/order-consent-flow.js';
 import { enableSteamOrderVerification, stopSteamOrderVerification, tickSteamOrderVerification, hasSteamOrderVerificationConsent } from "../shared/steam-order-verification.js";
 import { getCachedSentOffer } from "../shared/trade-offer-sent-cache.js";
 import { runSteamAuthProbe } from "../shared/steam-auth-probe.js";
@@ -2589,6 +2590,13 @@ chrome.notifications.onButtonClicked.addListener(
 
 chrome.runtime.onMessageExternal.addListener(
   (message, _sender, sendResponse) => {
+    if (message?.type === 'RIP_MARKET_OPEN_ORDER_CONSENT') {
+      const orderId = consentOrderFromSender(message.orderId, _sender.url);
+      if (!orderId) { sendResponse({ok:false}); return false; }
+      void chrome.tabs.create({url:chrome.runtime.getURL('popup/order-consent.html')+'?orderId='+encodeURIComponent(orderId)})
+        .then(() => sendResponse({ok:true})).catch(() => sendResponse({ok:false}));
+      return true;
+    }
     if (message?.type === "RIP_MARKET_PAIR") {
       void pairExtension({
         userJwt: String(message.userJwt ?? ""),
@@ -2657,12 +2665,16 @@ chrome.runtime.onMessageExternal.addListener(
 
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message?.type === 'RIP_MARKET_STEAM_ORDER_VERIFY' || message?.type === 'RIP_MARKET_STEAM_ORDER_STOP') {
-    if (sender.id !== chrome.runtime.id || sender.url !== chrome.runtime.getURL('popup/popup.html')) { sendResponse({ ok:false }); return false; }
+    if (!(sender.id === chrome.runtime.id && sender.url === chrome.runtime.getURL('popup/popup.html')) && !isOrderConsentPage(sender, message.orderId)) { sendResponse({ ok:false }); return false; }
     if (message.type === 'RIP_MARKET_STEAM_ORDER_STOP') {
       void stopSteamOrderVerification().then(() => sendResponse({ok:true})); return true;
     }
     if (message.consent !== true || typeof message.orderId !== 'string') { sendResponse({ok:false}); return false; }
-    void enableSteamOrderVerification(message.orderId).then(result => { sendResponse({ok:true,result}); void chrome.action.setBadgeText({text:''}); void pollAndProcessTasks().catch(()=>undefined); })
+    void prepareAndDispatch(message.orderId, message.consent, enableSteamOrderVerification, async () => {
+      // A poll started before baseline persistence must not satisfy this request.
+      if (pollInFlight) await pollInFlight.catch(() => undefined);
+      await pollAndProcessTasks();
+    }).then(result => { sendResponse({ok:true,result}); void chrome.action.setBadgeText({text:''}); })
       .catch(() => sendResponse({ok:false,error:'Проверка недоступна. Проверьте аккаунт продавца и подключение.'}));
     return true;
   }

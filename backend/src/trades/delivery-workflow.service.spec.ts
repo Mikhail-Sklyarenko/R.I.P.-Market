@@ -228,7 +228,20 @@ describe('pre-send preparation', () => {
     const { op, tx, service } = preparation();
     tx.$queryRaw.mockResolvedValue([]);
     expect(await service.prepare(op.orderId)).toBe(false);
+    expect(op).toMatchObject({ failReasonCode: 'MAPPING_WINDOW_BUSY' });
     expect(observe).not.toHaveBeenCalled();
+  });
+  it('reports missing original separately from an unavailable Steam inventory', async () => {
+    const { op, service } = preparation();
+    observe.mockResolvedValue({
+      fetchedAt: new Date().toISOString(),
+      assets: [],
+    });
+    expect(await service.prepare(op.orderId)).toBe(false);
+    expect(op).toMatchObject({
+      inventoryBaseline: null,
+      failReasonCode: 'BASELINE_ORIGINAL_MISSING',
+    });
   });
   it('incomplete inventory schedules a retry without publishing a baseline', async () => {
     const { op, service, prisma } = preparation();

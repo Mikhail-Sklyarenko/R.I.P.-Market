@@ -46,6 +46,7 @@ export default defineConfig({
           'src/background/service-worker.ts',
         ),
         'popup/popup': resolve(root, 'src/popup/popup.ts'),
+        'popup/order-consent': resolve(root, 'src/popup/order-consent.ts'),
       },
       output: {
         entryFileNames: '[name].js',

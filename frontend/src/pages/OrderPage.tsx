@@ -1,3 +1,4 @@
+import { OrderPreparationConsent } from '../components/OrderPreparationConsent';
 import { useCallback, useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { acknowledgeOrderTrade, cancelOrder, checkOrderDelivery, getAuthConfig, getOrder, mockTradeSuccess, updateOrderTradeReference } from '../api/marketplace';
@@ -716,7 +717,7 @@ export function OrderPage() {
               ) : null}
 
               <DeliveryWaitReason order={order} />
-              {showTradePanels && isSeller && !order.tradeOperation?.externalOfferId && <p className="alert alert-info">{locale === 'ru' ? 'Перед отправкой откройте расширение и разрешите автоматическую проверку этого заказа. После Steam Guard и принятия обмена проверка продолжится сама.' : 'Before sending, open the extension and authorize automatic verification for this order. Verification continues automatically after Steam Guard and acceptance.'}</p>}
+              {showTradePanels && isSeller && order.status === 'WAITING_TRADE' && !order.tradeOperation?.externalOfferId && <OrderPreparationConsent key={order.id} orderId={order.id} locale={locale} />}
               {isSeller && showTradePanels ? (
                 <OrderTradeSellerPanel
                   order={order}
