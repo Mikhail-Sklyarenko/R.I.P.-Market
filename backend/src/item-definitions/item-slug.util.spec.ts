@@ -19,6 +19,8 @@ describe('item-slug util', () => {
 
   it('resolves slug collisions with numeric suffix', () => {
     const reserved = new Set(['ak-47-redline']);
-    expect(resolveUniqueItemSlug('AK-47 | Redline', reserved)).toBe('ak-47-redline-2');
+    expect(resolveUniqueItemSlug('AK-47 | Redline', reserved)).toBe(
+      'ak-47-redline-2',
+    );
   });
 });

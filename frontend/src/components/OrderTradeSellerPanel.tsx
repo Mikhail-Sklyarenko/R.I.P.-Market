@@ -129,7 +129,7 @@ export function OrderTradeSellerPanel({
         />
       ) : null}
 
-      {extensionMode && extensionHandling && isConfirmPending ? (
+      {!focusMode && extensionMode && extensionHandling && isConfirmPending ? (
         <div className="extension-seller-cta" data-testid="seller-extension-guard-cta">
           <strong>{t('orderTradePanel.confirmGuardTitle')}</strong>
           <p className="muted small">{t('orderTradePanel.confirmGuardBody')}</p>
@@ -155,7 +155,7 @@ export function OrderTradeSellerPanel({
         </div>
       ) : null}
 
-      {sellerAckSent && !isDeliveryCheck ? (
+      {sellerAckSent && !isDeliveryCheck && !isConfirmPending ? (
         <p className="alert alert-success" data-testid="seller-ack-sent-done">
           {t('orderTradePanel.ackSentDone')}
         </p>

@@ -1,4 +1,11 @@
-import { ArrayMaxSize, ArrayMinSize, IsArray, IsBoolean, IsOptional, IsString } from 'class-validator';
+import {
+  ArrayMaxSize,
+  ArrayMinSize,
+  IsArray,
+  IsBoolean,
+  IsOptional,
+  IsString,
+} from 'class-validator';
 
 export class InventoryPriceHintsDto {
   @IsArray()

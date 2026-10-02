@@ -78,7 +78,9 @@ export type ListingEligibilityAsset = {
 export function isDefaultStockWeaponMarketHashName(
   marketHashName: string,
 ): boolean {
-  return DEFAULT_STOCK_WEAPON_NAMES_LOWER.has(marketHashName.trim().toLowerCase());
+  return DEFAULT_STOCK_WEAPON_NAMES_LOWER.has(
+    marketHashName.trim().toLowerCase(),
+  );
 }
 
 export function isListableMarketHashName(marketHashName: string): boolean {

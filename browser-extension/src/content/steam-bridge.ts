@@ -12,6 +12,7 @@ const OfferErrorCode = {
 } as const;
 
 type DraftPayload = {
+  note?: string;
   buyerTradeUrl: string;
   item: {
     assetId: string;
@@ -22,6 +23,7 @@ type DraftPayload = {
 };
 
 type DraftStore = {
+  note?: string;
   buyerTradeUrl: string;
   item: DraftPayload['item'];
 };
@@ -219,7 +221,7 @@ async function sendTradeOffer(draft: DraftStore): Promise<{
   form.set('sessionid', sessionid);
   form.set('serverid', '1');
   form.set('partner', tradeParams.partner);
-  form.set('tradeoffermessage', 'R.I.P Market trade');
+  form.set('tradeoffermessage', draft.note?.trim() || 'R.I.P Market trade');
   form.set('json_tradeoffer', JSON.stringify(tradeOffer));
   form.set(
     'trade_offer_create_params',
@@ -288,6 +290,7 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
         }
         const draftId = `draft-${item.assetId}`;
         draftStore.set(draftId, {
+          note: payload.note,
           buyerTradeUrl: payload.buyerTradeUrl,
           item,
         });

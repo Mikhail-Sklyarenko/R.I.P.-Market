@@ -9,6 +9,8 @@ export type InventorySyncStatus =
 export type SyncResult = {
   status: InventorySyncStatus;
   itemCount: number;
+  /** Exact asset IDs from this live fetch, never reconstructed from local listing state. */
+  observedAssetIds?: string[];
   fetchedAt: Date;
   expiresAt: Date;
   cacheHit: boolean;

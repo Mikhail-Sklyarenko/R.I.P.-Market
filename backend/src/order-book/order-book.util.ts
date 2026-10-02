@@ -115,7 +115,9 @@ export function buildOrderBookSnapshot(params: {
 
   const asksLevels =
     params.asksLevels ??
-    aggregateAskLevels(params.asks.map((ask) => ({ priceMinor: ask.priceMinor })));
+    aggregateAskLevels(
+      params.asks.map((ask) => ({ priceMinor: ask.priceMinor })),
+    );
 
   return {
     bids: params.bids,

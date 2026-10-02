@@ -49,6 +49,11 @@ function trade(
 }
 
 describe('deal-confirm-flow', () => {
+  it('does not call an acknowledged but unverified delivery done', () => {
+    expect(resolveDealConfirmPhase(trade({ orderId: 'ack', role: 'buyer',
+      acknowledgments: { sellerAckSent: true, buyerPreAccept: true, buyerReceived: true },
+    }))).toBe('verifying');
+  });
   it('detects dual-signal ok', () => {
     expect(
       isDeliveryDualSignalOk({
@@ -145,7 +150,7 @@ describe('deal-confirm-flow', () => {
     ).toBe('done');
   });
 
-  it('shows received after accept assist while still waiting', () => {
+  it('shows received only after Steam acceptance is observed while still waiting', () => {
     expect(
       needsBuyerReceivedConfirm(
         trade({
@@ -153,8 +158,12 @@ describe('deal-confirm-flow', () => {
           role: 'buyer',
           orderStatus: 'WAITING_TRADE',
         }),
-        { acceptAssistDone: true },
+        { steamAcceptanceObserved: true },
       ),
     ).toBe(true);
+  });
+  it('keeps the accept step when no Steam acceptance has been observed', () => {
+    const pending = trade({ orderId: 'pending', role: 'buyer', orderStatus: 'WAITING_TRADE' });
+    expect(needsBuyerReceivedConfirm(pending, { steamAcceptanceObserved: false })).toBe(false);
   });
 });

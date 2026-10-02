@@ -41,7 +41,9 @@ export class NorthClient {
     this.timeoutMs = opts.timeoutMs ?? 20_000;
   }
 
-  async createCheckout(input: NorthCheckoutRequest): Promise<NorthCheckoutSession> {
+  async createCheckout(
+    input: NorthCheckoutRequest,
+  ): Promise<NorthCheckoutSession> {
     assertPaymentMethod(input.paymentMethod);
     if (!input.externalId) {
       throw new Error('externalId is required');
@@ -62,7 +64,9 @@ export class NorthClient {
     });
   }
 
-  async getCheckout(invoiceIdOrExternalId: string): Promise<NorthCheckoutSession> {
+  async getCheckout(
+    invoiceIdOrExternalId: string,
+  ): Promise<NorthCheckoutSession> {
     return this.request<NorthCheckoutSession>(
       'GET',
       `/v1/checkout/${encodeURIComponent(invoiceIdOrExternalId)}`,

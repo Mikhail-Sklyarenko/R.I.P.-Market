@@ -20,6 +20,7 @@ describe('TradeStatusPollerService', () => {
   }) {
     const prisma = {
       tradeOperation: {
+        updateMany: jest.fn().mockResolvedValue({ count: 1 }),
         findMany: jest.fn().mockResolvedValue(deps.operations ?? []),
         findFirst: jest.fn().mockResolvedValue(deps.singleOperation ?? null),
         update: jest.fn().mockResolvedValue({}),
@@ -111,6 +112,28 @@ describe('TradeStatusPollerService', () => {
     });
   });
 
+  it('routes exhausted offer evidence to review, never settlement or safe failure', async () => {
+    const { poller, tradesService } = buildPoller({
+      operations: [baseOperation],
+      evaluation: {
+        decision: {
+          action: 'DISPUTE',
+          reason: 'OFFER_UNKNOWN',
+          reasonCode: 'OFFER_UNKNOWN_EXHAUSTED',
+          pollOutcome: 'FAILED_DISPUTE',
+        },
+        offerStatus: 'unknown',
+        inventoryDelta: 'pending',
+        evidence: {},
+      },
+    });
+    await poller.pollWaitingTrades();
+    expect(tradesService.applyUnknownTradeStateFromPoll).toHaveBeenCalled();
+    expect(tradesService.applyTradeConfirmedFromPoll).not.toHaveBeenCalled();
+    expect(tradesService.applyTradeFailedFromPoll).not.toHaveBeenCalled();
+    expect(tradesService.applyTradeTimeout).not.toHaveBeenCalled();
+  });
+
   it('confirms trade when dual-signal decision is CONFIRM', async () => {
     const evidence = {
       offerStatus: 'accepted',
@@ -167,7 +190,7 @@ describe('TradeStatusPollerService', () => {
   });
 
   it('does not transition on rate-limit backoff', async () => {
-    const { poller, tradesService, deliveryEngine } = buildPoller({
+    const { poller, tradesService, deliveryEngine, prisma } = buildPoller({
       operations: [baseOperation],
       evaluation: {
         decision: {
@@ -184,6 +207,16 @@ describe('TradeStatusPollerService', () => {
     const result = await poller.pollWaitingTrades();
 
     expect(result.transitions).toBe(0);
+    expect(prisma.tradeOperation.updateMany).toHaveBeenCalledWith({
+      where: { id: 'trade-1', verificationLeaseToken: expect.any(String) },
+      data: {
+        lastCheckedAt: expect.any(Date),
+        nextVerificationAt: expect.any(Date),
+        verificationLeaseUntil: null,
+        verificationLeaseToken: null,
+        checkCount: { increment: 1 },
+      },
+    });
     expect(deliveryEngine.registerRateLimitBackoff).toHaveBeenCalledWith(
       'order-1',
     );
@@ -253,9 +286,20 @@ describe('TradeStatusPollerService', () => {
   it('coalesces simultaneous browser polls and throttles subsequent refreshes', async () => {
     const { poller, deliveryEngine } = buildPoller({
       singleOperation: baseOperation,
-      evaluation: { decision: { action: 'WAIT', pollOutcome: 'WAIT', reasonCode: 'INVENTORY_UNKNOWN_RETRY' }, offerStatus: 'unknown', inventoryDelta: 'unknown', evidence: {} },
+      evaluation: {
+        decision: {
+          action: 'WAIT',
+          pollOutcome: 'WAIT',
+          reasonCode: 'INVENTORY_UNKNOWN_RETRY',
+        },
+        offerStatus: 'unknown',
+        inventoryDelta: 'unknown',
+        evidence: {},
+      },
     });
-    await Promise.all(Array.from({ length: 12 }, () => poller.pollOrderById('order-1')));
+    await Promise.all(
+      Array.from({ length: 12 }, () => poller.pollOrderById('order-1')),
+    );
     await poller.pollOrderById('order-1');
     expect(deliveryEngine.evaluate).toHaveBeenCalledTimes(1);
     await poller.pollOrderById('order-1', { force: true });
@@ -263,16 +307,91 @@ describe('TradeStatusPollerService', () => {
   });
 
   it('checks fresh receipt evidence after an already running evaluation', async () => {
-    const evaluation = { decision: { action: 'WAIT', pollOutcome: 'WAIT', reasonCode: 'OFFER_PENDING' }, offerStatus: 'unknown', inventoryDelta: 'unknown', evidence: {} };
-    const { poller, deliveryEngine } = buildPoller({ singleOperation: baseOperation, evaluation });
+    const evaluation = {
+      decision: {
+        action: 'WAIT',
+        pollOutcome: 'WAIT',
+        reasonCode: 'OFFER_PENDING',
+      },
+      offerStatus: 'unknown',
+      inventoryDelta: 'unknown',
+      evidence: {},
+    };
+    const { poller, deliveryEngine } = buildPoller({
+      singleOperation: baseOperation,
+      evaluation,
+    });
     let finish!: (value: typeof evaluation) => void;
-    deliveryEngine.evaluate.mockImplementationOnce(() => new Promise(resolve => { finish = resolve; }));
+    deliveryEngine.evaluate.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          finish = resolve;
+        }),
+    );
     const first = poller.pollOrderById('order-1');
-    await new Promise(resolve => setImmediate(resolve));
+    await new Promise((resolve) => setImmediate(resolve));
     const receipt = poller.pollOrderById('order-1', { force: true });
     finish(evaluation);
     await Promise.all([first, receipt]);
     expect(deliveryEngine.evaluate).toHaveBeenCalledTimes(2);
   });
-
+  it('database lease excludes a second process and fences a stale worker', async () => {
+    const evaluation = {
+      decision: {
+        action: 'CONFIRM',
+        pollOutcome: 'CONFIRMED',
+        reasonCode: 'DUAL_SIGNAL_CONFIRMED',
+      },
+      offerStatus: 'accepted',
+      inventoryDelta: 'confirmed',
+      evidence: { offerStatus: 'accepted', inventoryDelta: 'confirmed' },
+    };
+    const a = buildPoller({ singleOperation: baseOperation, evaluation });
+    const b = buildPoller({ singleOperation: baseOperation, evaluation });
+    let owner: string | null = null;
+    const updateMany = jest.fn(async ({ where, data }) => {
+      if (data.verificationLeaseToken) {
+        if (owner) return { count: 0 };
+        owner = data.verificationLeaseToken;
+        return { count: 1 };
+      }
+      if (where.verificationLeaseToken !== owner) return { count: 0 };
+      if (data.verificationLeaseToken === null) owner = null;
+      return { count: 1 };
+    });
+    a.prisma.tradeOperation.updateMany = updateMany;
+    b.prisma.tradeOperation.updateMany = updateMany;
+    let finish!: (value: typeof evaluation) => void;
+    a.deliveryEngine.evaluate.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          finish = resolve;
+        }),
+    );
+    const first = a.poller.pollOrderById('order-1');
+    await new Promise((resolve) => setImmediate(resolve));
+    await b.poller.pollOrderById('order-1');
+    expect(b.deliveryEngine.evaluate).not.toHaveBeenCalled();
+    owner = 'replacement-after-expiry';
+    finish(evaluation);
+    await first;
+    expect(a.tradesService.applyTradeConfirmedFromPoll).not.toHaveBeenCalled();
+    expect(owner).toBe('replacement-after-expiry');
+  });
+  it('a restarted process honors persisted retry schedule', async () => {
+    const { poller, deliveryEngine } = buildPoller({
+      singleOperation: {
+        ...baseOperation,
+        nextVerificationAt: new Date(Date.now() + 60000),
+      },
+      evaluation: {
+        decision: { action: 'WAIT', pollOutcome: 'WAIT', reasonCode: 'WAIT' },
+        offerStatus: 'unknown',
+        inventoryDelta: 'unknown',
+        evidence: {},
+      },
+    });
+    await poller.pollOrderById('order-1');
+    expect(deliveryEngine.evaluate).not.toHaveBeenCalled();
+  });
 });

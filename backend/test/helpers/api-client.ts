@@ -9,8 +9,10 @@ import { LedgerService } from '../../src/wallet/ledger.service';
 import { buildSteamTradeUrlForSteamId64 } from '../../src/users/trade-url.util';
 
 export const MOCK_SELLER_STEAM_ID = '76561198000000000';
-export const MOCK_TRADE_URL =
-  buildSteamTradeUrlForSteamId64(MOCK_SELLER_STEAM_ID, 'AbCdEfGh')!;
+export const MOCK_TRADE_URL = buildSteamTradeUrlForSteamId64(
+  MOCK_SELLER_STEAM_ID,
+  'AbCdEfGh',
+)!;
 
 type AuthSession = {
   token: string;
@@ -167,7 +169,11 @@ export class ApiClient {
       .set('Authorization', `Bearer ${session.token}`);
   }
 
-  async updateLotPrice(session: AuthSession, lotId: string, priceMinor: number) {
+  async updateLotPrice(
+    session: AuthSession,
+    lotId: string,
+    priceMinor: number,
+  ) {
     return request(this.app.getHttpServer())
       .patch(`/api/v1/lots/${lotId}/price`)
       .set('Authorization', `Bearer ${session.token}`)

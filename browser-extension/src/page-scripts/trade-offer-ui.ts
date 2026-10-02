@@ -197,10 +197,14 @@ export async function waitForTradePageReady(
 ): Promise<void> {
   const deadline = Date.now() + timeoutMs;
   while (Date.now() < deadline) {
-    prepareYourInventory();
-    requestCs2Inventory();
     if (isCs2TradeInventoryReady(assetId)) {
       return;
+    }
+    try {
+      prepareYourInventory();
+      requestCs2Inventory();
+    } catch {
+      // Steam can still be initializing its inventory/tutorial controls.
     }
     await new Promise((resolve) => setTimeout(resolve, 250));
   }
@@ -287,8 +291,11 @@ export function selectItemForTrade(
   contextId = CS2_CONTEXT,
   assetId: string,
 ): void {
-  prepareYourInventory();
-  requestCs2Inventory();
+  if (isItemInTradeOffer(assetId)) return;
+  if (!isCs2TradeInventoryReady(assetId)) {
+    prepareYourInventory();
+    requestCs2Inventory();
+  }
 
   const win = getSteamWindow();
   const element = findAssetElement(appId, contextId, assetId);
@@ -338,41 +345,53 @@ export function setTradeNote(text: string): void {
   noteInput.dispatchEvent(new Event('input', { bubbles: true }));
 }
 
-function clickReadyIfPresent(): void {
-  const readyButton = document.querySelector<HTMLElement>('#trade_confirmbtn');
-  if (readyButton && readyButton.style.display !== 'none') {
-    readyButton.click();
-  }
+function isVisible(element: HTMLElement | null): element is HTMLElement {
+  return Boolean(element && !element.hidden &&
+    getComputedStyle(element).display !== 'none' &&
+    getComputedStyle(element).visibility !== 'hidden');
 }
 
-export function submitTradeOffer(): void {
-  const win = getSteamWindow();
-  clickReadyIfPresent();
-
-  if (typeof win.ConfirmTradeOffer === 'function') {
-    win.ConfirmTradeOffer();
-    return;
+export async function submitTradeOffer(
+  verifyComposition: () => boolean,
+  timeoutMs = 5_000,
+): Promise<void> {
+  const verify = () => {
+    if (!verifyComposition()) throw new Error('Offer composition changed or cannot be verified');
+  };
+  verify();
+  if (!isVisible(document.querySelector<HTMLElement>('#you_ready'))) {
+    const ready = document.querySelector<HTMLElement>('#you_notready');
+    if (!isVisible(ready)) throw new Error('Steam readiness control is unavailable');
+    ready.click();
   }
-
-  const confirmButton = document.querySelector<HTMLElement>(
-    '#trade_confirm_ok_btn',
-  );
-  if (confirmButton) {
-    confirmButton.click();
-    return;
+  const deadline = Date.now() + timeoutMs;
+  let giftConfirmed = false;
+  while (!isVisible(document.querySelector<HTMLElement>('#you_ready'))) {
+    verify();
+    // The order explicitly transfers one seller item and no buyer items.
+    // Only acknowledge this specific Steam dialog, never arbitrary modals.
+    const gift = Array.from(document.querySelectorAll<HTMLElement>('button, a, span'))
+      .find((element) => isVisible(element) &&
+        ['Yes, this is a gift', 'Да, это подарок'].includes(element.textContent?.trim() ?? ''));
+    if (gift && !giftConfirmed) {
+      giftConfirmed = true;
+      gift.click();
+    }
+    if (Date.now() >= deadline) throw new Error('Steam readiness confirmation did not complete');
+    await new Promise((resolve) => setTimeout(resolve, 100));
   }
-
-  const sendButton = document.querySelector<HTMLElement>('#trade_confirmbtn');
-  if (sendButton) {
-    sendButton.click();
-    return;
+  verify();
+  const send = document.querySelector<HTMLElement>('#trade_confirmbtn');
+  if (!isVisible(send) || send.classList.contains('disabled') || send.getAttribute('aria-disabled') === 'true') {
+    throw new Error('Send button not available on trade page');
   }
-
-  throw new Error('Send button not available on trade page');
+  // #trade_confirmbtn IS the send button; never invoke ConfirmTradeOffer again.
+  send.click();
 }
 
 export function installSendInterceptor(
   timeoutMs = 30_000,
+  signal?: AbortSignal,
 ): Promise<SteamSendResponse> {
   return new Promise((resolve, reject) => {
     const win = getSteamWindow();
@@ -382,9 +401,18 @@ export function installSendInterceptor(
       return;
     }
     const boundJquery = jquery;
+    function cleanup(): void {
+      window.clearTimeout(timeout);
+      boundJquery(document).off('ajaxComplete', onAjaxComplete);
+      signal?.removeEventListener('abort', onAbort);
+    }
+    function onAbort(): void {
+      cleanup();
+      reject(new Error('Send observation cancelled'));
+    }
 
     const timeout = window.setTimeout(() => {
-      boundJquery(document).off('ajaxComplete', onAjaxComplete);
+      cleanup();
       reject(new Error('Send interceptor timeout'));
     }, timeoutMs);
 
@@ -398,8 +426,7 @@ export function installSendInterceptor(
         return;
       }
 
-      window.clearTimeout(timeout);
-      boundJquery(document).off('ajaxComplete', onAjaxComplete);
+      cleanup();
 
       const responseText = xhr.responseText ?? '';
       if (!responseText || responseText === 'null') {
@@ -419,6 +446,8 @@ export function installSendInterceptor(
     }
 
     boundJquery(document).ajaxComplete(onAjaxComplete);
+    signal?.addEventListener('abort', onAbort, { once: true });
+    if (signal?.aborted) onAbort();
   });
 }
 
@@ -497,6 +526,7 @@ export async function prepareAndSelectItem(
 }
 
 export async function submitAndWaitForSend(): Promise<TradeOfferSendResult> {
+  const sendObservation = new AbortController();
   try {
     if (!preparedDraft || !hasExactPreparedComposition(preparedDraft))
       return {
@@ -505,9 +535,11 @@ export async function submitAndWaitForSend(): Promise<TradeOfferSendResult> {
       };
     const sendingDraft = preparedDraft;
     preparedDraft = null;
-    const interceptor = installSendInterceptor();
-    submitTradeOffer();
-    const steamResponse = await interceptor;
+    const interceptor = installSendInterceptor(30_000, sendObservation.signal);
+    const [steamResponse] = await Promise.all([
+      interceptor,
+      submitTradeOffer(() => hasExactPreparedComposition(sendingDraft)),
+    ]);
     const result = parseSteamSendResponse(steamResponse);
     if (result.ok && sendingDraft.draftId)
       window.postMessage(
@@ -527,6 +559,8 @@ export async function submitAndWaitForSend(): Promise<TradeOfferSendResult> {
       ok: false,
       error: error instanceof Error ? error.message : 'Trade offer send failed',
     };
+  } finally {
+    sendObservation.abort();
   }
 }
 

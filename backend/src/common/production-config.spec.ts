@@ -6,7 +6,7 @@ import {
 describe('production-config', () => {
   it('allows non-production without checks', () => {
     expect(() =>
-      assertProductionConfig({ NODE_ENV: 'development' } as NodeJS.ProcessEnv),
+      assertProductionConfig({ NODE_ENV: 'development' }),
     ).not.toThrow();
   });
 
@@ -17,7 +17,7 @@ describe('production-config', () => {
         JWT_SECRET: 'x'.repeat(32),
         AUTH_PROVIDER: 'steam',
         ENABLE_MOCK_DEPOSIT: 'true',
-      } as NodeJS.ProcessEnv),
+      }),
     ).toThrow(/ENABLE_MOCK_DEPOSIT/);
   });
 
@@ -26,7 +26,7 @@ describe('production-config', () => {
       PAYMENT_PROVIDER: 'crypto_tron',
       ENABLE_MOCK_TRADE: 'true',
       ENABLE_MOCK_DEPOSIT: 'false',
-    } as NodeJS.ProcessEnv);
+    });
     expect(warnings.some((w) => w.includes('ENABLE_MOCK_TRADE'))).toBe(true);
   });
 
@@ -35,7 +35,7 @@ describe('production-config', () => {
       assertMoneyStagingSafety({
         PAYMENT_PROVIDER: 'crypto_tron',
         ENABLE_TEST_ROUTES: 'true',
-      } as NodeJS.ProcessEnv),
+      }),
     ).toThrow(/ENABLE_TEST_ROUTES/);
   });
 });

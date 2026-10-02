@@ -125,9 +125,9 @@ describe('buildCatalogCardSeeds for non-skin sources', () => {
       ],
       crateSource,
     );
-    expect(seeds.find((s) => s.marketHashName === 'Revolution Case')?.weapon).toBe(
-      'Case',
-    );
+    expect(
+      seeds.find((s) => s.marketHashName === 'Revolution Case')?.weapon,
+    ).toBe('Case');
     expect(
       seeds.find(
         (s) => s.marketHashName === 'Stockholm 2021 Contenders Sticker Capsule',
@@ -155,7 +155,8 @@ describe('buildCatalogCardSeeds for non-skin sources', () => {
       seeds.find((s) => s.marketHashName === 'Sealed Genesis Terminal')?.weapon,
     ).toBe('Terminal');
     expect(
-      seeds.find((s) => s.marketHashName === 'Sealed Dead Hand Terminal')?.weapon,
+      seeds.find((s) => s.marketHashName === 'Sealed Dead Hand Terminal')
+        ?.weapon,
     ).toBe('Terminal');
     expect(seeds.find((s) => s.marketHashName === 'Gift Package')?.weapon).toBe(
       'Crate',
@@ -213,10 +214,7 @@ describe('mergeCatalogCardSeeds', () => {
 describe('resolveCatalogMarketHashName', () => {
   it('prefers market_hash_name over name', () => {
     expect(
-      resolveCatalogMarketHashName(
-        { market_hash_name: 'A', name: 'B' },
-        true,
-      ),
+      resolveCatalogMarketHashName({ market_hash_name: 'A', name: 'B' }, true),
     ).toBe('A');
   });
 
@@ -224,6 +222,8 @@ describe('resolveCatalogMarketHashName', () => {
     expect(resolveCatalogMarketHashName({ name: 'Name Tag' }, true)).toBe(
       'Name Tag',
     );
-    expect(resolveCatalogMarketHashName({ name: 'Name Tag' }, false)).toBeNull();
+    expect(
+      resolveCatalogMarketHashName({ name: 'Name Tag' }, false),
+    ).toBeNull();
   });
 });

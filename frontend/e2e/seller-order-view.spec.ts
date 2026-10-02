@@ -1,11 +1,19 @@
 import { expect, test } from '@playwright/test';
-import { loginAsSeller } from './helpers/auth';
+import { loginAsBuyer, loginAsSeller } from './helpers/auth';
 import { resetDatabase } from './helpers/reset';
 import { seedOpenOrder } from './helpers/seed';
 
 test.describe('Seller order visibility', () => {
   test.beforeEach(async ({ request }) => {
     await resetDatabase(request);
+  });
+
+  test('buyer cannot initiate seller consent', async ({ page, request }) => {
+    const { orderId } = await seedOpenOrder(request);
+    await loginAsBuyer(page);
+    await page.goto(`/orders/${orderId}`);
+    await expect(page.getByTestId('order-role')).toHaveText('Покупатель');
+    await expect(page.getByRole('button', { name: 'Подготовить безопасный обмен' })).toHaveCount(0);
   });
 
   test('seller sees reserved order in my orders', async ({ page, request }) => {
@@ -21,6 +29,13 @@ test.describe('Seller order visibility', () => {
     await expect(page).toHaveURL(new RegExp(`/orders/${orderId}$`));
     await expect(page.getByTestId('order-role')).toHaveText('Продавец');
     await expect(page.getByTestId('trade-poll-status')).toBeVisible();
+
+    // The seller must have a visible entry point; no hidden popup hunting.
+    const prepare = page.getByRole('button', { name: 'Подготовить безопасный обмен' });
+    await expect(prepare).toBeVisible();
+    await prepare.click();
+    // This browser fixture has no extension installed. Failure must be actionable.
+    await expect(page.getByRole('status').filter({hasText:'Не удалось открыть расширение'})).toBeVisible();
 
     // Extension channel may or may not have created a task yet; either way the
     // seller still needs the buyer's trade URL and must not see the mock panel.

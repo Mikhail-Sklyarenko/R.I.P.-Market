@@ -28,16 +28,14 @@ import { assertListingEligible } from './listing-eligibility.util';
 import { assertBulkListingAssets } from './bulk-listing.util';
 import { buildLotListingSnapshotData } from './lot-listing-snapshot.util';
 import { ensureItemDefinitionIcon } from '../item-definitions/ensure-item-definition-icon.util';
-import {
-  buildInspectLink,
-  isUsableInspectLink,
-} from './inspect-link.util';
+import { buildInspectLink, isUsableInspectLink } from './inspect-link.util';
 import {
   buildSteamMarketListingUrl,
   resolveSteamMarketHashName,
 } from './steam-market-link.util';
 import { pickSimilarLots } from './similar-lots.util';
 import { BuyRequestMatchingService } from '../buy-requests/buy-request-matching.service';
+import { CatalogService } from '../catalog/catalog.service';
 
 @Injectable()
 export class LotsService {
@@ -49,6 +47,7 @@ export class LotsService {
     private readonly steamMarketPrice: SteamMarketPriceService,
     private readonly itemIcons: ItemIconService,
     private readonly buyRequestMatching: BuyRequestMatchingService,
+    private readonly catalog: CatalogService,
   ) {}
 
   getPricingPreview(priceMinor: number) {
@@ -114,8 +113,12 @@ export class LotsService {
       ),
     );
 
+    this.catalog.resetQueryCaches();
     if (lot?.id) {
-      void this.buyRequestMatching.matchLotActivated(lot.id).catch(() => undefined);
+      void this.buyRequestMatching
+        .matchLotActivated(lot.id)
+        .catch(() => undefined)
+        .finally(() => this.catalog.resetQueryCaches());
     }
 
     this.scheduleIconRefreshForLots([lot]);
@@ -203,8 +206,12 @@ export class LotsService {
       return createdLots;
     });
 
+    this.catalog.resetQueryCaches();
     for (const lot of lots) {
-      void this.buyRequestMatching.matchLotActivated(lot.id).catch(() => undefined);
+      void this.buyRequestMatching
+        .matchLotActivated(lot.id)
+        .catch(() => undefined)
+        .finally(() => this.catalog.resetQueryCaches());
     }
 
     this.scheduleIconRefreshForLots(lots);
@@ -212,7 +219,7 @@ export class LotsService {
     return toJsonSafe({
       lots,
       createdCount: lots.length,
-      marketHashName: assets[0]!.itemDefinition.marketHashName,
+      marketHashName: assets[0].itemDefinition.marketHashName,
     });
   }
 
@@ -839,7 +846,7 @@ export class LotsService {
 
     return {
       ...lot,
-      listingSnapshot: updatedSnapshot as T['listingSnapshot'],
+      listingSnapshot: updatedSnapshot,
     };
   }
 
@@ -926,9 +933,11 @@ export class LotsService {
       return updatedLot;
     });
 
+    this.catalog.resetQueryCaches();
     void this.buyRequestMatching
       .matchLotActivated(updated.id)
-      .catch(() => undefined);
+      .catch(() => undefined)
+      .finally(() => this.catalog.resetQueryCaches());
 
     return toJsonSafe(updated);
   }
@@ -972,6 +981,7 @@ export class LotsService {
       return updatedLot;
     });
 
+    this.catalog.resetQueryCaches();
     return toJsonSafe(updated);
   }
 }

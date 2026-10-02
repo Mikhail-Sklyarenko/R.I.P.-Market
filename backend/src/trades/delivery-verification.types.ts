@@ -7,7 +7,8 @@ export type DeliveryVerificationAction =
   | 'FAIL'
   | 'DISPUTE'
   | 'TIMEOUT'
-  | 'BACKOFF';
+  | 'BACKOFF'
+  | 'MANUAL_REVIEW';
 
 export type DeliveryVerificationReason =
   | 'TRADE_TIMEOUT'

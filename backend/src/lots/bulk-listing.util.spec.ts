@@ -72,10 +72,13 @@ describe('bulk-listing.util', () => {
   });
 
   it('enforces bulk listing size limits', () => {
-    const assets = Array.from({ length: MAX_BULK_LISTING_COUNT + 1 }, (_, i) => ({
-      ...caseAsset,
-      id: `asset-${i}`,
-    }));
+    const assets = Array.from(
+      { length: MAX_BULK_LISTING_COUNT + 1 },
+      (_, i) => ({
+        ...caseAsset,
+        id: `asset-${i}`,
+      }),
+    );
 
     expect(() => assertBulkListingAssets(assets)).toThrow(AppException);
   });

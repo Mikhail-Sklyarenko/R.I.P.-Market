@@ -9,6 +9,7 @@ import fixture from './fixtures/steam-inventory-page1.json';
 describe('SteamInventoryProvider', () => {
   let provider: SteamInventoryProvider;
   let prisma: {
+    user: { findUnique: jest.Mock };
     itemDefinition: {
       upsert: jest.Mock;
       findMany: jest.Mock;
@@ -31,6 +32,11 @@ describe('SteamInventoryProvider', () => {
 
   beforeEach(() => {
     prisma = {
+      user: {
+        findUnique: jest
+          .fn()
+          .mockResolvedValue({ steamId: '76561198000000000' }),
+      },
       itemDefinition: {
         upsert: jest.fn().mockResolvedValue({ id: 'def-1' }),
         findMany: jest.fn().mockResolvedValue([]),
@@ -85,11 +91,39 @@ describe('SteamInventoryProvider', () => {
   });
 
   it('shares concurrent forced syncs for the same account without losing refresh semantics', async () => {
-    await Promise.all(Array.from({ length: 12 }, () => provider.syncInventory('user-1', '76561198000000000', { force: true })));
+    await Promise.all(
+      Array.from({ length: 12 }, () =>
+        provider.syncInventory('user-1', '76561198000000000', { force: true }),
+      ),
+    );
     expect(steamClient.fetchAllSteamInventoryPages).toHaveBeenCalledTimes(1);
-    await provider.syncInventory('user-1', '76561198000000000', { force: true });
+    await provider.syncInventory('user-1', '76561198000000000', {
+      force: true,
+    });
     expect(steamClient.fetchAllSteamInventoryPages).toHaveBeenCalledTimes(2);
   });
+
+  it.each([null, { steamId: null }, { steamId: '76561198000000001' }])(
+    'discards a fetched inventory after the Steam account changes: %j',
+    async (currentUser) => {
+      prisma.user.findUnique.mockResolvedValue(currentUser);
+
+      const result = await provider.syncInventory(
+        'user-1',
+        '76561198000000000',
+      );
+
+      expect(result).toMatchObject({
+        status: 'FAILED',
+        errorCode: 'STEAM_ACCOUNT_CHANGED',
+        itemCount: 0,
+      });
+      expect(prisma.inventoryAsset.upsert).not.toHaveBeenCalled();
+      expect(prisma.inventoryAsset.updateMany).not.toHaveBeenCalled();
+      expect(prisma.itemDefinition.upsert).not.toHaveBeenCalled();
+      expect(syncCache.recordRun).not.toHaveBeenCalled();
+    },
+  );
 
   it('returns cache hit when TTL is valid', async () => {
     const cachedRun = {

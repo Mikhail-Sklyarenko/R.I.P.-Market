@@ -95,7 +95,9 @@ export class ItemIconService {
       return 0;
     }
 
-    let updated = await this.backfillFromListingSnapshots(rows.map((r) => r.id));
+    let updated = await this.backfillFromListingSnapshots(
+      rows.map((r) => r.id),
+    );
 
     const stillMissing = await this.prisma.itemDefinition.findMany({
       where: {
@@ -361,7 +363,8 @@ export class ItemIconService {
         return null;
       }
 
-      const payload = (await response.json()) as SteamMarketSearchRenderResponse;
+      const payload =
+        (await response.json()) as SteamMarketSearchRenderResponse;
       if (!payload?.success || !Array.isArray(payload.results)) {
         return null;
       }

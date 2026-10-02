@@ -74,10 +74,12 @@ describe('listing-eligibility.util', () => {
   });
 
   it('does not treat skinned weapons as default stock', () => {
-    expect(isDefaultStockWeaponMarketHashName('AK-47 | Redline (Field-Tested)')).toBe(
-      false,
+    expect(
+      isDefaultStockWeaponMarketHashName('AK-47 | Redline (Field-Tested)'),
+    ).toBe(false);
+    expect(isListableMarketHashName('AK-47 | Redline (Field-Tested)')).toBe(
+      true,
     );
-    expect(isListableMarketHashName('AK-47 | Redline (Field-Tested)')).toBe(true);
   });
 
   it('blocks non-marketable assets', () => {

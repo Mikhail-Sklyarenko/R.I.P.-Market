@@ -41,8 +41,7 @@ export function getExtensionPublicConfig(): ExtensionPublicConfig {
       isExtensionTradeAcknowledgmentEnabled(),
     extensionInventoryLayerEnabled: isExtensionInventoryLayerEnabled(),
     extensionGuidedBuyerEnabled: isExtensionGuidedBuyerEnabled(),
-    extensionQuietNotificationsEnabled:
-      isExtensionQuietNotificationsEnabled(),
+    extensionQuietNotificationsEnabled: isExtensionQuietNotificationsEnabled(),
     settlementHoldWindowEnabled: isSettlementHoldWindowEnabled(),
     extensionRolloutEnabled: isExtensionRolloutEnabled(),
     extensionRolloutStage: getExtensionRolloutStage(),

@@ -8,6 +8,14 @@ describe('safeAppReturnPath', () => {
     assert.equal(safeAppReturnPath('/lots/1/checkout?x=1'), '/lots/1/checkout?x=1');
   });
 
+  it('rejects backslashes and every ASCII control character', () => {
+    assert.equal(safeAppReturnPath('/\\evil.example'), null);
+    for (const code of [...Array(32).keys(), 127]) {
+      assert.equal(safeAppReturnPath(`/catalog${String.fromCharCode(code)}x`), null);
+    }
+    assert.equal(safeAppReturnPath('/catalog?q=Перчатки'), '/catalog?q=Перчатки');
+  });
+
   it('rejects open redirects', () => {
     assert.equal(safeAppReturnPath('https://evil.example'), null);
     assert.equal(safeAppReturnPath('//evil.example'), null);

@@ -40,5 +40,13 @@ describe('trade-url util', () => {
 });
 
 it('rejects unsupported protocols, ports, account ids and ambiguous parameters', () => {
-  for (const url of ["http://steamcommunity.com/tradeoffer/new/?partner=1&token=a", "https://steamcommunity.com:444/tradeoffer/new/?partner=1&token=a", "https://steamcommunity.com/tradeoffer/new/?partner=4294967296&token=a", "https://steamcommunity.com/tradeoffer/new/?partner=1&partner=2&token=a", "https://steamcommunity.com/tradeoffer/new/?partner=1&token=a%26b"]) { expect(isValidSteamTradeUrl(url)).toBe(false); }
+  for (const url of [
+    'http://steamcommunity.com/tradeoffer/new/?partner=1&token=a',
+    'https://steamcommunity.com:444/tradeoffer/new/?partner=1&token=a',
+    'https://steamcommunity.com/tradeoffer/new/?partner=4294967296&token=a',
+    'https://steamcommunity.com/tradeoffer/new/?partner=1&partner=2&token=a',
+    'https://steamcommunity.com/tradeoffer/new/?partner=1&token=a%26b',
+  ]) {
+    expect(isValidSteamTradeUrl(url)).toBe(false);
+  }
 });

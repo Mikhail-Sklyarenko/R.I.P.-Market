@@ -1,4 +1,20 @@
 import type { TradeVerificationResult } from '@rip-market/extension-orchestrator';
+
+const probeConsent = document.getElementById('steam-probe-consent') as HTMLInputElement | null;
+const probeRun = document.getElementById('steam-probe-run') as HTMLButtonElement | null;
+const probeResult = document.getElementById('steam-probe-result');
+probeConsent?.addEventListener('change', () => { if (probeRun) probeRun.disabled = !probeConsent.checked; });
+probeRun?.addEventListener('click', async () => {
+  if (!probeConsent?.checked || !probeResult) return;
+  probeRun.disabled = true;
+  probeConsent.disabled = true;
+  probeResult.textContent = 'Проверка известного обмена…';
+  try {
+    const response = await chrome.runtime.sendMessage({ type: 'RIP_MARKET_STEAM_AUTH_PROBE', consent: true });
+    probeResult.textContent = response?.ok ? JSON.stringify(response.result, null, 2) : 'Диагностика недоступна. Проверьте подключение и разрешённое сервером окно.';
+  } catch { probeResult.textContent = 'Диагностика недоступна.'; }
+  finally { probeConsent.checked = false; probeConsent.disabled = false; }
+});
 import {
   clearSteamWebApiKey,
   getSteamWebApiKey,
@@ -1085,3 +1101,42 @@ quietNotifyEnabledEl?.addEventListener('change', () => {
 });
 
 void render();
+
+const orderConsent = document.getElementById('steam-order-consent') as HTMLInputElement | null;
+const orderRun = document.getElementById('steam-order-run') as HTMLButtonElement | null;
+const orderResult = document.getElementById('steam-order-result');
+orderConsent?.addEventListener('change', () => { if(orderRun) orderRun.disabled=!orderConsent.checked; });
+orderRun?.addEventListener('click', async () => {
+  if(!orderConsent?.checked || !orderResult) return;
+  orderRun.disabled=true;
+  orderConsent.disabled=true;
+  try {
+    const [tab]=await chrome.tabs.query({active:true,currentWindow:true});
+    const url=new URL(tab?.url ?? '');
+    const orderId=url.origin==='https://p2pcs.ru' ? /^\/orders\/([a-f0-9-]{36})\/?$/i.exec(url.pathname)?.[1] : undefined;
+    if(!orderId) { orderResult.textContent='Откройте страницу нужного заказа на p2pcs.ru и повторите.'; return; }
+    orderResult.textContent='Сервер проверяет обмен в Steam…';
+    const reply=await chrome.runtime.sendMessage({type:'RIP_MARKET_STEAM_ORDER_VERIFY',orderId,consent:true});
+    const reasons: Record<string,string>={
+      DELIVERY_VERIFIED:'Получение предмета подтверждено. Средства находятся на защите Steam.',
+      SETTLED:'Защита завершена. Расчёт выполнен.',
+      STEAM_TRADE_REVERSAL:'Steam сообщил об отмене передачи. Средства заблокированы для проверки.',
+      WAITING_FOR_OFFER:'Автоматическая проверка разрешена. После создания обмена она начнётся сама.',
+      STEAM_IDENTITY_CONFLICT:'Steam сообщил другой аккаунт. Проверка остановлена; средства защищены.',
+      STEAM_DESTINATION_MAPPING_PENDING:'Обмен подтверждён Steam. Проверяем получение предмета автоматически.',
+      STEAM_RECEIPT_UNAVAILABLE:'Steam задерживает данные. Проверка продолжится автоматически.',
+      STEAM_RECEIPT_VERIFIED:'Квитанция Steam проверена. Проверяем доставку предмета.',
+      STEAM_TOKEN_OWNER_UNVERIFIED:'Steam не подтвердил владельца токена. Расчёт заблокирован.',
+      STEAM_TOKEN_READ_UNAVAILABLE:'Steam не предоставил данные обмена.',
+      STEAM_OFFER_UNAVAILABLE:'Обмен недоступен через текущую авторизацию Steam.',
+      STEAM_OFFER_ORDER_MISMATCH:'Состав или участники обмена не соответствуют заказу.',
+      STEAM_RECEIPT_MAPPING_UNAVAILABLE:'Steam не вернул связь с полученным предметом. Доставка пока не подтверждена.',
+    };
+    orderResult.textContent=reply?.ok ? (reasons[reply.result?.reasonCode] ?? 'Проверка выполнена. Актуальный статус смотрите на странице заказа.') : 'Проверка недоступна: нужны подключение и аккаунт продавца.';
+  } catch { orderResult.textContent='Проверка недоступна. Откройте заказ и проверьте подключение.'; }
+  finally { orderConsent.checked=false; orderConsent.disabled=false; }
+});
+document.getElementById('steam-order-stop')?.addEventListener('click',async()=>{
+  await chrome.runtime.sendMessage({type:'RIP_MARKET_STEAM_ORDER_STOP'});
+  if(orderResult) orderResult.textContent='Будущая передача остановлена. Уже отправленный запрос может завершиться.';
+});

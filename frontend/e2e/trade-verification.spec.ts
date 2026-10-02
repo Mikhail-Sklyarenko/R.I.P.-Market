@@ -16,7 +16,7 @@ test.describe('Trade verification buyer UX', () => {
     await page.unrouteAll({ behavior: 'ignoreErrors' });
   });
 
-  test('buyer order page shows trade safety checklist once an offer exists', async ({
+  test('buyer order page guides verification of the exact saved offer', async ({
     page,
     request,
   }) => {
@@ -33,9 +33,13 @@ test.describe('Trade verification buyer UX', () => {
     await saveSellerTradeOffer(request, sellerToken, orderId);
     await page.reload();
 
-    await expect(page.getByTestId('buyer-trade-checklist')).toBeVisible();
-    await expect(page.getByTestId('buyer-steam-offers-link')).toBeVisible();
-    await expect(page.getByText('Перед принятием проверьте скин')).toBeVisible();
+    await expect(page.getByTestId('buyer-accept-wizard')).toBeVisible();
+    await expect(page.getByTestId('buyer-accept-wizard-primary')).toHaveAttribute(
+      'href', 'https://steamcommunity.com/tradeoffer/7412345678/',
+    );
+    await page.getByTestId('buyer-accept-wizard-steps-more').locator('summary').click();
+    await expect(page.locator('[data-step="verify_overlay"]')).toBeVisible();
+    await expect(page.locator('[data-step="accept_steam"]')).toBeVisible();
     await expect(page.getByTestId('trade-counterparty-seller')).toBeVisible();
     await expect(page.getByTestId('trade-scam-warning')).toBeVisible();
     await expect(page.getByTestId('trade-counterparty-steam-id-seller')).toContainText(

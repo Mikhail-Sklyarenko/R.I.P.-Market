@@ -133,6 +133,31 @@ describe('SettlementService hold window', () => {
     expect(ledgerService.settleSale).toHaveBeenCalledTimes(1);
   });
 
+  it('real delivery proof enforces eight-day hold even with both release flags disabled', async () => {
+    process.env.ENABLE_REAL_SETTLEMENT = 'false';
+    process.env.ENABLE_SETTLEMENT_HOLD_WINDOW = 'false';
+    process.env.SETTLEMENT_HOLD_DAYS = '1';
+    const { service, tx, ledgerService } = buildService();
+    const order = {
+      ...baseOrder,
+      tradeOperation: {
+        status: 'DELIVERY_VERIFIED',
+        deliveryProof: { version: 2 },
+      },
+    };
+    const before = Date.now();
+    await service.settleCompletedOrder(
+      tx as never,
+      order as never,
+      'proof-hold',
+    );
+    expect(ledgerService.settleSale).not.toHaveBeenCalled();
+    expect(tx.hold.update).toHaveBeenCalledTimes(1);
+    const until = tx.hold.update.mock.calls[0][0].data
+      .settlementHoldUntil as Date;
+    expect(until.getTime()).toBeGreaterThanOrEqual(before + 8 * 86400000);
+  });
+
   it('keeps existing hold protected when real settlement is disabled', async () => {
     delete process.env.ENABLE_REAL_SETTLEMENT;
     const { service, prisma, ledgerService, tx } = buildService();
@@ -188,6 +213,72 @@ describe('SettlementService hold window', () => {
     expect(ledgerService.settleSale).toHaveBeenCalledTimes(1);
   });
 
+  it('manual retry cannot shorten an existing hold when the window flag is switched off', async () => {
+    process.env.ENABLE_SETTLEMENT_HOLD_WINDOW = 'false';
+    const { service, ledgerService, tx } = buildService();
+    tx.order.findUnique.mockResolvedValue({
+      ...baseOrder,
+      status: OrderStatus.SETTLEMENT_HOLD,
+      hold: {
+        ...baseOrder.hold,
+        settlementHoldUntil: new Date(Date.now() + 86400000),
+      },
+    });
+    const result = await service.trySettleConfirmedOrder(
+      'order-1',
+      'manual-retry',
+    );
+    expect(result.settled).toBe(false);
+    expect(result.inHold).toBe(true);
+    expect(ledgerService.settleSale).not.toHaveBeenCalled();
+  });
+
+  it.each(['false', 'true'])(
+    'internal completion preserves an existing hold with real settlement=%s',
+    async (enabled) => {
+      process.env.ENABLE_REAL_SETTLEMENT = enabled;
+      process.env.ENABLE_SETTLEMENT_HOLD_WINDOW = 'false';
+      const { service, ledgerService, tx } = buildService();
+      const held = {
+        ...baseOrder,
+        status: OrderStatus.SETTLEMENT_HOLD,
+        hold: {
+          ...baseOrder.hold,
+          settlementHoldUntil: new Date(Date.now() + 86400000),
+        },
+      };
+      await service.settleCompletedOrder(
+        tx as never,
+        held as never,
+        'late-callback',
+      );
+      expect(ledgerService.settleSale).not.toHaveBeenCalled();
+    },
+  );
+
+  it('releases a due existing hold using its own transition even after the window flag is disabled', async () => {
+    process.env.ENABLE_SETTLEMENT_HOLD_WINDOW = 'false';
+    process.env.ENABLE_EXTENSION_FIRST_TRADE_FLOW = 'false';
+    const { service, ledgerService, orderStateService, tx } = buildService();
+    tx.order.findUnique.mockResolvedValue({
+      ...baseOrder,
+      status: OrderStatus.SETTLEMENT_HOLD,
+      hold: {
+        ...baseOrder.hold,
+        settlementHoldUntil: new Date(Date.now() - 1000),
+      },
+    });
+    await service.releaseDueSettlementHold('order-1');
+    expect(ledgerService.settleSale).toHaveBeenCalledTimes(1);
+    expect(orderStateService.transitionByEvent).toHaveBeenCalledWith(
+      tx,
+      expect.objectContaining({
+        from: OrderStatus.SETTLEMENT_HOLD,
+        event: 'SETTLEMENT_RELEASED',
+      }),
+    );
+  });
+
   it('reverses hold with refund before release', async () => {
     const { service, prisma, ledgerService, orderStateService, tx } =
       buildService();
@@ -222,5 +313,26 @@ describe('SettlementService hold window', () => {
         from: OrderStatus.SETTLEMENT_HOLD,
       }),
     );
+  });
+
+  it('internal completion rechecks Steam before paying a due existing hold', async () => {
+    process.env.ENABLE_SETTLEMENT_HOLD_WINDOW = 'false';
+    const { service, ledgerService, guard, tx } = buildService();
+    guard.canSettle.mockResolvedValue({ allowed: false });
+    const held = {
+      ...baseOrder,
+      status: OrderStatus.SETTLEMENT_HOLD,
+      hold: {
+        ...baseOrder.hold,
+        settlementHoldUntil: new Date(Date.now() - 1000),
+      },
+    };
+    await service.settleCompletedOrder(
+      tx as never,
+      held as never,
+      'late-callback',
+    );
+    expect(guard.canSettle).toHaveBeenCalledWith(held, tx);
+    expect(ledgerService.settleSale).not.toHaveBeenCalled();
   });
 });

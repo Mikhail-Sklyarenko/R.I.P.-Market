@@ -68,7 +68,7 @@ export function assertBulkListingAssets(assets: BulkListingAsset[]): string {
     );
   }
 
-  const marketHashName = assets[0]!.itemDefinition.marketHashName;
+  const marketHashName = assets[0].itemDefinition.marketHashName;
 
   for (const asset of assets) {
     if (!isFungibleInventoryAsset(asset)) {

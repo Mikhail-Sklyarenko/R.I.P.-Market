@@ -16,7 +16,7 @@ async function main() {
   );
 
   const prisma = new PrismaClient();
-  const icons = new ItemIconService(prisma as never);
+  const icons = new ItemIconService(prisma);
 
   try {
     const missing = await prisma.itemDefinition.findMany({
@@ -29,16 +29,14 @@ async function main() {
     });
 
     if (missing.length === 0) {
-      // eslint-disable-next-line no-console
       console.log('No ItemDefinition rows missing iconUrl');
       return;
     }
 
-    // eslint-disable-next-line no-console
     console.log(`Refreshing icons for ${missing.length} definition(s)…`);
     const fromSnapshots = await icons.backfillMissingFromSnapshots(limit);
     const updated = await icons.refreshMissingIcons(missing);
-    // eslint-disable-next-line no-console
+
     console.log(
       `Updated ${fromSnapshots + updated} icon(s) (snapshots=${fromSnapshots}, steam=${updated})`,
     );
@@ -48,7 +46,6 @@ async function main() {
 }
 
 void main().catch((error) => {
-  // eslint-disable-next-line no-console
   console.error(error);
   process.exitCode = 1;
 });

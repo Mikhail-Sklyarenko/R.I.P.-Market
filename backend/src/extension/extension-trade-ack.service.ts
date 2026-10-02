@@ -359,48 +359,87 @@ export class ExtensionTradeAckService {
       where: { idempotencyKey: params.idempotencyKey },
     });
     if (existing) {
-      if (existing.userId !== params.userId || existing.orderId !== params.orderId || existing.type !== type || (params.offerId && this.normalizeOfferId(params.offerId) !== existing.offerId)) {
-        throw new AppException(ErrorCode.EXTENSION_TASK_INVALID_ACK, 'Acknowledgment key belongs to another action', HttpStatus.CONFLICT);
+      if (
+        existing.userId !== params.userId ||
+        existing.orderId !== params.orderId ||
+        existing.type !== type ||
+        (params.offerId &&
+          this.normalizeOfferId(params.offerId) !== existing.offerId)
+      ) {
+        throw new AppException(
+          ErrorCode.EXTENSION_TASK_INVALID_ACK,
+          'Acknowledgment key belongs to another action',
+          HttpStatus.CONFLICT,
+        );
       }
       if (type === 'BUYER_ACK_RECEIVED') {
-        await this.tradeStatusPoller.pollOrderById(params.orderId, { force: true }).catch(() => false);
+        await this.tradeStatusPoller
+          .pollOrderById(params.orderId, { force: true })
+          .catch(() => false);
       }
       return { ok: true, type, idempotent: true };
     }
 
     const order = await this.loadOrderForUser(params.orderId, params.userId);
     const role = order.buyerId === params.userId ? 'buyer' : 'seller';
-    if (type === 'BUYER_ACK_RECEIVED' && role === 'buyer' && order.status === OrderStatus.COMPLETED) {
+    if (
+      type === 'BUYER_ACK_RECEIVED' &&
+      role === 'buyer' &&
+      order.status === OrderStatus.COMPLETED
+    ) {
       return { ok: true, type, idempotent: true };
     }
     this.assertAcknowledgmentAllowed(order, role, type);
 
-    const linkedOfferId = this.normalizeOfferId(order.tradeOperation?.externalOfferId);
+    const linkedOfferId = this.normalizeOfferId(
+      order.tradeOperation?.externalOfferId,
+    );
     const suppliedOfferId = this.normalizeOfferId(params.offerId);
-    if ((params.offerId && !suppliedOfferId) ||
-        (suppliedOfferId && suppliedOfferId !== linkedOfferId) ||
-        (type === 'BUYER_ACK_RECEIVED' && !linkedOfferId)) {
-      throw new AppException(ErrorCode.EXTENSION_TASK_INVALID_ACK,
-        'Acknowledgment must reference the offer linked to this order', HttpStatus.CONFLICT);
+    if (
+      (params.offerId && !suppliedOfferId) ||
+      (suppliedOfferId && suppliedOfferId !== linkedOfferId) ||
+      (type === 'BUYER_ACK_RECEIVED' && !linkedOfferId)
+    ) {
+      throw new AppException(
+        ErrorCode.EXTENSION_TASK_INVALID_ACK,
+        'Acknowledgment must reference the offer linked to this order',
+        HttpStatus.CONFLICT,
+      );
     }
 
     let idempotent = false;
     try {
       await this.prisma.tradeAcknowledgment.create({
-      data: {
-        orderId: order.id,
-        userId: params.userId,
-        role,
-        type,
-        offerId: linkedOfferId,
-        idempotencyKey: params.idempotencyKey,
-      },
+        data: {
+          orderId: order.id,
+          userId: params.userId,
+          role,
+          type,
+          offerId: linkedOfferId,
+          idempotencyKey: params.idempotencyKey,
+        },
       });
     } catch (error) {
-      if (!(error instanceof Prisma.PrismaClientKnownRequestError) || error.code !== 'P2002') throw error;
-      const replay = await this.prisma.tradeAcknowledgment.findUnique({ where: { idempotencyKey: params.idempotencyKey } });
-      if (!replay || replay.userId !== params.userId || replay.orderId !== order.id || replay.type !== type || replay.offerId !== linkedOfferId) {
-        throw new AppException(ErrorCode.EXTENSION_TASK_INVALID_ACK, 'Acknowledgment key belongs to another action', HttpStatus.CONFLICT);
+      if (
+        !(error instanceof Prisma.PrismaClientKnownRequestError) ||
+        error.code !== 'P2002'
+      )
+        throw error;
+      const replay = await this.prisma.tradeAcknowledgment.findUnique({
+        where: { idempotencyKey: params.idempotencyKey },
+      });
+      if (
+        !replay ||
+        replay.userId !== params.userId ||
+        replay.orderId !== order.id ||
+        replay.type !== type ||
+        replay.offerId !== linkedOfferId
+      ) {
+        throw new AppException(
+          ErrorCode.EXTENSION_TASK_INVALID_ACK,
+          'Acknowledgment key belongs to another action',
+          HttpStatus.CONFLICT,
+        );
       }
       idempotent = true;
     }
@@ -1067,10 +1106,17 @@ export class ExtensionTradeAckService {
           'Не принимайте этот trade offer. Откройте заказ на R.I.P Market.',
       };
     }
-    if (order.status === OrderStatus.WAITING_TRADE && acknowledgments.buyerReceived) {
-      return { kind: 'platform_verifying', title: 'Покупатель подтвердил получение', description: 'Сервис завершает проверку. Повторно отправлять или принимать обмен не нужно. При задержке откройте обращение из заказа.' };
+    if (
+      order.status === OrderStatus.WAITING_TRADE &&
+      acknowledgments.buyerReceived
+    ) {
+      return {
+        kind: 'platform_verifying',
+        title: 'Покупатель подтвердил получение',
+        description:
+          'Сервис завершает проверку. Повторно отправлять или принимать обмен не нужно. При задержке откройте обращение из заказа.',
+      };
     }
-
 
     if (order.status === OrderStatus.DISPUTE) {
       return {

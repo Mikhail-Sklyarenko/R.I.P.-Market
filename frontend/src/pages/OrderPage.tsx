@@ -1,3 +1,4 @@
+import { OrderPreparationConsent } from '../components/OrderPreparationConsent';
 import { useCallback, useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { acknowledgeOrderTrade, cancelOrder, checkOrderDelivery, getAuthConfig, getOrder, mockTradeSuccess, updateOrderTradeReference } from '../api/marketplace';
@@ -5,6 +6,7 @@ import { mockTradeFail, mockTradeTimeout } from '../api/admin';
 import { getSettlementEligibility } from '../api/settlement';
 import type { Order } from '../api/types';
 import { useAuth } from '../auth/AuthContext';
+import { useWallet } from '../wallet/WalletContext';
 import { useLocale } from '../i18n';
 import { ErrorAlert } from '../components/ErrorAlert';
 import { ItemPreview } from '../components/ItemPreview';
@@ -12,6 +14,7 @@ import { LoadingState } from '../components/LoadingState';
 import { MoneyDisplay } from '../components/MoneyDisplay';
 import { OrderStepper } from '../components/OrderStepper';
 import { OrderTradeBuyerPanel } from '../components/OrderTradeBuyerPanel';
+import { DeliveryWaitReason } from '../components/DeliveryWaitReason';
 import { OrderTradeSellerPanel } from '../components/OrderTradeSellerPanel';
 import { CopyableDealId } from '../components/CopyableDealId';
 import { DealHealthBanner } from '../components/DealHealthBanner';
@@ -69,7 +72,11 @@ export function OrderPage() {
   const { id } = useParams();
   const { t, locale } = useLocale();
   const { token, user } = useAuth();
+  const { refresh: refreshWallet } = useWallet();
   const [order, setOrder] = useState<Order | null>(null);
+  useEffect(() => {
+    if (order?.status) void refreshWallet();
+  }, [order?.id, order?.status, refreshWallet]);
   const [mockTradeEnabled, setMockTradeEnabled] = useState(MOCK_TRADE_ENABLED);
   const [tradeProvider, setTradeProvider] = useState<'mock' | 'steam'>('mock');
   const [tradeTimeoutMinutes, setTradeTimeoutMinutes] = useState(60);
@@ -99,6 +106,9 @@ export function OrderPage() {
 
   const isBuyer = user?.id === order?.buyerId;
   const isSeller = user?.id === order?.sellerId;
+  const displayedHoldMinor = order?.status === 'COMPLETED'
+    ? '0'
+    : order?.hold?.amountMinor ?? order?.holdAmountMinor ?? '0';
   const role = isBuyer ? 'buyer' : isSeller ? 'seller' : 'other';
   const canBuyerCancel =
     isBuyer && order !== null && BUYER_CANCELABLE_STATUSES.has(order.status) &&
@@ -113,14 +123,15 @@ export function OrderPage() {
     !mockBlockedByLiveSettlement &&
     canShowDevPanels(user?.role) &&
     (user?.role === 'ADMIN' || (MOCK_TRADE_ENABLED && isBuyer && tradeProvider === 'mock'));
-  const nextAction = order
+  const nextAction = order && order.tradeOperation?.verificationStage !== 'MANUAL_REVIEW'
     ? getOrderNextAction(order, role, locale, {
         extensionConnected: extensionStatus.connected,
         extensionTradeAckEnabled,
         extensionTaskPipeline,
       })
     : null;
-  const showTradePanels = order?.status === 'WAITING_TRADE';
+  const manualReview = order?.tradeOperation?.verificationStage === 'MANUAL_REVIEW';
+  const showTradePanels = order?.status === 'WAITING_TRADE' && !manualReview;
   const isShadowVerification = tradeVerificationMode === 'shadow';
   const showShadowTradeBanner =
     isShadowVerification && showTradePanels && tradeProvider === 'steam';
@@ -291,7 +302,7 @@ export function OrderPage() {
       void requestExtensionPoll();
     }, 4_000);
     return () => window.clearInterval(timer);
-  }, [isSeller, showTradePanels, order?.tradeTask?.id, order?.tradeTask?.executionPhase]);
+  }, [isSeller, showTradePanels, order?.tradeTask]);
 
   async function handleSaveTradeReference() {
     if (!token || !order || !offerInput.trim()) {
@@ -434,6 +445,7 @@ export function OrderPage() {
 
   return (
     <div className="page order-page">
+      {manualReview && <div role="status" className="card">{locale === 'ru' ? 'Нужна дополнительная проверка — средства остаются защищёнными. Повторять обмен не нужно.' : 'Additional verification is needed. Funds remain protected. Do not repeat the trade.'}</div>}
       <PageHeader
         title={t('orderPage.title')}
         subtitle={
@@ -593,7 +605,7 @@ export function OrderPage() {
               <div className="order-action-header">
                 <StatusBadge
                   status={order.status}
-                  label={formatOrderStatus(order.status, locale)}
+                  label={manualReview ? (locale === 'ru' ? 'Дополнительная проверка' : 'Additional verification') : formatOrderStatus(order.status, locale)}
                   compact
                 />
                 <span data-testid="order-status" className="sr-only">
@@ -686,7 +698,7 @@ export function OrderPage() {
                 </div>
               ) : null}
 
-              {dealHealth && actionFocus?.showDealHealthInline ? (
+              {!manualReview && dealHealth && actionFocus?.showDealHealthInline ? (
                 <DealHealthBanner
                   health={dealHealth}
                   onCopyDebugPack={() => void handleCopyDebugPack()}
@@ -704,6 +716,8 @@ export function OrderPage() {
                 </p>
               ) : null}
 
+              <DeliveryWaitReason order={order} />
+              {showTradePanels && isSeller && order.status === 'WAITING_TRADE' && !order.tradeOperation?.externalOfferId && <OrderPreparationConsent key={order.id} orderId={order.id} locale={locale} />}
               {isSeller && showTradePanels ? (
                 <OrderTradeSellerPanel
                   order={order}
@@ -748,7 +762,7 @@ export function OrderPage() {
 
               {showTradePanels &&
               actionFocus &&
-              actionFocus.timeoutMode !== 'hidden' ? (
+              actionFocus.timeoutMode !== 'hidden' && !manualReview ? (
                 <TradeTimeoutEscalationPanel
                   order={order}
                   role={role}
@@ -789,7 +803,7 @@ export function OrderPage() {
                 >
                   <summary>{t('orderPage.moreForSupport')}</summary>
                   <div className="order-action-more-body">
-                    {dealHealth && !actionFocus.showDealHealthInline ? (
+                    {!manualReview && dealHealth && !actionFocus.showDealHealthInline ? (
                       <DealHealthBanner
                         health={dealHealth}
                         onCopyDebugPack={() => void handleCopyDebugPack()}
@@ -859,7 +873,7 @@ export function OrderPage() {
                         <span>{t('orderPage.onHold')}</span>
                         <MoneyDisplay
                           minor={
-                            order.hold?.amountMinor ?? order.holdAmountMinor
+                            displayedHoldMinor
                           }
                           strong
                         />
@@ -897,22 +911,6 @@ export function OrderPage() {
                       </Link>
                       {t('orderPage.supportLinkSuffix')}
                     </p>
-
-                    {canBuyerCancel ? (
-                      <div className="stack" data-testid="cancel-order-panel">
-                        <button
-                          type="button"
-                          className="button secondary"
-                          disabled={canceling}
-                          data-testid="cancel-order-button"
-                          onClick={() => void handleCancel()}
-                        >
-                          {canceling
-                            ? t('orderPage.canceling')
-                            : t('orderPage.cancelOrder')}
-                        </button>
-                      </div>
-                    ) : null}
                   </div>
                 </details>
               ) : (
@@ -947,7 +945,7 @@ export function OrderPage() {
                     <div className="order-money-row">
                       <span>{t('orderPage.onHold')}</span>
                       <MoneyDisplay
-                        minor={order.hold?.amountMinor ?? order.holdAmountMinor}
+                        minor={displayedHoldMinor}
                         strong
                       />
                     </div>
@@ -975,6 +973,10 @@ export function OrderPage() {
                       </div>
                     ) : null}
                   </div>
+                </>
+              )}
+
+
 
                   {canBuyerCancel ? (
                     <div className="stack" data-testid="cancel-order-panel">
@@ -991,8 +993,6 @@ export function OrderPage() {
                       </button>
                     </div>
                   ) : null}
-                </>
-              )}
 
               {showMockTradePanel ? (
                 <div className="order-dev-panel" data-testid="mock-trade-panel">

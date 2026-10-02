@@ -1,4 +1,7 @@
-import { resolveSuggestedListPrice, steamDiscountListMinor } from './suggested-list-price.util';
+import {
+  resolveSuggestedListPrice,
+  steamDiscountListMinor,
+} from './suggested-list-price.util';
 
 describe('suggested-list-price.util (I2)', () => {
   it('prefers best bid over Steam −5%', () => {
@@ -17,9 +20,7 @@ describe('suggested-list-price.util (I2)', () => {
 
   it('falls back to Steam −5% with fee preview', () => {
     expect(steamDiscountListMinor(10000)).toBe(9500);
-    expect(
-      resolveSuggestedListPrice({ steamPriceMinor: 10000 }),
-    ).toEqual({
+    expect(resolveSuggestedListPrice({ steamPriceMinor: 10000 })).toEqual({
       suggestedListMinor: 9500,
       suggestedListSource: 'steam_discount',
       commissionMinor: 475,

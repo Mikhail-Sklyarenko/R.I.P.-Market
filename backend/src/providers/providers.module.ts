@@ -84,7 +84,11 @@ import {
         if (payment !== 'crypto_tron') {
           return mock;
         }
-        if (process.env.ENABLE_TEST_ROUTES === 'true') {
+        if (
+          process.env.PAYMENT_PROVIDER === 'e2e_crypto' ||
+          (process.env.NODE_ENV === 'test' &&
+            process.env.ENABLE_TEST_ROUTES === 'true')
+        ) {
           return e2eCrypto;
         }
         return crypto;

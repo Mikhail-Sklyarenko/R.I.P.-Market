@@ -44,10 +44,7 @@ export function shouldUseSteamProxy(input: string | URL): boolean {
     return true;
   }
   const host = getHostname(input);
-  return (
-    host === 'steamcommunity.com' ||
-    host.endsWith('.steamcommunity.com')
-  );
+  return host === 'steamcommunity.com' || host.endsWith('.steamcommunity.com');
 }
 
 function getProxyAgent(): ProxyAgent | null {
@@ -122,10 +119,14 @@ async function steamFetchOnce(
   init: UndiciRequestInit,
   useProxy: boolean,
 ): Promise<UndiciResponse> {
-  const timeoutMs = Number(process.env.STEAM_HTTP_TIMEOUT_MS ?? DEFAULT_TIMEOUT_MS);
+  const timeoutMs = Number(
+    process.env.STEAM_HTTP_TIMEOUT_MS ?? DEFAULT_TIMEOUT_MS,
+  );
   const { init: timedInit, cancel } = withTimeoutSignal(
     init,
-    Number.isFinite(timeoutMs) && timeoutMs > 0 ? timeoutMs : DEFAULT_TIMEOUT_MS,
+    Number.isFinite(timeoutMs) && timeoutMs > 0
+      ? timeoutMs
+      : DEFAULT_TIMEOUT_MS,
   );
   try {
     if (!useProxy) {

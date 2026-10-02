@@ -17,19 +17,19 @@ jobs:
       postgres:
         image: postgres:16-alpine
         env:
-          POSTGRES_DB: cs2_p2p_mvp
+          POSTGRES_DB: p2pcs_e2e
           POSTGRES_USER: cs2
           POSTGRES_PASSWORD: cs2
         ports:
           - 5432:5432
         options: >-
-          --health-cmd "pg_isready -U cs2 -d cs2_p2p_mvp"
+          --health-cmd "pg_isready -U cs2 -d p2pcs_e2e"
           --health-interval 10s
           --health-timeout 5s
           --health-retries 5
 
     env:
-      DATABASE_URL: postgresql://cs2:cs2@localhost:5432/cs2_p2p_mvp?schema=public
+      DATABASE_URL: postgresql://cs2:cs2@localhost:5432/p2pcs_e2e?schema=public
       JWT_SECRET: ci-jwt-secret
       AUTH_PROVIDER: mock
       INVENTORY_PROVIDER: mock
@@ -91,6 +91,17 @@ jobs:
       - name: Lint
         run: npm run lint
 
+      - name: Build current browser extension for frontend packaging
+        working-directory: .
+        run: |
+          npm ci --prefix extension
+          npm run build --prefix extension
+          npm test --prefix extension
+          npm ci --prefix browser-extension
+          npm run typecheck --prefix browser-extension
+          npm test --prefix browser-extension
+          npm run build --prefix browser-extension
+
       - name: Build
         run: npm run build
 
@@ -106,19 +117,19 @@ jobs:
       postgres:
         image: postgres:16-alpine
         env:
-          POSTGRES_DB: cs2_p2p_mvp
+          POSTGRES_DB: p2pcs_e2e
           POSTGRES_USER: cs2
           POSTGRES_PASSWORD: cs2
         ports:
           - 5432:5432
         options: >-
-          --health-cmd "pg_isready -U cs2 -d cs2_p2p_mvp"
+          --health-cmd "pg_isready -U cs2 -d p2pcs_e2e"
           --health-interval 10s
           --health-timeout 5s
           --health-retries 5
 
     env:
-      DATABASE_URL: postgresql://cs2:cs2@localhost:5432/cs2_p2p_mvp?schema=public
+      DATABASE_URL: postgresql://cs2:cs2@localhost:5432/p2pcs_e2e?schema=public
       JWT_SECRET: ci-jwt-secret
       AUTH_PROVIDER: mock
       INVENTORY_PROVIDER: mock

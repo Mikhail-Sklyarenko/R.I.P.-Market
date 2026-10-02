@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { loginAsBuyer, loginAsSeller } from './helpers/auth';
+import { loginAsBuyer, loginAsSeller, openFirstCatalogLot } from './helpers/auth';
 import { fundWallet } from './helpers/crypto-payments';
 import { resetDatabase } from './helpers/reset';
 
@@ -16,17 +16,32 @@ test.describe('Smoke: sell list and buyer complete', () => {
   }) => {
     await loginAsSeller(page);
 
+    // Prime the catalog before listing: creation must invalidate its empty-offer cache.
+    const beforeListing = await request.get(`${API_BASE}/catalog/items`);
+    expect(beforeListing.ok()).toBeTruthy();
+    expect((await beforeListing.json()).items.every(
+      (item: { activeLotCount: number }) => item.activeLotCount === 0,
+    )).toBeTruthy();
+
     await page.locator('[data-testid^="list-asset-"]').first().click();
     await expect(page.getByTestId('inventory-sell-panel')).toBeVisible();
     await page.getByTestId('price-input').fill('1000');
     await page.getByTestId('submit-listing').click();
+    await expect(page.getByTestId('inventory-listing-success')).toBeVisible();
+    const afterListing = await request.get(`${API_BASE}/catalog/items`);
+    expect(afterListing.ok()).toBeTruthy();
+    expect((await afterListing.json()).items.some(
+      (item: { activeLotCount: number; minMarketplacePriceMinor: string | null }) =>
+        item.activeLotCount === 1 && item.minMarketplacePriceMinor === '100000',
+    )).toBeTruthy();
+    await page.getByTestId('inventory-listing-success-listings').click();
     await expect(page).toHaveURL(/\/deals/);
     await expect(page.getByTestId('lot-row-ACTIVE')).toBeVisible();
 
     await page.evaluate(() => localStorage.removeItem('rip_market_auth'));
     await loginAsBuyer(page);
 
-    await page.getByTestId('catalog-open-lot').first().locator('[data-testid^="catalog-item-buy-"]').click();
+    await openFirstCatalogLot(page);
     await expect(page.getByTestId('lot-purchase-card')).toBeVisible();
 
     await page.getByTestId('checkout-deposit-link').click();

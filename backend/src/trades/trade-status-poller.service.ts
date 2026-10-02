@@ -1,4 +1,5 @@
 import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
+import { randomUUID } from 'node:crypto';
 import { Interval } from '@nestjs/schedule';
 import { OrderStatus, TradeOperationStatus } from '@prisma/client';
 import { getProvidersConfig } from '../providers/config';
@@ -93,7 +94,13 @@ export class TradeStatusPollerService implements OnModuleInit {
       include: OPERATION_INCLUDE,
     });
 
-    if (!operation) {
+    if (
+      !operation ||
+      operation.verificationStage === 'MANUAL_REVIEW' ||
+      (!options?.force &&
+        operation.nextVerificationAt &&
+        operation.nextVerificationAt > new Date())
+    ) {
       return false;
     }
 
@@ -103,7 +110,10 @@ export class TradeStatusPollerService implements OnModuleInit {
       return false;
     }
 
-    return this.checkCoordinated(operation as DeliveryVerificationOperation, options?.force);
+    return this.checkCoordinated(
+      operation as DeliveryVerificationOperation,
+      options?.force,
+    );
   }
 
   async pollWaitingTrades(): Promise<{ checked: number; transitions: number }> {
@@ -119,6 +129,11 @@ export class TradeStatusPollerService implements OnModuleInit {
       const operations = await this.prisma.tradeOperation.findMany({
         where: {
           status: TradeOperationStatus.WAITING,
+          verificationStage: { not: 'MANUAL_REVIEW' },
+          OR: [
+            { nextVerificationAt: null },
+            { nextVerificationAt: { lte: new Date() } },
+          ],
           verificationMode: { in: [...POLLABLE_MODES] },
           order: { status: OrderStatus.WAITING_TRADE },
         },
@@ -164,21 +179,65 @@ export class TradeStatusPollerService implements OnModuleInit {
       if (until <= now) this.nextCheckAt.delete(id);
     }
     this.nextCheckAt.set(operation.orderId, now + this.minimumPollIntervalMs);
-    const check = Promise.resolve().then(() => this.checkOperation(operation)).finally(() => {
-      this.inFlight.delete(operation.orderId);
-    });
+    const check = Promise.resolve()
+      .then(() => this.checkOperation(operation, force))
+      .finally(() => {
+        this.inFlight.delete(operation.orderId);
+      });
     this.inFlight.set(operation.orderId, check);
     return check;
   }
 
   private async checkOperation(
     operation: DeliveryVerificationOperation,
+    force = false,
   ): Promise<boolean> {
+    const now = new Date();
+    const leaseToken = randomUUID();
+    const lease = await this.prisma.tradeOperation.updateMany({
+      where: {
+        id: operation.id,
+        status: 'WAITING',
+        verificationStage: { not: 'MANUAL_REVIEW' },
+        ...(!force
+          ? {
+              AND: [
+                {
+                  OR: [
+                    { nextVerificationAt: null },
+                    { nextVerificationAt: { lte: now } },
+                  ],
+                },
+              ],
+            }
+          : {}),
+        OR: [
+          { verificationLeaseUntil: null },
+          { verificationLeaseUntil: { lte: now } },
+        ],
+      },
+      data: {
+        verificationLeaseUntil: new Date(now.getTime() + 300_000),
+        verificationLeaseToken: leaseToken,
+      },
+    });
+    if (lease.count !== 1) return false;
     const isShadow = operation.verificationMode === 'SHADOW';
+    let countVerification = true;
 
     try {
       const evaluation = await this.deliveryEngine.evaluate(operation);
       const { decision, offerStatus, inventoryDelta, evidence } = evaluation;
+      const ownership = await this.prisma.tradeOperation.updateMany({
+        where: {
+          id: operation.id,
+          verificationLeaseToken: leaseToken,
+          status: 'WAITING',
+        },
+        data: { verificationLeaseUntil: new Date(Date.now() + 300_000) },
+      });
+      if (ownership.count !== 1) return false;
+      countVerification = true;
 
       await this.recordPollEvent(operation.id, {
         outcome: decision.pollOutcome,
@@ -200,6 +259,23 @@ export class TradeStatusPollerService implements OnModuleInit {
           this.deliveryEngine.registerRateLimitBackoff(operation.orderId);
           return false;
         }
+        case 'MANUAL_REVIEW':
+          await this.prisma.tradeOperation.updateMany({
+            where: { id: operation.id, status: 'WAITING' },
+            data: {
+              verificationStage: 'MANUAL_REVIEW',
+              failReasonCode: decision.reasonCode,
+              nextVerificationAt: null,
+            },
+          });
+          this.logger.warn(
+            JSON.stringify({
+              event: 'delivery_verification_manual_review',
+              orderId: operation.orderId,
+              reasonCode: decision.reasonCode,
+            }),
+          );
+          return false;
         case 'WAIT':
           return false;
         case 'TIMEOUT': {
@@ -278,15 +354,25 @@ export class TradeStatusPollerService implements OnModuleInit {
           ? 'OFFER_POLL+INVENTORY_DELTA'
           : 'INVENTORY_DELTA',
         offerStatus: null,
-        error: error instanceof Error ? error.message : 'unknown',
+        error: 'VERIFICATION_TEMPORARILY_UNAVAILABLE',
       });
       return false;
     } finally {
-      await this.prisma.tradeOperation.update({
-        where: { id: operation.id },
+      await this.prisma.tradeOperation.updateMany({
+        where: { id: operation.id, verificationLeaseToken: leaseToken },
         data: {
           lastCheckedAt: new Date(),
-          checkCount: { increment: 1 },
+          verificationLeaseUntil: null,
+          verificationLeaseToken: null,
+          nextVerificationAt: new Date(
+            Date.now() +
+              Math.min(
+                15 * 60_000,
+                15_000 * 2 ** Math.min(operation.checkCount, 6),
+              ) +
+              Math.floor(Math.random() * 5000),
+          ),
+          ...(countVerification ? { checkCount: { increment: 1 } } : {}),
         },
       });
     }

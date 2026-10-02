@@ -40,9 +40,9 @@ describe('SteamMarketPriceService', () => {
       'Revolution Case',
     ]);
 
-    expect(result['AK-47 | Redline (Field-Tested)']?.priceMinor).toBeGreaterThan(
-      0,
-    );
+    expect(
+      result['AK-47 | Redline (Field-Tested)']?.priceMinor,
+    ).toBeGreaterThan(0);
     expect(result['Revolution Case']?.priceMinor).toBeGreaterThan(0);
     expect(result['AK-47 | Redline (Field-Tested)']?.fetchedAt).toBeTruthy();
   });
@@ -146,9 +146,8 @@ describe('SteamMarketPriceService', () => {
     process.env.STEAM_MARKET_PRICE_ENABLED = 'true';
     process.env.STEAM_PRICE_FALLBACK_ENABLED = 'true';
     const { service, prisma } = createService();
-    (
-      service as unknown as { steamBlockedUntil: number }
-    ).steamBlockedUntil = Date.now() + 60_000;
+    (service as unknown as { steamBlockedUntil: number }).steamBlockedUntil =
+      Date.now() + 60_000;
     (
       service as unknown as {
         fallbackSnapshot: {

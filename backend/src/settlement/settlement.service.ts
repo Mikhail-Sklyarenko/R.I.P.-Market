@@ -46,7 +46,10 @@ type OrderForSettlement = {
     commissionMinor: bigint;
     inventoryAssetId: string;
   };
-  tradeOperation: { status: TradeOperationStatus } | null;
+  tradeOperation: {
+    status: TradeOperationStatus;
+    deliveryProof?: Prisma.JsonValue;
+  } | null;
 };
 
 export type SettlementAttemptResult = {
@@ -96,19 +99,19 @@ export class SettlementService {
         return { settled: true, inHold: false, guard: guardResult };
       }
 
-      if (this.shouldUseHoldWindow()) {
-        if (order.status === OrderStatus.TRADE_CONFIRMED) {
-          await this.enterSettlementHold(client, order, idempotencyKey);
+      // The persisted hold is an obligation, independent of configuration for
+      // newly confirmed trades. A manual retry cannot turn it into legacy payout.
+      if (order.status === OrderStatus.SETTLEMENT_HOLD) {
+        if (!this.isHoldReleaseDue(order.hold)) {
           return { settled: false, inHold: true, guard: guardResult };
         }
-        if (
-          order.status === OrderStatus.SETTLEMENT_HOLD &&
-          this.isHoldReleaseDue(order.hold)
-        ) {
-          await this.releaseSettlementHold(client, order, idempotencyKey);
-          return { settled: true, inHold: false, guard: guardResult };
-        }
-        if (order.status === OrderStatus.SETTLEMENT_HOLD) {
+        await this.releaseSettlementHold(client, order, idempotencyKey);
+        return { settled: true, inHold: false, guard: guardResult };
+      }
+
+      if (order.tradeOperation?.deliveryProof || this.shouldUseHoldWindow()) {
+        if (order.status === OrderStatus.TRADE_CONFIRMED) {
+          await this.enterSettlementHold(client, order, idempotencyKey);
           return { settled: false, inHold: true, guard: guardResult };
         }
       }
@@ -120,69 +123,72 @@ export class SettlementService {
     if (tx) {
       return run(tx);
     }
-    return this.prisma.$transaction(run);
+    return this.prisma.$transaction(run, { timeout: 120_000, maxWait: 10_000 });
   }
 
   async releaseDueSettlementHold(
     orderId: string,
     idempotencyKey = settlementHoldReleaseIdempotencyKey(orderId),
   ): Promise<SettlementAttemptResult> {
-    return this.prisma.$transaction(async (tx) => {
-      const order = await this.loadOrder(orderId, tx);
-      if (!order) {
-        throw new NotFoundException('Order not found');
-      }
+    return this.prisma.$transaction(
+      async (tx) => {
+        const order = await this.loadOrder(orderId, tx);
+        if (!order) {
+          throw new NotFoundException('Order not found');
+        }
 
-      if (order.status === OrderStatus.COMPLETED) {
-        return {
-          settled: true,
-          inHold: false,
-          guard: { allowed: true },
-        };
-      }
+        if (order.status === OrderStatus.COMPLETED) {
+          return {
+            settled: true,
+            inHold: false,
+            guard: { allowed: true },
+          };
+        }
 
-      if (order.status !== OrderStatus.SETTLEMENT_HOLD) {
-        return {
-          settled: false,
-          inHold: false,
-          guard: {
-            allowed: false,
-            code: 'ORDER_NOT_TRADE_CONFIRMED',
-            reason: `Order status is ${order.status}, expected SETTLEMENT_HOLD`,
-          },
-        };
-      }
+        if (order.status !== OrderStatus.SETTLEMENT_HOLD) {
+          return {
+            settled: false,
+            inHold: false,
+            guard: {
+              allowed: false,
+              code: 'ORDER_NOT_TRADE_CONFIRMED',
+              reason: `Order status is ${order.status}, expected SETTLEMENT_HOLD`,
+            },
+          };
+        }
 
-      // A runtime kill switch must never shorten an existing protection period.
-      if (!isRealSettlementEnabled()) {
-        return {
-          settled: false,
-          inHold: true,
-          guard: {
-            allowed: false,
-            code: 'REAL_SETTLEMENT_DISABLED',
-            reason: 'Settlement releases are paused',
-          },
-        };
-      }
+        // A runtime kill switch must never shorten an existing protection period.
+        if (!isRealSettlementEnabled()) {
+          return {
+            settled: false,
+            inHold: true,
+            guard: {
+              allowed: false,
+              code: 'REAL_SETTLEMENT_DISABLED',
+              reason: 'Settlement releases are paused',
+            },
+          };
+        }
 
-      if (!this.isHoldReleaseDue(order.hold)) {
-        return {
-          settled: false,
-          inHold: true,
-          guard: { allowed: true },
-        };
-      }
+        if (!this.isHoldReleaseDue(order.hold)) {
+          return {
+            settled: false,
+            inHold: true,
+            guard: { allowed: true },
+          };
+        }
 
-      const guardResult = await this.guard.canSettle(order, tx);
-      if (!guardResult.allowed) {
-        await this.emitSettlementBlocked(tx, orderId, guardResult);
-        return { settled: false, inHold: true, guard: guardResult };
-      }
+        const guardResult = await this.guard.canSettle(order, tx);
+        if (!guardResult.allowed) {
+          await this.emitSettlementBlocked(tx, orderId, guardResult);
+          return { settled: false, inHold: true, guard: guardResult };
+        }
 
-      await this.releaseSettlementHold(tx, order, idempotencyKey);
-      return { settled: true, inHold: false, guard: guardResult };
-    });
+        await this.releaseSettlementHold(tx, order, idempotencyKey);
+        return { settled: true, inHold: false, guard: guardResult };
+      },
+      { timeout: 120_000, maxWait: 10_000 },
+    );
   }
 
   async reverseSettlementHold(
@@ -305,17 +311,26 @@ export class SettlementService {
       return order;
     }
 
-    if (this.shouldUseHoldWindow()) {
+    if (order.status === OrderStatus.SETTLEMENT_HOLD) {
+      if (!isRealSettlementEnabled() || !this.isHoldReleaseDue(order.hold)) {
+        return order;
+      }
+      const guardResult = await this.guard.canSettle(order, tx);
+      if (!guardResult.allowed) {
+        await this.emitSettlementBlocked(tx, order.id, guardResult);
+        return order;
+      }
+      return this.releaseSettlementHold(
+        tx,
+        order,
+        settlementHoldReleaseIdempotencyKey(order.id),
+        actorUserId,
+      );
+    }
+
+    if (order.tradeOperation?.deliveryProof || this.shouldUseHoldWindow()) {
       if (order.status === OrderStatus.TRADE_CONFIRMED) {
         return this.enterSettlementHold(tx, order, idempotencyKey, actorUserId);
-      }
-      if (order.status === OrderStatus.SETTLEMENT_HOLD) {
-        return this.releaseSettlementHold(
-          tx,
-          order,
-          settlementHoldReleaseIdempotencyKey(order.id),
-          actorUserId,
-        );
       }
     }
 
@@ -325,7 +340,7 @@ export class SettlementService {
     });
   }
 
-  private async enterSettlementHold(
+  async enterSettlementHold(
     tx: Prisma.TransactionClient,
     order: OrderForSettlement,
     idempotencyKey: string,
@@ -344,7 +359,9 @@ export class SettlementService {
       return order;
     }
 
-    const holdUntil = new Date(Date.now() + getSettlementHoldMs());
+    const holdUntil = new Date(
+      Date.now() + Math.max(getSettlementHoldMs(), 8 * 24 * 60 * 60 * 1000),
+    );
     const deliveryVerified = this.isDeliveryVerified(order);
 
     await this.orderStateService.transitionByEvent(tx, {
@@ -416,6 +433,13 @@ export class SettlementService {
     }
 
     if (
+      order.status === OrderStatus.SETTLEMENT_HOLD &&
+      (!isRealSettlementEnabled() || !this.isHoldReleaseDue(order.hold))
+    ) {
+      return order;
+    }
+
+    if (
       this.shouldUseHoldWindow() &&
       !options?.skipHoldWindowCheck &&
       !this.isHoldReleaseDue(order.hold)
@@ -463,7 +487,7 @@ export class SettlementService {
       },
     });
 
-    if (this.shouldUseHoldWindow() && !options?.legacyImmediate) {
+    if (order.status === OrderStatus.SETTLEMENT_HOLD) {
       await this.orderStateService.transitionByEvent(tx, {
         orderId: order.id,
         from: OrderStatus.SETTLEMENT_HOLD,

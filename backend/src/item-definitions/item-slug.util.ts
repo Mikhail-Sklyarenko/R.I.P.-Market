@@ -24,7 +24,9 @@ export function slugifyMarketHashName(marketHashName: string): string {
     return 'item';
   }
 
-  return slug.length > MAX_SLUG_LENGTH ? slug.slice(0, MAX_SLUG_LENGTH).replace(/-+$/g, '') : slug;
+  return slug.length > MAX_SLUG_LENGTH
+    ? slug.slice(0, MAX_SLUG_LENGTH).replace(/-+$/g, '')
+    : slug;
 }
 
 export function resolveUniqueItemSlug(

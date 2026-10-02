@@ -29,7 +29,9 @@ export function resolveAllWearSteamMarketNames(
     return [catalogMarketHashName.trim()];
   }
 
-  const ordered = WEAR_FETCH_PRIORITY.filter((code) => wearCodes.includes(code));
+  const ordered = WEAR_FETCH_PRIORITY.filter((code) =>
+    wearCodes.includes(code),
+  );
   const codes = ordered.length > 0 ? ordered : wearCodes;
   return codes.map((code) => buildMarketHashNameWithWear(base, code));
 }

@@ -215,10 +215,8 @@ describe('Trade reference reconcile (e2e)', () => {
       .expect(200);
 
     expect(second.body).toMatchObject({
-      externalOfferId: '8301111111',
-      applied: false,
-      idempotent: true,
-      disputed: false,
+      status: OrderStatus.WAITING_TRADE,
+      tradeOperation: { externalOfferId: '8301111111' },
     });
 
     const order = await prisma.order.findUnique({

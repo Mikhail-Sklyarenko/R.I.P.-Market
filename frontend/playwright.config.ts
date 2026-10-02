@@ -16,14 +16,15 @@ export default defineConfig({
   },
   webServer: [
     {
-      command:
-        'sh -c "cd ../backend && npm run prisma:migrate:deploy && PORT=3001 npm run start:dev"',
+      command: 'npm run prisma:migrate:deploy && npm run start:dev',
+      cwd: '../backend',
       url: `${API_ORIGIN}/api/v1/health`,
       reuseExistingServer: !process.env.CI,
       timeout: 120_000,
       env: {
         ...process.env,
         PORT: '3001',
+        NODE_ENV: 'test',
         HOST: '127.0.0.1',
         JWT_SECRET: process.env.JWT_SECRET ?? 'playwright-jwt-secret',
         FRONTEND_ORIGIN: APP_ORIGIN,
@@ -31,7 +32,7 @@ export default defineConfig({
         ENABLE_MOCK_TRADE: 'true',
         ENABLE_MOCK_DEPOSIT: 'false',
         ENABLE_EXTENSION_CHANNEL: 'true',
-        PAYMENT_PROVIDER: 'crypto_tron',
+        PAYMENT_PROVIDER: 'e2e_crypto',
         CRYPTO_GATEWAY_WEBHOOK_SECRET:
           process.env.CRYPTO_GATEWAY_WEBHOOK_SECRET ?? 'playwright-webhook-secret',
         MIN_DEPOSIT_MINOR: '100',
@@ -41,6 +42,7 @@ export default defineConfig({
         WITHDRAW_MANUAL_REVIEW_COUNT: '5',
         WITHDRAW_REQUIRE_STEAM_LINKED: 'true',
         AUTH_PROVIDER: 'mock',
+        ALLOW_MOCK_ADMIN_LOGIN: 'true',
         INVENTORY_PROVIDER: 'mock',
         TRADE_PROVIDER: 'mock',
         STEAM_MARKET_PRICE_ENABLED: 'false',

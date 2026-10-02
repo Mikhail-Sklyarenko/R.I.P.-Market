@@ -7,9 +7,9 @@ import {
 
 describe('steam-market-link.util', () => {
   it('parses wear code from market hash name suffix', () => {
-    expect(parseWearCodeFromMarketHashName('AK-47 | Redline (Minimal Wear)')).toBe(
-      'MW',
-    );
+    expect(
+      parseWearCodeFromMarketHashName('AK-47 | Redline (Minimal Wear)'),
+    ).toBe('MW');
     expect(parseWearCodeFromMarketHashName('Revolution Case')).toBeNull();
   });
 

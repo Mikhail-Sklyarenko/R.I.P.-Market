@@ -1,4 +1,7 @@
+import { consentOrderFromSender, isOrderConsentPage, prepareAndDispatch } from '../shared/order-consent-flow.js';
+import { enableSteamOrderVerification, stopSteamOrderVerification, tickSteamOrderVerification, hasSteamOrderVerificationConsent } from "../shared/steam-order-verification.js";
 import { getCachedSentOffer } from "../shared/trade-offer-sent-cache.js";
+import { runSteamAuthProbe } from "../shared/steam-auth-probe.js";
 import {
   DurableTaskProgressReporter,
   taskProgressScope,
@@ -1834,6 +1837,7 @@ async function manualCreateOfferFromRuntime(orderId: string): Promise<{
   }
   processingTasks.add(task.id);
   try {
+    if(task.payload.tradeBinding && !(await hasSteamOrderVerificationConsent(task.orderId))) return {ok:false,error:'Откройте заказ и разрешите автоматическую проверку в окне расширения перед отправкой.'};
     await reporter.remember(task);
     await applyTaskUiTradeFlowFlag(task.payload.uiTradeFlow);
     await new CreateOfferOrchestrator(
@@ -2408,6 +2412,10 @@ async function pollAndProcessTasksInner(): Promise<void> {
   ]);
 
   for (const task of tasks) {
+    if(task.payload.tradeBinding && !(await hasSteamOrderVerificationConsent(task.orderId))) {
+      await chrome.action.setBadgeText({text:'!'});
+      continue;
+    }
     if (processingTasks.has(task.id)) {
       continue;
     }
@@ -2563,6 +2571,7 @@ chrome.alarms.onAlarm.addListener((alarm) => {
     void pollActiveTrades();
   }
   if (alarm.name === HEARTBEAT_ALARM) {
+    void tickSteamOrderVerification().catch(() => undefined);
     // Chrome may clamp sub-minute alarms; heartbeat doubles as a poll tick for p95 latency.
     void sendHeartbeat();
     void pollAndProcessTasks();
@@ -2581,6 +2590,13 @@ chrome.notifications.onButtonClicked.addListener(
 
 chrome.runtime.onMessageExternal.addListener(
   (message, _sender, sendResponse) => {
+    if (message?.type === 'RIP_MARKET_OPEN_ORDER_CONSENT') {
+      const orderId = consentOrderFromSender(message.orderId, _sender.url);
+      if (!orderId) { sendResponse({ok:false}); return false; }
+      void chrome.tabs.create({url:chrome.runtime.getURL('popup/order-consent.html')+'?orderId='+encodeURIComponent(orderId)})
+        .then(() => sendResponse({ok:true})).catch(() => sendResponse({ok:false}));
+      return true;
+    }
     if (message?.type === "RIP_MARKET_PAIR") {
       void pairExtension({
         userJwt: String(message.userJwt ?? ""),
@@ -2648,6 +2664,29 @@ chrome.runtime.onMessageExternal.addListener(
 );
 
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+  if (message?.type === 'RIP_MARKET_STEAM_ORDER_VERIFY' || message?.type === 'RIP_MARKET_STEAM_ORDER_STOP') {
+    if (!(sender.id === chrome.runtime.id && sender.url === chrome.runtime.getURL('popup/popup.html')) && !isOrderConsentPage(sender, message.orderId)) { sendResponse({ ok:false }); return false; }
+    if (message.type === 'RIP_MARKET_STEAM_ORDER_STOP') {
+      void stopSteamOrderVerification().then(() => sendResponse({ok:true})); return true;
+    }
+    if (message.consent !== true || typeof message.orderId !== 'string') { sendResponse({ok:false}); return false; }
+    void prepareAndDispatch(message.orderId, message.consent, enableSteamOrderVerification, async () => {
+      // A poll started before baseline persistence must not satisfy this request.
+      if (pollInFlight) await pollInFlight.catch(() => undefined);
+      await pollAndProcessTasks();
+    }).then(result => { sendResponse({ok:true,result}); void chrome.action.setBadgeText({text:''}); })
+      .catch(() => sendResponse({ok:false,error:'Проверка недоступна. Проверьте аккаунт продавца и подключение.'}));
+    return true;
+  }
+  if (message?.type === 'RIP_MARKET_STEAM_AUTH_PROBE') {
+    if (sender.id !== chrome.runtime.id || sender.url !== chrome.runtime.getURL('popup/popup.html') || message.consent !== true) {
+      sendResponse({ ok: false });
+      return false;
+    }
+    void runSteamAuthProbe().then(result => sendResponse({ ok: true, result }))
+      .catch(() => sendResponse({ ok: false, error: 'Диагностика недоступна: проверьте аккаунт, подключение и разрешённое сервером окно.' }));
+    return true;
+  }
   if (handleTradeVerificationRuntimeMessage(message, sender, sendResponse)) {
     return true;
   }

@@ -45,46 +45,46 @@ export class OrderBookService {
     const lotWhere = this.buildActiveLotsWhere(scope);
     const [openBuyRequests, askCount, minAskLot, askLots, askPriceLots] =
       await Promise.all([
-      this.prisma.buyRequest.findMany({
-        where: {
-          status: BuyRequestStatus.OPEN,
-          itemDefinitionId: { in: scope.itemDefinitionIds },
-          maxPriceMinor: { not: null },
-        },
-        select: {
-          maxPriceMinor: true,
-          quantity: true,
-          quantityFilled: true,
-        },
-      }),
-      this.prisma.lot.count({ where: lotWhere }),
-      this.prisma.lot.findFirst({
-        where: lotWhere,
-        orderBy: { priceMinor: 'asc' },
-        select: { priceMinor: true },
-      }),
-      this.prisma.lot.findMany({
-        where: lotWhere,
-        orderBy: { priceMinor: 'asc' },
-        take: ASK_PREVIEW_LIMIT,
-        select: {
-          id: true,
-          priceMinor: true,
-          listingSnapshot: {
-            select: { floatValue: true, wear: true },
+        this.prisma.buyRequest.findMany({
+          where: {
+            status: BuyRequestStatus.OPEN,
+            itemDefinitionId: { in: scope.itemDefinitionIds },
+            maxPriceMinor: { not: null },
           },
-          inventoryAsset: {
-            select: { floatValue: true, wear: true },
+          select: {
+            maxPriceMinor: true,
+            quantity: true,
+            quantityFilled: true,
           },
-        },
-      }),
-      this.prisma.lot.findMany({
-        where: lotWhere,
-        orderBy: { priceMinor: 'asc' },
-        take: ASK_LEVEL_LOT_LIMIT,
-        select: { priceMinor: true },
-      }),
-    ]);
+        }),
+        this.prisma.lot.count({ where: lotWhere }),
+        this.prisma.lot.findFirst({
+          where: lotWhere,
+          orderBy: { priceMinor: 'asc' },
+          select: { priceMinor: true },
+        }),
+        this.prisma.lot.findMany({
+          where: lotWhere,
+          orderBy: { priceMinor: 'asc' },
+          take: ASK_PREVIEW_LIMIT,
+          select: {
+            id: true,
+            priceMinor: true,
+            listingSnapshot: {
+              select: { floatValue: true, wear: true },
+            },
+            inventoryAsset: {
+              select: { floatValue: true, wear: true },
+            },
+          },
+        }),
+        this.prisma.lot.findMany({
+          where: lotWhere,
+          orderBy: { priceMinor: 'asc' },
+          take: ASK_LEVEL_LOT_LIMIT,
+          select: { priceMinor: true },
+        }),
+      ]);
 
     const bids = aggregateBidLevels(openBuyRequests);
     const asks: AskPreviewRow[] = askLots.map((lot) => ({

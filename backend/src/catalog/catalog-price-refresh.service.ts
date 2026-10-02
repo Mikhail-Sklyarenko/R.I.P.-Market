@@ -87,11 +87,15 @@ export class CatalogPriceRefreshService implements OnModuleInit {
 
   private async runRefresh(trigger: 'manual' | 'cron'): Promise<void> {
     if (this.running) {
-      this.logger.debug(`Catalog price refresh (${trigger}) skipped: already running`);
+      this.logger.debug(
+        `Catalog price refresh (${trigger}) skipped: already running`,
+      );
       return;
     }
     if (!this.steamPricesEnabled()) {
-      this.logger.warn(`Catalog price refresh (${trigger}) skipped: Steam prices disabled`);
+      this.logger.warn(
+        `Catalog price refresh (${trigger}) skipped: Steam prices disabled`,
+      );
       return;
     }
 
@@ -164,7 +168,9 @@ export class CatalogPriceRefreshService implements OnModuleInit {
         estimatedDurationHint: '3–5 часов при полном прогоне каталога',
         cacheSummary: this.state.cacheSummary,
       };
-      this.logger.error(`Catalog price refresh (${trigger}) failed: ${message}`);
+      this.logger.error(
+        `Catalog price refresh (${trigger}) failed: ${message}`,
+      );
     } finally {
       this.running = false;
       this.bulkImport.clearAbort();

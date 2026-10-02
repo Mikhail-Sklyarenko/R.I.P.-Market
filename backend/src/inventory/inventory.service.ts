@@ -5,7 +5,11 @@ import {
   Logger,
   NotFoundException,
 } from '@nestjs/common';
-import { InventoryAssetStatus, LotStatus, BuyRequestStatus } from '@prisma/client';
+import {
+  InventoryAssetStatus,
+  LotStatus,
+  BuyRequestStatus,
+} from '@prisma/client';
 import { AppException } from '../common/errors/app.exception';
 import { ErrorCode } from '../common/errors/error-codes';
 import { toJsonSafe } from '../common/json-safe.util';
@@ -104,11 +108,7 @@ export class InventoryService {
       // items to show. Return cache immediately and sync in the background.
       const soft = await this.tryServeCachedInventory(ownerId, user.steamId);
       const cachedAssets = soft?.result.assets;
-      if (
-        soft &&
-        Array.isArray(cachedAssets) &&
-        cachedAssets.length > 0
-      ) {
+      if (soft && Array.isArray(cachedAssets) && cachedAssets.length > 0) {
         return this.attachBackgroundSync(
           ownerId,
           user.steamId,
@@ -151,7 +151,10 @@ export class InventoryService {
   private async tryServeCachedInventory(
     ownerId: string,
     expectedSteamId: string | null | undefined,
-  ): Promise<{ result: InventoryListResult; refreshInBackground: boolean } | null> {
+  ): Promise<{
+    result: InventoryListResult;
+    refreshInBackground: boolean;
+  } | null> {
     const latest = await this.prisma.inventorySyncRun.findFirst({
       where: { userId: ownerId },
       orderBy: { fetchedAt: 'desc' },
@@ -242,8 +245,8 @@ export class InventoryService {
         backgroundPending,
         warning: result.sync.stale
           ? backgroundPending
-            ? result.sync.warning ??
-              'Показываем последнюю копию — обновляем из Steam в фоне'
+            ? (result.sync.warning ??
+              'Показываем последнюю копию — обновляем из Steam в фоне')
             : result.sync.warning
           : null,
       },
@@ -666,9 +669,7 @@ export class InventoryService {
         ? assetBySteamId.get(item.steamAssetId)
         : undefined;
       const marketHashName =
-        item.marketHashName ??
-        asset?.itemDefinition.marketHashName ??
-        null;
+        item.marketHashName ?? asset?.itemDefinition.marketHashName ?? null;
       const hint = marketHashName
         ? (hintsPayload.hints[marketHashName] as InventoryPriceHint | undefined)
         : undefined;
@@ -770,7 +771,10 @@ export class InventoryService {
       },
     });
 
-    const bestByName = new Map<string, { priceMinor: bigint; quantity: number }>();
+    const bestByName = new Map<
+      string,
+      { priceMinor: bigint; quantity: number }
+    >();
 
     for (const request of requests) {
       if (request.maxPriceMinor == null || request.maxPriceMinor <= 0n) {

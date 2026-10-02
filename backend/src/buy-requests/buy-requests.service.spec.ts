@@ -34,8 +34,8 @@ describe('BuyRequestsService', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
-    prisma.$transaction.mockImplementation(async (callback: (tx: unknown) => unknown) =>
-      callback(prisma),
+    prisma.$transaction.mockImplementation(
+      async (callback: (tx: unknown) => unknown) => callback(prisma),
     );
   });
 

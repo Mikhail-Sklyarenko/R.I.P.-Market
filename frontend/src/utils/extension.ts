@@ -290,3 +290,16 @@ export const OFFER_ERROR_HINTS: Record<string, string> = {
   TASK_TTL_EXPIRED:
     'Время автоотправки истекло. Обновите страницу — задача возобновится автоматически.',
 };
+
+/** Opens extension-owned consent UI; this message never grants Steam access. */
+export async function openOrderConsent(orderId: string): Promise<boolean> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  try {
+    const response = await Promise.race([
+      sendExtensionMessage<{ok?: boolean}>({type:'RIP_MARKET_OPEN_ORDER_CONSENT',orderId}),
+      new Promise<never>((_, reject) => { timer=setTimeout(() => reject(new Error('EXTENSION_TIMEOUT')),10000); }),
+    ]);
+    return response?.ok === true;
+  } catch { return false; }
+  finally { if (timer) clearTimeout(timer); }
+}

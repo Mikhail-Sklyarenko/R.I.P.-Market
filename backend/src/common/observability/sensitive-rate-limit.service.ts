@@ -26,6 +26,26 @@ export class SensitiveRateLimitService {
   private readonly logger = new Logger(SensitiveRateLimitService.name);
   private readonly buckets = new Map<string, Bucket>();
 
+  resetIsolatedTestState(): void {
+    if (
+      process.env.NODE_ENV !== 'test' ||
+      process.env.ENABLE_TEST_ROUTES !== 'true' ||
+      process.env.HOST !== '127.0.0.1'
+    )
+      return;
+    try {
+      const database = new URL(process.env.DATABASE_URL ?? '');
+      if (
+        !['localhost', '127.0.0.1', '[::1]'].includes(database.hostname) ||
+        database.pathname !== '/p2pcs_e2e'
+      )
+        return;
+    } catch {
+      return;
+    }
+    this.buckets.clear();
+  }
+
   assertMockLogin(ip: string): void {
     this.assert(
       `mock-login:${ip || 'unknown'}`,

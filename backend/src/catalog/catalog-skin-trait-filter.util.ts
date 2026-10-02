@@ -55,11 +55,7 @@ export function applyCatalogSkinTraitFilters(
   }
 
   where.AND = [
-    ...(Array.isArray(where.AND)
-      ? where.AND
-      : where.AND
-        ? [where.AND]
-        : []),
+    ...(Array.isArray(where.AND) ? where.AND : where.AND ? [where.AND] : []),
     ...conditions,
   ];
 }

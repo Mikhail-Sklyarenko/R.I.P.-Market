@@ -1,8 +1,4 @@
-import {
-  Injectable,
-  Logger,
-  OnModuleInit,
-} from '@nestjs/common';
+import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { Cron } from '@nestjs/schedule';
 import { LotStatus, OrderStatus, BuyRequestStatus } from '@prisma/client';
 import { isListableMarketHashName } from '../lots/listing-eligibility.util';
@@ -48,7 +44,9 @@ export class SteamPriceWarmerService implements OnModuleInit {
     await this.warmPriorityItems('cron');
   }
 
-  async warmPriorityItems(trigger: 'startup' | 'cron' | 'manual'): Promise<void> {
+  async warmPriorityItems(
+    trigger: 'startup' | 'cron' | 'manual',
+  ): Promise<void> {
     if (!this.steamMarketPrice.isEnabled()) {
       return;
     }
@@ -79,62 +77,62 @@ export class SteamPriceWarmerService implements OnModuleInit {
     const since = new Date(Date.now() - POPULAR_WINDOW_MS);
     const [activeLots, recentOrders, openBuyRequests, catalogBatch] =
       await Promise.all([
-      this.prisma.lot.findMany({
-        where: { status: LotStatus.ACTIVE },
-        select: {
-          inventoryAsset: {
-            select: {
-              itemDefinition: {
-                select: { marketHashName: true },
+        this.prisma.lot.findMany({
+          where: { status: LotStatus.ACTIVE },
+          select: {
+            inventoryAsset: {
+              select: {
+                itemDefinition: {
+                  select: { marketHashName: true },
+                },
               },
             },
           },
-        },
-        take: WARMUP_PRIORITY_MAX,
-      }),
-      this.prisma.order.findMany({
-        where: {
-          status: {
-            in: [
-              OrderStatus.COMPLETED,
-              OrderStatus.WAITING_TRADE,
-              OrderStatus.TRADE_CONFIRMED,
-            ],
+          take: WARMUP_PRIORITY_MAX,
+        }),
+        this.prisma.order.findMany({
+          where: {
+            status: {
+              in: [
+                OrderStatus.COMPLETED,
+                OrderStatus.WAITING_TRADE,
+                OrderStatus.TRADE_CONFIRMED,
+              ],
+            },
+            createdAt: { gte: since },
           },
-          createdAt: { gte: since },
-        },
-        select: {
-          lot: {
-            select: {
-              inventoryAsset: {
-                select: {
-                  itemDefinition: {
-                    select: { marketHashName: true },
+          select: {
+            lot: {
+              select: {
+                inventoryAsset: {
+                  select: {
+                    itemDefinition: {
+                      select: { marketHashName: true },
+                    },
                   },
                 },
               },
             },
           },
-        },
-        take: WARMUP_PRIORITY_MAX,
-      }),
-      this.prisma.buyRequest.findMany({
-        where: { status: BuyRequestStatus.OPEN },
-        select: {
-          itemDefinition: {
-            select: { marketHashName: true },
+          take: WARMUP_PRIORITY_MAX,
+        }),
+        this.prisma.buyRequest.findMany({
+          where: { status: BuyRequestStatus.OPEN },
+          select: {
+            itemDefinition: {
+              select: { marketHashName: true },
+            },
           },
-        },
-        take: WARMUP_PRIORITY_MAX,
-      }),
-      this.prisma.itemDefinition.findMany({
-        where: { game: 'CS2', catalogSeeded: true },
-        select: { marketHashName: true, availableWears: true },
-        orderBy: { marketHashName: 'asc' },
-        skip: this.catalogWarmOffset,
-        take: WARMUP_CATALOG_BATCH,
-      }),
-    ]);
+          take: WARMUP_PRIORITY_MAX,
+        }),
+        this.prisma.itemDefinition.findMany({
+          where: { game: 'CS2', catalogSeeded: true },
+          select: { marketHashName: true, availableWears: true },
+          orderBy: { marketHashName: 'asc' },
+          skip: this.catalogWarmOffset,
+          take: WARMUP_CATALOG_BATCH,
+        }),
+      ]);
 
     if (catalogBatch.length < WARMUP_CATALOG_BATCH) {
       this.catalogWarmOffset = 0;

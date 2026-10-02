@@ -41,6 +41,32 @@ describe('SensitiveRateLimitService', () => {
     expect(() => service.assertWithdrawal('user-a')).toThrow(AppException);
   });
 
+  it.each(['production', 'test'])(
+    'keeps limits outside an isolated test database (%s)',
+    (mode) => {
+      process.env.NODE_ENV = mode;
+      process.env.ENABLE_TEST_ROUTES = 'true';
+      process.env.HOST = '127.0.0.1';
+      process.env.DATABASE_URL = 'postgresql://local/market';
+      const service = new SensitiveRateLimitService();
+      service.assertMockLogin('127.0.0.1');
+      service.resetIsolatedTestState();
+      expect(() => service.assertMockLogin('127.0.0.1')).toThrow(AppException);
+    },
+  );
+
+  it('resets the isolated test state and continues enforcing limits', () => {
+    process.env.NODE_ENV = 'test';
+    process.env.ENABLE_TEST_ROUTES = 'true';
+    process.env.HOST = '127.0.0.1';
+    process.env.DATABASE_URL = 'postgresql://127.0.0.1/p2pcs_e2e';
+    const service = new SensitiveRateLimitService();
+    service.assertMockLogin('127.0.0.1');
+    service.resetIsolatedTestState();
+    expect(() => service.assertMockLogin('127.0.0.1')).not.toThrow();
+    expect(() => service.assertMockLogin('127.0.0.1')).toThrow(AppException);
+  });
+
   it('no-ops when ENABLE_SENSITIVE_RATE_LIMITS=false', () => {
     process.env.ENABLE_SENSITIVE_RATE_LIMITS = 'false';
     const service = new SensitiveRateLimitService();

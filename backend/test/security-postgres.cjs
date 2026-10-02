@@ -19,6 +19,8 @@ const {JwtStrategy} = require('../dist/src/auth/jwt.strategy');
 const db = new PrismaService(), ledger = new LedgerService(db);
 const address='T9yD14Nj9j7xAB4dbGeiX9h8unkKHxuWwb';
 const passed=[];
+const runId=BigInt(Date.now())*1000n;
+const offerIdFor=n=>(runId+BigInt(n)).toString();
 async function check(name, fn) { await fn(); passed.push(name); console.log('PASS',name); }
 async function user(amount=10000n) {const u=await db.user.create({data:{username:`audit-${randomUUID()}`,role:'BUYER'}});await ledger.deposit({userId:u.id,amountMinor:amount,idempotencyKey:randomUUID()});return u;}
 async function fixture(buyer, price=900n) {
@@ -51,8 +53,8 @@ async function fixture(buyer, price=900n) {
  await service.reportTaskProgress({taskId:task.id,sessionId:owner.id,leaseVersion:leased.leaseVersion,phase:'OFFER_FAILED',idempotencyKey:'fail',reasonCode:'OFFER_SEND_FAILED'});
  await service.reopenFailedRetryableTasksForWaitingOrders();assert.equal((await db.tradeTask.findUnique({where:{id:task.id}})).status,'FAILED');
  await db.tradeTask.update({where:{id:task.id},data:{status:'EXPIRED'}});
- await service.reportTaskProgress({taskId:task.id,sessionId:owner.id,leaseVersion:leased.leaseVersion,phase:'OFFER_SENT',idempotencyKey:'late',offerId:'123456789'});
- assert.equal((await db.tradeOperation.findUnique({where:{id:f.op.id}})).externalOfferId,'123456789');});
+ await service.reportTaskProgress({taskId:task.id,sessionId:owner.id,leaseVersion:leased.leaseVersion,phase:'OFFER_SENT',idempotencyKey:'late',offerId:offerIdFor(1)});
+ assert.equal((await db.tradeOperation.findUnique({where:{id:f.op.id}})).externalOfferId,offerIdFor(1));});
  await check('link tokens cannot authenticate API requests and login exchange is single-use',async()=>{const u=await user();const auth=new AuthService({signAsync:async()=> 'access-test'},db,{getById:async()=>u},{},{},{type:'steam'});const redirect=await auth.buildFrontendCallbackUrl({accessToken:'must-not-appear',user:{id:u.id}});assert(!redirect.includes('must-not-appear'));const code=new URL(redirect).searchParams.get('code');const results=await Promise.allSettled([auth.exchangeCode(code),auth.exchangeCode(code)]);assert.equal(results.filter(x=>x.status==='fulfilled').length,1);const jwt=new JwtStrategy({resolveSessionUser:async()=>({sub:u.id})});await assert.rejects(jwt.validate({sub:u.id,purpose:'steam_link'}));});
 
  await check('stale order transition cannot overwrite a completed concurrent transition',async()=>{
@@ -88,16 +90,16 @@ async function fixture(buyer, price=900n) {
    const snapshot=await db.order.findUnique({where:{id:f.order.id},include:{tradeOperation:true,lot:true}});
    const wrapped={auditLog:db.auditLog,tradeOperation:db.tradeOperation,outboxEvent:db.outboxEvent,$transaction:db.$transaction.bind(db)};wrapped.order={findUnique:async()=>snapshot};
    const service=new TradeReferenceReconcileService(wrapped,{}, {},{pollOrderById:async()=>false});
-   const refs=['98765432101','98765432102'];
+   const refs=[offerIdFor(2),offerIdFor(3)];
    const results=await Promise.allSettled(refs.map(offerId=>service.reconcile({orderId:f.order.id,sellerId:f.seller.id,offerId,source:'EXTENSION',idempotencyKey:randomUUID()})));
    assert.equal(results.filter(x=>x.status==='fulfilled').length,1);
    assert(refs.includes((await db.tradeOperation.findUnique({where:{id:f.op.id}})).externalOfferId));
  });
 
- for (const extensionFirst of ['false','true']) await check(`unknown Steam response waits until buyer receipt; receipt completes exactly once (extensionFirst=${extensionFirst})`,async()=>{
+ for (const extensionFirst of ['false','true']) await check(`buyer receipt cannot settle unknown delivery; dual signals complete exactly once (extensionFirst=${extensionFirst})`,async()=>{
    process.env.ENABLE_EXTENSION_FIRST_TRADE_FLOW=extensionFirst;
    process.env.ENABLE_DELIVERY_VERIFICATION_ENGINE='true';process.env.ENABLE_REAL_SETTLEMENT='false';
-   const buyer=await user(),f=await fixture(buyer),offerId=extensionFirst==='true'?'936147974901':'936147974900';
+   const buyer=await user(),f=await fixture(buyer),offerId=offerIdFor(extensionFirst==='true'?4:5);
    await db.lot.update({where:{id:f.lot.id},data:{status:'RESERVED'}});
    await db.inventoryAsset.update({where:{id:f.asset.id},data:{status:'RESERVED'}});
    await ledger.reservePurchaseHold({buyerUserId:buyer.id,orderId:f.order.id,holdId:f.hold.id,amountMinor:900n,idempotencyKey:randomUUID()});
@@ -113,7 +115,8 @@ async function fixture(buyer, price=900n) {
    const states=new OrderStateService(),metrics={recordOrderCompleted:()=>{},recordVerifyMismatch:()=>{}};
    const trades=Object.create(TradesService.prototype);
    Object.assign(trades,{prisma:db,orderStateService:states,tradeOperationStateService:new TradeOperationStateService(),extensionFlowMetrics:metrics,settlementService:new SettlementService(db,ledger,new LotStateService(),states,{}),verifyOffer:async()=>({status:'unknown',tradable:null,tradeLockUntil:null})});
-   const engine=new DeliveryVerificationEngineService(db,trades,{verify:async()=> 'unknown'});
+   let inventoryDelta='unknown';
+   const engine=new DeliveryVerificationEngineService(db,trades,{verify:async()=> inventoryDelta});
    const poller=new TradeStatusPollerService(db,trades,engine,{},metrics);
    await poller.pollOrderById(f.order.id,{force:true});
    assert.equal((await db.order.findUnique({where:{id:f.order.id}})).status,'WAITING_TRADE');
@@ -121,6 +124,11 @@ async function fixture(buyer, price=900n) {
    const ack=new ExtensionTradeAckService(db,poller);
    const params={userId:buyer.id,orderId:f.order.id,type:'BUYER_ACK_RECEIVED',offerId,idempotencyKey:randomUUID(),requireChannelEnabled:false};
    await ack.acknowledge(params);
+   assert.equal((await db.order.findUnique({where:{id:f.order.id}})).status,'WAITING_TRADE');
+   assert.equal(await ledger.getAvailableBalance(f.seller.id),10000n);
+   trades.verifyOffer=async()=>({status:'accepted',tradable:null,tradeLockUntil:null});
+   inventoryDelta='confirmed';
+   await poller.pollOrderById(f.order.id,{force:true});
    assert.equal((await db.order.findUnique({where:{id:f.order.id}})).status,'COMPLETED');
    assert.equal(await ledger.getAvailableBalance(f.seller.id),10900n);
    await ack.acknowledge(params);
@@ -128,8 +136,9 @@ async function fixture(buyer, price=900n) {
    assert.equal(await ledger.getAvailableBalance(f.seller.id),10900n);
    assert.equal(await db.tradeAcknowledgment.count({where:{orderId:f.order.id,type:'BUYER_ACK_RECEIVED'}}),1);
    const audit=await db.auditLog.findFirst({where:{entityId:f.order.id,action:'TRADE_POLL_CONFIRMED'}});
-   assert.equal(audit.afterState.verificationEvidence.offerStatus,'unknown');
-   assert.match(JSON.stringify(audit.afterState.verificationEvidence),/BUYER_ACK/);
+   assert.equal(audit.afterState.verificationEvidence.offerStatus,'accepted');
+   assert.equal(audit.afterState.verificationEvidence.inventoryDelta,'confirmed');
+   assert.equal(audit.afterState.verificationEvidence.reasonCode,'DUAL_SIGNAL_CONFIRMED');
  });
 
  await check('a newly synced lookalike does not prove delivery of the purchased asset',async()=>{

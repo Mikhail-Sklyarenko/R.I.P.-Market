@@ -13,10 +13,14 @@ export function ExtensionInstallPage() {
   const [params] = useSearchParams();
   const returnPath = safeAppReturnPath(params.get('returnUrl')) ?? '/account';
   const [version, setVersion] = useState<string | null>(null);
+  const [downloadState, setDownloadState] = useState<'loading' | 'ready' | 'error'>('loading');
+  const [downloadAttempt, setDownloadAttempt] = useState(0);
 
   useEffect(() => {
+    let active = true;
     const controller = new AbortController();
-    fetch('/downloads/extension.json', { signal: controller.signal })
+    const timeout = window.setTimeout(() => controller.abort(), 15000);
+    fetch('/downloads/extension.json', { signal: controller.signal, cache: 'no-cache' })
       .then((response) => {
         if (!response.ok) {
           throw new Error('Download unavailable');
@@ -24,18 +28,28 @@ export function ExtensionInstallPage() {
         return response.json();
       })
       .then((data: unknown) => {
+        if (!active) return;
         if (
           data &&
           typeof data === 'object' &&
           'version' in data &&
-          typeof (data as { version: unknown }).version === 'string'
+          typeof (data as { version: unknown }).version === 'string' &&
+          (data as { version: string }).version.trim().length > 0
         ) {
           setVersion((data as { version: string }).version);
+          setDownloadState('ready');
+        } else {
+          throw new Error('Invalid download metadata');
         }
       })
-      .catch(() => undefined);
-    return () => controller.abort();
-  }, []);
+      .catch(() => { if (active) setDownloadState('error'); })
+      .finally(() => window.clearTimeout(timeout));
+    return () => {
+      active = false;
+      window.clearTimeout(timeout);
+      controller.abort();
+    };
+  }, [downloadAttempt]);
 
   return (
     <div className="page extension-install-page">
@@ -54,7 +68,7 @@ export function ExtensionInstallPage() {
         <li className="card">
           <h2>{t('ux.stepDownload')}</h2>
           <p className="muted">{t('ux.stepDownloadBody')}</p>
-          {version ? (
+          {downloadState === 'ready' && version ? (
             <div className="extension-install-download">
               <a
                 className="button primary"
@@ -67,10 +81,19 @@ export function ExtensionInstallPage() {
                 {t('ux.downloadVersion')} {version}
               </p>
             </div>
-          ) : (
+          ) : downloadState === 'loading' ? (
             <p role="status" className="muted">
-              {t('ux.downloadUnavailable')}
+              {t('common.loading')}
             </p>
+          ) : (
+            <div>
+              <p role="status" className="muted">{t('ux.downloadUnavailable')}</p>
+              <button type="button" className="button secondary" onClick={() => {
+                setDownloadState('loading');
+                setDownloadAttempt((attempt) => attempt + 1);
+              }}>{t('ux.downloadRetry')}</button>
+              <Link className="button ghost" to="/support">{t('ux.downloadSupport')}</Link>
+            </div>
           )}
         </li>
 
@@ -78,6 +101,7 @@ export function ExtensionInstallPage() {
           <h2>{t('ux.stepInstall')}</h2>
           <p className="muted">{t('ux.stepInstallBody')}</p>
           <code className="extension-install-code">chrome://extensions</code>
+          <code className="extension-install-code">edge://extensions</code>
         </li>
 
         <li className="card">

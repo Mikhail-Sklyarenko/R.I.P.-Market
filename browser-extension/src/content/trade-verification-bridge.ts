@@ -117,6 +117,13 @@ function maybeReportSteamOfferPage(trade: TradeVerificationResult): void {
   if (!offerId) {
     return;
   }
+  if (trade.role === 'buyer' && location.pathname === `/tradeoffer/${offerId}/`) {
+    try {
+      sessionStorage.setItem('rip-market:receipt-context:v1', JSON.stringify({
+        orderId: trade.orderId, offerId, savedAt: Date.now(),
+      }));
+    } catch { /* Receipt hint is optional; never bypass server checks. */ }
+  }
   const page = detectSteamOfferPageLifecycle(document);
   if (!isPostAcceptSteamLifecycle(page.lifecycle)) {
     return;
@@ -1162,19 +1169,18 @@ function buildPanel(context: OfferPageContext): HTMLElement {
     shield.partner.match === 'match' &&
     !scamBlocks;
 
-  const acceptAssistDone =
-    steamPostAccept ||
-    (acceptAssistUi?.offerId === trade.offerId &&
-      acceptAssistUi.phase === 'done');
+  // Dispatching a click does not prove Steam accepted it (readiness, errors,
+  // or a second Steam confirmation may still block completion).
+  const steamAcceptanceObserved = steamPostAccept;
   const confirmPhase = resolveDealConfirmPhase(trade, {
-    acceptAssistDone,
+    steamAcceptanceObserved,
   });
   const confirmBanner = buildDealConfirmBanner(trade, overlayLocale, {
-    acceptAssistDone,
+    steamAcceptanceObserved,
   });
 
   const showConfirmReceived =
-    needsBuyerReceivedConfirm(trade, { acceptAssistDone }) &&
+    needsBuyerReceivedConfirm(trade, { steamAcceptanceObserved }) &&
     status !== 'mismatch' &&
     !scamBlocks;
 
@@ -1219,7 +1225,7 @@ function buildPanel(context: OfferPageContext): HTMLElement {
     !scamBlocks &&
     status !== 'mismatch' &&
     !showPrimaryReceived &&
-    !(acceptAllowed && !acceptAssistDone)
+    !(acceptAllowed && !steamAcceptanceObserved)
       ? dealConfirmBannerHtml(confirmBanner, escapeHtml)
       : '';
 

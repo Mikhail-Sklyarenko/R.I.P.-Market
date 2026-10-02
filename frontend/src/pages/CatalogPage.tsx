@@ -603,7 +603,7 @@ export function CatalogPage() {
   }, [baseQuery, baseQueryKey, loadedPage, loadRetryKey]);
 
   useEffect(() => {
-    if (filtersActive) {
+    if (hasNonSortFilters) {
       if (!loading) {
         setPopularItems([]);
       }
@@ -653,6 +653,7 @@ export function CatalogPage() {
   }, [
     popularSortSelected,
     hasNonSortFilters,
+    loading,
     popularItems.length,
     baseQueryKey,
     returnRestoreDone,

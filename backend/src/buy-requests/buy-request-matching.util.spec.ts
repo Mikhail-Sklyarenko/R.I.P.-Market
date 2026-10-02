@@ -9,10 +9,16 @@ describe('buy-request matching util', () => {
       lotMatchesBuyRequestPrice({ maxPriceMinor: 1000n }, { priceMinor: 900n }),
     ).toBe(true);
     expect(
-      lotMatchesBuyRequestPrice({ maxPriceMinor: 1000n }, { priceMinor: 1000n }),
+      lotMatchesBuyRequestPrice(
+        { maxPriceMinor: 1000n },
+        { priceMinor: 1000n },
+      ),
     ).toBe(true);
     expect(
-      lotMatchesBuyRequestPrice({ maxPriceMinor: 1000n }, { priceMinor: 1001n }),
+      lotMatchesBuyRequestPrice(
+        { maxPriceMinor: 1000n },
+        { priceMinor: 1001n },
+      ),
     ).toBe(false);
   });
 
