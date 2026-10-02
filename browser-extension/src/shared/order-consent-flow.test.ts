@@ -13,19 +13,28 @@ import {
 const id = "92406b1d-3bd3-41ae-ab02-68e87f628dc9";
 afterEach(() => vi.unstubAllGlobals());
 describe("trusted order consent orchestration", () => {
-  it("accepts only the matching production order page, not a consent supplied by a website", () => {
+  it.each(["https://p2pcs.ru/", "https://www.p2pcs.ru/"])("accepts Chrome external sender root URL %s", (url) => {
+    expect(consentOrderFromSender(id, url)).toBe(id);
+  });
+  it("accepts a production SPA route but rejects untrusted origins", () => {
     expect(consentOrderFromSender(id, `https://p2pcs.ru/orders/${id}`)).toBe(
       id,
     );
     for (const url of [
       `https://evil.test/orders/${id}`,
       `https://p2pcs.ru.evil.test/orders/${id}`,
-      "https://p2pcs.ru/catalog",
+      "http://p2pcs.ru/",
+      "https://p2pcs.ru:444/",
+      "https://www.p2pcs.ru.evil.test/",
+      "not a URL",
     ])
       expect(consentOrderFromSender(id, url)).toBeNull();
     expect(
       consentOrderFromSender("../popup", "https://p2pcs.ru/orders/../popup"),
     ).toBeNull();
+  });
+  it.each(["../popup", "", "668efbd1-0d6f-4443-ae1e-238d835ab25z", "668efbd1-0d6f-4443-ae1e-238d835ab259/", null, undefined, 42])("rejects malformed orderId %j even from Chrome's production root sender", (orderId) => {
+    expect(consentOrderFromSender(orderId, "https://p2pcs.ru/")).toBeNull();
   });
   it("binds confirmation to the extension-owned page and exact order", () => {
     vi.stubGlobal("chrome", {

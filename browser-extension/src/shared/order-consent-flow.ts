@@ -10,8 +10,10 @@ export function consentOrderFromSender(
     return null;
   try {
     const url = new URL(senderUrl ?? "");
-    return url.origin === "https://p2pcs.ru" &&
-      url.pathname === `/orders/${orderId}`
+    // Chrome external messaging may report only the root URL for SPA pages.
+    // This request opens trusted UI; it cannot grant privileged consent.
+    return (url.origin === "https://p2pcs.ru" ||
+      url.origin === "https://www.p2pcs.ru")
       ? orderId
       : null;
   } catch {
