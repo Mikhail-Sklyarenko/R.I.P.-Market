@@ -366,14 +366,14 @@ export const clientExtraEn = {
     deliveryBuyerBody:
       'The skin should already be yours. We match the Steam offer and inventory — this page updates itself.',
     deliveryBuyerReason: 'Never pay in chat and never accept other offers “instead” of this deal.',
-    holdSellerTitle: 'Payout after the review window',
+    holdSellerTitle: 'Trade confirmed by Steam',
     holdSellerBody:
-      'Trade confirmed. Funds stay on hold until the protection window ends.',
+      'Funds remain protected. Do not send another trade.',
     holdSellerReason:
-      'Up to 8 days protects against chargebacks and Steam trade reversals.',
+      'The protection window lasts at least 8 days. Release requires a fresh check that Steam has not reversed the trade.',
     holdBuyerTitle: 'Item is yours — settlement is on-platform',
     holdBuyerBody:
-      'The skin is in your inventory. Seller funds unlock after review / hold.',
+      'Steam confirmed the item transfer. Do not accept another trade. Funds remain protected until verification completes.',
     holdBuyerReason: 'Payment is already on the platform. Do not send money to the seller in Steam chat.',
     signalOffer: 'Steam offer signal',
     signalInventory: 'Inventory signal',
@@ -381,7 +381,7 @@ export const clientExtraEn = {
     tonePending: 'Waiting',
     toneWarn: 'Attention',
     toneUnknown: 'Checking',
-    holdUntilLabel: 'Payout expected from',
+    holdUntilLabel: 'Protection window ends',
   },
   postTradeReceipt: {
     eyebrow: 'Receipt',

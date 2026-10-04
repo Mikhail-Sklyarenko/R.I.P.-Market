@@ -28,7 +28,7 @@ describe('SteamTradeProvider evidence', () => {
       ok: true,
       status: 200,
       json: async () => ({ response: { offer } }),
-    } as Response);
+    } as Awaited<ReturnType<typeof steamFetch>>);
   }
 
   it('does not treat HTTP 200 without an offer as delivery evidence', async () => {
@@ -58,7 +58,9 @@ describe('SteamTradeProvider evidence', () => {
   });
 
   it('preserves rate limits for the delivery backoff', async () => {
-    fetchMock.mockResolvedValue({ ok: false, status: 429 } as Response);
+    fetchMock.mockResolvedValue({ ok: false, status: 429 } as Awaited<
+      ReturnType<typeof steamFetch>
+    >);
     await expect(provider.verifyTradeOffer(offerId)).rejects.toBeInstanceOf(
       SteamTradeRateLimitError,
     );
@@ -105,7 +107,9 @@ describe('Steam order-bound receipt verification', () => {
     assets_received: [],
   };
   const response = (body: unknown) =>
-    ({ ok: true, status: 200, json: async () => body }) as Response;
+    ({ ok: true, status: 200, json: async () => body }) as Awaited<
+      ReturnType<typeof steamFetch>
+    >;
   beforeEach(() => {
     fetchMock.mockReset();
     process.env.STEAM_WEB_API_KEY = 'test-key';
@@ -131,6 +135,9 @@ describe('Steam order-bound receipt verification', () => {
       receivedAssetId: '53954582039',
       receivedContextId: '2',
       receiptVerified: true,
+      offerAccepted: true,
+      bindingVerified: false,
+      reasonCode: 'STEAM_RECEIPT_VERIFIED',
       tradeId: offer.tradeid,
     });
     const requested = new URL(String(fetchMock.mock.calls[1][0]));
@@ -175,6 +182,9 @@ describe('Steam order-bound receipt verification', () => {
     ).toEqual({
       status: 'accepted',
       receiptVerified: true,
+      offerAccepted: true,
+      bindingVerified: false,
+      reasonCode: 'STEAM_RECEIPT_VERIFIED',
       tradeId: offer.tradeid,
       receivedAssetId: undefined,
       receivedContextId: undefined,
@@ -205,6 +215,9 @@ describe('Steam order-bound receipt verification', () => {
       receivedAssetId: '53954582039',
       receivedContextId: '2',
       receiptVerified: true,
+      offerAccepted: true,
+      bindingVerified: false,
+      reasonCode: 'STEAM_RECEIPT_VERIFIED',
       tradeId: offer.tradeid,
     });
   });
@@ -225,9 +238,80 @@ describe('Steam order-bound receipt verification', () => {
   it('propagates receipt rate limits for retry backoff', async () => {
     fetchMock
       .mockResolvedValueOnce(response({ response: { offer } }))
-      .mockResolvedValueOnce({ ok: false, status: 429 } as Response);
+      .mockResolvedValueOnce({ ok: false, status: 429 } as Awaited<
+        ReturnType<typeof steamFetch>
+      >);
     await expect(
       provider.verifyTradeOffer(offer.tradeofferid, context),
     ).rejects.toBeInstanceOf(SteamTradeRateLimitError);
+  });
+  it('reads a persisted receipt directly when the old offer is unavailable', async () => {
+    fetchMock.mockResolvedValueOnce(
+      response({
+        response: { trades: [{ ...receipt, assets_given: [item] }] },
+      }),
+    );
+    expect(
+      await provider.verifyTradeReceipt(
+        offer.tradeid,
+        offer.tradeofferid,
+        context,
+      ),
+    ).toMatchObject({
+      status: 'accepted',
+      receiptVerified: true,
+      tradeId: offer.tradeid,
+    });
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(new URL(String(fetchMock.mock.calls[0][0])).pathname).toBe(
+      '/IEconService/GetTradeStatus/v1/',
+    );
+  });
+  it.each([
+    { steamid_other: '76561198000000001' },
+    { tradeid: '123' },
+    { tradeid: 'invalid' },
+    { status: 10 },
+    { assets_given: [{ ...item, assetid: '123' }] },
+    { assets_given: [{ ...item, appid: 440 }] },
+    { assets_given: [{ ...item, contextid: '16' }] },
+    { assets_given: [{ ...item, amount: '2' }] },
+    { assets_received: [item] },
+    { rollback_tradeid: '123' },
+  ])('rejects a mismatching or reversed receipt %j', async (patch) => {
+    fetchMock.mockResolvedValueOnce(
+      response({ response: { trades: [{ ...receipt, ...patch }] } }),
+    );
+    expect(
+      (
+        await provider.verifyTradeReceipt(
+          offer.tradeid,
+          offer.tradeofferid,
+          context,
+        )
+      ).receiptVerified,
+    ).not.toBe(true);
+  });
+  it('never requests a receipt with malformed tradeId or wrong credential owner', async () => {
+    await provider.verifyTradeReceipt('invalid', offer.tradeofferid, context);
+    process.env.STEAM_WEB_API_KEY_OWNER_STEAM_ID = context.buyerSteamId;
+    await provider.verifyTradeReceipt(
+      offer.tradeid,
+      offer.tradeofferid,
+      context,
+    );
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+  it('requires the existing exact binding in API-key offer verification', async () => {
+    fetchMock.mockResolvedValueOnce(
+      response({ response: { offer: { ...offer, message: 'other' } } }),
+    );
+    expect(
+      await provider.verifyTradeOffer(offer.tradeofferid, {
+        ...context,
+        tradeBinding: 'p2pcs:test',
+      }),
+    ).toMatchObject({ status: 'unknown', identityConflict: true });
+    expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 });

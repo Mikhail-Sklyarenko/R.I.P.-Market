@@ -61,3 +61,52 @@ describe('SettlementReleaseWorkerService', () => {
     expect(prisma.order.findMany).not.toHaveBeenCalled();
   });
 });
+
+it.each([0, 18, 19])(
+  'protection retry %s ignores 25 previous delivery polls',
+  async (retries) => {
+    const prisma = {
+      order: { findMany: jest.fn().mockResolvedValue([{ id: 'held-order' }]) },
+      tradeOperation: {
+        findUnique: jest.fn().mockResolvedValue({ id: 'op', checkCount: 25 }),
+        updateMany: jest.fn().mockResolvedValue({ count: 1 }),
+      },
+      tradePollEvent: {
+        count: jest.fn().mockResolvedValue(retries),
+        create: jest.fn(),
+      },
+    };
+    const settlement = {
+      releaseDueSettlementHold: jest.fn().mockResolvedValue({
+        settled: false,
+        guard: { allowed: false, code: 'STEAM_RECHECK_UNAVAILABLE' },
+      }),
+    };
+    process.env.ENABLE_REAL_SETTLEMENT = 'true';
+    try {
+      await new SettlementReleaseWorkerService(
+        prisma as never,
+        settlement as never,
+      ).releaseDueHolds();
+      expect(prisma.tradeOperation.updateMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            verificationStage:
+              retries === 19 ? 'MANUAL_REVIEW' : 'PROTECTION_RECHECK',
+          }),
+        }),
+      );
+      expect(prisma.tradePollEvent.count).toHaveBeenCalledWith({
+        where: {
+          tradeOperationId: 'op',
+          strategy: 'SETTLEMENT_PROTECTION_RECHECK',
+        },
+      });
+      expect(
+        prisma.tradeOperation.updateMany.mock.calls[0][0].data,
+      ).not.toHaveProperty('checkCount');
+    } finally {
+      delete process.env.ENABLE_REAL_SETTLEMENT;
+    }
+  },
+);

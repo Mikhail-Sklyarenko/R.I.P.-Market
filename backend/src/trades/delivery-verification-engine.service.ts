@@ -1,3 +1,4 @@
+import { deliveryStreaks } from './verification-streaks';
 import { DeliveryWorkflowService } from './delivery-workflow.service';
 import { Prisma } from '@prisma/client';
 import { Injectable, Logger } from '@nestjs/common';
@@ -6,6 +7,9 @@ import type { TradeVerificationResult } from '../providers/trade/trade-provider.
 import { PrismaService } from '../prisma/prisma.service';
 import {
   computeRateLimitBackoffMs,
+  getOfferUnknownMaxChecks,
+  getInventoryUnknownMaxChecks,
+  getAcceptedInventoryPendingMaxChecks,
   getTradeFailMode,
   getTradeTimeoutMs,
   isDeliveryVerificationEngineEnabled,
@@ -31,6 +35,7 @@ export type DeliveryVerificationOperation = {
   verificationMode: string | null;
   tradeBinding?: string | null;
   checkCount: number;
+  deliveryProof?: Prisma.JsonValue;
   order: {
     id: string;
     buyerId: string;
@@ -118,6 +123,77 @@ export class DeliveryVerificationEngineService {
       failMode: getTradeFailMode(),
     };
 
+    const history = await this.prisma.tradePollEvent.findMany({
+      where: {
+        tradeOperationId: operation.id,
+        OR: [
+          { strategy: { startsWith: 'OFFER_POLL+' } },
+          { strategy: { startsWith: 'INVENTORY_DELTA:' } },
+        ],
+      },
+      orderBy: [{ checkedAt: 'desc' }, { id: 'desc' }],
+      take: Math.ceil(
+        Math.max(
+          getOfferUnknownMaxChecks(),
+          getInventoryUnknownMaxChecks(),
+          getAcceptedInventoryPendingMaxChecks(),
+        ),
+      ),
+      select: { strategy: true, offerStatus: true, outcome: true },
+    });
+    const previous = deliveryStreaks(history);
+    const updateStreaks = () => {
+      signals.offerUnknownStreak =
+        signals.offerStatus === 'unknown' || signals.offerStatus === null
+          ? previous.offerUnknownStreak + 1
+          : 0;
+      signals.inventoryUnknownStreak =
+        signals.inventoryDelta === 'unknown'
+          ? previous.inventoryUnknownStreak + 1
+          : 0;
+      signals.acceptedPendingStreak =
+        signals.offerStatus === 'accepted'
+          ? previous.acceptedPendingStreak + 1
+          : 0;
+    };
+    const receiptDecision = async (verification?: TradeVerificationResult) => {
+      const proof = await new DeliveryWorkflowService(this.prisma).verify(
+        operation.orderId,
+        verification,
+      );
+      if (proof.result === 'ambiguous') {
+        return this.pack(
+          {
+            action: 'MANUAL_REVIEW',
+            reason: 'DELIVERY_SIGNAL_CONFLICT',
+            reasonCode: 'STEAM_EVIDENCE_CONFLICT',
+            pollOutcome: 'MANUAL_REVIEW',
+            offerStatus: verification?.status ?? null,
+            inventoryDelta: null,
+          },
+          verification?.status ?? null,
+          null,
+        );
+      }
+      if (!proof.receiptProofPersisted) return null;
+      this.logger.log(
+        JSON.stringify({
+          event: 'delivery_verified_by_receipt',
+          orderId: operation.orderId,
+        }),
+      );
+      signals.receiptProofPersisted = true;
+      signals.offerStatus = verification?.status ?? null;
+      signals.inventoryDelta = null;
+      const packed = this.pack(
+        decideDeliveryVerification(signals),
+        signals.offerStatus,
+        null,
+      );
+      packed.evidence.receiptProofPersisted = true;
+      packed.evidence.deliveryAuthority = 'STEAM_RECEIPT';
+      return packed;
+    };
     let offerStatus: TradeVerificationResult['status'] | null = null;
     let inventoryDelta: InventoryDeltaResult | null = null;
     let receivedAssetId: string | undefined;
@@ -171,43 +247,40 @@ export class DeliveryVerificationEngineService {
           receivedAssetId = verification.receivedAssetId;
       }
 
+      if (serverProof?.receiptVerified || operation.deliveryProof) {
+        const receipt = await receiptDecision(serverProof);
+        if (receipt) return receipt;
+      }
       // Client DOM observations remain timeline evidence, never settlement authority.
-      // Both server-side signals are required even when the legacy engine flag is off.
+      // Inventory remains an anomaly signal; it cannot replace durable receipt authority.
       {
         const expected =
           operation.expectedAssetId ??
           operation.order.lot.inventoryAsset.assetExternalId;
         const snapshot = operation.order.lot.listingSnapshot;
         const asset = operation.order.lot.inventoryAsset;
-        inventoryDelta = serverProof?.receiptVerified
-          ? (
-              await new DeliveryWorkflowService(this.prisma).verify(
-                operation.orderId,
-                serverProof,
-              )
-            ).result
-          : await this.inventoryDelta.verify(
-              operation.order.sellerId,
-              operation.order.buyerId,
-              operation.order.seller.steamId,
-              operation.order.buyer.steamId,
-              expected,
-              snapshot?.marketHashName ?? asset.itemDefinition.marketHashName,
-              {
-                force: true,
-                receivedAssetId,
-                expectedFloatValue:
-                  snapshot?.floatValue ?? asset.floatValue ?? null,
-                expectedPaintSeed:
-                  snapshot?.paintSeed ?? asset.paintSeed ?? null,
-                orderCreatedAt: operation.order.createdAt,
-              },
-            );
+        inventoryDelta = await this.inventoryDelta.verify(
+          operation.order.sellerId,
+          operation.order.buyerId,
+          operation.order.seller.steamId,
+          operation.order.buyer.steamId,
+          expected,
+          snapshot?.marketHashName ?? asset.itemDefinition.marketHashName,
+          {
+            force: true,
+            receivedAssetId,
+            expectedFloatValue:
+              snapshot?.floatValue ?? asset.floatValue ?? null,
+            expectedPaintSeed: snapshot?.paintSeed ?? asset.paintSeed ?? null,
+            orderCreatedAt: operation.order.createdAt,
+          },
+        );
       }
 
       signals.offerStatus = offerStatus;
       signals.inventoryDelta = inventoryDelta;
 
+      updateStreaks();
       const decision = decideDeliveryVerification(signals);
       if (
         decision.action === 'WAIT' &&
@@ -218,6 +291,14 @@ export class DeliveryVerificationEngineService {
       }
       return this.pack(decision, offerStatus, inventoryDelta);
     } catch (error: unknown) {
+      if (
+        operation.deliveryProof &&
+        !serverProof?.identityConflict &&
+        !serverProof?.reversalDetected
+      ) {
+        const receipt = await receiptDecision(serverProof);
+        if (receipt) return receipt;
+      }
       if (
         error instanceof SteamTradeRateLimitError ||
         error instanceof InventoryVerificationRateLimitError ||
@@ -234,6 +315,7 @@ export class DeliveryVerificationEngineService {
       // user dispute or arbitrary upstream error text in financial logs.
       signals.offerStatus = offerStatus;
       signals.inventoryDelta = 'unknown';
+      updateStreaks();
       const decision = decideDeliveryVerification(signals);
       return this.pack(decision, offerStatus, 'unknown');
     }

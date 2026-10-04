@@ -36,6 +36,22 @@ describe('SettlementGuardService', () => {
   };
   let service: SettlementGuardService;
   const verifyTradeOffer = jest.fn();
+  const verifyTradeReceipt = jest.fn();
+  const storedProof = (offerId = '9391832342', assetId = '50586823960') => ({
+    version: 3,
+    authority: 'STEAM_RECEIPT',
+    orderId: 'order-1',
+    offerId,
+    tradeId: '744938690018816549',
+    originalAssetId: assetId,
+    sellerSteamId: '76561198000000002',
+    buyerSteamId: '76561198000000001',
+    receiptStatus: 3,
+    offerState: 3,
+    bindingVerified: false,
+    verifiedAt: new Date(Date.now() - 9 * 86400000).toISOString(),
+    protectionUntil: new Date(Date.now() - 86400000).toISOString(),
+  });
 
   const baseOrder = {
     id: 'order-1',
@@ -55,17 +71,24 @@ describe('SettlementGuardService', () => {
         findUnique: jest.fn().mockResolvedValue({
           externalOfferId: '9391832342',
           expectedAssetId: '50586823960',
+          deliveryProof: storedProof(),
         }),
       },
     };
     verifyTradeOffer.mockReset();
+    verifyTradeReceipt.mockReset();
+    verifyTradeReceipt.mockResolvedValue({
+      status: 'accepted',
+      receiptVerified: true,
+      tradeId: '744938690018816549',
+    });
     verifyTradeOffer.mockResolvedValue({
       status: 'accepted',
       receivedAssetId: '53954582039',
     });
     service = new SettlementGuardService(
       prisma as never,
-      { verifyTradeOffer } as never,
+      { verifyTradeOffer, verifyTradeReceipt } as never,
     );
     (isRealSettlementEnabled as jest.Mock).mockReturnValue(true);
     (isLiveVerificationMode as jest.Mock).mockReturnValue(true);
@@ -79,7 +102,7 @@ describe('SettlementGuardService', () => {
       prisma.settlementAllowlistEntry.findUnique.mockResolvedValue({
         enabled: true,
       });
-      verifyTradeOffer.mockResolvedValue({ status });
+      verifyTradeReceipt.mockResolvedValue({ status });
       expect(
         await service.canSettle({
           ...baseOrder,
@@ -93,7 +116,7 @@ describe('SettlementGuardService', () => {
     prisma.settlementAllowlistEntry.findUnique.mockResolvedValue({
       enabled: true,
     });
-    verifyTradeOffer.mockResolvedValue({ status: 'accepted' });
+    verifyTradeReceipt.mockResolvedValue({ status: 'accepted' });
     expect(
       await service.canSettle({
         ...baseOrder,
@@ -102,7 +125,7 @@ describe('SettlementGuardService', () => {
     ).toMatchObject({ allowed: false, code: 'STEAM_RECHECK_UNAVAILABLE' });
   });
 
-  it('rechecks the stored offer and original asset with the order participants', async () => {
+  it('rechecks persisted tradeId directly without the old offer', async () => {
     prisma.settlementAllowlistEntry.findUnique.mockResolvedValue({
       enabled: true,
     });
@@ -112,18 +135,23 @@ describe('SettlementGuardService', () => {
         status: OrderStatus.SETTLEMENT_HOLD,
       }),
     ).toEqual({ allowed: true });
-    expect(verifyTradeOffer).toHaveBeenCalledWith('9391832342', {
-      sellerSteamId: baseOrder.seller.steamId,
-      buyerSteamId: baseOrder.buyer.steamId,
-      assetId: '50586823960',
-    });
+    expect(verifyTradeOffer).not.toHaveBeenCalled();
+    expect(verifyTradeReceipt).toHaveBeenCalledWith(
+      '744938690018816549',
+      '9391832342',
+      {
+        sellerSteamId: baseOrder.seller.steamId,
+        buyerSteamId: baseOrder.buyer.steamId,
+        assetId: '50586823960',
+      },
+    );
   });
 
   it('does not expose credential-bearing network errors', async () => {
     prisma.settlementAllowlistEntry.findUnique.mockResolvedValue({
       enabled: true,
     });
-    verifyTradeOffer.mockRejectedValue(
+    verifyTradeReceipt.mockRejectedValue(
       new Error('https://example.invalid/?key=secret'),
     );
     const result = await service.canSettle({
@@ -147,7 +175,11 @@ describe('SettlementGuardService', () => {
         externalOfferId: '9394782030',
         expectedAssetId: '50586848789',
         deliveryProof: {
+          ...storedProof('9394782030', '50586848789'),
           version: 2,
+          destinationAssetId: '123456',
+          destinationContextId: '16',
+          mappingMethod: 'INVENTORY_DELTA',
           offerId: '9394782030',
           tradeId: '744938690018816549',
           originalAssetId: '50586848789',
@@ -156,7 +188,7 @@ describe('SettlementGuardService', () => {
           protectionUntil: new Date(Date.now() - 1000).toISOString(),
         },
       });
-      verifyTradeOffer.mockResolvedValue({
+      verifyTradeReceipt.mockResolvedValue({
         status: 'accepted',
         receiptVerified: true,
         tradeId: '744938690018816549',
@@ -181,7 +213,11 @@ describe('SettlementGuardService', () => {
       externalOfferId: '9394782030',
       expectedAssetId: '50586848789',
       deliveryProof: {
+        ...storedProof('9394782030', '50586848789'),
         version: 2,
+        destinationAssetId: '123456',
+        destinationContextId: '16',
+        mappingMethod: 'INVENTORY_DELTA',
         offerId: '9394782030',
         tradeId: '744938690018816549',
         originalAssetId: '50586848789',
@@ -190,7 +226,7 @@ describe('SettlementGuardService', () => {
         protectionUntil: new Date(Date.now() + 86400000).toISOString(),
       },
     });
-    verifyTradeOffer.mockResolvedValue({
+    verifyTradeReceipt.mockResolvedValue({
       status: 'accepted',
       receiptVerified: true,
       tradeId: '744938690018816549',

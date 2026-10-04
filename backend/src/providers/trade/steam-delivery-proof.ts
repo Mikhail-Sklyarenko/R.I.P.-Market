@@ -30,6 +30,8 @@ export function steamOfferMatchesOrder(
     return false;
   // A configured key is NOT automatically a credential for every seller.
   if (credentialOwner !== context.sellerSteamId) return false;
+  if (context.tradeBinding && offer.message !== context.tradeBinding)
+    return false;
   const buyerAccountId = BigInt(context.buyerSteamId) - 76561197960265728n;
   if (
     buyerAccountId <= 0n ||
@@ -134,6 +136,7 @@ export function steamReceiptReversed(
   // ETradeStatus differs from ETradeOfferState: 10 is escrow, 11 its rollback.
   return (
     [4, 5, 6, 7, 8, 9, 11].includes(receipt.status as number) ||
+    Object.keys(receipt).some((key) => key.startsWith('rollback')) ||
     assets.some((value) => {
       const item = record(value);
       return (

@@ -9,7 +9,7 @@ import {
 } from './delivery-verification.config';
 
 /**
- * Financial authority is always dual-signal, including legacy flag settings.
+ * Financial authority requires an immutable server receipt, including legacy flag settings.
  * A client receipt, missing offer, inventory lag or retry exhaustion never
  * proves delivery. Exhaustion escalates to review; it cannot release funds.
  */
@@ -34,6 +34,15 @@ export function decideDeliveryVerification(
 function decide(s: DeliveryVerificationSignals): DeliveryVerificationDecision {
   const offer = s.offerStatus;
   const inventory = s.inventoryDelta;
+  if (s.receiptProofPersisted)
+    return decision(
+      'CONFIRM',
+      'RECEIPT_AUTHORITY_CONFIRMED',
+      'RECEIPT_AUTHORITY_CONFIRMED',
+      offer,
+      inventory,
+      'CONFIRMED',
+    );
   if (inventory === 'ambiguous')
     return decision(
       'MANUAL_REVIEW',
@@ -103,16 +112,6 @@ function decide(s: DeliveryVerificationSignals): DeliveryVerificationDecision {
       s.failMode === 'SAFE' ? 'FAILED_SAFE' : 'FAILED_DISPUTE',
     );
   }
-  if (offer === 'accepted' && inventory === 'confirmed') {
-    return decision(
-      'CONFIRM',
-      'DUAL_SIGNAL_CONFIRMED',
-      'DUAL_SIGNAL_CONFIRMED',
-      offer,
-      inventory,
-      'CONFIRMED',
-    );
-  }
   if (offer === 'accepted' && inventory === 'seller_still_holds') {
     return decision(
       'DISPUTE',
@@ -135,7 +134,7 @@ function decide(s: DeliveryVerificationSignals): DeliveryVerificationDecision {
   }
   if (
     inventory === 'unknown' &&
-    s.checkCount >= getInventoryUnknownMaxChecks()
+    (s.inventoryUnknownStreak ?? 0) >= getInventoryUnknownMaxChecks()
   ) {
     return decision(
       'MANUAL_REVIEW',
@@ -147,7 +146,9 @@ function decide(s: DeliveryVerificationSignals): DeliveryVerificationDecision {
     );
   }
   if (offer === 'accepted') {
-    if (s.checkCount >= getAcceptedInventoryPendingMaxChecks()) {
+    if (
+      (s.acceptedPendingStreak ?? 0) >= getAcceptedInventoryPendingMaxChecks()
+    ) {
       return decision(
         'MANUAL_REVIEW',
         'DELIVERY_VERIFICATION_UNKNOWN',
@@ -167,7 +168,7 @@ function decide(s: DeliveryVerificationSignals): DeliveryVerificationDecision {
   }
   if (
     (offer === 'unknown' || offer === null) &&
-    s.checkCount >= getOfferUnknownMaxChecks()
+    (s.offerUnknownStreak ?? 0) >= getOfferUnknownMaxChecks()
   ) {
     return decision(
       'MANUAL_REVIEW',

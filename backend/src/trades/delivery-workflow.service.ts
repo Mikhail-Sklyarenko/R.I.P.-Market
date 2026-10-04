@@ -5,12 +5,20 @@ import { PrismaService } from '../prisma/prisma.service';
 import {
   observeSteamInventory,
   type InventoryBaseline,
-  mapInventoryDelivery,
 } from './inventory-observation';
 import type { TradeVerificationResult } from '../providers/trade/trade-provider.interface';
 
-export const DELIVERY_VERSION = 2;
-export const PROTECTION_MS = 8 * 24 * 60 * 60 * 1000;
+import {
+  boundDeliveryProof,
+  DELIVERY_VERSION,
+  steamNumericId,
+} from './durable-delivery-proof';
+import {
+  getSteamProtectionMs,
+  MIN_STEAM_PROTECTION_MS,
+} from '../settlement/settlement-hold.config';
+export { DELIVERY_VERSION } from './durable-delivery-proof';
+export const PROTECTION_MS = MIN_STEAM_PROTECTION_MS;
 @Injectable()
 export class DeliveryWorkflowService {
   private readonly logger = new Logger(DeliveryWorkflowService.name);
@@ -151,13 +159,14 @@ export class DeliveryWorkflowService {
     }
   }
 
-  async verify(orderId: string, verification: TradeVerificationResult) {
-    if (
-      verification.status !== 'accepted' ||
-      !verification.receiptVerified ||
-      !verification.tradeId
-    )
-      return { result: 'unknown' as const };
+  async verify(orderId: string, verification?: TradeVerificationResult) {
+    const unknown = { result: null, receiptProofPersisted: false } as const;
+    const conflict = () => {
+      this.logger.warn(
+        JSON.stringify({ event: 'delivery_receipt_conflict', orderId }),
+      );
+      return { result: 'ambiguous', receiptProofPersisted: false } as const;
+    };
     const op = await this.prisma.tradeOperation.findUnique({
       where: { orderId },
       include: { order: { include: { seller: true, buyer: true } } },
@@ -168,84 +177,86 @@ export class DeliveryWorkflowService {
       !op.order.seller.steamId ||
       !op.order.buyer.steamId
     )
-      return { result: 'unknown' as const };
-    const seller = await observeSteamInventory(op.order.seller.steamId);
-    const buyer = await observeSteamInventory(op.order.buyer.steamId);
-    const prior = op.deliveryProof as {
-      version?: number;
-      offerId?: string;
-      tradeId?: string;
-      originalAssetId?: string;
-      sellerSteamId?: string;
-      buyerSteamId?: string;
-      destinationAssetId?: string;
-      mappingMethod?: string;
-    } | null;
-    if (prior) {
+      return unknown;
+    const anchors = {
+      orderId,
+      offerId: op.externalOfferId,
+      originalAssetId: op.expectedAssetId,
+      sellerSteamId: op.order.seller.steamId,
+      buyerSteamId: op.order.buyer.steamId,
+      tradeBinding: op.tradeBinding,
+    };
+    if (verification?.identityConflict || verification?.reversalDetected)
+      return conflict();
+    if (op.deliveryProof) {
+      const prior = boundDeliveryProof(op.deliveryProof, anchors);
       if (
-        prior.version !== DELIVERY_VERSION ||
-        prior.offerId !== op.externalOfferId ||
-        prior.tradeId !== verification.tradeId ||
-        prior.originalAssetId !== op.expectedAssetId ||
-        prior.sellerSteamId !== op.order.seller.steamId ||
-        prior.buyerSteamId !== op.order.buyer.steamId
+        !prior ||
+        (verification &&
+          ['declined', 'expired', 'pending', 'needs_confirmation'].includes(
+            verification.status,
+          )) ||
+        (verification?.tradeId && verification.tradeId !== prior.tradeId) ||
+        (verification?.receiptVerified &&
+          op.tradeBinding &&
+          !verification.bindingVerified)
       )
-        return { result: 'ambiguous' as const };
-      // Recover crash between proof persistence and order transition. Do not
-      // require a released mapping lock or reconstruct the historical delta.
-      const observed = buyer.assets.filter(
-        (asset) => asset.assetId === prior.destinationAssetId,
+        return conflict();
+      // No inventory or old offer dependency after persistence, including crash recovery.
+      await this.prisma.steamMappingLease.deleteMany({ where: { orderId } });
+      this.logger.log(
+        JSON.stringify({ event: 'delivery_receipt_reused', orderId }),
       );
-      if (observed.length > 1) return { result: 'ambiguous' as const };
-      if (!observed.length) return { result: 'pending' as const };
-      return mapInventoryDelivery(null, seller, buyer, op.expectedAssetId, {
-        assetId: observed[0].assetId,
-        contextId: observed[0].contextId,
-      });
+      return {
+        result: null,
+        receiptProofPersisted: true,
+        deliveryAuthority: 'STEAM_RECEIPT',
+      } as const;
     }
-    const mapped = mapInventoryDelivery(
-      op.inventoryBaseline as InventoryBaseline | null,
-      seller,
-      buyer,
-      op.expectedAssetId,
-      verification.receivedAssetId && verification.receivedContextId
-        ? {
-            assetId: verification.receivedAssetId,
-            contextId: verification.receivedContextId,
-          }
-        : undefined,
-    );
-    if (mapped.result !== 'confirmed' || !mapped.asset) return mapped;
-    // Missing baseline is permitted ONLY for authoritative Steam receipt mapping.
-    if (mapped.method === 'INVENTORY_DELTA') {
-      const locks = await this.prisma.steamMappingLease.findMany({
-        where: { orderId },
-      });
-      if (
-        !locks.some((lock) => lock.steamId === op.order.seller.steamId) ||
-        !locks.some((lock) => lock.steamId === op.order.buyer.steamId)
-      )
-        return { result: 'unknown' as const };
-    }
+    if (
+      verification?.status !== 'accepted' ||
+      !verification.receiptVerified ||
+      !steamNumericId(verification.tradeId) ||
+      (op.tradeBinding && verification.bindingVerified !== true)
+    )
+      return unknown;
+    // Never reconstruct BEFORE after sending. New flows must retain the original baseline.
+    const baseline = op.inventoryBaseline as InventoryBaseline | null;
+    if (
+      !baseline ||
+      baseline.original.assetId !== op.expectedAssetId ||
+      baseline.original.contextId !== '2' ||
+      baseline.original.appId !== 730
+    )
+      return conflict();
     const verifiedAt = new Date();
+    const mapped =
+      steamNumericId(verification.receivedAssetId) &&
+      ['2', '16'].includes(verification.receivedContextId ?? '');
     const proof = {
       version: DELIVERY_VERSION,
+      authority: 'STEAM_RECEIPT',
       orderId,
       offerId: op.externalOfferId,
       tradeId: verification.tradeId,
       sellerSteamId: op.order.seller.steamId,
       buyerSteamId: op.order.buyer.steamId,
       originalAssetId: op.expectedAssetId,
-      destinationAssetId: mapped.asset.assetId,
-      destinationContextId: mapped.asset.contextId,
-      mappingMethod: mapped.method!,
       receiptStatus: 3,
-      bindingVerified: verification.bindingVerified === true,
       offerState: 3,
+      bindingVerified: verification.bindingVerified === true,
+      ...(op.tradeBinding ? { tradeBinding: op.tradeBinding } : {}),
       verifiedAt: verifiedAt.toISOString(),
       protectionUntil: new Date(
-        verifiedAt.getTime() + PROTECTION_MS,
+        verifiedAt.getTime() + getSteamProtectionMs(),
       ).toISOString(),
+      ...(mapped
+        ? {
+            destinationAssetId: verification.receivedAssetId!,
+            destinationContextId: verification.receivedContextId!,
+            mappingMethod: 'STEAM_RECEIPT',
+          }
+        : {}),
     };
     await this.prisma.tradeOperation.updateMany({
       where: {
@@ -258,24 +269,25 @@ export class DeliveryWorkflowService {
     const stored = await this.prisma.tradeOperation.findUnique({
       where: { id: op.id },
     });
-    const saved = stored?.deliveryProof as typeof proof | null;
-    if (
-      !saved ||
-      saved.tradeId !== proof.tradeId ||
-      saved.destinationAssetId !== proof.destinationAssetId ||
-      saved.offerId !== proof.offerId
-    )
-      return { result: 'ambiguous' as const };
+    const saved = boundDeliveryProof(stored?.deliveryProof, anchors);
+    if (!saved || saved.tradeId !== proof.tradeId) return conflict();
     this.logger.log(
-      JSON.stringify({
-        event:
-          mapped.method === 'STEAM_RECEIPT'
-            ? 'steam_destination_mapped_by_receipt'
-            : 'steam_destination_mapped_by_inventory_delta',
-        orderId,
-      }),
+      JSON.stringify({ event: 'steam_receipt_authority_persisted', orderId }),
     );
+    if (!mapped)
+      this.logger.log(
+        JSON.stringify({
+          event: 'steam_destination_mapping_deferred',
+          orderId,
+        }),
+      );
+    // This completed transfer no longer uses a delta window. No future inventory delta
+    // alone may authorize delivery; a separate exact receipt is required for each order.
     await this.prisma.steamMappingLease.deleteMany({ where: { orderId } });
-    return mapped;
+    return {
+      result: null,
+      receiptProofPersisted: true,
+      deliveryAuthority: 'STEAM_RECEIPT',
+    } as const;
   }
 }

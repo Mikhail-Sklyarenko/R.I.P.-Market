@@ -38,4 +38,12 @@ export class HybridTradeProvider implements TradeProvider {
   ): Promise<TradeVerificationResult> {
     return this.steam.verifyTradeOffer(tradeOfferId, context);
   }
+
+  verifyTradeReceipt(
+    tradeId: string,
+    offerId: string,
+    context: TradeVerificationContext,
+  ): Promise<TradeVerificationResult> {
+    return this.steam.verifyTradeReceipt(tradeId, offerId, context);
+  }
 }

@@ -97,7 +97,10 @@ it.each([
 });
 it('rejects wrong offer before receipt query', async () => {
   replies({ ...offer, tradeofferid: '123' });
-  expect(await verify()).toMatchObject({ status: 'unknown' });
+  expect(await verify()).toMatchObject({
+    status: 'unknown',
+    identityConflict: true,
+  });
   expect(read).toHaveBeenCalledTimes(2);
 });
 it('preserves rate limiting', async () => {
@@ -202,3 +205,60 @@ it.each([403, 500, 503])(
     expect(await verify()).toMatchObject({ status: 'unknown' });
   },
 );
+
+it('direct receipt recheck requires explicit token owner when no outgoing offer is read', async () => {
+  read.mockResolvedValueOnce({ status: 200, data: {} });
+  const result = await withSteamRequestCredential(
+    offer.tradeofferid,
+    context,
+    'synthetic-token',
+    () =>
+      new SteamTradeProvider().verifyTradeReceipt(
+        offer.tradeid,
+        offer.tradeofferid,
+        context,
+      ),
+  );
+  expect(result.status).toBe('unknown');
+  expect(read.mock.calls.map((c) => c[0])).toEqual(['GetTokenDetails']);
+});
+it('direct receipt token path reads trade status and clears temporary credential', async () => {
+  read
+    .mockResolvedValueOnce({
+      status: 200,
+      data: { steamid: context.sellerSteamId },
+    })
+    .mockResolvedValueOnce({
+      status: 200,
+      data: { response: { trades: [receipt] } },
+    });
+  const result = await withSteamRequestCredential(
+    offer.tradeofferid,
+    context,
+    'synthetic-token',
+    () =>
+      new SteamTradeProvider().verifyTradeReceipt(
+        offer.tradeid,
+        offer.tradeofferid,
+        context,
+      ),
+  );
+  expect(result.receiptVerified).toBe(true);
+  expect(read.mock.calls.map((c) => c[0])).toEqual([
+    'GetTokenDetails',
+    'GetTradeStatus',
+  ]);
+  expect(requestCredential(offer.tradeofferid, context)).toBeUndefined();
+});
+it('temporary-token offer path enforces exact tradeBinding', async () => {
+  replies({ ...offer, message: 'wrong binding' } as typeof offer);
+  const bound = { ...context, tradeBinding: 'p2pcs:fixture' };
+  const result = await withSteamRequestCredential(
+    offer.tradeofferid,
+    bound,
+    'synthetic-token',
+    () => new SteamTradeProvider().verifyTradeOffer(offer.tradeofferid, bound),
+  );
+  expect(result.identityConflict).toBe(true);
+  expect(read).toHaveBeenCalledTimes(2);
+});

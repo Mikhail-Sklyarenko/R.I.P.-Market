@@ -85,19 +85,27 @@ beforeEach(() => {
     assets: id === '76561198195181115' ? [] : [destination],
   }));
 });
-it('persists control-trade proof with no destination ID in receipt and no credential', async () => {
+it('persists receipt authority with empty public inventory and missing float/seed, without inventing mapping', async () => {
   const { op, prisma, service } = fixture();
+  op.inventoryBaseline = {
+    ...baseline,
+    original: { ...original, floatValue: null, paintSeed: null },
+  };
+  observe.mockResolvedValue({
+    fetchedAt: new Date().toISOString(),
+    assets: [],
+  });
   expect(await service.verify(op.orderId, verification)).toMatchObject({
-    result: 'confirmed',
-    method: 'INVENTORY_DELTA',
+    receiptProofPersisted: true,
+    deliveryAuthority: 'STEAM_RECEIPT',
+    result: null,
   });
   expect(op.deliveryProof).toMatchObject({
-    version: 2,
-    offerId: '9394782030',
-    destinationAssetId: destination.assetId,
-    destinationContextId: '16',
-    mappingMethod: 'INVENTORY_DELTA',
+    version: 3,
+    authority: 'STEAM_RECEIPT',
+    tradeId: verification.tradeId,
   });
+  expect(op.deliveryProof).not.toHaveProperty('destinationAssetId');
   expect(
     Date.parse(op.deliveryProof!.protectionUntil as string) -
       Date.parse(op.deliveryProof!.verifiedAt as string),
@@ -105,57 +113,68 @@ it('persists control-trade proof with no destination ID in receipt and no creden
   expect(JSON.stringify(op.deliveryProof)).not.toMatch(
     /token|cookie|credential/i,
   );
+  expect(observe).not.toHaveBeenCalled();
   expect(prisma.steamMappingLease.deleteMany).toHaveBeenCalled();
 });
-it('new process reuses persisted immutable proof; duplicate run does not replace it', async () => {
+it.each(['2', '16'])(
+  'retains receipt mapping in context %s without inventory dependency',
+  async (context) => {
+    const { op, service } = fixture();
+    await service.verify(op.orderId, {
+      ...verification,
+      receivedAssetId: '123456',
+      receivedContextId: context,
+    });
+    expect(op.deliveryProof).toMatchObject({
+      destinationAssetId: '123456',
+      destinationContextId: context,
+      mappingMethod: 'STEAM_RECEIPT',
+    });
+  },
+);
+it('new process recovers after persistence with unknown offer and no mapping forever', async () => {
   const { op, prisma, service } = fixture();
   await service.verify(op.orderId, verification);
   const saved = JSON.stringify(op.deliveryProof);
-  prisma.steamMappingLease.findMany.mockResolvedValue([]);
-  expect(
-    (
-      await new DeliveryWorkflowService(prisma as never).verify(
-        op.orderId,
-        verification,
-      )
-    ).result,
-  ).toBe('confirmed');
-  expect(JSON.stringify(op.deliveryProof)).toBe(saved);
-});
-it('ambiguous delta persists no success and releases no mapping lock', async () => {
-  const { op, prisma, service } = fixture();
-  observe
-    .mockResolvedValueOnce({ fetchedAt: '2026-09-29T01:02:00Z', assets: [] })
-    .mockResolvedValueOnce({
-      fetchedAt: '2026-09-29T01:02:00Z',
-      assets: [destination, { ...destination, assetId: '888888' }],
-    });
-  expect((await service.verify(op.orderId, verification)).result).toBe(
-    'ambiguous',
-  );
-  expect(op.deliveryProof).toBeNull();
-  expect(prisma.steamMappingLease.deleteMany).not.toHaveBeenCalled();
-});
-it('missing serialization lock blocks delta mapping', async () => {
-  const { op, prisma, service } = fixture();
-  prisma.steamMappingLease.findMany.mockResolvedValue([]);
-  expect((await service.verify(op.orderId, verification)).result).toBe(
-    'unknown',
-  );
-  expect(op.deliveryProof).toBeNull();
-});
-it('client receipt or accepted-only status cannot create proof', async () => {
-  const { op, service } = fixture();
-  expect(
-    (
-      await service.verify(op.orderId, {
+  observe.mockRejectedValue(new Error('inventory unavailable'));
+  for (let i = 0; i < 3; i++) {
+    expect(
+      await new DeliveryWorkflowService(prisma as never).verify(op.orderId, {
         ...verification,
+        status: 'unknown',
         receiptVerified: false,
-      })
-    ).result,
-  ).toBe('unknown');
+        tradeId: undefined,
+      }),
+    ).toMatchObject({ receiptProofPersisted: true });
+  }
+  expect(JSON.stringify(op.deliveryProof)).toBe(saved);
+  expect(prisma.tradeOperation.updateMany).toHaveBeenCalledTimes(1);
+});
+it('does not require a delta lease for a separate exact authoritative receipt', async () => {
+  const { op, prisma, service } = fixture();
+  prisma.steamMappingLease.findMany.mockResolvedValue([]);
+  expect(await service.verify(op.orderId, verification)).toMatchObject({
+    receiptProofPersisted: true,
+  });
   expect(observe).not.toHaveBeenCalled();
 });
+it.each([
+  { receiptVerified: false },
+  { status: 'pending' as const },
+  { tradeId: 'invalid' },
+  { identityConflict: true },
+  { reversalDetected: true },
+])(
+  'insufficient or contradictory server evidence creates no proof: %j',
+  async (patch) => {
+    const { op, service } = fixture();
+    expect(
+      (await service.verify(op.orderId, { ...verification, ...patch }))
+        .receiptProofPersisted,
+    ).toBe(false);
+    expect(op.deliveryProof).toBeNull();
+  },
+);
 it('different fresh trade cannot replace saved proof', async () => {
   const { op, service } = fixture();
   await service.verify(op.orderId, verification);
@@ -164,6 +183,28 @@ it('different fresh trade cannot replace saved proof', async () => {
       .result,
   ).toBe('ambiguous');
   expect(op.deliveryProof?.tradeId).toBe(verification.tradeId);
+});
+it('does not fabricate BEFORE after receipt', async () => {
+  const { op, service } = fixture();
+  op.inventoryBaseline = null as never;
+  expect(
+    (await service.verify(op.orderId, verification)).receiptProofPersisted,
+  ).toBe(false);
+  expect(observe).not.toHaveBeenCalled();
+});
+it('retains a valid legacy v2 proof without migration or new mapping', async () => {
+  const { op, service } = fixture();
+  await service.verify(op.orderId, verification);
+  op.deliveryProof = {
+    ...op.deliveryProof,
+    version: 2,
+    destinationAssetId: '123456',
+    destinationContextId: '2',
+    mappingMethod: 'INVENTORY_DELTA',
+  };
+  const prior = JSON.stringify(op.deliveryProof);
+  expect((await service.verify(op.orderId)).receiptProofPersisted).toBe(true);
+  expect(JSON.stringify(op.deliveryProof)).toBe(prior);
 });
 
 describe('pre-send preparation', () => {

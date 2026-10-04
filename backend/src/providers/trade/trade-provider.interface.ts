@@ -48,6 +48,11 @@ export interface TradeProvider {
     type: TradeCompletionType,
     options?: { reasonCode?: string },
   ): Promise<TradeCompletionResult>;
+  verifyTradeReceipt?(
+    tradeId: string,
+    offerId: string,
+    context: TradeVerificationContext,
+  ): Promise<TradeVerificationResult>;
   verifyTradeOffer?(
     _tradeOfferId: string,
     context?: TradeVerificationContext,

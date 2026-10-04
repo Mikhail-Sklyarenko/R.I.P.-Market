@@ -11,6 +11,7 @@ export type DeliveryVerificationAction =
   | 'MANUAL_REVIEW';
 
 export type DeliveryVerificationReason =
+  | 'RECEIPT_AUTHORITY_CONFIRMED'
   | 'TRADE_TIMEOUT'
   | 'RATE_LIMITED'
   | 'OFFER_PENDING'
@@ -50,10 +51,16 @@ export type DeliveryVerificationSignals = {
   timedOut: boolean;
   rateLimited: boolean;
   checkCount: number;
+  offerUnknownStreak?: number;
+  inventoryUnknownStreak?: number;
+  acceptedPendingStreak?: number;
+  receiptProofPersisted?: boolean;
   failMode: 'SAFE' | 'DISPUTE';
 };
 
 export type DeliveryVerificationEvidence = {
+  receiptProofPersisted?: boolean;
+  deliveryAuthority?: 'STEAM_RECEIPT';
   offerStatus: TradeVerificationResult['status'] | null;
   inventoryDelta: InventoryDeltaResult | null;
   reason: DeliveryVerificationReason;

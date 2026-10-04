@@ -1,39 +1,18 @@
-# Delivery Verification Decision Table (M6)
+# Delivery decision table (receipt authority v3)
 
-Feature flag: `ENABLE_DELIVERY_VERIFICATION_ENGINE=true` enables dual-signal verification.
+| Server evidence | Decision |
+| --- | --- |
+| Valid immutable bound receipt, inventory empty/unavailable, old offer unknown | CONFIRM delivery into SETTLEMENT_HOLD, no payout |
+| Explicit reversal | DISPUTE / protected review, no payout |
+| Identity/binding/tradeId contradiction | MANUAL_REVIEW, immutable proof unchanged |
+| Accepted offer and inventory gain without persisted receipt | WAIT, then bounded MANUAL_REVIEW |
+| Buyer ACK or PAGE_OBSERVED only | No financial authority |
+| Consecutive server unknown responses reach their own configured limit | MANUAL_REVIEW, funds stay reserved |
+| Previous accepted responses followed by one unknown | First unknown retry, not lifetime exhaustion |
+| 429 before receipt | BACKOFF; timeout escalates to review |
+| Missing offer / incomplete BEFORE | No dispatch or financial confirmation |
+| Shadow mode | Snapshot only, no financial transition |
+| Due hold, matching fresh GetTradeStatus, all financial guards pass | Existing idempotent settlement release |
+| Due hold, fresh Steam data unavailable | Phase-local retry/backoff, then MANUAL_REVIEW; no payout |
 
-When the engine is **disabled**, legacy single-signal behavior is preserved:
-- offer poll only when `externalOfferId` is set
-- inventory delta only when offer id is missing
-
-## Dual-signal mode (engine on)
-
-| Offer status | Inventory delta | Action | Reason code |
-|--------------|-----------------|--------|-------------|
-| `accepted` | `confirmed` | **CONFIRM** → `TRADE_CONFIRMED` | `DUAL_SIGNAL_CONFIRMED` |
-| `accepted` | `pending` | WAIT (retry) | `INVENTORY_PENDING` |
-| `accepted` | `pending` (exhausted checks) | **DISPUTE** | `DELIVERY_ACCEPTED_INVENTORY_PENDING_EXHAUSTED` |
-| `accepted` | `seller_still_holds` | **DISPUTE** | `DELIVERY_INVENTORY_MISMATCH` |
-| `accepted` | `unknown` | **DISPUTE** | `DELIVERY_VERIFICATION_UNKNOWN` |
-| `pending` | `confirmed` | **DISPUTE** | `DELIVERY_SIGNAL_CONFLICT` |
-| `pending` | `pending` / `seller_still_holds` | WAIT | `OFFER_PENDING` |
-| `pending` | `unknown` | WAIT | `INVENTORY_UNKNOWN_RETRY` |
-| `declined` | * | FAIL (`SAFE` or **DISPUTE**) | `OFFER_DECLINED` |
-| `expired` | * | FAIL (`SAFE` or **DISPUTE**) | `OFFER_EXPIRED` |
-| `unknown` | * | **DISPUTE** | `OFFER_UNKNOWN` |
-| (no offer id) | `confirmed` | **CONFIRM** | `INVENTORY_ONLY_CONFIRMED` |
-| (no offer id) | `pending` / `seller_still_holds` | WAIT | `INVENTORY_PENDING` |
-| (no offer id) | `unknown` (exhausted checks) | **DISPUTE** | `INVENTORY_UNKNOWN_EXHAUSTED` |
-
-## Global guards
-
-| Condition | Action |
-|-----------|--------|
-| Trade window elapsed (`TRADE_TIMEOUT_MINUTES`) | **TIMEOUT** → order `DISPUTE` |
-| Steam API 429 | **BACKOFF** (exponential, no state transition) |
-| Shadow mode (`verificationMode=SHADOW`) | Record snapshot only, no live transition |
-
-## Settlement
-
-`DELIVERY_VERIFIED` / settlement is only reached via `CONFIRM` decisions.
-Ambiguous or conflicting signals never release funds.
+Inventory mismatch remains an anomaly signal before authoritative receipt. Exact receipt is not represented as a fictional confirmed inventory delta. Receipt and inventory evidence are separate.

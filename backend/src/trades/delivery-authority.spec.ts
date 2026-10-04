@@ -34,9 +34,7 @@ describe('authoritative delivery gate', () => {
               failMode: 'DISPUTE',
             };
             const action = decideDeliveryVerification(signals).action;
-            expect(action === 'CONFIRM').toBe(
-              offerStatus === 'accepted' && inventoryDelta === 'confirmed',
-            );
+            expect(action === 'CONFIRM').toBe(false);
           });
         }
       }

@@ -1,3 +1,4 @@
+import { boundDeliveryProof } from './durable-delivery-proof';
 import {
   BadRequestException,
   ForbiddenException,
@@ -348,7 +349,7 @@ export class TradesService {
 
     if (latestSteam === 'accepted') {
       throw new BadRequestException(
-        'Independent offer and inventory verification is required before settlement',
+        'Durable server receipt verification is required before settlement',
       );
     } else if (latestSteam === 'declined' || latestSteam === 'expired') {
       await this.applyTradeFailedFromPoll(orderId, latestSteam);
@@ -761,14 +762,16 @@ export class TradesService {
       reason?: string;
       reasonCode?: string;
       engineEnabled?: boolean;
+      receiptProofPersisted?: boolean;
+      deliveryAuthority?: 'STEAM_RECEIPT';
     },
   ) {
     if (
-      evidence?.offerStatus !== 'accepted' ||
-      evidence?.inventoryDelta !== 'confirmed'
+      evidence?.receiptProofPersisted !== true ||
+      evidence?.deliveryAuthority !== 'STEAM_RECEIPT'
     ) {
       throw new BadRequestException(
-        'Independent offer and inventory verification is required before settlement',
+        'Durable server receipt verification is required before settlement',
       );
     }
     const idempotencyKey = `poll-confirm:${orderId}`;
@@ -807,6 +810,19 @@ export class TradesService {
       if (current.tradeOperation.status !== TradeOperationStatus.WAITING) {
         return current;
       }
+
+      const proof = boundDeliveryProof(current.tradeOperation.deliveryProof, {
+        orderId,
+        offerId: current.tradeOperation.externalOfferId ?? '',
+        originalAssetId: current.tradeOperation.expectedAssetId ?? '',
+        sellerSteamId: current.seller.steamId ?? '',
+        buyerSteamId: current.buyer.steamId ?? '',
+        tradeBinding: current.tradeOperation.tradeBinding,
+      });
+      if (!proof)
+        throw new BadRequestException(
+          'Bound durable receipt proof is required',
+        );
 
       const tradeVerifiedStatus = isExtensionFirstTradeFlowEnabled()
         ? TradeOperationStatus.DELIVERY_VERIFIED

@@ -14,7 +14,7 @@ import { isExtensionFirstTradeFlowEnabled } from '../trades/extension-trade-flow
 import { LedgerService } from '../wallet/ledger.service';
 import { isRealSettlementEnabled, utcDayKey } from './settlement.config';
 import {
-  getSettlementHoldMs,
+  getSteamProtectionMs,
   isSettlementHoldWindowEnabled,
   settlementHoldEnterIdempotencyKey,
   settlementHoldReleaseIdempotencyKey,
@@ -359,8 +359,16 @@ export class SettlementService {
       return order;
     }
 
+    const savedProof = order.tradeOperation?.deliveryProof as {
+      protectionUntil?: string;
+    } | null;
+    const savedUntil = savedProof?.protectionUntil
+      ? Date.parse(savedProof.protectionUntil)
+      : NaN;
     const holdUntil = new Date(
-      Date.now() + Math.max(getSettlementHoldMs(), 8 * 24 * 60 * 60 * 1000),
+      Number.isFinite(savedUntil)
+        ? savedUntil
+        : Date.now() + getSteamProtectionMs(),
     );
     const deliveryVerified = this.isDeliveryVerified(order);
 

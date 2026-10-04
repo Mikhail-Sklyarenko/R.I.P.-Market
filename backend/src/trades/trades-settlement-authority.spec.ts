@@ -17,7 +17,7 @@ describe('poll settlement authority', () => {
       });
       await expect(
         service.applyTradeConfirmedFromPoll('order', evidence),
-      ).rejects.toThrow('Independent offer and inventory');
+      ).rejects.toThrow('Durable server receipt');
       expect(transaction).not.toHaveBeenCalled();
       expect(findFirst).not.toHaveBeenCalled();
     },
@@ -30,12 +30,28 @@ it('confirmed server proof enters hold once without immediate seller payout', as
     status: 'WAITING_TRADE',
     hold: { id: 'hold' },
     lot: {},
-    buyer: { steamId: 'buyer' },
-    seller: { steamId: 'seller' },
+    buyer: { steamId: '76561198000000001' },
+    seller: { steamId: '76561198000000002' },
     tradeOperation: {
       id: 'op',
       status: 'WAITING',
-      deliveryProof: { version: 2 },
+      externalOfferId: '123',
+      expectedAssetId: '456',
+      deliveryProof: {
+        version: 3,
+        authority: 'STEAM_RECEIPT',
+        orderId: 'order',
+        offerId: '123',
+        tradeId: '789',
+        originalAssetId: '456',
+        sellerSteamId: '76561198000000002',
+        buyerSteamId: '76561198000000001',
+        receiptStatus: 3,
+        offerState: 3,
+        bindingVerified: false,
+        verifiedAt: new Date().toISOString(),
+        protectionUntil: new Date(Date.now() + 8 * 86400000).toISOString(),
+      },
     },
     createdAt: new Date(),
   };
@@ -69,11 +85,15 @@ it('confirmed server proof enters hold once without immediate seller payout', as
   try {
     await service.applyTradeConfirmedFromPoll('order', {
       offerStatus: 'accepted',
-      inventoryDelta: 'confirmed',
+      inventoryDelta: null,
+      receiptProofPersisted: true,
+      deliveryAuthority: 'STEAM_RECEIPT',
     });
     await service.applyTradeConfirmedFromPoll('order', {
       offerStatus: 'accepted',
-      inventoryDelta: 'confirmed',
+      inventoryDelta: null,
+      receiptProofPersisted: true,
+      deliveryAuthority: 'STEAM_RECEIPT',
     });
     expect(settlementService.enterSettlementHold).toHaveBeenCalledTimes(1);
     expect(settlementService.settleCompletedOrder).not.toHaveBeenCalled();

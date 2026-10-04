@@ -79,26 +79,36 @@ export class SettlementReleaseWorkerService {
               where: { orderId: order.id },
             });
             if (operation) {
+              const retries = await this.prisma.tradePollEvent.count({
+                where: {
+                  tradeOperationId: operation.id,
+                  strategy: 'SETTLEMENT_PROTECTION_RECHECK',
+                },
+              });
               const exhausted =
-                operation.checkCount >= 20 ||
+                retries + 1 >= 20 ||
                 result.guard.code === 'STEAM_REVERSAL_DETECTED';
+              await this.prisma.tradePollEvent.create({
+                data: {
+                  tradeOperationId: operation.id,
+                  strategy: 'SETTLEMENT_PROTECTION_RECHECK',
+                  outcome: 'WAIT',
+                  error: result.guard.code,
+                },
+              });
               await this.prisma.tradeOperation.updateMany({
                 where: {
                   id: operation.id,
                   order: { status: OrderStatus.SETTLEMENT_HOLD },
                 },
                 data: {
-                  checkCount: { increment: 1 },
                   verificationStage: exhausted
                     ? 'MANUAL_REVIEW'
                     : 'PROTECTION_RECHECK',
                   failReasonCode: result.guard.code,
                   nextVerificationAt: new Date(
                     Date.now() +
-                      Math.min(
-                        3_600_000,
-                        60_000 * 2 ** Math.min(operation.checkCount, 6),
-                      ),
+                      Math.min(3_600_000, 60_000 * 2 ** Math.min(retries, 6)),
                   ),
                 },
               });
@@ -106,7 +116,7 @@ export class SettlementReleaseWorkerService {
                 JSON.stringify({
                   event: exhausted
                     ? 'delivery_verification_manual_review'
-                    : 'settlement_release_recheck',
+                    : 'settlement_protection_recheck_unavailable',
                   orderId: order.id,
                   reasonCode: result.guard.code,
                 }),

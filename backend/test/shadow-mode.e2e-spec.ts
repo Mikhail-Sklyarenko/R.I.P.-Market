@@ -131,7 +131,7 @@ describe('Shadow mode (e2e)', () => {
     expect(notifications.length).toBeGreaterThan(0);
   });
 
-  it('admin cannot settle from an accepted snapshot without inventory proof', async () => {
+  it('admin cannot settle from an accepted snapshot without durable receipt proof', async () => {
     const { orderId } = await createShadowOrder();
     const admin = await api.login(UserRole.ADMIN);
 
@@ -153,9 +153,7 @@ describe('Shadow mode (e2e)', () => {
       .send({})
       .expect(400);
 
-    expect(response.body.error.message).toContain(
-      'Independent offer and inventory',
-    );
+    expect(response.body.error.message).toContain('Durable server receipt');
     expect(
       (await prisma.order.findUnique({ where: { id: orderId } }))?.status,
     ).toBe('WAITING_TRADE');

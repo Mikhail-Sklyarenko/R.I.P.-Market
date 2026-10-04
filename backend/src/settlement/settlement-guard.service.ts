@@ -1,4 +1,5 @@
-import { Inject, Injectable } from '@nestjs/common';
+import { boundDeliveryProof } from '../trades/durable-delivery-proof';
+import { Inject, Injectable, Logger } from '@nestjs/common';
 import {
   LedgerEntryType,
   OrderStatus,
@@ -33,6 +34,7 @@ export type SettlementOrderContext = {
 
 @Injectable()
 export class SettlementGuardService {
+  private readonly logger = new Logger(SettlementGuardService.name);
   constructor(
     private readonly prisma: PrismaService,
     @Inject(TRADE_PROVIDER) private readonly tradeProvider: TradeProvider,
@@ -160,60 +162,73 @@ export class SettlementGuardService {
             externalOfferId: true,
             expectedAssetId: true,
             deliveryProof: true,
+            tradeBinding: true,
           },
         });
+        const stored = boundDeliveryProof(operation?.deliveryProof, {
+          orderId: order.id,
+          offerId: operation?.externalOfferId ?? '',
+          originalAssetId: operation?.expectedAssetId ?? '',
+          sellerSteamId,
+          buyerSteamId,
+          tradeBinding: operation?.tradeBinding,
+        });
         if (
-          !operation?.externalOfferId ||
-          !operation.expectedAssetId ||
-          !this.tradeProvider.verifyTradeOffer
-        ) {
+          !stored ||
+          Date.parse(stored.protectionUntil) > Date.now() ||
+          !this.tradeProvider.verifyTradeReceipt
+        )
           return blocked(
             'STEAM_RECHECK_UNAVAILABLE',
-            'Fresh Steam settlement evidence is unavailable',
+            'Bound receipt and elapsed protection are required',
           );
-        }
-        const proof = await this.tradeProvider.verifyTradeOffer(
-          operation.externalOfferId,
-          { sellerSteamId, buyerSteamId, assetId: operation.expectedAssetId },
+        this.logger.log(
+          JSON.stringify({
+            event: 'settlement_protection_recheck',
+            orderId: order.id,
+          }),
         );
-        if (proof.reversalDetected)
+        const proof = await this.tradeProvider.verifyTradeReceipt(
+          stored.tradeId,
+          stored.offerId,
+          {
+            sellerSteamId,
+            buyerSteamId,
+            assetId: stored.originalAssetId,
+            ...(operation?.tradeBinding
+              ? { tradeBinding: operation.tradeBinding }
+              : {}),
+          },
+        );
+        if (proof.reversalDetected) {
+          this.logger.warn(
+            JSON.stringify({
+              event: 'steam_trade_reversal_detected',
+              orderId: order.id,
+            }),
+          );
           return blocked(
             'STEAM_REVERSAL_DETECTED',
             'Steam reported a reversal; held funds require review',
           );
-        const stored = operation.deliveryProof as {
-          version?: number;
-          offerId?: string;
-          tradeId?: string;
-          originalAssetId?: string;
-          sellerSteamId?: string;
-          buyerSteamId?: string;
-          protectionUntil?: string;
-        } | null;
-        const immutableProofMatches =
-          stored?.version === 2 &&
-          stored.offerId === operation.externalOfferId &&
-          stored.tradeId === proof.tradeId &&
-          stored.originalAssetId === operation.expectedAssetId &&
-          stored.sellerSteamId === sellerSteamId &&
-          stored.buyerSteamId === buyerSteamId &&
-          !!stored.protectionUntil &&
-          Number.isFinite(Date.parse(stored.protectionUntil)) &&
-          Date.parse(stored.protectionUntil) <= Date.now();
+        }
         if (
           proof.status !== 'accepted' ||
-          proof.reversalDetected ||
+          !proof.receiptVerified ||
           proof.identityConflict ||
-          (stored
-            ? !proof.receiptVerified || !immutableProofMatches
-            : !proof.receivedAssetId)
-        ) {
+          proof.tradeId !== stored.tradeId
+        )
           return blocked(
             'STEAM_RECHECK_UNAVAILABLE',
-            'Steam has not reconfirmed the bound exchange',
+            'Steam has not reconfirmed the bound receipt',
           );
-        }
       } catch {
+        this.logger.warn(
+          JSON.stringify({
+            event: 'settlement_protection_recheck_unavailable',
+            orderId: order.id,
+          }),
+        );
         // Authenticated transport errors can contain credentials. Neither
         // expose nor persist their text; leave the money held for retry/review.
         return blocked(

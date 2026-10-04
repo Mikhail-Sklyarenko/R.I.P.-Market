@@ -83,7 +83,7 @@ it.each(['2', '16'] as const)(
         checkCount: 1,
         failMode: 'SAFE',
       }).action,
-    ).toBe('CONFIRM');
+    ).toBe('WAIT'); // A mapping alone is not persisted receipt authority.
   },
 );
 it('receipt mapping needs no reconstructed pre-trade snapshot', () => {

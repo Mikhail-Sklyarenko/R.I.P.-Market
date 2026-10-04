@@ -34,7 +34,8 @@ describe('decideDeliveryVerification', () => {
         baseSignals({
           offerStatus: 'unknown',
           inventoryDelta,
-          checkCount: 20,
+          checkCount: 200,
+          offerUnknownStreak: 20,
           buyerAckReceived: true,
           failMode: 'SAFE',
         }),
@@ -50,22 +51,23 @@ describe('decideDeliveryVerification', () => {
     const result = decideDeliveryVerification(
       baseSignals({
         offerStatus: 'unknown',
-        checkCount: 19,
+        checkCount: 200,
+        offerUnknownStreak: 19,
         buyerAckReceived: true,
       }),
     );
     expect(result.action).toBe('WAIT');
   });
 
-  it('confirms when offer accepted and inventory delta ok', () => {
+  it('does not confirm accepted plus inventory without a durable receipt', () => {
     const decision = decideDeliveryVerification(
       baseSignals({
         offerStatus: 'accepted',
         inventoryDelta: 'confirmed',
       }),
     );
-    expect(decision.action).toBe('CONFIRM');
-    expect(decision.reason).toBe('DUAL_SIGNAL_CONFIRMED');
+    expect(decision.action).toBe('WAIT');
+    expect(decision.reason).toBe('INVENTORY_PENDING');
   });
 
   it('disputes when offer accepted but inventory mismatch', () => {
@@ -108,7 +110,8 @@ describe('decideDeliveryVerification', () => {
       baseSignals({
         offerStatus: 'accepted',
         inventoryDelta: 'pending',
-        checkCount: 5,
+        checkCount: 200,
+        acceptedPendingStreak: 5,
       }),
     );
     expect(decision.action).toBe('MANUAL_REVIEW');
@@ -232,7 +235,8 @@ describe('decideDeliveryVerification', () => {
         hasOfferId: true,
         offerStatus: null,
         inventoryDelta: 'unknown',
-        checkCount: 10,
+        checkCount: 200,
+        inventoryUnknownStreak: 10,
       }),
     );
     expect(decision.action).toBe('MANUAL_REVIEW');
@@ -298,4 +302,33 @@ it('bounds a rate-limited pre-offer workflow instead of retrying forever', () =>
   );
   expect(result.action).toBe('MANUAL_REVIEW');
   expect(result.pollOutcome).toBe('MANUAL_REVIEW');
+});
+
+it.each(['pending', 'unknown', null] as const)(
+  'durable receipt with %s inventory survives unknown/timeout and enters hold',
+  (inventoryDelta) => {
+    const result = decideDeliveryVerification(
+      baseSignals({
+        receiptProofPersisted: true,
+        offerStatus: 'unknown',
+        inventoryDelta,
+        timedOut: true,
+        checkCount: 100,
+        offerUnknownStreak: 100,
+      }),
+    );
+    expect(result.action).toBe('CONFIRM');
+    expect(result.reason).toBe('RECEIPT_AUTHORITY_CONFIRMED');
+  },
+);
+it('19 accepted checks then one unknown does not exhaust', () => {
+  expect(
+    decideDeliveryVerification(
+      baseSignals({
+        offerStatus: 'unknown',
+        checkCount: 20,
+        offerUnknownStreak: 1,
+      }),
+    ).action,
+  ).toBe('WAIT');
 });

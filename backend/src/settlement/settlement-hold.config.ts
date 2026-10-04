@@ -1,3 +1,9 @@
+export const MIN_STEAM_PROTECTION_MS = 8 * 24 * 60 * 60 * 1000;
+
+export function getSteamProtectionMs(): number {
+  return Math.max(MIN_STEAM_PROTECTION_MS, getSettlementHoldMs());
+}
+
 export function isSettlementHoldWindowEnabled(): boolean {
   return process.env.ENABLE_SETTLEMENT_HOLD_WINDOW === 'true';
 }
