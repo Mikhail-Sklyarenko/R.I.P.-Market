@@ -62,7 +62,7 @@ describe('settlement-transparency', () => {
       nowMs: Date.parse('2026-08-27T00:00:00Z'),
     });
     expect(view?.phase).toBe('settlement_hold');
-    expect(view?.fundsLine).toMatch(/Средства будут доступны/i);
+    expect(view?.fundsLine).toMatch(/Средства защищены/i);
     expect(view?.holdUntilLabel).toBeTruthy();
   });
 
@@ -93,5 +93,12 @@ describe('settlement-transparency', () => {
         trade({ orderStatus: 'WAITING_TRADE', settlementHoldUntil: null }),
       ),
     ).toBeNull();
+  });
+  it.each(['buyer', 'seller'] as const)('uses only server deadline with no receipt acknowledgement for %s', role => {
+    const serverDate = '2026-10-12T14:40:08.629Z';
+    const view = buildSettlementTransparency(trade({ role, settlementHoldUntil: serverDate, acknowledgments: { sellerAckSent: false, buyerPreAccept: false, buyerReceived: false } }));
+    expect(view?.holdUntilIso).toBe(serverDate);
+    expect(view?.body).not.toMatch(/API|ключ|откройте расширение|Предмет у меня/i);
+    expect(buildSettlementTransparency(trade({ role, settlementHoldUntil: null }))?.holdUntilIso).toBeNull();
   });
 });

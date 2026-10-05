@@ -40,12 +40,12 @@ export function classifyOfferMark(
   }
 
   if (trade.verificationStatus === 'mismatch') {
-    return { kind: 'rip_mismatch', label: 'Подозрительно', trade };
+    return { kind: 'rip_mismatch', label: 'R.I.P · Не совпадает', trade };
   }
   if (trade.verificationStatus === 'verified') {
-    return { kind: 'rip_verified', label: 'Сделка R.I.P', trade };
+    return { kind: 'rip_verified', label: 'R.I.P · Проверено', trade };
   }
-  return { kind: 'rip_pending', label: 'Сделка R.I.P', trade };
+  return { kind: 'rip_pending', label: 'R.I.P · Проверяется', trade };
 }
 
 export function formatMoneyMinor(amountMinor: string): string {

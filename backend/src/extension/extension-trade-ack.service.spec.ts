@@ -848,7 +848,7 @@ describe('ExtensionTradeAckService', () => {
     });
   });
 
-  it('exposes settlementHoldUntil and deliveryProgress for post-accept orders', async () => {
+  it('exposes the canonical proof deadline despite a timezone-shifted hold cache', async () => {
     const holdUntil = new Date('2026-09-04T12:00:00.000Z');
     prisma.order.findUnique.mockResolvedValue({
       id: 'order-hold',
@@ -872,7 +872,24 @@ describe('ExtensionTradeAckService', () => {
       },
       tradeOperation: {
         externalOfferId: '1234567890',
-        expectedAssetId: 'asset-1',
+        expectedAssetId: '12345',
+        tradeBinding: 'p2pcs:deadline-test',
+        deliveryProof: {
+          version: 3,
+          authority: 'STEAM_RECEIPT',
+          orderId: 'order-hold',
+          offerId: '1234567890',
+          tradeId: '987654',
+          originalAssetId: '12345',
+          sellerSteamId: '76561198000000002',
+          buyerSteamId: '76561198000000001',
+          receiptStatus: 3,
+          offerState: 3,
+          bindingVerified: true,
+          tradeBinding: 'p2pcs:deadline-test',
+          verifiedAt: '2026-08-27T12:00:00.000Z',
+          protectionUntil: holdUntil.toISOString(),
+        },
         pollEvents: [
           {
             offerStatus: 'Accepted',
@@ -883,7 +900,10 @@ describe('ExtensionTradeAckService', () => {
           },
         ],
       },
-      hold: { amountMinor: 2500n, settlementHoldUntil: holdUntil },
+      hold: {
+        amountMinor: 2500n,
+        settlementHoldUntil: new Date(holdUntil.getTime() - 3 * 3600000),
+      },
       buyer: {
         id: 'buyer-1',
         username: 'buyer',

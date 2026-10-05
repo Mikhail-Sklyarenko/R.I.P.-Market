@@ -30,6 +30,9 @@ describe('AdminService dispute ops', () => {
     {} as never,
     disputeOpsService as unknown as DisputeOpsService,
     disputeFinancialGuard,
+    {} as never,
+    {} as never,
+    {} as never,
   );
 
   it('exposes reason taxonomy for admin UI', () => {

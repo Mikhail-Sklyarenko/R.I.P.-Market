@@ -21,8 +21,6 @@ import {
 } from './popup-next-action.js';
 import type { SessionHealth } from './session-health.js';
 import {
-  buildRecentReceipts,
-  countCompletedReceipts,
   dealsHrefFromOrder,
   type PostTradeReceiptView,
 } from './post-trade-receipt.js';
@@ -463,8 +461,9 @@ export function buildHomeDashboard(params: {
     .map((trade) => buildBuyerInboxCard(trade, locale))
     .filter((card): card is BuyerInboxCard => card !== null);
 
-  const receipts = buildRecentReceipts(params.trades, locale);
-  const receiptsTotal = countCompletedReceipts(params.trades);
+  // History lives on the site. Reopening the popup must not resurrect old success cards.
+  const receipts: PostTradeReceiptView[] = [];
+  const receiptsTotal = 0;
   const siteSample =
     receipts[0]?.orderHref ??
     params.trades.find((trade) => trade.siteUrl)?.siteUrl ??

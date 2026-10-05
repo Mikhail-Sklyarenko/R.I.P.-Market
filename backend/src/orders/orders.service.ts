@@ -1,4 +1,5 @@
 import { forwardRef, HttpStatus, Inject, Injectable } from '@nestjs/common';
+import { canonicalProtectionUntil } from '../settlement/settlement-proof-policy';
 import {
   InventoryAssetStatus,
   LotStatus,
@@ -654,6 +655,12 @@ export class OrdersService {
 
     return toJsonSafe({
       ...orderRest,
+      hold: orderRest.hold
+        ? {
+            ...orderRest.hold,
+            settlementHoldUntil: canonicalProtectionUntil(order),
+          }
+        : null,
       tradeTask,
       tradeAcknowledgments,
       deliveryProbe,

@@ -4,6 +4,7 @@ import { OrderStatus } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import {
   getSettlementReleaseBatchSize,
+  getSettlementReleaseIntervalMs,
   settlementHoldReleaseIdempotencyKey,
 } from './settlement-hold.config';
 import { SettlementService } from './settlement.service';
@@ -18,7 +19,7 @@ export class SettlementReleaseWorkerService {
     private readonly settlementService: SettlementService,
   ) {}
 
-  @Interval(60_000)
+  @Interval(getSettlementReleaseIntervalMs())
   async handleInterval(): Promise<void> {
     if (
       process.env.JEST_WORKER_ID !== undefined ||
@@ -45,9 +46,12 @@ export class SettlementReleaseWorkerService {
           status: OrderStatus.SETTLEMENT_HOLD,
           hold: {
             settlementReleasedAt: null,
-            settlementHoldUntil: { lte: new Date() },
           },
           tradeOperation: {
+            deliveryProof: {
+              path: ['protectionUntil'],
+              lte: new Date().toISOString(),
+            },
             verificationStage: { not: 'MANUAL_REVIEW' },
             OR: [
               { nextVerificationAt: null },

@@ -174,7 +174,7 @@ export const extensionMessagesEn: ExtensionMessageTree = {
     hoursMinutes: '~{{hours}} h {{minutes}} min left in the trade window',
   },
   settlement: {
-    soonSuffix: '{{formatted}} (soon)',
+    soonSuffix: '{{formatted}} (protection ended, checking settlement)',
     offerOk: 'Steam offer: accepted',
     offerWarn: 'Steam offer: problem',
     offerPending: 'Steam offer: checking',
@@ -189,18 +189,18 @@ export const extensionMessagesEn: ExtensionMessageTree = {
       'Matching Steam offer and inventory. No new offer needed for this deal.',
     deliveryBodyBuyer:
       'Nothing to do — the platform matches Steam offer and inventory.',
-    fundsSellerKnown: 'Funds available from: {{date}}',
+    fundsSellerKnown: 'Funds protected until: {{date}}',
     fundsSellerUnknown:
-      'Funds available after the review window (up to {{days}} days)',
-    fundsBuyerKnown: 'Seller payout from: {{date}}',
+      'The server is checking the protection deadline. Funds remain held.',
+    fundsBuyerKnown: 'Funds protected until: {{date}}',
     fundsBuyerUnknown:
-      'Seller payout after the review window (up to {{days}} days)',
-    holdTitleSeller: 'Funds on hold',
-    holdTitleBuyer: 'Skin is yours — settlement on-platform',
+      'The server is checking the protection deadline. Funds remain held.',
+    holdTitleSeller: 'Delivery confirmed',
+    holdTitleBuyer: 'Delivery confirmed',
     holdBodySeller:
-      'Protects against chargebacks and Steam trade reversals. Payout to balance after hold.',
+      'After protection the server settles automatically if no blocks apply. Nothing to do. Do not send another offer.',
     holdBodyBuyer:
-      'Item is in your inventory. Seller funds unlock after the on-platform review window.',
+      'Steam confirmed delivery. Funds remain protected until the deadline. Nothing to do.',
   },
   dispute: {
     openEyebrow: 'Support',

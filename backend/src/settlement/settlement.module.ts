@@ -6,11 +6,13 @@ import { SettlementController } from './settlement.controller';
 import { SettlementGuardService } from './settlement-guard.service';
 import { SettlementReleaseWorkerService } from './settlement-release-worker.service';
 import { SettlementService } from './settlement.service';
+import { SettlementObservationService } from './settlement-observation.service';
 
 @Module({
   imports: [WalletModule, LotsModule, forwardRef(() => OrdersModule)],
   controllers: [SettlementController],
   providers: [
+    SettlementObservationService,
     SettlementGuardService,
     SettlementService,
     SettlementReleaseWorkerService,

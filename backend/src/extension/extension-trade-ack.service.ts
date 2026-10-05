@@ -1,3 +1,4 @@
+import { canonicalProtectionUntil } from '../settlement/settlement-proof-policy';
 import {
   HttpStatus,
   Inject,
@@ -746,9 +747,7 @@ export class ExtensionTradeAckService {
       ).toISOString(),
       buyerTradeUrl:
         role === 'seller' ? order.buyer?.tradeUrl?.trim() || null : null,
-      settlementHoldUntil: order.hold?.settlementHoldUntil
-        ? order.hold.settlementHoldUntil.toISOString()
-        : null,
+      settlementHoldUntil: canonicalProtectionUntil(order),
       deliveryProgress: this.mapDeliveryProgress(order),
     };
   }

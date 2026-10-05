@@ -30,6 +30,7 @@ describe('SettlementService hold window', () => {
 
   function buildService() {
     const tx = {
+      $queryRaw: jest.fn().mockResolvedValue([]),
       auditLog: {
         findFirst: jest.fn().mockResolvedValue(null),
         create: jest.fn(),
@@ -118,7 +119,16 @@ describe('SettlementService hold window', () => {
     );
   });
 
-  it('pays immediately when hold window is on but real settlement is off', async () => {
+  it('never settles a stale caller object when the locked row is absent', async () => {
+    const { service, tx, ledgerService } = buildService();
+    tx.order.findUnique.mockResolvedValue(null);
+    await expect(
+      service.settleCompletedOrder(tx as never, baseOrder as never, 'stale'),
+    ).rejects.toThrow('Order not found');
+    expect(ledgerService.settleSale).not.toHaveBeenCalled();
+  });
+
+  it('never pays through the legacy immediate path when real settlement is off', async () => {
     delete process.env.ENABLE_REAL_SETTLEMENT;
     const { service, prisma, ledgerService, tx } = buildService();
     prisma.order.findUnique.mockResolvedValue(baseOrder);
@@ -130,7 +140,7 @@ describe('SettlementService hold window', () => {
       'trade-success:key-immediate',
     );
 
-    expect(ledgerService.settleSale).toHaveBeenCalledTimes(1);
+    expect(ledgerService.settleSale).not.toHaveBeenCalled();
   });
 
   it('real delivery proof enforces eight-day hold even with both release flags disabled', async () => {
@@ -146,6 +156,7 @@ describe('SettlementService hold window', () => {
       },
     };
     const before = Date.now();
+    tx.order.findUnique.mockResolvedValue(order);
     await service.settleCompletedOrder(
       tx as never,
       order as never,
@@ -247,6 +258,7 @@ describe('SettlementService hold window', () => {
           settlementHoldUntil: new Date(Date.now() + 86400000),
         },
       };
+      tx.order.findUnique.mockResolvedValue(held);
       await service.settleCompletedOrder(
         tx as never,
         held as never,
@@ -327,6 +339,7 @@ describe('SettlementService hold window', () => {
         settlementHoldUntil: new Date(Date.now() - 1000),
       },
     };
+    tx.order.findUnique.mockResolvedValue(held);
     await service.settleCompletedOrder(
       tx as never,
       held as never,

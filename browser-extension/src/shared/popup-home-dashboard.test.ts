@@ -236,7 +236,7 @@ describe('popup-home-dashboard', () => {
     expect(home.emptyHome).toBe(false);
   });
 
-  it('surfaces completed deals as receipts, not active lists', () => {
+  it('leaves completed deal history on the website', () => {
     const home = buildHomeDashboard({
       connected: true,
       health: health('OK'),
@@ -259,12 +259,10 @@ describe('popup-home-dashboard', () => {
     });
     expect(home.buyers).toHaveLength(0);
     expect(home.sellers).toHaveLength(0);
-    expect(home.receipts).toHaveLength(1);
-    expect(home.receiptsTotal).toBe(1);
+    expect(home.receipts).toHaveLength(0);
+    expect(home.receiptsTotal).toBe(0);
     expect(home.dealsHref).toBe('https://p2pcs.ru/deals');
-    expect(home.receipts[0]?.offerId).toBe('42');
-    expect(home.receipts[0]?.commissionMinor).toBe('50');
-    expect(home.emptyHome).toBe(false);
+    expect(home.emptyHome).toBe(true);
   });
 
   it('marks empty calm home when connected and nothing pending', () => {

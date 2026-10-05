@@ -104,7 +104,7 @@ export async function pairExtension(
     };
   }
   const apiBaseUrl =
-    import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:3000/api/v1';
+    import.meta.env.VITE_API_BASE_URL ?? 'https://p2pcs.ru/api/v1';
   try {
     const response = await sendExtensionMessage<{
       ok?: boolean;

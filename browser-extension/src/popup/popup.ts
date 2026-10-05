@@ -59,10 +59,6 @@ import {
   disputeStatusHtml,
 } from '../shared/in-flow-dispute.js';
 import {
-  postTradeReceiptHtml,
-  type PostTradeReceiptView,
-} from '../shared/post-trade-receipt.js';
-import {
   createExtensionT,
   getStoredExtensionLocale,
   setStoredExtensionLocale,
@@ -79,15 +75,6 @@ import {
   safeModeBannerHtml,
   type SiteLinkSnapshot,
 } from '../shared/offline-safe-mode.js';
-import {
-  CS2_INVENTORY_URL,
-  getTwoMinuteOnboardingState,
-  persistDismissTwoMinuteWizard,
-  resolveTwoMinuteOnboardingView,
-  setTwoMinuteOnboardingState,
-  twoMinuteOnboardingHtml,
-  withAutoComplete,
-} from '../shared/two-minute-onboarding.js';
 import { siteAccountUrl } from '../shared/steam-inventory-page.js';
 
 const connectionEl = document.getElementById('connection');
@@ -96,7 +83,6 @@ const emptyHomeEl = document.getElementById('empty-home');
 const actionRequiredEl = document.getElementById('action-required');
 const buyerInboxEl = document.getElementById('buyer-inbox');
 const sellerTradesEl = document.getElementById('seller-trades');
-const recentReceiptsEl = document.getElementById('recent-receipts');
 const popupLeadEl = document.querySelector('.lead');
 const popupHintEl = document.getElementById('pair-hint');
 const toolbarEl = document.getElementById('toolbar');
@@ -121,7 +107,6 @@ const apiKeyStatusEl = document.getElementById('api-key-status');
 const privacyEl = document.getElementById('privacy-transparency');
 const permissionsListEl = document.getElementById('permissions-rationale');
 const safeModeBannerEl = document.getElementById('safe-mode-banner');
-const twoMinEl = document.getElementById('two-minute-onboarding');
 const quietNotifyEnabledEl = document.getElementById(
   'quiet-notify-enabled',
 ) as HTMLInputElement | null;
@@ -248,21 +233,11 @@ function renderConnection(connection: ConnectionDashboard): void {
   if (!connectionEl) {
     return;
   }
-  const showSteam =
-    Boolean(connection.steamLabel) &&
-    connection.steamLabel !== connection.detail &&
-    !(connection.tone === 'ok' && connection.steamAligned);
   connectionEl.className = `connection ${connection.tone}`;
   connectionEl.innerHTML = `
     <span class="connection-dot" aria-hidden="true"></span>
     <div class="connection-copy">
       <p class="connection-title">${escapeHtml(connection.title)}</p>
-      <p class="connection-detail">${escapeHtml(connection.detail)}</p>
-      ${
-        showSteam
-          ? `<p class="connection-steam">${escapeHtml(connection.steamLabel)}</p>`
-          : ''
-      }
     </div>
   `;
 }
@@ -327,7 +302,7 @@ function renderActionRequired(items: ActionRequiredItem[]): void {
       <span class="section-count">${items.length}</span>
     </div>
     <div class="action-list">
-      ${items.map((item) => renderActionCard(item)).join('')}
+      ${items.slice(0, 3).map((item) => renderActionCard(item)).join('')}
     </div>
   `;
 
@@ -549,57 +524,12 @@ function renderSellerCard(trade: TradeVerificationResult): string {
   `;
 }
 
-function renderRecentReceipts(
-  receipts: PostTradeReceiptView[],
-  receiptsTotal: number,
-  dealsHref: string | null,
-): void {
-  if (!recentReceiptsEl) {
-    return;
-  }
-  if (receipts.length === 0) {
-    recentReceiptsEl.hidden = true;
-    recentReceiptsEl.innerHTML = '';
-    return;
-  }
-
-  const hiddenCount = Math.max(0, receiptsTotal - receipts.length);
-  const footer =
-    dealsHref && (hiddenCount > 0 || receiptsTotal > 1)
-      ? `<a class="receipts-site-link" href="${escapeHtml(dealsHref)}" target="_blank" rel="noreferrer">${escapeHtml(
-          hiddenCount > 0
-            ? t('popup.receiptsMoreOnSite', { count: hiddenCount })
-            : t('popup.receiptsAllOnSite'),
-        )}</a>`
-      : dealsHref
-        ? `<a class="receipts-site-link" href="${escapeHtml(dealsHref)}" target="_blank" rel="noreferrer">${escapeHtml(t('popup.receiptsAllOnSite'))}</a>`
-        : '';
-
-  recentReceiptsEl.hidden = false;
-  recentReceiptsEl.innerHTML = `
-    <details class="receipts-fold" ${receiptsTotal <= 2 ? 'open' : ''}>
-      <summary class="section-head receipts-fold-summary">
-        <h2 class="section-title">${escapeHtml(t('popup.receiptsTitle'))}</h2>
-        <p class="section-sub">${escapeHtml(t('popup.receiptsSub'))}</p>
-        <span class="section-count">${receiptsTotal}</span>
-      </summary>
-      <div class="receipts-list">
-        ${receipts
-          .map((view) => postTradeReceiptHtml(view, escapeHtml, formatMoneyMinor))
-          .join('')}
-      </div>
-      ${footer}
-    </details>
-  `;
-}
-
 function renderHome(home: HomeDashboard): void {
   renderConnection(home.connection);
   renderEmptyHome(home);
   renderActionRequired(home.actionItems);
-  renderBuyerInbox(home.buyers);
-  renderSellerTrades(home.sellers);
-  renderRecentReceipts(home.receipts, home.receiptsTotal, home.dealsHref);
+  renderBuyerInbox(home.buyers.slice(0, 2));
+  renderSellerTrades(home.sellers.slice(0, Math.max(0, 3 - Math.min(2, home.buyers.length))));
 }
 
 async function acknowledgeFromPopup(button: HTMLButtonElement): Promise<void> {
@@ -697,60 +627,6 @@ async function loadTrades(): Promise<TradeVerificationResult[]> {
   }
 
   return cached.trades ?? [];
-}
-
-async function renderTwoMinuteOnboarding(connected: boolean): Promise<boolean> {
-  if (!twoMinEl) {
-    return false;
-  }
-  const stored = await getTwoMinuteOnboardingState();
-  const state = withAutoComplete(stored, connected);
-  if (state.completedAt && !stored.completedAt) {
-    await setTwoMinuteOnboardingState(state);
-  }
-  const view = resolveTwoMinuteOnboardingView({
-    connected,
-    state,
-    locale: activeLocale,
-  });
-  if (!view.visible) {
-    twoMinEl.hidden = true;
-    twoMinEl.innerHTML = '';
-    return false;
-  }
-  twoMinEl.hidden = false;
-  twoMinEl.innerHTML = twoMinuteOnboardingHtml(view, escapeHtml);
-  twoMinEl
-    .querySelectorAll<HTMLButtonElement>('[data-two-min-primary]')
-    .forEach((button) => {
-      button.addEventListener('click', () => {
-        void handleTwoMinutePrimary(button.dataset.twoMinPrimary ?? '');
-      });
-    });
-  twoMinEl
-    .querySelector<HTMLButtonElement>('[data-two-min-dismiss]')
-    ?.addEventListener('click', () => {
-      void persistDismissTwoMinuteWizard().then(() => render());
-    });
-  return true;
-}
-
-async function handleTwoMinutePrimary(kind: string): Promise<void> {
-  if (kind === 'dismiss') {
-    await persistDismissTwoMinuteWizard();
-    await render();
-    return;
-  }
-  if (kind === 'open_inventory') {
-    void chrome.tabs.create({ url: CS2_INVENTORY_URL });
-    return;
-  }
-  if (kind === 'open_account') {
-    const status = await fetchStatus();
-    void chrome.tabs.create({
-      url: siteAccountUrl(status.apiBaseUrl),
-    });
-  }
 }
 
 function renderSafeModeBanner(): void {
@@ -997,11 +873,12 @@ async function render(): Promise<void> {
     locale: activeLocale,
     snoozedOrderIds: collectSnoozedOrderIds(quietState),
   });
-  const wizardVisible = await renderTwoMinuteOnboarding(status.connected);
-  toolbarEl?.classList.toggle('toolbar--wizard', wizardVisible);
   toolbarEl?.classList.toggle('toolbar--paired', status.connected);
   renderSafeModeBanner();
   renderHome(home);
+  openSiteBtn.textContent = status.connected
+    ? (activeLocale === 'ru' ? `${home.counts.total} сделок в работе →` : `${home.counts.total} active deals →`)
+    : (activeLocale === 'ru' ? 'Подключить расширение' : 'Connect extension');
   renderOpsHealth(opsView);
 
   const storedKey = await getSteamWebApiKey();
@@ -1015,7 +892,7 @@ async function render(): Promise<void> {
 openSiteBtn.addEventListener('click', () => {
   void fetchStatus().then((status) => {
     void chrome.tabs.create({
-      url: siteAccountUrl(status.apiBaseUrl),
+      url: status.connected ? new URL('/deals', siteAccountUrl(status.apiBaseUrl)).href : siteAccountUrl(status.apiBaseUrl),
     });
   });
 });

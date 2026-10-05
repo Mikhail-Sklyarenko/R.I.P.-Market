@@ -1,4 +1,5 @@
 import type { TradeVerificationResult } from '@rip-market/extension-orchestrator';
+import { buildSettlementTransparency, settlementTransparencyHtml } from '../shared/settlement-transparency.js';
 import {
   TRADE_VERIFICATION_RUNTIME,
   type AckTradeRuntimeRequest,
@@ -733,7 +734,7 @@ function primaryCtaHtml(
     const primaryAction =
       view.phase === 'armed' ? 'accept-steam-confirm' : 'accept-steam';
     const primaryClass =
-      view.phase === 'armed' ? 'btn danger' : 'btn primary accept-cta';
+      'btn primary accept-cta';
     const secondary =
       view.secondaryLabel != null
         ? `<button type="button" class="btn secondary" data-action="accept-steam-cancel">${escapeHtml(view.secondaryLabel)}</button>`
@@ -1153,7 +1154,7 @@ function buildPanel(context: OfferPageContext): HTMLElement {
             : 'Обмен в Steam уже закрыт',
         subtitle:
           trade.role === 'buyer'
-            ? 'Подтвердите «Предмет у меня» здесь — площадка закроет сделку. Accept больше не нужен.'
+            ? 'Steam сообщил о принятии. Площадка проверяет доставку автоматически. Повторный Accept не нужен.'
             : 'Покупатель принял обмен. Статус на площадке обновится после сверки доставки.',
         tone: 'ok',
       };
@@ -1180,6 +1181,7 @@ function buildPanel(context: OfferPageContext): HTMLElement {
   });
 
   const showConfirmReceived =
+    trade.orderStatus !== 'SETTLEMENT_HOLD' &&
     needsBuyerReceivedConfirm(trade, { steamAcceptanceObserved }) &&
     status !== 'mismatch' &&
     !scamBlocks;
@@ -1212,8 +1214,11 @@ function buildPanel(context: OfferPageContext): HTMLElement {
     'steam_panel_views',
   );
 
+  const settlementView = buildSettlementTransparency(trade, { locale: overlayLocale });
   const buyerCtaOverride =
-    trade.role === 'buyer' && onOfferPage && scamBlocks && status !== 'mismatch'
+    settlementView && !scamBlocks && status !== 'mismatch'
+      ? settlementTransparencyHtml(settlementView, escapeHtml)
+      : trade.role === 'buyer' && onOfferPage && scamBlocks && status !== 'mismatch'
       ? `<p class="primary-hint block">Сначала устраните anti-scam предупреждения — Accept пока не нажимайте</p>`
       : showPrimaryReceived
         ? `<button type="button" class="btn primary accept-cta" data-action="confirm-received">${escapeHtml(t('cta.confirmReceived'))}</button>`

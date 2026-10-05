@@ -977,6 +977,20 @@ export class AdminService {
         });
       }
 
+      const leases = await tx.steamMappingLease.deleteMany({
+        where: { orderId },
+      });
+      await tx.auditLog.create({
+        data: {
+          actorUserId,
+          entityType: 'order',
+          entityId: orderId,
+          action: 'ADMIN_ADJUDICATION_MAPPING_LEASE_RELEASED',
+          afterState: { releasedCount: leases.count, resolution },
+          idempotencyKey: `mapping-adjudication:${idempotencyKey}`,
+          ...getAuditContext(),
+        },
+      });
       await tx.auditLog.create({
         data: {
           actorUserId,
