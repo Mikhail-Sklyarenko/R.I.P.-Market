@@ -298,7 +298,7 @@ export function InventorySellPanel({
                       <span className="inventory-listing-hint-age muted small">
                         · {steamAge}
                         {steamPriceStale ? (
-                          <> · {t('steamPriceAge.priceMaybeStale')}</>
+                          <> · {t('item.priceMaybeStale')}</>
                         ) : null}
                       </span>
                     ) : null}

@@ -56,9 +56,9 @@ export const EXTENSION_REQUIRED_PERMISSIONS: readonly ExtensionPermissionRationa
     {
       id: 'cookies',
       required: true,
-      purposeEn: 'Read Steam session cookies in this browser to load inventory safely.',
+      purposeEn: 'Read Steam session cookies for inventory. The separate R1ppeR diagnostic can send an access token to p2pcs.ru only after explicit consent.',
       purposeRu:
-        'Читать cookies сессии Steam в этом браузере, чтобы загрузить инвентарь.',
+        'Читать cookies Steam для инвентаря. Отдельная диагностика R1ppeR может передать access token на p2pcs.ru только после явного согласия.',
     },
     {
       id: 'notifications',

@@ -103,30 +103,25 @@ test.describe('Catalog filters', () => {
     await seedCatalogLots(request);
 
     await page.goto('/catalog');
-    const firstCard = page.getByTestId('catalog-open-lot').first();
+    const firstCard = page.getByTestId('catalog-open-lot').filter({
+      has: page.locator('[data-testid^="catalog-item-buy-"]'),
+    }).first();
 
     await expect(firstCard.getByTestId(/catalog-item-.*-primary-price/)).toBeVisible();
     await expect(firstCard.getByTestId(/catalog-item-.*-steam-price/)).toBeVisible();
     await expect(firstCard.getByTestId(/catalog-item-.*-market-price/)).toBeAttached();
   });
 
-  test('page size selector updates URL and item count', async ({ page, request }) => {
+  test('catalog uses its fixed page size for legacy limit URLs', async ({ page, request }) => {
     await seedCatalogLots(request);
-
-    await page.goto('/catalog');
-    await expect(page.getByTestId('catalog-grid').locator('article')).toHaveCount(
-      SEEDED_CARDS,
-    );
-
-    await page.getByTestId('catalog-page-size').selectOption('24');
-    await expect(page).toHaveURL(/limit=24/);
-    await expect(page.getByTestId('catalog-grid').locator('article')).toHaveCount(
-      SEEDED_CARDS,
-    );
-
-    await page.getByTestId('catalog-page-size').selectOption('96');
-    await expect(page).toHaveURL(/limit=96/);
-    await expect(page.url()).not.toContain('page=');
+    const responsePromise = page.waitForResponse((response) => {
+      const url = new URL(response.url());
+      return url.pathname.endsWith('/catalog/items') && url.searchParams.get('limit') === '96';
+    });
+    await page.goto('/catalog?limit=24');
+    expect((await responsePromise).ok()).toBeTruthy();
+    await expect(page.getByTestId('catalog-grid').locator('article')).toHaveCount(SEEDED_CARDS);
+    await expect(page.getByTestId('catalog-page-size')).toHaveCount(0);
   });
 
   test('sort selector applies to the catalog and hides popular shelf outside popular mode', async ({

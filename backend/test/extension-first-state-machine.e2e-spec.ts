@@ -4,6 +4,12 @@ import { PrismaService } from '../src/prisma/prisma.service';
 import { ApiClient } from './helpers/api-client';
 import { createE2eApp } from './helpers/bootstrap-e2e-app';
 import { resetDatabase } from './helpers/reset-database';
+import { SettlementService } from '../src/settlement/settlement.service';
+import {
+  prepareProofBackedHold,
+  withProofSettlementPolicy,
+  expectExactlyOneSettlement,
+} from './helpers/proof-backed-settlement';
 
 describe('Extension-first state machine smoke (e2e)', () => {
   let app: INestApplication;
@@ -42,15 +48,29 @@ describe('Extension-first state machine smoke (e2e)', () => {
   }
 
   it('happy-path reaches SETTLEMENT_HOLD and COMPLETED', async () => {
-    const { buyer, orderId } = await setupOrder();
-
-    const successResponse = await api.mockSuccess(
-      buyer,
-      orderId,
-      `trade-success-${Date.now()}`,
-    );
-    expect([200, 201]).toContain(successResponse.status);
-    expect(successResponse.body.status).toBe('COMPLETED');
+    const { orderId } = await setupOrder();
+    expect(
+      (await prisma.order.findUniqueOrThrow({ where: { id: orderId } })).status,
+    ).toBe('WAITING_TRADE');
+    await withProofSettlementPolicy(100_000, async () => {
+      const proof = await prepareProofBackedHold(app, orderId);
+      expect(
+        (await prisma.order.findUniqueOrThrow({ where: { id: orderId } }))
+          .status,
+      ).toBe('SETTLEMENT_HOLD');
+      expect(
+        await prisma.tradeAcknowledgment.count({ where: { orderId } }),
+      ).toBe(0);
+      const result = await app
+        .get(SettlementService)
+        .releaseDueSettlementHold(orderId);
+      expect(result.settled).toBe(true);
+      await expectExactlyOneSettlement(prisma, orderId);
+      expect(
+        (await prisma.tradeOperation.findUniqueOrThrow({ where: { orderId } }))
+          .deliveryProof,
+      ).toEqual(proof);
+    });
 
     const orderEvents = await prisma.orderStatusEvent.findMany({
       where: { orderId },

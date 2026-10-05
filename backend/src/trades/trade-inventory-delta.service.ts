@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { Inject } from '@nestjs/common';
 import { InventoryAssetStatus } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
+import { AppException } from '../common/errors/app.exception';
 import { INVENTORY_PROVIDER } from '../providers/tokens';
 import type {
   InventoryProvider,
@@ -12,9 +13,14 @@ export type InventoryDeltaResult =
   | 'pending'
   | 'confirmed'
   | 'seller_still_holds'
-  | 'unknown';
+  | 'unknown'
+  | 'ambiguous';
+
+export class InventoryVerificationRateLimitError extends Error {}
 
 export type InventoryDeltaVerifyOptions = {
+  /** Internal only: exact destination asset from validated server Steam receipt. */
+  receivedAssetId?: string;
   force?: boolean;
   expectedFloatValue?: number | null;
   expectedPaintSeed?: number | null;
@@ -53,12 +59,26 @@ export class TradeInventoryDeltaService {
         sellerSteamId,
         { force },
       );
+      if (sellerSync.errorCode === 'STEAM_RATE_LIMITED') {
+        throw new InventoryVerificationRateLimitError();
+      }
       buyerSync = await this.inventoryProvider.syncInventory(
         buyerId,
         buyerSteamId,
         { force },
       );
-    } catch {
+      if (buyerSync.errorCode === 'STEAM_RATE_LIMITED') {
+        throw new InventoryVerificationRateLimitError();
+      }
+    } catch (error) {
+      if (
+        error instanceof InventoryVerificationRateLimitError ||
+        (error instanceof AppException &&
+          (error.code === 'STEAM_RATE_LIMITED' ||
+            error.details?.errorCode === 'STEAM_RATE_LIMITED'))
+      ) {
+        throw new InventoryVerificationRateLimitError();
+      }
       return 'unknown';
     }
 
@@ -66,10 +86,26 @@ export class TradeInventoryDeltaService {
     if (
       sellerSync.status === 'FAILED' ||
       buyerSync.status === 'FAILED' ||
+      sellerSync.status === 'PARTIAL' ||
+      buyerSync.status === 'PARTIAL' ||
       sellerSync.stale ||
       buyerSync.stale
     ) {
       return 'unknown';
+    }
+
+    // Marketplace RESERVED/LISTED rows are not evidence of live Steam presence.
+    // Require complete fresh observations for the real provider.
+    if (this.inventoryProvider.type === 'steam') {
+      if (!sellerSync.observedAssetIds || !buyerSync.observedAssetIds)
+        return 'unknown';
+      if (sellerSync.observedAssetIds.includes(expectedAssetExternalId))
+        return 'seller_still_holds';
+      return buyerSync.observedAssetIds.includes(
+        options?.receivedAssetId ?? expectedAssetExternalId,
+      )
+        ? 'confirmed'
+        : 'pending';
     }
 
     const sellerLiveHolds = await this.prisma.inventoryAsset.findFirst({
@@ -94,8 +130,8 @@ export class TradeInventoryDeltaService {
 
     // A name/float/seed match (even newly synced) cannot establish this transfer:
     // another trade or an old item first imported today can match. Require exact
-    // asset evidence here; accepted Steam offer or explicit buyer receipt are
-    // handled by the delivery decision engine when Steam changes the asset ID.
+    // asset evidence here. A changed Steam asset ID requires an authoritative
+    // transfer mapping; neither a receipt nor a matching item name substitutes it.
 
     if (sellerLiveHolds) {
       return 'seller_still_holds';
@@ -103,5 +139,4 @@ export class TradeInventoryDeltaService {
 
     return 'pending';
   }
-
 }

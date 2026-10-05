@@ -1,3 +1,5 @@
+import { DeliveryWorkflowService } from '../trades/delivery-workflow.service';
+import { isLiveVerificationMode } from '../trades/trade-verification.config';
 import {
   forwardRef,
   HttpStatus,
@@ -177,6 +179,20 @@ export class ExtensionTradeTaskService {
 
     const claimed = [] as typeof tasks;
     for (const task of tasks) {
+      if (isLiveVerificationMode()) {
+        const ready = await this.prisma.tradeOperation.findUnique({
+          where: { id: task.tradeOperationId },
+          select: { inventoryBaseline: true },
+        });
+        // Preflight after explicit popup consent prepares the baseline. Do not
+        // fetch it hours earlier merely because a background task poll occurred.
+        if (!ready?.inventoryBaseline) continue;
+      }
+      if (
+        isLiveVerificationMode() &&
+        !(await new DeliveryWorkflowService(this.prisma).prepare(task.orderId))
+      )
+        continue;
       const changed = await this.prisma.tradeTask.updateMany({
         where: {
           id: task.id,
@@ -212,6 +228,15 @@ export class ExtensionTradeTaskService {
         task.leaseUntil <= now
       )
         task.leaseVersion += 1;
+      const operation = await this.prisma.tradeOperation.findUnique({
+        where: { id: task.tradeOperationId },
+        select: { tradeBinding: true },
+      });
+      if (operation?.tradeBinding)
+        task.payload = {
+          ...(task.payload as Prisma.JsonObject),
+          tradeBinding: operation.tradeBinding,
+        };
       claimed.push(task);
       this.logger.log(
         JSON.stringify({
@@ -1038,6 +1063,20 @@ export class ExtensionTradeTaskService {
     orderId: string,
     extensionErrorCode: string,
   ): Promise<void> {
+    if (extensionErrorCode === 'MAX_ATTEMPTS_REACHED') {
+      await this.prisma.tradeOperation.updateMany({
+        where: {
+          orderId,
+          status: 'WAITING',
+          order: { status: 'WAITING_TRADE' },
+        },
+        data: {
+          verificationStage: 'MANUAL_REVIEW',
+          failReasonCode: 'EXTENSION_RETRIES_EXHAUSTED',
+        },
+      });
+      return;
+    }
     if (!isExtensionDisputeBridgeEnabled()) {
       return;
     }

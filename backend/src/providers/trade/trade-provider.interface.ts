@@ -12,6 +12,17 @@ export type TradeCompletionResult = {
 };
 
 export type TradeVerificationResult = {
+  /** Safe diagnostic category, never an upstream message or credential. */
+  reasonCode?: string;
+  /** Set only from a validated server-side Steam receipt. */
+  receivedAssetId?: string;
+  receivedContextId?: string;
+  receiptVerified?: boolean;
+  offerAccepted?: boolean;
+  bindingVerified?: boolean;
+  tradeId?: string;
+  identityConflict?: boolean;
+  reversalDetected?: boolean;
   status:
     | 'needs_confirmation'
     | 'pending'
@@ -23,6 +34,13 @@ export type TradeVerificationResult = {
   tradeLockUntil: Date | null;
 };
 
+export type TradeVerificationContext = {
+  tradeBinding?: string;
+  sellerSteamId: string | null;
+  buyerSteamId: string | null;
+  assetId: string;
+};
+
 export interface TradeProvider {
   readonly type: TradeProviderType;
   completeTrade(
@@ -30,5 +48,13 @@ export interface TradeProvider {
     type: TradeCompletionType,
     options?: { reasonCode?: string },
   ): Promise<TradeCompletionResult>;
-  verifyTradeOffer?(_tradeOfferId: string): Promise<TradeVerificationResult>;
+  verifyTradeReceipt?(
+    tradeId: string,
+    offerId: string,
+    context: TradeVerificationContext,
+  ): Promise<TradeVerificationResult>;
+  verifyTradeOffer?(
+    _tradeOfferId: string,
+    context?: TradeVerificationContext,
+  ): Promise<TradeVerificationResult>;
 }

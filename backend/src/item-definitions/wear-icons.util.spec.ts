@@ -23,13 +23,16 @@ describe('wear-icons util', () => {
   it('resolves icon by wear with fallback', () => {
     const icons = { FN: '-9a81fn', FT: '-9a81ft' };
     expect(resolveWearIconUrl(icons, 'FT', '-9a81default')).toBe('-9a81ft');
-    expect(resolveWearIconUrl(icons, 'MW', '-9a81default')).toBe('-9a81default');
+    expect(resolveWearIconUrl(icons, 'MW', '-9a81default')).toBe(
+      '-9a81default',
+    );
     expect(resolveWearIconUrl({}, null, null)).toBeNull();
   });
 
   it('merges wear icon maps', () => {
-    expect(
-      mergeWearIcons({ FN: 'a' }, { FT: 'b', FN: 'c' }),
-    ).toEqual({ FN: 'c', FT: 'b' });
+    expect(mergeWearIcons({ FN: 'a' }, { FT: 'b', FN: 'c' })).toEqual({
+      FN: 'c',
+      FT: 'b',
+    });
   });
 });

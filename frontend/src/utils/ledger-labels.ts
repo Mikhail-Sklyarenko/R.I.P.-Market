@@ -3,7 +3,7 @@ import { enMessages } from '../i18n/messages/en.ts';
 import { ruMessages } from '../i18n/messages/ru.ts';
 import { translate } from '../i18n/translate.ts';
 import type { Locale } from '../i18n/types.ts';
-import { formatUsdFromMinor } from './format';
+import { formatUsdFromMinor } from './format.ts';
 
 const messagesByLocale = {
   ru: ruMessages,
@@ -25,8 +25,15 @@ export const LEDGER_ENTRY_LABELS: Record<string, string> = {
   MANUAL_ADJUSTMENT: 'Ручная корректировка',
 };
 
-export function formatLedgerEntryType(type: string, locale: Locale = 'ru'): string {
-  return translate(messagesByLocale[locale], `ledgerEntry.${type}`);
+export function formatLedgerEntryType(
+  type: string,
+  locale: Locale = 'ru',
+  metadata?: LedgerEntry['metadata'],
+): string {
+  const labelType = type === 'HOLD_RESERVE' && metadata?.action === 'settlement_capture'
+    ? 'SETTLEMENT_CAPTURE'
+    : type;
+  return translate(messagesByLocale[locale], `ledgerEntry.${labelType}`);
 }
 
 export function resolveLedgerOrderId(entry: LedgerEntry): string | null {

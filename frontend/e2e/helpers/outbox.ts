@@ -6,6 +6,9 @@ async function getAdminToken(request: APIRequestContext) {
   const adminLogin = await request.post(`${apiBase()}/auth/mock-login`, {
     data: { role: 'ADMIN' },
   });
+  if (!adminLogin.ok()) {
+    throw new Error(`Outbox admin login failed: ${adminLogin.status()}`);
+  }
   return ((await adminLogin.json()) as { accessToken: string }).accessToken;
 }
 
@@ -17,7 +20,11 @@ export async function processPendingOutbox(request: APIRequestContext) {
     const response = await request.post(`${apiBase()}/admin/outbox/process`, {
       headers: { Authorization: `Bearer ${adminToken}` },
     });
-    const body = (await response.json()) as { processed?: number };
+    if (!response.ok()) {
+      throw new Error(`Outbox processing failed: ${response.status()}`);
+    }
+    const body = (await response.json()) as { processed?: number; failed?: number };
+    if (body.failed) throw new Error(`Outbox events failed: ${body.failed}`);
     if ((body.processed ?? 0) === 0) {
       return;
     }

@@ -12,7 +12,9 @@ export const clientExtraEn = {
     savedEmpty: "Save items with the bookmark in the catalog to easily find them again.",
     savedError: "Could not save. Check browser storage; you can save up to 100 items.",
 
-    downloadUnavailable: "The download is unavailable. Refresh the page or contact support.",
+    downloadUnavailable: "Could not check the extension download. Try again or contact support.",
+    downloadRetry: "Try again",
+    downloadSupport: "Support",
     receiptCheckingTitle: "You confirmed receipt",
     receiptCheckingBody: "The service is completing its checks. Do not accept or send another offer. If the delay continues, contact support from this order.",
     "completeSetup": "Set up account",
@@ -26,14 +28,14 @@ export const clientExtraEn = {
     "extensionTitle": "Your Steam trade assistant",
     "extensionLead": "Connect R.I.P Market in the browser profile where you use Steam. The assistant checks the offer and helps send your item. You confirm Steam Guard and accept trades yourself.",
     "betaTitle": "Installation for closed testing",
-    "betaBody": "The extension is currently installed from an archive, rather than the Chrome store. Testing requires desktop Chrome. On a phone, continue using this link on your computer.",
+    "betaBody": "The extension is currently installed from an archive, rather than the Chrome store. Testing requires desktop Chrome or Microsoft Edge. On a phone, continue using this link on your computer.",
     "download": "Download extension",
     "stepDownload": "Download and unpack",
     "stepDownloadBody": "Keep the R.I.P-Market-Extension folder in a permanent location. Do not delete it after installing.",
-    "stepInstall": "Add the extension to Chrome",
-    "stepInstallBody": "Open chrome://extensions, enable Developer mode, select Load unpacked, and choose the extracted folder. To update, replace the files in that folder and reload the extension.",
+    "stepInstall": "Add the extension to your browser",
+    "stepInstallBody": "Open chrome://extensions in Chrome or edge://extensions in Microsoft Edge, enable Developer mode, select Load unpacked, and choose the extracted folder. To update, replace the files in that folder and reload the extension.",
     "stepConnect": "Connect your account",
-    "stepConnectBody": "Return here in the same Chrome profile and select Connect extension. Use a separate browser profile for another Steam account.",
+    "stepConnectBody": "Return here in the same browser profile and select Connect extension. Use a separate browser profile for another Steam account.",
     "permissionsTitle": "Why permissions are needed",
     "permissionsBody": "Steam access is used to read offer data and send the selected item. Tabs and scripting operate the Steam page; cookies provide the browser Steam session; storage keeps account pairing and pending actions; notifications highlight important steps. The assistant does not confirm Steam Guard or accept trades for you.",
     "resumeTrade": "Return to your trade",
@@ -364,14 +366,14 @@ export const clientExtraEn = {
     deliveryBuyerBody:
       'The skin should already be yours. We match the Steam offer and inventory — this page updates itself.',
     deliveryBuyerReason: 'Never pay in chat and never accept other offers “instead” of this deal.',
-    holdSellerTitle: 'Payout after the review window',
+    holdSellerTitle: 'Trade confirmed by Steam',
     holdSellerBody:
-      'Trade confirmed. Funds stay on hold until the protection window ends.',
+      'Funds remain protected. Do not send another trade.',
     holdSellerReason:
-      'Up to 8 days protects against chargebacks and Steam trade reversals.',
+      'The protection window lasts at least 8 days. Release requires a fresh check that Steam has not reversed the trade.',
     holdBuyerTitle: 'Item is yours — settlement is on-platform',
     holdBuyerBody:
-      'The skin is in your inventory. Seller funds unlock after review / hold.',
+      'Steam confirmed the item transfer. Do not accept another trade. Funds remain protected until verification completes.',
     holdBuyerReason: 'Payment is already on the platform. Do not send money to the seller in Steam chat.',
     signalOffer: 'Steam offer signal',
     signalInventory: 'Inventory signal',
@@ -379,7 +381,7 @@ export const clientExtraEn = {
     tonePending: 'Waiting',
     toneWarn: 'Attention',
     toneUnknown: 'Checking',
-    holdUntilLabel: 'Payout expected from',
+    holdUntilLabel: 'Protection window ends',
   },
   postTradeReceipt: {
     eyebrow: 'Receipt',
@@ -741,7 +743,7 @@ export const clientExtraEn = {
     itemAlreadyReceived: 'I already have the item in Steam',
     speedUpCheckSummary: 'Speed up the check',
     receivedAckPendingSteam:
-      "There's a mark on the site, but the skin isn't visible in your Steam yet. Accept the incoming trade offer — the status will update itself.",
+      'You confirmed receipt. Server verification of the item transfer is still pending, and the funds remain reserved. You do not need to accept or send the trade again.',
     receivedAck: 'Receipt marked. If the skin is already in Steam, the deal will close soon.',
     extensionAck: 'Got it. Just accept the trade in Steam now.',
     extensionHintNoAck: 'With the R.I.P Market extension, the Steam trade page will verify the deal.',
@@ -778,6 +780,8 @@ export const clientExtraEn = {
     offerLabel: 'Trade offer:',
     pollStatusLabel: 'Check status:',
     scamWarningTitle: 'Verify the trade sender',
+    recipientWarningTitle: 'Verify the recipient',
+    recipientWarningBody: 'Before sending, compare the recipient SteamID64 with the buyer below. Confirm only this trade in Steam Guard.',
     scamWarningBody:
       'Scammers may send an offer from a different Steam account. Before accepting, compare the sender SteamID64 with the seller details below.',
     sellerLabel: 'Seller',
@@ -941,6 +945,7 @@ export const clientExtraEn = {
   ledgerEntry: {
     DEPOSIT: 'Deposit',
     HOLD_RESERVE: 'Hold reserved',
+    SETTLEMENT_CAPTURE: 'Payment from hold',
     HOLD_RELEASE: 'Hold released',
     SETTLEMENT_SELLER: 'Seller payout',
     SETTLEMENT_PLATFORM_COMMISSION: 'Platform fee',

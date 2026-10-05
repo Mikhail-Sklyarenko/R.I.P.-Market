@@ -11,8 +11,7 @@
 
 const DEFAULT_DEV_ORIGIN = 'http://localhost:5173';
 
-const IPV4_HOST =
-  /^(?:\d{1,3}\.){3}\d{1,3}$/;
+const IPV4_HOST = /^(?:\d{1,3}\.){3}\d{1,3}$/;
 
 export type ResolvePublicSiteOriginInput = {
   publicSiteUrl?: string | null;
@@ -116,10 +115,10 @@ export function resolvePublicSiteOrigin(
     return fallback;
   }
 
-  let best = candidates[0]!;
+  let best = candidates[0];
   let bestScore = scoreOrigin(best, 0);
   for (let i = 1; i < candidates.length; i += 1) {
-    const origin = candidates[i]!;
+    const origin = candidates[i];
     const score = scoreOrigin(origin, i);
     if (score > bestScore) {
       best = origin;

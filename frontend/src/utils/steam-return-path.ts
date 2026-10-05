@@ -2,7 +2,15 @@ const STEAM_POST_LOGIN_PATH_KEY = 'rip_market_steam_return';
 
 /** Frontend path to open after Steam OAuth (must be same-origin relative). */
 export function safeAppReturnPath(raw: string | null | undefined): string | null {
-  if (!raw || !raw.startsWith('/') || raw.startsWith('//') || /[\\\u0000-\u001f\u007f]/.test(raw)) {
+  if (
+    !raw ||
+    !raw.startsWith('/') ||
+    raw.startsWith('//') ||
+    Array.from(raw).some((char) => {
+      const code = char.charCodeAt(0);
+      return char === '\\' || code < 32 || code === 127;
+    })
+  ) {
     return null;
   }
   return raw;

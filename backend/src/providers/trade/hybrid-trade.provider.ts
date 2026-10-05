@@ -6,6 +6,7 @@ import {
   TradeCompletionType,
   TradeProvider,
   TradeVerificationResult,
+  TradeVerificationContext,
 } from './trade-provider.interface';
 
 /**
@@ -31,7 +32,18 @@ export class HybridTradeProvider implements TradeProvider {
     return this.mock.completeTrade(orderId, type, options);
   }
 
-  verifyTradeOffer(tradeOfferId: string): Promise<TradeVerificationResult> {
-    return this.steam.verifyTradeOffer(tradeOfferId);
+  verifyTradeOffer(
+    tradeOfferId: string,
+    context?: TradeVerificationContext,
+  ): Promise<TradeVerificationResult> {
+    return this.steam.verifyTradeOffer(tradeOfferId, context);
+  }
+
+  verifyTradeReceipt(
+    tradeId: string,
+    offerId: string,
+    context: TradeVerificationContext,
+  ): Promise<TradeVerificationResult> {
+    return this.steam.verifyTradeReceipt(tradeId, offerId, context);
   }
 }

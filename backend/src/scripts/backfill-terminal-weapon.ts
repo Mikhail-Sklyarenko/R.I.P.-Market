@@ -27,8 +27,10 @@ async function main() {
       },
       data: { weapon: 'Terminal' },
     });
-    // eslint-disable-next-line no-console
-    console.log(`Updated ${result.count} ItemDefinition row(s) to weapon=Terminal`);
+
+    console.log(
+      `Updated ${result.count} ItemDefinition row(s) to weapon=Terminal`,
+    );
   } finally {
     await prisma.$disconnect();
     await pool.end();
@@ -36,7 +38,6 @@ async function main() {
 }
 
 void main().catch((error) => {
-  // eslint-disable-next-line no-console
   console.error(error);
   process.exit(1);
 });

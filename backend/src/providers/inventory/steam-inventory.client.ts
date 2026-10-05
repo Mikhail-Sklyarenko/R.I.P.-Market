@@ -33,6 +33,7 @@ async function defaultSteamInventoryFetch(
 
 export type FetchSteamInventoryPageOptions = {
   steamId: string;
+  contextId?: '2' | '16';
   startAssetId?: string;
   count?: number;
   fetchFn?: SteamInventoryFetchFn;
@@ -43,12 +44,15 @@ export async function fetchSteamInventoryPage(
 ): Promise<SteamInventoryResponse> {
   const {
     steamId,
+    contextId = '2',
     startAssetId,
     count = 500,
     fetchFn = defaultSteamInventoryFetch,
   } = options;
 
-  const url = new URL(`${STEAM_INVENTORY_BASE_URL}/${steamId}/730/2`);
+  const url = new URL(
+    `${STEAM_INVENTORY_BASE_URL}/${steamId}/730/${contextId}`,
+  );
   url.searchParams.set('l', 'english');
   url.searchParams.set('count', String(count));
   if (startAssetId) {
@@ -94,6 +98,7 @@ export async function fetchSteamInventoryPage(
 export async function fetchAllSteamInventoryPages(
   steamId: string,
   fetchFn?: SteamInventoryFetchFn,
+  contextId: '2' | '16' = '2',
 ): Promise<SteamInventoryResponse> {
   const merged: SteamInventoryResponse = {
     assets: [],
@@ -109,10 +114,17 @@ export async function fetchAllSteamInventoryPages(
   while (pageCount < maxPages) {
     const page = await fetchSteamInventoryPage({
       steamId,
+      contextId,
       startAssetId,
       fetchFn,
     });
 
+    if (
+      page.success !== 1 ||
+      (page.more_items &&
+        (!page.last_assetid || page.last_assetid === startAssetId))
+    )
+      throw new Error('STEAM_INVENTORY_INCOMPLETE');
     merged.assets?.push(...(page.assets ?? []));
     merged.descriptions?.push(...(page.descriptions ?? []));
     merged.asset_properties?.push(...(page.asset_properties ?? []));

@@ -42,13 +42,14 @@ test.describe('Smoke checklist', () => {
     await resetDatabase(request);
   });
 
-  test('catalog buy mock success reaches COMPLETED', async ({ page, request }) => {
+  test('catalog buy mock success confirms trade without completing payment', async ({ page, request }) => {
     await seedActiveLot(request);
     await loginAsBuyer(page);
     await buyerPurchaseWaitingTrade(page);
     await page.getByTestId('mock-trade-success').click();
-    await expect(page.getByTestId('order-status')).toHaveText('COMPLETED', {
+    await expect(page.getByTestId('order-status')).toHaveText('TRADE_CONFIRMED', {
       timeout: 15000,
     });
+    await expect(page.getByTestId('order-completed-message')).not.toBeVisible();
   });
 });

@@ -1,8 +1,4 @@
-import {
-  Injectable,
-  Logger,
-  OnModuleInit,
-} from '@nestjs/common';
+import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { Cron } from '@nestjs/schedule';
 import { LotStatus } from '@prisma/client';
 import { isListableMarketHashName } from '../lots/listing-eligibility.util';
@@ -135,7 +131,9 @@ export class ItemIconWarmerService implements OnModuleInit {
     const result: Array<{ id: string; marketHashName: string }> = [];
     const seen = new Set<string>();
 
-    const push = (row: { id: string; marketHashName: string } | null | undefined) => {
+    const push = (
+      row: { id: string; marketHashName: string } | null | undefined,
+    ) => {
       if (!row || seen.has(row.id)) {
         return;
       }

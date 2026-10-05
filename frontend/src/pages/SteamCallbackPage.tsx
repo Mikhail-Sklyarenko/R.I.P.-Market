@@ -88,7 +88,7 @@ export function SteamCallbackPage() {
         <h1>{t('steamCallbackPage.title')}</h1>
         {error ? (
           <>
-            <ErrorAlert error={new Error(error.message)} />
+            <ErrorAlert>{error.message}</ErrorAlert>
             {error.code === 'STEAM_ALREADY_LINKED' ? (
               <p className="muted small steam-callback-hint">
                 {t('steamCallbackPage.alreadyLinkedHint')}

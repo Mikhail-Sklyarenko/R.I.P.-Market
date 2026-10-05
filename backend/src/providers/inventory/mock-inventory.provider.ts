@@ -76,7 +76,12 @@ export class MockInventoryProvider implements InventoryProvider {
       };
       await this.prisma.itemDefinition.upsert({
         where: { marketHashName: baseMarketHashName },
-        create: { game: 'CS2', marketHashName: baseMarketHashName, slug: slugifyMarketHashName(baseMarketHashName), ...card },
+        create: {
+          game: 'CS2',
+          marketHashName: baseMarketHashName,
+          slug: slugifyMarketHashName(baseMarketHashName),
+          ...card,
+        },
         update: { ...card, slug: slugifyMarketHashName(baseMarketHashName) },
       });
     }
@@ -114,7 +119,9 @@ export class MockInventoryProvider implements InventoryProvider {
     if (existingCount === 0) {
       for (let i = 0; i < DEFAULT_ITEMS.length; i += 1) {
         const item = DEFAULT_ITEMS[i];
-        const baseMarketHashName = deriveBaseMarketHashName(item.marketHashName);
+        const baseMarketHashName = deriveBaseMarketHashName(
+          item.marketHashName,
+        );
         const itemDefinition = await this.prisma.itemDefinition.upsert({
           where: { marketHashName: item.marketHashName },
           create: {

@@ -61,8 +61,8 @@ export function TradeCounterpartyCard({
           className="alert alert-warning trade-counterparty-scam"
           data-testid="trade-scam-warning"
         >
-          <strong>{t('orderTradePanel.scamWarningTitle')}</strong>
-          <p className="muted small">{t('orderTradePanel.scamWarningBody')}</p>
+          <strong>{t(role === 'buyer' ? 'orderTradePanel.recipientWarningTitle' : 'orderTradePanel.scamWarningTitle')}</strong>
+          <p className="muted small">{t(role === 'buyer' ? 'orderTradePanel.recipientWarningBody' : 'orderTradePanel.scamWarningBody')}</p>
         </div>
       ) : null}
 

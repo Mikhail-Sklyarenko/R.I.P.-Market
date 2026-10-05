@@ -9,6 +9,7 @@ export type TradeTaskExecutionPhase =
   | 'OFFER_FAILED';
 
 export type CreateOfferTaskPayload = {
+  tradeBinding?: string;
   orderId: string;
   tradeOperationId: string;
   sellerId: string;

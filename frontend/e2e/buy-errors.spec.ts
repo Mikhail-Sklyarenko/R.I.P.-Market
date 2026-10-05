@@ -41,6 +41,8 @@ test.describe('Buy error handling', () => {
     await listButton.click();
     await page.getByTestId('price-input').fill('500');
     await page.getByTestId('submit-listing').click();
+    await expect(page.getByTestId('inventory-listing-success')).toBeVisible();
+    await page.getByTestId('inventory-listing-success-listings').click();
     await expect(page).toHaveURL(/\/deals/);
 
     const lotLink = page.locator('[data-testid^="view-catalog-lot-"]').first();
@@ -55,7 +57,7 @@ test.describe('Buy error handling', () => {
     await loginAsBuyer(page);
     await page.goto(`/lots/${lotId}`);
 
-    await expect(page.getByTestId('lot-unavailable-message')).toContainText('RESERVED');
+    await expect(page.getByTestId('lot-unavailable-message')).toContainText('В сделке');
     await expect(page.getByTestId('buy-lot-button')).toBeDisabled();
   });
 });

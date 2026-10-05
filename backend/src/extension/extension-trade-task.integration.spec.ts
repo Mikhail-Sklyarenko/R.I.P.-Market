@@ -3,6 +3,7 @@ import { ExtensionTradeTaskService } from './extension-trade-task.service';
 
 describe('ExtensionTradeTaskService integration-like', () => {
   const prisma = {
+    tradeOperation: { updateMany: jest.fn().mockResolvedValue({ count: 1 }) },
     tradeTask: {
       findMany: jest.fn(),
       update: jest.fn(),
@@ -84,6 +85,12 @@ describe('ExtensionTradeTaskService integration-like', () => {
       },
     ]);
     const count = await service.failOverRetriedTasks();
+    expect(prisma.tradeOperation.updateMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ verificationStage: 'MANUAL_REVIEW' }),
+      }),
+    );
+    expect(disputeOps.openSystemDispute).not.toHaveBeenCalled();
     expect(count).toBe(1);
     expect(prisma.tradeTask.updateMany).toHaveBeenCalledWith(
       expect.objectContaining({

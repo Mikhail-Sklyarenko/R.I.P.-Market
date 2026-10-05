@@ -131,7 +131,7 @@ describe('Shadow mode (e2e)', () => {
     expect(notifications.length).toBeGreaterThan(0);
   });
 
-  it('admin can apply observed accepted status', async () => {
+  it('admin cannot settle from an accepted snapshot without durable receipt proof', async () => {
     const { orderId } = await createShadowOrder();
     const admin = await api.login(UserRole.ADMIN);
 
@@ -151,16 +151,17 @@ describe('Shadow mode (e2e)', () => {
       .set('Authorization', `Bearer ${admin.token}`)
       .set('Idempotency-Key', 'shadow-apply-1')
       .send({})
-      .expect(201);
+      .expect(400);
 
-    // With ENABLE_REAL_SETTLEMENT off the poll path still completes the order and
-    // settles the internal ledger; only real payouts are gated.
-    expect(response.body.order.status).toBe('COMPLETED');
+    expect(response.body.error.message).toContain('Durable server receipt');
+    expect(
+      (await prisma.order.findUnique({ where: { id: orderId } }))?.status,
+    ).toBe('WAITING_TRADE');
 
     const settlement = await prisma.ledgerEntry.findFirst({
       where: { orderId, type: 'SETTLEMENT_SELLER' },
     });
-    expect(settlement).not.toBeNull();
+    expect(settlement).toBeNull();
 
     const audit = await prisma.auditLog.findFirst({
       where: {
@@ -169,7 +170,7 @@ describe('Shadow mode (e2e)', () => {
         action: 'ADMIN_APPLY_OBSERVED_STATUS',
       },
     });
-    expect(audit?.afterState).toMatchObject({ appliedStatus: 'accepted' });
+    expect(audit).toBeNull();
   });
 
   it('reports shadow mismatches in dashboard metrics', async () => {

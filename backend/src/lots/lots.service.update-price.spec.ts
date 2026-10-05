@@ -43,6 +43,7 @@ describe('LotsService.updatePrice', () => {
       matchLotActivated: jest.fn().mockResolvedValue(undefined),
     };
 
+    const catalog = { resetQueryCaches: jest.fn() };
     const service = new LotsService(
       prisma as never,
       {} as never,
@@ -51,11 +52,13 @@ describe('LotsService.updatePrice', () => {
       {} as never,
       {} as never,
       buyRequestMatching as never,
+      catalog as never,
     );
 
     const result = await service.updatePrice('seller-1', 'lot-1', 1900);
 
     expect(result.priceMinor).toBe('1900');
+    expect(catalog.resetQueryCaches).toHaveBeenCalled();
     expect(buyRequestMatching.matchLotActivated).toHaveBeenCalledWith('lot-1');
   });
 
@@ -71,6 +74,7 @@ describe('LotsService.updatePrice', () => {
         }),
       },
     };
+    const catalog = { resetQueryCaches: jest.fn() };
     const service = new LotsService(
       prisma as never,
       {} as never,
@@ -79,10 +83,14 @@ describe('LotsService.updatePrice', () => {
       {} as never,
       {} as never,
       { matchLotActivated: jest.fn() } as never,
+      catalog as never,
     );
 
-    await expect(service.updatePrice('seller-1', 'lot-1', 1900)).rejects.toMatchObject({
+    await expect(
+      service.updatePrice('seller-1', 'lot-1', 1900),
+    ).rejects.toMatchObject({
       code: ErrorCode.LOT_NOT_ACTIVE,
     });
+    expect(catalog.resetQueryCaches).not.toHaveBeenCalled();
   });
 });

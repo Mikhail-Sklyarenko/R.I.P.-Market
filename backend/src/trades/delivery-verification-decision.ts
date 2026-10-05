@@ -5,174 +5,81 @@ import type {
 import {
   getAcceptedInventoryPendingMaxChecks,
   getInventoryUnknownMaxChecks,
+  getOfferUnknownMaxChecks,
 } from './delivery-verification.config';
 
 /**
- * Delivery verification decision table (M6).
- *
- * | Offer        | Inventory           | Engine | Action  | Reason                         |
- * |--------------|---------------------|--------|---------|--------------------------------|
- * | (timeout)    | *                   | *      | TIMEOUT | TRADE_TIMEOUT                  |
- * | (rate limit) | *                   | *      | BACKOFF | RATE_LIMITED                   |
- * | accepted     | confirmed           | on     | CONFIRM | DUAL_SIGNAL_CONFIRMED          |
- * | accepted     | pending (exhausted checks) | **CONFIRM** | `OFFER_ACCEPTED_INVENTORY_LAG` |
- * | accepted     | seller_still_holds | **DISPUTE** | `DELIVERY_INVENTORY_MISMATCH` |
- * | accepted     | unknown             | on     | **CONFIRM** | `OFFER_ACCEPTED_INVENTORY_UNKNOWN` |
- * | pending      | confirmed           | on     | DISPUTE | DELIVERY_SIGNAL_CONFLICT       |
- * | pending      | * + buyerAck        | on     | CONFIRM | BUYER_ACK_RECEIVED             |
- * | pending      | pending/holds       | on     | WAIT    | OFFER_PENDING                  |
- * | pending      | unknown             | on     | WAIT    | INVENTORY_PENDING              |
- * | declined     | *                   | on     | FAIL    | OFFER_DECLINED                 |
- * | expired      | *                   | on     | FAIL    | OFFER_EXPIRED                  |
- * | unknown      | *                   | on     | DISPUTE | OFFER_UNKNOWN                  |
- * | (no offer)   | confirmed           | on     | CONFIRM | INVENTORY_ONLY_CONFIRMED       |
- * | (no offer)   | pending/holds       | on     | WAIT    | INVENTORY_PENDING              |
- * | (no offer)   | unknown (exhausted, no offer) | on | WAIT | INVENTORY_UNKNOWN_RETRY |
- * | (no offer)   | unknown (exhausted, with offer id) | on | DISPUTE | INVENTORY_UNKNOWN_EXHAUSTED |
- * | accepted     | *                   | off    | CONFIRM | LEGACY_OFFER_ACCEPTED          |
- * | (no offer)   | confirmed           | off    | CONFIRM | LEGACY_INVENTORY_CONFIRMED     |
- *
- * * WAIT becomes CONFIRM when checkCount exceeds DELIVERY_ACCEPTED_INVENTORY_PENDING_MAX_CHECKS.
+ * Financial authority requires an immutable server receipt, including legacy flag settings.
+ * A client receipt, missing offer, inventory lag or retry exhaustion never
+ * proves delivery. Exhaustion escalates to review; it cannot release funds.
  */
 export function decideDeliveryVerification(
   signals: DeliveryVerificationSignals,
 ): DeliveryVerificationDecision {
-  if (signals.rateLimited) {
-    return decision('BACKOFF', 'RATE_LIMITED', 'rate_limited', null, null);
-  }
-
-  const result = !signals.engineEnabled
-    ? decideLegacy(signals)
-    : signals.hasOfferId && signals.offerStatus !== null
-      ? decideDualSignal(signals)
-      : decideInventoryOnly(signals);
+  const offer = signals.offerStatus;
+  const inventory = signals.inventoryDelta;
+  const result = decide(signals);
   if (signals.timedOut && result.action === 'WAIT') {
     return decision(
-      'TIMEOUT',
+      'MANUAL_REVIEW',
       'TRADE_TIMEOUT',
       'TRADE_TIMEOUT',
-      signals.offerStatus,
-      signals.inventoryDelta,
+      offer,
+      inventory,
     );
   }
   return result;
 }
 
-function decideLegacy(
-  signals: DeliveryVerificationSignals,
-): DeliveryVerificationDecision {
-  if (signals.hasOfferId) {
-    if (signals.offerStatus === 'accepted') {
-      return decision(
-        'CONFIRM',
-        'LEGACY_OFFER_ACCEPTED',
-        'LEGACY_OFFER_ACCEPTED',
-        signals.offerStatus,
-        signals.inventoryDelta,
-        'CONFIRMED',
-      );
-    }
-    if (
-      signals.offerStatus === 'declined' ||
-      signals.offerStatus === 'expired'
-    ) {
-      const reason =
-        signals.offerStatus === 'declined' ? 'OFFER_DECLINED' : 'OFFER_EXPIRED';
-      return decision(
-        'FAIL',
-        reason,
-        reason,
-        signals.offerStatus,
-        signals.inventoryDelta,
-        signals.failMode === 'SAFE' ? 'FAILED_SAFE' : 'FAILED_DISPUTE',
-      );
-    }
-    if (signals.offerStatus === 'needs_confirmation') {
-      return decision(
-        'WAIT',
-        'OFFER_NEEDS_CONFIRMATION',
-        'AWAITING_SELLER_STEAM_GUARD',
-        signals.offerStatus,
-        signals.inventoryDelta,
-      );
-    }
-    if (signals.offerStatus === 'unknown') {
-      if (signals.inventoryDelta === 'confirmed') {
-        return decision(
-          'CONFIRM',
-          'LEGACY_INVENTORY_CONFIRMED',
-          'LEGACY_INVENTORY_CONFIRMED',
-          signals.offerStatus,
-          signals.inventoryDelta,
-          'CONFIRMED',
-        );
-      }
-      return decision(
-        'WAIT',
-        'OFFER_PENDING',
-        'OFFER_UNKNOWN_RETRY',
-        signals.offerStatus,
-        signals.inventoryDelta,
-      );
-    }
-
-    // Mock / blind offer poll stays pending. Buyer receipt is the close signal.
-    if (signals.buyerAckReceived) {
-      return decision(
-        'CONFIRM',
-        'LEGACY_INVENTORY_CONFIRMED',
-        signals.inventoryDelta === 'confirmed'
-          ? 'BUYER_ACK_INVENTORY_CONFIRMED'
-          : 'BUYER_ACK_RECEIVED',
-        signals.offerStatus,
-        signals.inventoryDelta,
-        'CONFIRMED',
-      );
-    }
-
-    return decision(
-      'WAIT',
-      'OFFER_PENDING',
-      'OFFER_PENDING',
-      signals.offerStatus,
-      signals.inventoryDelta,
-    );
-  }
-
-  if (signals.inventoryDelta === 'confirmed') {
+function decide(s: DeliveryVerificationSignals): DeliveryVerificationDecision {
+  const offer = s.offerStatus;
+  const inventory = s.inventoryDelta;
+  if (s.receiptProofPersisted)
     return decision(
       'CONFIRM',
-      'LEGACY_INVENTORY_CONFIRMED',
-      'LEGACY_INVENTORY_CONFIRMED',
-      null,
-      signals.inventoryDelta,
-      'CONFIRMED',
-    );
-  }
-
-  return decision(
-    'WAIT',
-    'INVENTORY_PENDING',
-    'INVENTORY_PENDING',
-    null,
-    signals.inventoryDelta,
-  );
-}
-
-function decideDualSignal(
-  signals: DeliveryVerificationSignals,
-): DeliveryVerificationDecision {
-  const offer = signals.offerStatus!;
-  const inventory = signals.inventoryDelta;
-
-  if (offer === 'declined') {
-    return decision(
-      'FAIL',
-      'OFFER_DECLINED',
-      'OFFER_DECLINED',
+      'RECEIPT_AUTHORITY_CONFIRMED',
+      'RECEIPT_AUTHORITY_CONFIRMED',
       offer,
       inventory,
-      signals.failMode === 'SAFE' ? 'FAILED_SAFE' : 'FAILED_DISPUTE',
+      'CONFIRMED',
+    );
+  if (inventory === 'ambiguous')
+    return decision(
+      'MANUAL_REVIEW',
+      'DELIVERY_VERIFICATION_UNKNOWN',
+      'DESTINATION_AMBIGUOUS',
+      offer,
+      inventory,
+      'MANUAL_REVIEW',
+    );
+  if (s.rateLimited) {
+    if (s.timedOut) {
+      return decision(
+        'MANUAL_REVIEW',
+        'DELIVERY_VERIFICATION_UNKNOWN',
+        'STEAM_UNAVAILABLE_TIMEOUT',
+        offer,
+        inventory,
+        'FAILED_DISPUTE',
+      );
+    }
+    return decision(
+      'BACKOFF',
+      'RATE_LIMITED',
+      'rate_limited',
+      offer,
+      inventory,
+    );
+  }
+  if (!s.hasOfferId) {
+    return decision(
+      'WAIT',
+      'INVENTORY_PENDING',
+      inventory === 'unknown'
+        ? 'INVENTORY_UNKNOWN_RETRY'
+        : 'OFFER_UNKNOWN_RETRY',
+      offer,
+      inventory,
     );
   }
   if (offer === 'needs_confirmation') {
@@ -184,123 +91,71 @@ function decideDualSignal(
       inventory,
     );
   }
-  if (offer === 'expired') {
-    return decision(
-      'FAIL',
-      'OFFER_EXPIRED',
-      'OFFER_EXPIRED',
-      offer,
-      inventory,
-      signals.failMode === 'SAFE' ? 'FAILED_SAFE' : 'FAILED_DISPUTE',
-    );
-  }
-  if (offer === 'unknown') {
+  if (offer === 'declined' || offer === 'expired') {
     if (inventory === 'confirmed') {
-      return decision(
-        'CONFIRM',
-        'INVENTORY_CONFIRMED_OFFER_UNKNOWN',
-        'INVENTORY_CONFIRMED_OFFER_UNKNOWN',
-        offer,
-        inventory,
-        'CONFIRMED',
-      );
-    }
-    if (inventory === 'seller_still_holds') {
-      if (signals.buyerAckReceived) {
-        return decision(
-          'CONFIRM',
-          'OFFER_ACCEPTED_INVENTORY_LAG',
-          'BUYER_ACK_RECEIVED',
-          offer,
-          inventory,
-          'CONFIRMED',
-        );
-      }
-      return decision(
-        'WAIT',
-        'OFFER_UNKNOWN',
-        'AWAITING_BUYER_STEAM_ACCEPT',
-        offer,
-        inventory,
-      );
-    }
-    if (inventory === 'pending' || inventory === 'unknown') {
-      if (signals.buyerAckReceived) {
-        return decision(
-          'CONFIRM',
-          'OFFER_ACCEPTED_INVENTORY_LAG',
-          inventory === 'pending'
-            ? 'BUYER_ACK_SELLER_ASSET_GONE'
-            : 'BUYER_ACK_INVENTORY_UNKNOWN',
-          offer,
-          inventory,
-          'CONFIRMED',
-        );
-      }
-      return decision(
-        'WAIT',
-        'OFFER_UNKNOWN',
-        inventory === 'pending'
-          ? 'OFFER_UNKNOWN_RETRY'
-          : 'INVENTORY_UNKNOWN_RETRY',
-        offer,
-        inventory,
-      );
-    }
-    return decision(
-      'DISPUTE',
-      'OFFER_UNKNOWN',
-      'OFFER_UNKNOWN',
-      offer,
-      inventory,
-      'FAILED_DISPUTE',
-    );
-  }
-
-  if (offer === 'accepted') {
-    if (inventory === 'confirmed') {
-      return decision(
-        'CONFIRM',
-        'DUAL_SIGNAL_CONFIRMED',
-        'DUAL_SIGNAL_CONFIRMED',
-        offer,
-        inventory,
-        'CONFIRMED',
-      );
-    }
-    if (inventory === 'seller_still_holds') {
       return decision(
         'DISPUTE',
-        'DELIVERY_INVENTORY_MISMATCH',
-        'DELIVERY_INVENTORY_MISMATCH',
+        'DELIVERY_SIGNAL_CONFLICT',
+        'DELIVERY_SIGNAL_CONFLICT',
         offer,
         inventory,
         'FAILED_DISPUTE',
       );
     }
-    if (inventory === 'unknown') {
-      return decision(
-        'CONFIRM',
-        'OFFER_ACCEPTED_INVENTORY_UNKNOWN',
-        'OFFER_ACCEPTED_INVENTORY_UNKNOWN',
-        offer,
-        inventory,
-        'CONFIRMED',
-      );
-    }
+    const reason = offer === 'declined' ? 'OFFER_DECLINED' : 'OFFER_EXPIRED';
+    return decision(
+      'FAIL',
+      reason,
+      reason,
+      offer,
+      inventory,
+      s.failMode === 'SAFE' ? 'FAILED_SAFE' : 'FAILED_DISPUTE',
+    );
+  }
+  if (offer === 'accepted' && inventory === 'seller_still_holds') {
+    return decision(
+      'DISPUTE',
+      'DELIVERY_INVENTORY_MISMATCH',
+      'DELIVERY_INVENTORY_MISMATCH',
+      offer,
+      inventory,
+      'FAILED_DISPUTE',
+    );
+  }
+  if (offer === 'pending' && inventory === 'confirmed') {
+    return decision(
+      'DISPUTE',
+      'DELIVERY_SIGNAL_CONFLICT',
+      'DELIVERY_SIGNAL_CONFLICT',
+      offer,
+      inventory,
+      'FAILED_DISPUTE',
+    );
+  }
+  if (
+    inventory === 'unknown' &&
+    (s.inventoryUnknownStreak ?? 0) >= getInventoryUnknownMaxChecks()
+  ) {
+    return decision(
+      'MANUAL_REVIEW',
+      'INVENTORY_UNKNOWN_EXHAUSTED',
+      'INVENTORY_UNKNOWN_EXHAUSTED',
+      offer,
+      inventory,
+      'FAILED_DISPUTE',
+    );
+  }
+  if (offer === 'accepted') {
     if (
-      signals.buyerAckReceived ||
-      signals.checkCount >= getAcceptedInventoryPendingMaxChecks()
+      (s.acceptedPendingStreak ?? 0) >= getAcceptedInventoryPendingMaxChecks()
     ) {
       return decision(
-        'CONFIRM',
-        'OFFER_ACCEPTED_INVENTORY_LAG',
-        signals.buyerAckReceived
-          ? 'BUYER_ACK_OFFER_ACCEPTED'
-          : 'OFFER_ACCEPTED_INVENTORY_LAG',
+        'MANUAL_REVIEW',
+        'DELIVERY_VERIFICATION_UNKNOWN',
+        'DELIVERY_VERIFICATION_UNKNOWN',
         offer,
         inventory,
-        'CONFIRMED',
+        'FAILED_DISPUTE',
       );
     }
     return decision(
@@ -311,41 +166,20 @@ function decideDualSignal(
       inventory,
     );
   }
-
-  if (offer === 'pending' && inventory === 'confirmed') {
-    if (signals.buyerAckReceived) {
-      return decision(
-        'CONFIRM',
-        'INVENTORY_CONFIRMED_OFFER_UNKNOWN',
-        'BUYER_ACK_INVENTORY_CONFIRMED',
-        offer,
-        inventory,
-        'CONFIRMED',
-      );
-    }
+  if (
+    (offer === 'unknown' || offer === null) &&
+    (s.offerUnknownStreak ?? 0) >= getOfferUnknownMaxChecks()
+  ) {
     return decision(
-      'DISPUTE',
-      'DELIVERY_SIGNAL_CONFLICT',
-      'DELIVERY_SIGNAL_CONFLICT',
+      'MANUAL_REVIEW',
+      'OFFER_UNKNOWN',
+      'OFFER_UNKNOWN_EXHAUSTED',
       offer,
       inventory,
       'FAILED_DISPUTE',
     );
   }
-
-  if (inventory === 'seller_still_holds') {
-    if (signals.buyerAckReceived) {
-      // Steam inventory/privacy often lags after a real Accept. Buyer attestation
-      // is the product close: they confirm the skin is theirs and release payout.
-      return decision(
-        'CONFIRM',
-        'OFFER_ACCEPTED_INVENTORY_LAG',
-        'BUYER_ACK_RECEIVED',
-        offer,
-        inventory,
-        'CONFIRMED',
-      );
-    }
+  if (inventory === 'seller_still_holds' && !s.buyerAckReceived) {
     return decision(
       'WAIT',
       'OFFER_PENDING',
@@ -354,95 +188,11 @@ function decideDualSignal(
       inventory,
     );
   }
-
-  // Asset left the seller (or never matched) but buyer inventory lag / new asset id.
-  // Buyer already confirmed receipt — safe to settle for P2P when offer API is blind.
-  if (
-    signals.buyerAckReceived &&
-    (inventory === 'pending' || inventory === 'unknown')
-  ) {
-    return decision(
-      'CONFIRM',
-      'OFFER_ACCEPTED_INVENTORY_LAG',
-      inventory === 'pending'
-        ? 'BUYER_ACK_SELLER_ASSET_GONE'
-        : 'BUYER_ACK_INVENTORY_UNKNOWN',
-      offer,
-      inventory,
-      'CONFIRMED',
-    );
-  }
-
-  if (inventory === 'unknown') {
-    return decision(
-      'WAIT',
-      'INVENTORY_PENDING',
-      'INVENTORY_UNKNOWN_RETRY',
-      offer,
-      inventory,
-    );
-  }
-
-  return decision('WAIT', 'OFFER_PENDING', 'OFFER_PENDING', offer, inventory);
-}
-
-function decideInventoryOnly(
-  signals: DeliveryVerificationSignals,
-): DeliveryVerificationDecision {
-  const inventory = signals.inventoryDelta;
-
-  if (signals.buyerAckReceived && signals.hasOfferId) {
-    return decision(
-      'CONFIRM',
-      'INVENTORY_ONLY_CONFIRMED',
-      'BUYER_ACK_RECEIVED',
-      null,
-      inventory,
-      'CONFIRMED',
-    );
-  }
-
-  if (inventory === 'confirmed') {
-    return decision(
-      'CONFIRM',
-      'INVENTORY_ONLY_CONFIRMED',
-      'INVENTORY_ONLY_CONFIRMED',
-      null,
-      inventory,
-      'CONFIRMED',
-    );
-  }
-
-  if (
-    inventory === 'unknown' &&
-    signals.checkCount >= getInventoryUnknownMaxChecks()
-  ) {
-    // No Steam offer yet: inventory sync flaps must not open a dispute while the
-    // seller is still trying to send. Wait for TRADE_TIMEOUT instead.
-    if (!signals.hasOfferId) {
-      return decision(
-        'WAIT',
-        'INVENTORY_PENDING',
-        'INVENTORY_UNKNOWN_RETRY',
-        null,
-        inventory,
-      );
-    }
-    return decision(
-      'DISPUTE',
-      'INVENTORY_UNKNOWN_EXHAUSTED',
-      'INVENTORY_UNKNOWN_EXHAUSTED',
-      null,
-      inventory,
-      'FAILED_DISPUTE',
-    );
-  }
-
   return decision(
     'WAIT',
-    'INVENTORY_PENDING',
-    'INVENTORY_PENDING',
-    null,
+    'OFFER_UNKNOWN',
+    'OFFER_UNKNOWN_RETRY',
+    offer,
     inventory,
   );
 }
@@ -459,7 +209,8 @@ function decision(
     action,
     reason,
     reasonCode,
-    pollOutcome: pollOutcome ?? action,
+    pollOutcome:
+      action === 'MANUAL_REVIEW' ? 'MANUAL_REVIEW' : (pollOutcome ?? action),
     offerStatus,
     inventoryDelta,
   };

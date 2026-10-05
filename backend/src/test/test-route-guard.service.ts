@@ -1,7 +1,4 @@
-import {
-  ForbiddenException,
-  Injectable,
-} from '@nestjs/common';
+import { ForbiddenException, Injectable } from '@nestjs/common';
 import type { Request } from 'express';
 import { getRequestClientIp } from '../common/request-client-ip.util';
 

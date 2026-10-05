@@ -36,11 +36,11 @@ export class TtlLruCache<T> {
     }
     this.entries.set(key, { value, expiresAt: Date.now() + this.ttlMs });
     while (this.entries.size > this.maxEntries) {
-      const oldest = this.entries.keys().next().value;
-      if (oldest === undefined) {
+      const oldest = this.entries.keys().next();
+      if (oldest.done) {
         break;
       }
-      this.entries.delete(oldest);
+      this.entries.delete(oldest.value);
     }
   }
 
@@ -57,12 +57,16 @@ export class TtlLruCache<T> {
 
     const promise = factory()
       .then((value) => {
-        this.set(key, value);
-        this.inflight.delete(key);
+        if (this.inflight.get(key) === promise) {
+          this.set(key, value);
+          this.inflight.delete(key);
+        }
         return value;
       })
       .catch((error: unknown) => {
-        this.inflight.delete(key);
+        if (this.inflight.get(key) === promise) {
+          this.inflight.delete(key);
+        }
         throw error;
       });
 

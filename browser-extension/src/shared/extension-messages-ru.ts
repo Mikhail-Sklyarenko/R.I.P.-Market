@@ -176,7 +176,7 @@ export const extensionMessagesRu: ExtensionMessageTree = {
     hoursMinutes: 'Осталось ~{{hours}} ч {{minutes}} мин на обмен',
   },
   settlement: {
-    soonSuffix: '{{formatted}} (скоро)',
+    soonSuffix: '{{formatted}} (период завершён, проверяем расчёт)',
     offerOk: 'Steam offer: принят',
     offerWarn: 'Steam offer: проблема',
     offerPending: 'Steam offer: проверяем',
@@ -191,18 +191,18 @@ export const extensionMessagesRu: ExtensionMessageTree = {
       'Сверяем Steam offer и инвентарь. Новый оффер по этой сделке не нужен.',
     deliveryBodyBuyer:
       'Ничего делать не нужно — площадка сверяет Steam offer и инвентарь.',
-    fundsSellerKnown: 'Средства будут доступны: {{date}}',
+    fundsSellerKnown: 'Средства защищены до: {{date}}',
     fundsSellerUnknown:
-      'Средства будут доступны после окна проверки (до {{days}} дн.)',
-    fundsBuyerKnown: 'Выплата продавцу с: {{date}}',
+      'Сервер уточняет срок защиты. Средства остаются удержаны.',
+    fundsBuyerKnown: 'Средства защищены до: {{date}}',
     fundsBuyerUnknown:
-      'Выплата продавцу после окна проверки (до {{days}} дн.)',
-    holdTitleSeller: 'Выручка на проверке',
-    holdTitleBuyer: 'Скин ваш — расчёт у площадки',
+      'Сервер уточняет срок защиты. Средства остаются удержаны.',
+    holdTitleSeller: 'Доставка подтверждена',
+    holdTitleBuyer: 'Доставка подтверждена',
     holdBodySeller:
-      'Защита от chargeback и возврата обмена в Steam. Средства станут доступны после периода защиты.',
+      'После защитного периода сервер выполнит расчёт, если нет блокировок. Ничего делать не нужно. Повторно отправлять обмен не нужно.',
     holdBodyBuyer:
-      'Предмет в инвентаре. Средства продавцу — после окна проверки на площадке.',
+      'Steam подтвердил доставку. Средства защищены до окончания периода. Ничего делать не нужно.',
   },
   dispute: {
     openEyebrow: 'Поддержка',

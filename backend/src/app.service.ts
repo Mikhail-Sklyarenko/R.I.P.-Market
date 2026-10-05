@@ -24,7 +24,9 @@ export class AppService {
   async getHealth() {
     const timestamp = new Date().toISOString();
     const cryptoGateway = await checkCryptoGatewayHealth();
-    const steamHttpProxy = isSteamHttpProxyConfigured() ? 'configured' : 'disabled';
+    const steamHttpProxy = isSteamHttpProxyConfigured()
+      ? 'configured'
+      : 'disabled';
 
     try {
       await this.prisma.$queryRaw`SELECT 1`;

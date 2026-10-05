@@ -45,9 +45,11 @@ describe('catalog-price-snapshot util', () => {
       ['AK-47 | Redline (Field-Tested)', 900],
     ]);
     const base = aggregateMinPriceByBaseName(snapshot);
-    expect(resolveCatalogSteamPriceMinor('Agent | KSK', snapshot, base)).toBe(5000);
-    expect(resolveCatalogSteamPriceMinor('AK-47 | Redline', snapshot, base)).toBe(
-      900,
+    expect(resolveCatalogSteamPriceMinor('Agent | KSK', snapshot, base)).toBe(
+      5000,
     );
+    expect(
+      resolveCatalogSteamPriceMinor('AK-47 | Redline', snapshot, base),
+    ).toBe(900);
   });
 });

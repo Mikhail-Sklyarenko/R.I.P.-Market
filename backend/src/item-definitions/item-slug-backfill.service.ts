@@ -28,7 +28,9 @@ export class ItemSlugBackfillService implements OnModuleInit {
       select: { slug: true },
     });
     const reserved = new Set(
-      existing.map((row) => row.slug).filter((slug): slug is string => Boolean(slug)),
+      existing
+        .map((row) => row.slug)
+        .filter((slug): slug is string => Boolean(slug)),
     );
 
     let updated = 0;

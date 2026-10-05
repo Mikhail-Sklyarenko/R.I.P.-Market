@@ -29,6 +29,7 @@ import { isSteamHttpProxyConfigured } from '../common/steam/steam-http.client';
 import { MockLoginDto } from './dto/mock-login.dto';
 import { SteamLinkDto } from './dto/steam-link.dto';
 import { AuthService } from './auth.service';
+import { isMockLoginAllowed } from './mock-login.config';
 import { JwtAuthGuard } from './jwt-auth.guard';
 
 @ApiTags('auth')
@@ -43,17 +44,13 @@ export class AuthController {
   getConfig() {
     const config = getProvidersConfig();
     const paymentConfig = getPaymentConfig();
-    const allowMockInSteamMode =
-      process.env.ALLOW_MOCK_LOGIN_IN_STEAM_MODE === 'true';
     return {
       authProvider: config.auth,
       inventoryProvider: config.inventory,
       tradeProvider: config.trade,
       steamLoginAvailable: config.auth === 'steam',
       steamHttpProxyConfigured: isSteamHttpProxyConfigured(),
-      mockLoginAvailable:
-        process.env.NODE_ENV !== 'production' &&
-        (config.auth !== 'steam' || allowMockInSteamMode),
+      mockLoginAvailable: isMockLoginAllowed(),
       mockTradeEnabled:
         process.env.NODE_ENV !== 'production' &&
         process.env.ENABLE_MOCK_TRADE === 'true',

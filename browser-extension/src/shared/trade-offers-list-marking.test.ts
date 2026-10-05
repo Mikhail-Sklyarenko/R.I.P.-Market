@@ -60,7 +60,7 @@ describe('trade-offers-list-marking', () => {
       trade({ offerId: '111', verificationStatus: 'verified' }),
     ]);
     expect(mark.kind).toBe('rip_verified');
-    expect(mark.label).toBe('Сделка R.I.P');
+    expect(mark.label).toBe('R.I.P · Проверено');
     expect(isRipOfferMark(mark.kind)).toBe(true);
   });
 
@@ -69,7 +69,7 @@ describe('trade-offers-list-marking', () => {
       trade({ offerId: '222', verificationStatus: 'mismatch' }),
     ]);
     expect(mark.kind).toBe('rip_mismatch');
-    expect(mark.label).toBe('Подозрительно');
+    expect(mark.label).toBe('R.I.P · Не совпадает');
   });
 
   it('marks unknown offer as not ours', () => {

@@ -162,7 +162,7 @@ export async function sendTradeOfferViaPageScript(
       form.set('sessionid', sessionid);
       form.set('serverid', '1');
       form.set('partner', tradeParams.partner);
-      form.set('tradeoffermessage', 'R.I.P Market trade');
+      form.set('tradeoffermessage', offerDraft.note?.trim() || 'R.I.P Market trade');
       form.set('json_tradeoffer', JSON.stringify(tradeOffer));
       form.set(
         'trade_offer_create_params',

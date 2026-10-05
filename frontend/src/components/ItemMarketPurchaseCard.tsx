@@ -181,7 +181,7 @@ export function ItemMarketPurchaseCard({
               <button
                 type="button"
                 className="button primary lot-purchase-button"
-                disabled={Boolean(token) ? !purchase.canBuy : false}
+                disabled={token ? !purchase.canBuy : false}
                 data-testid="item-buy-best"
                 onClick={() => void purchase.buy()}
               >

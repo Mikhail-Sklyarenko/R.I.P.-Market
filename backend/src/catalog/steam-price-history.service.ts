@@ -110,8 +110,7 @@ export class SteamPriceHistoryService {
       const past7 = map7.get(name);
       const past30 = map30.get(name);
       out[name] = {
-        steamPriceChange7dPct:
-          past7 != null ? pctChange(current, past7) : null,
+        steamPriceChange7dPct: past7 != null ? pctChange(current, past7) : null,
         steamPriceChange30dPct:
           past30 != null ? pctChange(current, past30) : null,
       };

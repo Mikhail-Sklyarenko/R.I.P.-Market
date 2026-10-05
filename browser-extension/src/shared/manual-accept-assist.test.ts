@@ -101,6 +101,14 @@ describe('manual-accept-assist', () => {
 });
 
 describe('manual-accept-assist DOM', () => {
+  it('offers readiness before attempting the Steam Accept button', () => {
+    document.body.innerHTML = '<div id="you_notready">Подтвердить обмен</div><div id="trade_confirmbtn" class="disabled">Принять обмен</div>';
+    expect(pickSteamAcceptControl(findSteamAcceptControls(document))?.element.id).toBe('you_notready');
+    document.getElementById('you_notready')!.style.display = 'none';
+    expect(findSteamAcceptControls(document)).toHaveLength(0);
+    document.getElementById('trade_confirmbtn')!.classList.remove('disabled');
+    expect(pickSteamAcceptControl(findSteamAcceptControls(document))?.element.id).toBe('trade_confirmbtn');
+  });
   beforeEach(() => {
     document.body.innerHTML = '';
   });

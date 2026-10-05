@@ -1,9 +1,4 @@
-import {
-  Body,
-  Controller,
-  Post,
-  Req,
-} from '@nestjs/common';
+import { Body, Controller, Post, Req } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { ApiTags } from '@nestjs/swagger';
 import { UserRole, UserStatus } from '@prisma/client';
@@ -11,6 +6,8 @@ import type { Request } from 'express';
 import { PrismaService } from '../prisma/prisma.service';
 import { LedgerService } from '../wallet/ledger.service';
 import { TestRouteGuardService } from './test-route-guard.service';
+import { SensitiveRateLimitService } from '../common/observability/sensitive-rate-limit.service';
+import { CatalogService } from '../catalog/catalog.service';
 
 @ApiTags('test')
 @Controller('test')
@@ -20,6 +17,8 @@ export class TestResetController {
     private readonly ledgerService: LedgerService,
     private readonly jwtService: JwtService,
     private readonly testRouteGuard: TestRouteGuardService,
+    private readonly rateLimits: SensitiveRateLimitService,
+    private readonly catalog: CatalogService,
   ) {}
 
   @Post('reset')
@@ -60,6 +59,8 @@ export class TestResetController {
       RESTART IDENTITY CASCADE;
     `);
 
+    this.rateLimits.resetIsolatedTestState();
+    this.catalog.resetQueryCaches();
     return { ok: true };
   }
 

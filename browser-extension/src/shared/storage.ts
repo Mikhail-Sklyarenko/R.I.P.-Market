@@ -124,5 +124,5 @@ export async function clearSessionState(): Promise<void> {
 }
 
 export function getDefaultApiBaseUrl(): string {
-  return 'http://localhost:3000/api/v1';
+  return 'https://p2pcs.ru/api/v1';
 }

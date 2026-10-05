@@ -1,6 +1,7 @@
 name: CI
 
 on:
+  workflow_dispatch:
   push:
     branches: [main, master]
   pull_request:
@@ -17,19 +18,19 @@ jobs:
       postgres:
         image: postgres:16-alpine
         env:
-          POSTGRES_DB: cs2_p2p_mvp
+          POSTGRES_DB: p2pcs_e2e
           POSTGRES_USER: cs2
           POSTGRES_PASSWORD: cs2
         ports:
           - 5432:5432
         options: >-
-          --health-cmd "pg_isready -U cs2 -d cs2_p2p_mvp"
+          --health-cmd "pg_isready -U cs2 -d p2pcs_e2e"
           --health-interval 10s
           --health-timeout 5s
           --health-retries 5
 
     env:
-      DATABASE_URL: postgresql://cs2:cs2@localhost:5432/cs2_p2p_mvp?schema=public
+      DATABASE_URL: postgresql://cs2:cs2@localhost:5432/p2pcs_e2e?schema=public
       JWT_SECRET: ci-jwt-secret
       AUTH_PROVIDER: mock
       INVENTORY_PROVIDER: mock
@@ -38,13 +39,17 @@ jobs:
       ENABLE_MOCK_TRADE: true
       ENABLE_MOCK_DEPOSIT: true
       ENABLE_EXTENSION_CHANNEL: true
+      ENABLE_REAL_SETTLEMENT: 'false'
+      SETTLEMENT_ROLLOUT_MODE: restricted
+      AUTO_SETTLEMENT_MAX_ORDER_MINOR: '10000'
+      AUTO_SETTLEMENT_MAX_EXPOSURE_MINOR: '10000'
 
     steps:
       - uses: actions/checkout@v4
 
       - uses: actions/setup-node@v4
         with:
-          node-version: 22
+          node-version: 22.23.3
           cache: npm
           cache-dependency-path: backend/package-lock.json
 
@@ -55,6 +60,7 @@ jobs:
         run: npm run prisma:generate
 
       - name: Apply database migrations
+        id: migrations
         run: npm run prisma:migrate:deploy
 
       - name: Lint
@@ -64,10 +70,41 @@ jobs:
         run: npm run build
 
       - name: Unit tests
-        run: npm test -- --ci --passWithNoTests
+        run: npm test -- --ci --runInBand
 
       - name: E2E tests
+        id: general-e2e
         run: npm run test:e2e
+
+      - name: Settlement PostgreSQL regression gate (UTC)
+        id: settlement-utc
+        if: ${{ !cancelled() && steps.migrations.outcome == 'success' }}
+        run: TZ=UTC npm run test:settlement:db
+
+      - name: Settlement PostgreSQL regression gate (UTC+3)
+        id: settlement-moscow
+        if: ${{ !cancelled() && steps.migrations.outcome == 'success' }}
+        run: TZ=Europe/Moscow npm run test:settlement:db
+
+      - name: PostgreSQL security constraints
+        id: postgres-security
+        if: ${{ !cancelled() && steps.migrations.outcome == 'success' }}
+        env:
+          AUDIT_DATABASE_URL: postgresql://cs2:cs2@localhost:5432/p2pcs_e2e?schema=public
+        run: npm run test:security:postgres
+
+      - name: Require every PostgreSQL gate
+        if: ${{ !cancelled() }}
+        env:
+          GENERAL: ${{ steps.general-e2e.outcome }}
+          UTC_GATE: ${{ steps.settlement-utc.outcome }}
+          MOSCOW_GATE: ${{ steps.settlement-moscow.outcome }}
+          SECURITY_GATE: ${{ steps.postgres-security.outcome }}
+        run: |
+          test "$GENERAL" = success
+          test "$UTC_GATE" = success
+          test "$MOSCOW_GATE" = success
+          test "$SECURITY_GATE" = success
 
   frontend:
     runs-on: ubuntu-latest
@@ -75,13 +112,17 @@ jobs:
     defaults:
       run:
         working-directory: frontend
+    env:
+      VITE_API_BASE_URL: https://p2pcs.ru/api/v1
+      VITE_EXTENSION_ID: gmmlnkjdbcoojbhndjcfehojknjamaoj
+      VITE_ENABLE_MOCK_TRADE: 'false'
 
     steps:
       - uses: actions/checkout@v4
 
       - uses: actions/setup-node@v4
         with:
-          node-version: 22
+          node-version: 22.23.3
           cache: npm
           cache-dependency-path: frontend/package-lock.json
 
@@ -91,11 +132,38 @@ jobs:
       - name: Lint
         run: npm run lint
 
+      - name: Build current browser extension for frontend packaging
+        working-directory: .
+        run: |
+          npm ci --prefix extension
+          npm run build --prefix extension
+          npm test --prefix extension
+          npm ci --prefix browser-extension
+          npm run typecheck --prefix browser-extension
+          npm test --prefix browser-extension
+          npm run build --prefix browser-extension
+
       - name: Build
         run: npm run build
 
+      - name: Frontend typecheck
+        run: npx tsc -b
+
       - name: Unit tests
         run: npm run test:unit
+
+      - name: Verify production candidate artifacts
+        working-directory: .
+        run: python3 scripts/verify-release-0674.py .
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: p2pcs-0.6.74-candidate-${{ github.sha }}
+          if-no-files-found: error
+          path: |
+            frontend/public/downloads/rip-market-extension.zip
+            frontend/public/downloads/extension.json
+            frontend/dist/
 
   ui-e2e:
     runs-on: ubuntu-latest
@@ -106,19 +174,19 @@ jobs:
       postgres:
         image: postgres:16-alpine
         env:
-          POSTGRES_DB: cs2_p2p_mvp
+          POSTGRES_DB: p2pcs_e2e
           POSTGRES_USER: cs2
           POSTGRES_PASSWORD: cs2
         ports:
           - 5432:5432
         options: >-
-          --health-cmd "pg_isready -U cs2 -d cs2_p2p_mvp"
+          --health-cmd "pg_isready -U cs2 -d p2pcs_e2e"
           --health-interval 10s
           --health-timeout 5s
           --health-retries 5
 
     env:
-      DATABASE_URL: postgresql://cs2:cs2@localhost:5432/cs2_p2p_mvp?schema=public
+      DATABASE_URL: postgresql://cs2:cs2@localhost:5432/p2pcs_e2e?schema=public
       JWT_SECRET: ci-jwt-secret
       AUTH_PROVIDER: mock
       INVENTORY_PROVIDER: mock
@@ -127,6 +195,7 @@ jobs:
       ENABLE_MOCK_TRADE: true
       ENABLE_MOCK_DEPOSIT: true
       ENABLE_TEST_ROUTES: true
+      ENABLE_REAL_SETTLEMENT: 'false'
       ENABLE_EXTENSION_CHANNEL: true
       STEAM_MARKET_PRICE_ENABLED: false
       STEAM_ITEM_ICON_ENABLED: false
@@ -137,7 +206,7 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: 22
+          node-version: 22.23.3
 
       - name: Install backend dependencies
         working-directory: backend
@@ -160,3 +229,17 @@ jobs:
       - name: UI E2E sell flow
         working-directory: frontend
         run: npm run test:e2e
+
+  release-candidate-gate:
+    runs-on: ubuntu-latest
+    needs: [backend, frontend, ui-e2e]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: p2pcs-0.6.74-candidate-${{ github.sha }}
+          path: frontend
+      - name: Reverify candidate after all required jobs succeeded
+        run: |
+          test -z "$(git ls-files outputs)"
+          python3 scripts/verify-release-0674.py .

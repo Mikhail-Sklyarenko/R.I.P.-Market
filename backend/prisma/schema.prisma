@@ -429,7 +429,23 @@ model OrderStatusEvent {
   @@index([orderId, createdAt])
 }
 
+model SteamMappingLease {
+  steamId String @id
+  orderId String
+  leaseUntil DateTime
+  @@index([orderId])
+}
+
 model TradeOperation {
+  verificationStage String @default("WAITING_FOR_STEAM")
+  nextVerificationAt DateTime?
+  verificationLeaseUntil DateTime?
+  verificationLeaseToken String?
+  nextPreparationAt DateTime?
+  inventoryBaseline Json?
+  deliveryProof Json?
+  tradeBinding String? @unique
+
   id               String               @id @default(uuid())
   orderId          String               @unique
   status           TradeOperationStatus @default(WAITING)

@@ -79,7 +79,10 @@ describe('CatalogService', () => {
       },
     ]);
     steamMarketPrice.getPricesWithMeta.mockResolvedValue({
-      'Revolution Case': { priceMinor: 350, fetchedAt: '2026-07-11T12:00:00.000Z' },
+      'Revolution Case': {
+        priceMinor: 350,
+        fetchedAt: '2026-07-11T12:00:00.000Z',
+      },
       'AK-47 | Redline': {
         priceMinor: 1250,
         fetchedAt: '2026-07-11T12:00:00.000Z',
@@ -89,7 +92,9 @@ describe('CatalogService', () => {
     const result = await service.listItems({ page: 1, limit: 24 });
 
     expect(result.items).toHaveLength(2);
-    expect(result.items.find((item) => item.id === 'item-unlisted')).toMatchObject({
+    expect(
+      result.items.find((item) => item.id === 'item-unlisted'),
+    ).toMatchObject({
       activeLotCount: 0,
       minMarketplacePriceMinor: null,
       featuredLotId: null,
@@ -461,7 +466,11 @@ describe('CatalogService', () => {
       },
     ]);
 
-    const result = await service.listItems({ page: 1, limit: 24, sort: 'newest' });
+    const result = await service.listItems({
+      page: 1,
+      limit: 24,
+      sort: 'newest',
+    });
 
     expect(result.items.map((item) => item.id)).toEqual([
       'item-new',
@@ -496,11 +505,19 @@ describe('CatalogService', () => {
       },
     ]);
 
-    const first = await service.listItems({ page: 1, limit: 1, sort: 'newest' });
+    const first = await service.listItems({
+      page: 1,
+      limit: 1,
+      sort: 'newest',
+    });
     prisma.itemDefinition.findMany.mockClear();
     prisma.lot.findMany.mockClear();
     prisma.order.findMany.mockClear();
-    const second = await service.listItems({ page: 2, limit: 1, sort: 'newest' });
+    const second = await service.listItems({
+      page: 2,
+      limit: 1,
+      sort: 'newest',
+    });
 
     expect(first.items[0]?.id).toBe('item-a');
     expect(second.items[0]?.id).toBe('item-b');
@@ -565,9 +582,16 @@ describe('CatalogService', () => {
       },
     ]);
 
-    const result = await service.listItems({ page: 1, limit: 24, sort: 'cheapest' });
+    const result = await service.listItems({
+      page: 1,
+      limit: 24,
+      sort: 'cheapest',
+    });
 
-    expect(result.items.map((item) => item.id)).toEqual(['item-cheap', 'item-expensive']);
+    expect(result.items.map((item) => item.id)).toEqual([
+      'item-cheap',
+      'item-expensive',
+    ]);
   });
 
   it('sorts price_desc with listed items first and unpriced cards last', async () => {
@@ -690,7 +714,11 @@ describe('CatalogService', () => {
       },
     ]);
 
-    const full = await service.listItems({ page: 1, limit: 24, sort: 'newest' });
+    const full = await service.listItems({
+      page: 1,
+      limit: 24,
+      sort: 'newest',
+    });
     const inStock = await service.listItems({
       page: 1,
       limit: 24,
@@ -718,22 +746,24 @@ describe('CatalogService', () => {
   });
 
   it('resolves catalog item detail by slug', async () => {
-    prisma.itemDefinition.findUnique.mockImplementation(({ where }: { where: { id?: string; slug?: string } }) => {
-      if (where.slug === 'ak-47-redline') {
-        return Promise.resolve({
-          id: 'item-redline',
-          slug: 'ak-47-redline',
-          marketHashName: 'AK-47 | Redline (Field-Tested)',
-          baseMarketHashName: 'AK-47 | Redline',
-          weapon: 'Rifle',
-          rarity: 'Classified',
-          iconUrl: null,
-          availableWears: ['FT'],
-          catalogSeeded: true,
-        });
-      }
-      return Promise.resolve(null);
-    });
+    prisma.itemDefinition.findUnique.mockImplementation(
+      ({ where }: { where: { id?: string; slug?: string } }) => {
+        if (where.slug === 'ak-47-redline') {
+          return Promise.resolve({
+            id: 'item-redline',
+            slug: 'ak-47-redline',
+            marketHashName: 'AK-47 | Redline (Field-Tested)',
+            baseMarketHashName: 'AK-47 | Redline',
+            weapon: 'Rifle',
+            rarity: 'Classified',
+            iconUrl: null,
+            availableWears: ['FT'],
+            catalogSeeded: true,
+          });
+        }
+        return Promise.resolve(null);
+      },
+    );
     prisma.lot.findMany.mockResolvedValue([]);
 
     const result = await service.getItem('ak-47-redline');

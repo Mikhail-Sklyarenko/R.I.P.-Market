@@ -1,7 +1,4 @@
-import {
-  ExecutionContext,
-  UnauthorizedException,
-} from '@nestjs/common';
+import { ExecutionContext, UnauthorizedException } from '@nestjs/common';
 import { UserOrExtensionAuthGuard } from './user-or-extension-auth.guard';
 import { ExtensionSecurityService } from '../extension-security.service';
 import { UsersService } from '../../users/users.service';
@@ -9,9 +6,9 @@ import { ErrorCode } from '../../common/errors/error-codes';
 import { AppException } from '../../common/errors/app.exception';
 
 function makeJwt(payload: Record<string, unknown>): string {
-  const header = Buffer.from(JSON.stringify({ alg: 'HS256', typ: 'JWT' })).toString(
-    'base64url',
-  );
+  const header = Buffer.from(
+    JSON.stringify({ alg: 'HS256', typ: 'JWT' }),
+  ).toString('base64url');
   const body = Buffer.from(JSON.stringify(payload)).toString('base64url');
   return `${header}.${body}.sig`;
 }
@@ -59,7 +56,11 @@ describe('UserOrExtensionAuthGuard (I3)', () => {
 
   function contextWithToken(token: string | null): {
     context: ExecutionContext;
-    request: { headers: Record<string, string | undefined>; user?: unknown; extensionAuth?: unknown };
+    request: {
+      headers: Record<string, string | undefined>;
+      user?: unknown;
+      extensionAuth?: unknown;
+    };
   } {
     const request: {
       headers: Record<string, string | undefined>;
@@ -118,7 +119,9 @@ describe('UserOrExtensionAuthGuard (I3)', () => {
     const { context } = contextWithToken(
       makeJwt({ sub: 'user-1', typ: 'extension' }),
     );
-    await expect(guard.canActivate(context)).rejects.toBeInstanceOf(AppException);
+    await expect(guard.canActivate(context)).rejects.toBeInstanceOf(
+      AppException,
+    );
     try {
       await guard.canActivate(context);
     } catch (error) {

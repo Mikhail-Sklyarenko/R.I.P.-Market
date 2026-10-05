@@ -18,15 +18,6 @@ export type ReconciliationReport = {
   issues: ReconciliationIssue[];
 };
 
-const OPEN_ORDER_STATUSES = new Set([
-  'CREATED',
-  'PAYMENT_RESERVED',
-  'WAITING_TRADE',
-  'TRADE_CONFIRMED',
-  'SETTLEMENT_HOLD',
-  'DISPUTE',
-]);
-
 @Injectable()
 export class LedgerReconciliationService {
   private readonly logger = new Logger(LedgerReconciliationService.name);
@@ -74,11 +65,21 @@ export class LedgerReconciliationService {
   }
 
   async reconcile(): Promise<ReconciliationReport> {
+    // All balances and obligations must describe the same committed state.
+    // READ COMMITTED can mix the before/after halves of a concurrent purchase.
+    return this.prisma.$transaction((tx) => this.reconcileSnapshot(tx), {
+      isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead,
+      timeout: 30000,
+    });
+  }
+
+  private async reconcileSnapshot(
+    db: Prisma.TransactionClient,
+  ): Promise<ReconciliationReport> {
     const issues: ReconciliationIssue[] = [];
-    const holds = await this.prisma.hold.findMany({
+    const holds = await db.hold.findMany({
       include: {
         order: true,
-        wallet: { include: { accounts: true, holds: true } },
       },
     });
 
@@ -110,10 +111,10 @@ export class LedgerReconciliationService {
       const outstanding =
         hold.amountMinor - hold.capturedMinor - hold.releasedMinor;
 
-      if (OPEN_ORDER_STATUSES.has(hold.order.status) && outstanding < 0n) {
+      if (outstanding < 0n) {
         issues.push({
           code: 'HOLD_NEGATIVE_OUTSTANDING',
-          message: 'Hold has negative outstanding balance for an open order',
+          message: 'Hold capture and release exceed its reserved amount',
           entityType: 'hold',
           entityId: hold.id,
           details: {
@@ -157,12 +158,13 @@ export class LedgerReconciliationService {
       }
     }
 
-    const openOrdersWithoutHold = await this.prisma.order.findMany({
+    const openOrdersWithoutHold = await db.order.findMany({
       where: {
         status: {
           in: [
             'WAITING_TRADE',
             'TRADE_CONFIRMED',
+            'SETTLEMENT_HOLD',
             'DISPUTE',
             'PAYMENT_RESERVED',
           ],
@@ -182,15 +184,13 @@ export class LedgerReconciliationService {
       });
     }
 
-    const ledgerWithOrder = await this.prisma.ledgerEntry.findMany({
+    const ledgerWithOrder = await db.ledgerEntry.findMany({
       where: { orderId: { not: null } },
       select: { id: true, orderId: true },
     });
 
     const orderIds = new Set(
-      (await this.prisma.order.findMany({ select: { id: true } })).map(
-        (row) => row.id,
-      ),
+      (await db.order.findMany({ select: { id: true } })).map((row) => row.id),
     );
 
     for (const entry of ledgerWithOrder) {
@@ -205,7 +205,7 @@ export class LedgerReconciliationService {
       }
     }
 
-    const ledgerWithHold = await this.prisma.ledgerEntry.findMany({
+    const ledgerWithHold = await db.ledgerEntry.findMany({
       where: { holdId: { not: null } },
       select: { id: true, holdId: true },
     });
@@ -223,7 +223,38 @@ export class LedgerReconciliationService {
       }
     }
 
-    const wallets = await this.prisma.wallet.findMany({
+    const buyRequests = await db.buyRequest.findMany({
+      select: {
+        id: true,
+        buyerId: true,
+        status: true,
+        reservedAmountMinor: true,
+      },
+    });
+    const reservedByBuyer = new Map<string, bigint>();
+    for (const request of buyRequests) {
+      const reserved = request.reservedAmountMinor ?? 0n;
+      if (reserved < 0n || (request.status !== 'OPEN' && reserved !== 0n)) {
+        issues.push({
+          code: 'BUY_REQUEST_RESERVE_INVALID',
+          message: 'Buy request has a negative or unreleased terminal reserve',
+          entityType: 'buyRequest',
+          entityId: request.id,
+          details: {
+            status: request.status,
+            reservedAmountMinor: reserved.toString(),
+          },
+        });
+      }
+      if (reserved > 0n) {
+        reservedByBuyer.set(
+          request.buyerId,
+          (reservedByBuyer.get(request.buyerId) ?? 0n) + reserved,
+        );
+      }
+    }
+
+    const wallets = await db.wallet.findMany({
       include: { accounts: true, holds: true },
     });
 
@@ -231,21 +262,33 @@ export class LedgerReconciliationService {
       const holdAccount = wallet.accounts.find(
         (account) => account.type === WalletAccountType.HOLD,
       );
+      const expectedHoldBalance = wallet.holds.reduce(
+        (sum, hold) => {
+          const outstanding =
+            hold.amountMinor - hold.capturedMinor - hold.releasedMinor;
+          return sum + (outstanding > 0n ? outstanding : 0n);
+        },
+        reservedByBuyer.get(wallet.userId) ?? 0n,
+      );
+
       if (!holdAccount) {
+        if (expectedHoldBalance > 0n) {
+          issues.push({
+            code: 'WALLET_HOLD_ACCOUNT_MISSING',
+            message: 'Reserved funds have no wallet HOLD account',
+            entityType: 'wallet',
+            entityId: wallet.id,
+            details: { expectedHoldBalance: expectedHoldBalance.toString() },
+          });
+        }
         continue;
       }
-
-      const expectedHoldBalance = wallet.holds.reduce((sum, hold) => {
-        const outstanding =
-          hold.amountMinor - hold.capturedMinor - hold.releasedMinor;
-        return sum + (outstanding > 0n ? outstanding : 0n);
-      }, 0n);
 
       if (holdAccount.balanceMinor !== expectedHoldBalance) {
         issues.push({
           code: 'WALLET_HOLD_BALANCE_MISMATCH',
           message:
-            'Wallet HOLD account balance does not match outstanding holds',
+            'Wallet HOLD balance does not match order and buy request reserves',
           entityType: 'wallet',
           entityId: wallet.id,
           details: {
@@ -256,7 +299,7 @@ export class LedgerReconciliationService {
       }
     }
 
-    const staleWithdrawals = await this.prisma.withdrawalRequest.findMany({
+    const staleWithdrawals = await db.withdrawalRequest.findMany({
       where: {
         status: 'PROCESSING',
         createdAt: { lt: new Date(Date.now() - 24 * 60 * 60 * 1000) },

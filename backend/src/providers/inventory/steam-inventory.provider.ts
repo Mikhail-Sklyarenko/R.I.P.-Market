@@ -9,7 +9,10 @@ import { slugifyMarketHashName } from '../../item-definitions/item-slug.util';
 
 import { PrismaService } from '../../prisma/prisma.service';
 import { InventoryMetricsService } from './inventory-metrics.service';
-import { InventorySyncCacheService, getInventoryStaleGraceMs } from './inventory-sync-cache.service';
+import {
+  InventorySyncCacheService,
+  getInventoryStaleGraceMs,
+} from './inventory-sync-cache.service';
 import {
   InventoryProvider,
   SyncInventoryOptions,
@@ -32,7 +35,10 @@ function maskSteamId(steamId: string): string {
 @Injectable()
 export class SteamInventoryProvider implements InventoryProvider {
   readonly type = 'steam' as const;
-  private readonly inFlightSyncs = new Map<string, { force: boolean; promise: Promise<SyncResult> }>();
+  private readonly inFlightSyncs = new Map<
+    string,
+    { force: boolean; promise: Promise<SyncResult> }
+  >();
   private readonly logger = new Logger(SteamInventoryProvider.name);
 
   constructor(
@@ -41,7 +47,11 @@ export class SteamInventoryProvider implements InventoryProvider {
     private readonly metrics: InventoryMetricsService,
   ) {}
 
-  async syncInventory(ownerId: string, steamId?: string | null, options?: SyncInventoryOptions): Promise<SyncResult> {
+  async syncInventory(
+    ownerId: string,
+    steamId?: string | null,
+    options?: SyncInventoryOptions,
+  ): Promise<SyncResult> {
     const key = JSON.stringify([ownerId, steamId]);
     const running = this.inFlightSyncs.get(key);
     if (running) {
@@ -49,13 +59,20 @@ export class SteamInventoryProvider implements InventoryProvider {
       await running.promise.catch(() => undefined);
       return this.syncInventory(ownerId, steamId, options);
     }
-    const promise = Promise.resolve().then(() => this.performSyncInventory(ownerId, steamId, options))
-      .finally(() => { this.inFlightSyncs.delete(key); });
+    const promise = Promise.resolve()
+      .then(() => this.performSyncInventory(ownerId, steamId, options))
+      .finally(() => {
+        this.inFlightSyncs.delete(key);
+      });
     this.inFlightSyncs.set(key, { force: options?.force ?? false, promise });
     return promise;
   }
 
-  private async performSyncInventory(ownerId: string, steamId?: string | null, options?: SyncInventoryOptions): Promise<SyncResult> {
+  private async performSyncInventory(
+    ownerId: string,
+    steamId?: string | null,
+    options?: SyncInventoryOptions,
+  ): Promise<SyncResult> {
     const startedAt = Date.now();
     const force = options?.force ?? false;
 
@@ -179,6 +196,7 @@ export class SteamInventoryProvider implements InventoryProvider {
       });
 
       const result = this.toSyncResult(run, false, false);
+      result.observedAssetIds = parsed.map((item) => item.assetExternalId);
       this.recordMetrics(
         isPartial ? 'PARTIAL' : 'SUCCESS',
         startedAt,

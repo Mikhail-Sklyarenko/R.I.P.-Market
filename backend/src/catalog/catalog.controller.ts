@@ -73,5 +73,4 @@ export class CatalogController {
       forceRefresh: body.forceRefresh === true,
     });
   }
-
 }

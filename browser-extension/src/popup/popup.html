@@ -1002,7 +1002,6 @@
       </div>
     </section>
 
-    <section id="two-minute-onboarding" class="two-min" hidden aria-live="polite"></section>
     <section id="safe-mode-banner" class="safe-mode" hidden aria-live="polite"></section>
 
     <section id="empty-home" class="empty-home" hidden></section>
@@ -1056,9 +1055,24 @@
         </div>
         <p class="advanced-note" id="permissions-title">Зачем нужны права</p>
         <ul id="permissions-rationale" class="permissions-list"></ul>
+        <details>
+          <summary>Серверная проверка текущей сделки Steam</summary>
+          <p>Перед отправкой откройте заказ на p2pcs.ru в этом браузере продавца. После согласия расширение продолжит создание обмена и проверку автоматически. На 30 минут разрешите расширению передавать временный Steam access token серверу p2pcs.ru для чтения обмена и квитанции. Токен не сохраняется сервером. Сам токен имеет более широкие права: разрешайте передачу только доверенному серверу.</p>
+          <label><input id="steam-order-consent" type="checkbox" /> Разрешаю проверку этого заказа до 30 минут</label>
+          <button id="steam-order-run" type="button" disabled>Разрешить проверку и продолжить обмен</button>
+          <button id="steam-order-stop" type="button" class="secondary">Остановить передачу</button>
+          <p id="steam-order-result" role="status"></p>
+        </details>
         <details id="support-emergency" class="support-emergency">
           <summary id="support-emergency-summary">Поддержка · аварийный доступ</summary>
           <div class="support-emergency-body">
+            <details>
+              <summary>Ограниченная диагностика Steam · тестовый обмен</summary>
+              <p>Однократно передать access token текущего аккаунта Steam (R1ppeR или p2ptradecs) серверу p2pcs.ru для чтения только обмена 9391832342. Сервер разрешает конкретный аккаунт в отдельном временном окне. Токен не сохраняется. Это credential с более широкими правами, чем чтение; при компрометации сервера возможен доступ к аккаунту. Заказ и деньги не изменяются.</p>
+              <label><input id="steam-probe-consent" type="checkbox" /> Разрешаю эту временную передачу</label>
+              <button id="steam-probe-run" type="button" class="secondary" disabled>Проверить известный обмен</button>
+              <pre id="steam-probe-result" role="status" style="white-space:pre-wrap;overflow-wrap:anywhere"></pre>
+            </details>
             <p class="advanced-note" id="api-key-note">
               Не для обычной работы. Вставьте ключ только если поддержка R.I.P Market явно
               попросила — и только на время сбоя Steam.

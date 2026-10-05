@@ -7,12 +7,12 @@ import {
 
 describe('extension-trade-verification-snapshot.util', () => {
   it('persists verified/partial to clear false mismatch; mismatch only when durable', () => {
-    expect(
-      shouldPersistExtensionVerification({ status: 'verified' }),
-    ).toBe(true);
-    expect(
-      shouldPersistExtensionVerification({ status: 'partial' }),
-    ).toBe(true);
+    expect(shouldPersistExtensionVerification({ status: 'verified' })).toBe(
+      true,
+    );
+    expect(shouldPersistExtensionVerification({ status: 'partial' })).toBe(
+      true,
+    );
     expect(
       shouldPersistExtensionVerification({
         status: 'mismatch',

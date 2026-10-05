@@ -1,4 +1,20 @@
 import type { TradeVerificationResult } from '@rip-market/extension-orchestrator';
+
+const probeConsent = document.getElementById('steam-probe-consent') as HTMLInputElement | null;
+const probeRun = document.getElementById('steam-probe-run') as HTMLButtonElement | null;
+const probeResult = document.getElementById('steam-probe-result');
+probeConsent?.addEventListener('change', () => { if (probeRun) probeRun.disabled = !probeConsent.checked; });
+probeRun?.addEventListener('click', async () => {
+  if (!probeConsent?.checked || !probeResult) return;
+  probeRun.disabled = true;
+  probeConsent.disabled = true;
+  probeResult.textContent = 'Проверка известного обмена…';
+  try {
+    const response = await chrome.runtime.sendMessage({ type: 'RIP_MARKET_STEAM_AUTH_PROBE', consent: true });
+    probeResult.textContent = response?.ok ? JSON.stringify(response.result, null, 2) : 'Диагностика недоступна. Проверьте подключение и разрешённое сервером окно.';
+  } catch { probeResult.textContent = 'Диагностика недоступна.'; }
+  finally { probeConsent.checked = false; probeConsent.disabled = false; }
+});
 import {
   clearSteamWebApiKey,
   getSteamWebApiKey,
@@ -43,10 +59,6 @@ import {
   disputeStatusHtml,
 } from '../shared/in-flow-dispute.js';
 import {
-  postTradeReceiptHtml,
-  type PostTradeReceiptView,
-} from '../shared/post-trade-receipt.js';
-import {
   createExtensionT,
   getStoredExtensionLocale,
   setStoredExtensionLocale,
@@ -63,15 +75,6 @@ import {
   safeModeBannerHtml,
   type SiteLinkSnapshot,
 } from '../shared/offline-safe-mode.js';
-import {
-  CS2_INVENTORY_URL,
-  getTwoMinuteOnboardingState,
-  persistDismissTwoMinuteWizard,
-  resolveTwoMinuteOnboardingView,
-  setTwoMinuteOnboardingState,
-  twoMinuteOnboardingHtml,
-  withAutoComplete,
-} from '../shared/two-minute-onboarding.js';
 import { siteAccountUrl } from '../shared/steam-inventory-page.js';
 
 const connectionEl = document.getElementById('connection');
@@ -80,7 +83,6 @@ const emptyHomeEl = document.getElementById('empty-home');
 const actionRequiredEl = document.getElementById('action-required');
 const buyerInboxEl = document.getElementById('buyer-inbox');
 const sellerTradesEl = document.getElementById('seller-trades');
-const recentReceiptsEl = document.getElementById('recent-receipts');
 const popupLeadEl = document.querySelector('.lead');
 const popupHintEl = document.getElementById('pair-hint');
 const toolbarEl = document.getElementById('toolbar');
@@ -105,7 +107,6 @@ const apiKeyStatusEl = document.getElementById('api-key-status');
 const privacyEl = document.getElementById('privacy-transparency');
 const permissionsListEl = document.getElementById('permissions-rationale');
 const safeModeBannerEl = document.getElementById('safe-mode-banner');
-const twoMinEl = document.getElementById('two-minute-onboarding');
 const quietNotifyEnabledEl = document.getElementById(
   'quiet-notify-enabled',
 ) as HTMLInputElement | null;
@@ -232,21 +233,11 @@ function renderConnection(connection: ConnectionDashboard): void {
   if (!connectionEl) {
     return;
   }
-  const showSteam =
-    Boolean(connection.steamLabel) &&
-    connection.steamLabel !== connection.detail &&
-    !(connection.tone === 'ok' && connection.steamAligned);
   connectionEl.className = `connection ${connection.tone}`;
   connectionEl.innerHTML = `
     <span class="connection-dot" aria-hidden="true"></span>
     <div class="connection-copy">
       <p class="connection-title">${escapeHtml(connection.title)}</p>
-      <p class="connection-detail">${escapeHtml(connection.detail)}</p>
-      ${
-        showSteam
-          ? `<p class="connection-steam">${escapeHtml(connection.steamLabel)}</p>`
-          : ''
-      }
     </div>
   `;
 }
@@ -311,7 +302,7 @@ function renderActionRequired(items: ActionRequiredItem[]): void {
       <span class="section-count">${items.length}</span>
     </div>
     <div class="action-list">
-      ${items.map((item) => renderActionCard(item)).join('')}
+      ${items.slice(0, 3).map((item) => renderActionCard(item)).join('')}
     </div>
   `;
 
@@ -533,57 +524,12 @@ function renderSellerCard(trade: TradeVerificationResult): string {
   `;
 }
 
-function renderRecentReceipts(
-  receipts: PostTradeReceiptView[],
-  receiptsTotal: number,
-  dealsHref: string | null,
-): void {
-  if (!recentReceiptsEl) {
-    return;
-  }
-  if (receipts.length === 0) {
-    recentReceiptsEl.hidden = true;
-    recentReceiptsEl.innerHTML = '';
-    return;
-  }
-
-  const hiddenCount = Math.max(0, receiptsTotal - receipts.length);
-  const footer =
-    dealsHref && (hiddenCount > 0 || receiptsTotal > 1)
-      ? `<a class="receipts-site-link" href="${escapeHtml(dealsHref)}" target="_blank" rel="noreferrer">${escapeHtml(
-          hiddenCount > 0
-            ? t('popup.receiptsMoreOnSite', { count: hiddenCount })
-            : t('popup.receiptsAllOnSite'),
-        )}</a>`
-      : dealsHref
-        ? `<a class="receipts-site-link" href="${escapeHtml(dealsHref)}" target="_blank" rel="noreferrer">${escapeHtml(t('popup.receiptsAllOnSite'))}</a>`
-        : '';
-
-  recentReceiptsEl.hidden = false;
-  recentReceiptsEl.innerHTML = `
-    <details class="receipts-fold" ${receiptsTotal <= 2 ? 'open' : ''}>
-      <summary class="section-head receipts-fold-summary">
-        <h2 class="section-title">${escapeHtml(t('popup.receiptsTitle'))}</h2>
-        <p class="section-sub">${escapeHtml(t('popup.receiptsSub'))}</p>
-        <span class="section-count">${receiptsTotal}</span>
-      </summary>
-      <div class="receipts-list">
-        ${receipts
-          .map((view) => postTradeReceiptHtml(view, escapeHtml, formatMoneyMinor))
-          .join('')}
-      </div>
-      ${footer}
-    </details>
-  `;
-}
-
 function renderHome(home: HomeDashboard): void {
   renderConnection(home.connection);
   renderEmptyHome(home);
   renderActionRequired(home.actionItems);
-  renderBuyerInbox(home.buyers);
-  renderSellerTrades(home.sellers);
-  renderRecentReceipts(home.receipts, home.receiptsTotal, home.dealsHref);
+  renderBuyerInbox(home.buyers.slice(0, 2));
+  renderSellerTrades(home.sellers.slice(0, Math.max(0, 3 - Math.min(2, home.buyers.length))));
 }
 
 async function acknowledgeFromPopup(button: HTMLButtonElement): Promise<void> {
@@ -681,60 +627,6 @@ async function loadTrades(): Promise<TradeVerificationResult[]> {
   }
 
   return cached.trades ?? [];
-}
-
-async function renderTwoMinuteOnboarding(connected: boolean): Promise<boolean> {
-  if (!twoMinEl) {
-    return false;
-  }
-  const stored = await getTwoMinuteOnboardingState();
-  const state = withAutoComplete(stored, connected);
-  if (state.completedAt && !stored.completedAt) {
-    await setTwoMinuteOnboardingState(state);
-  }
-  const view = resolveTwoMinuteOnboardingView({
-    connected,
-    state,
-    locale: activeLocale,
-  });
-  if (!view.visible) {
-    twoMinEl.hidden = true;
-    twoMinEl.innerHTML = '';
-    return false;
-  }
-  twoMinEl.hidden = false;
-  twoMinEl.innerHTML = twoMinuteOnboardingHtml(view, escapeHtml);
-  twoMinEl
-    .querySelectorAll<HTMLButtonElement>('[data-two-min-primary]')
-    .forEach((button) => {
-      button.addEventListener('click', () => {
-        void handleTwoMinutePrimary(button.dataset.twoMinPrimary ?? '');
-      });
-    });
-  twoMinEl
-    .querySelector<HTMLButtonElement>('[data-two-min-dismiss]')
-    ?.addEventListener('click', () => {
-      void persistDismissTwoMinuteWizard().then(() => render());
-    });
-  return true;
-}
-
-async function handleTwoMinutePrimary(kind: string): Promise<void> {
-  if (kind === 'dismiss') {
-    await persistDismissTwoMinuteWizard();
-    await render();
-    return;
-  }
-  if (kind === 'open_inventory') {
-    void chrome.tabs.create({ url: CS2_INVENTORY_URL });
-    return;
-  }
-  if (kind === 'open_account') {
-    const status = await fetchStatus();
-    void chrome.tabs.create({
-      url: siteAccountUrl(status.apiBaseUrl),
-    });
-  }
 }
 
 function renderSafeModeBanner(): void {
@@ -981,11 +873,12 @@ async function render(): Promise<void> {
     locale: activeLocale,
     snoozedOrderIds: collectSnoozedOrderIds(quietState),
   });
-  const wizardVisible = await renderTwoMinuteOnboarding(status.connected);
-  toolbarEl?.classList.toggle('toolbar--wizard', wizardVisible);
   toolbarEl?.classList.toggle('toolbar--paired', status.connected);
   renderSafeModeBanner();
   renderHome(home);
+  openSiteBtn.textContent = status.connected
+    ? (activeLocale === 'ru' ? `${home.counts.total} сделок в работе →` : `${home.counts.total} active deals →`)
+    : (activeLocale === 'ru' ? 'Подключить расширение' : 'Connect extension');
   renderOpsHealth(opsView);
 
   const storedKey = await getSteamWebApiKey();
@@ -999,7 +892,7 @@ async function render(): Promise<void> {
 openSiteBtn.addEventListener('click', () => {
   void fetchStatus().then((status) => {
     void chrome.tabs.create({
-      url: siteAccountUrl(status.apiBaseUrl),
+      url: status.connected ? new URL('/deals', siteAccountUrl(status.apiBaseUrl)).href : siteAccountUrl(status.apiBaseUrl),
     });
   });
 });
@@ -1085,3 +978,42 @@ quietNotifyEnabledEl?.addEventListener('change', () => {
 });
 
 void render();
+
+const orderConsent = document.getElementById('steam-order-consent') as HTMLInputElement | null;
+const orderRun = document.getElementById('steam-order-run') as HTMLButtonElement | null;
+const orderResult = document.getElementById('steam-order-result');
+orderConsent?.addEventListener('change', () => { if(orderRun) orderRun.disabled=!orderConsent.checked; });
+orderRun?.addEventListener('click', async () => {
+  if(!orderConsent?.checked || !orderResult) return;
+  orderRun.disabled=true;
+  orderConsent.disabled=true;
+  try {
+    const [tab]=await chrome.tabs.query({active:true,currentWindow:true});
+    const url=new URL(tab?.url ?? '');
+    const orderId=url.origin==='https://p2pcs.ru' ? /^\/orders\/([a-f0-9-]{36})\/?$/i.exec(url.pathname)?.[1] : undefined;
+    if(!orderId) { orderResult.textContent='Откройте страницу нужного заказа на p2pcs.ru и повторите.'; return; }
+    orderResult.textContent='Сервер проверяет обмен в Steam…';
+    const reply=await chrome.runtime.sendMessage({type:'RIP_MARKET_STEAM_ORDER_VERIFY',orderId,consent:true});
+    const reasons: Record<string,string>={
+      DELIVERY_VERIFIED:'Получение предмета подтверждено. Средства находятся на защите Steam.',
+      SETTLED:'Защита завершена. Расчёт выполнен.',
+      STEAM_TRADE_REVERSAL:'Steam сообщил об отмене передачи. Средства заблокированы для проверки.',
+      WAITING_FOR_OFFER:'Автоматическая проверка разрешена. После создания обмена она начнётся сама.',
+      STEAM_IDENTITY_CONFLICT:'Steam сообщил другой аккаунт. Проверка остановлена; средства защищены.',
+      STEAM_DESTINATION_MAPPING_PENDING:'Обмен подтверждён Steam. Проверяем получение предмета автоматически.',
+      STEAM_RECEIPT_UNAVAILABLE:'Steam задерживает данные. Проверка продолжится автоматически.',
+      STEAM_RECEIPT_VERIFIED:'Квитанция Steam проверена. Проверяем доставку предмета.',
+      STEAM_TOKEN_OWNER_UNVERIFIED:'Steam не подтвердил владельца токена. Расчёт заблокирован.',
+      STEAM_TOKEN_READ_UNAVAILABLE:'Steam не предоставил данные обмена.',
+      STEAM_OFFER_UNAVAILABLE:'Обмен недоступен через текущую авторизацию Steam.',
+      STEAM_OFFER_ORDER_MISMATCH:'Состав или участники обмена не соответствуют заказу.',
+      STEAM_RECEIPT_MAPPING_UNAVAILABLE:'Steam не вернул связь с полученным предметом. Доставка пока не подтверждена.',
+    };
+    orderResult.textContent=reply?.ok ? (reasons[reply.result?.reasonCode] ?? 'Проверка выполнена. Актуальный статус смотрите на странице заказа.') : 'Проверка недоступна: нужны подключение и аккаунт продавца.';
+  } catch { orderResult.textContent='Проверка недоступна. Откройте заказ и проверьте подключение.'; }
+  finally { orderConsent.checked=false; orderConsent.disabled=false; }
+});
+document.getElementById('steam-order-stop')?.addEventListener('click',async()=>{
+  await chrome.runtime.sendMessage({type:'RIP_MARKET_STEAM_ORDER_STOP'});
+  if(orderResult) orderResult.textContent='Будущая передача остановлена. Уже отправленный запрос может завершиться.';
+});

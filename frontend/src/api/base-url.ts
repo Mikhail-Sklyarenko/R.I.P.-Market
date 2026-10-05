@@ -16,7 +16,7 @@ const viteEnv =
 const CONFIGURED_API_BASE =
   (typeof viteEnv?.VITE_API_BASE_URL === 'string' &&
     viteEnv.VITE_API_BASE_URL.trim()) ||
-  'http://localhost:3000/api/v1';
+  'https://p2pcs.ru/api/v1';
 
 function stripWww(hostname: string): string {
   return hostname.replace(/^www\./i, '').toLowerCase();

@@ -1,12 +1,25 @@
 import { expect, test } from '@playwright/test';
+import { resetDatabase } from './helpers/reset';
+
+const API_BASE = process.env.PLAYWRIGHT_API_BASE_URL ?? 'http://127.0.0.1:3001/api/v1';
 
 test.describe('Steam callback page', () => {
-  test('stores JWT from callback query and navigates home', async ({ page }) => {
-    await page.goto(
-      '/login/steam/callback?accessToken=test-token&userId=user-1&username=steam_user&role=BUYER&status=ACTIVE&steamId=76561198000000000',
-    );
+  test('exchanges a one-time code once and navigates home', async ({ page, request }) => {
+    await resetDatabase(request);
+    const response = await request.post(`${API_BASE}/auth/mock-login`, { data: { role: 'BUYER' } });
+    expect(response.ok()).toBeTruthy();
+    const session = await response.json() as { accessToken: string; user: { id: string; username: string } };
+    let exchanges = 0;
+    await page.route('**/api/v1/auth/steam/exchange', async (route) => {
+      expect(route.request().method()).toBe('POST');
+      expect(route.request().postDataJSON()).toEqual({ code: 'test-code' });
+      exchanges += 1;
+      await route.fulfill({ json: session });
+    });
+    await page.goto('/login/steam/callback?code=test-code');
 
     await expect(page).toHaveURL(/\/($|catalog\/?$)/);
+    expect(exchanges).toBe(1);
     await expect
       .poll(async () =>
         page.evaluate(() => {
@@ -18,10 +31,10 @@ test.describe('Steam callback page', () => {
         }),
       )
       .toEqual({
-        token: 'test-token',
+        token: session.accessToken,
         user: expect.objectContaining({
-          steamId: '76561198000000000',
-          username: 'steam_user',
+          id: session.user.id,
+          username: session.user.username,
         }),
       });
   });

@@ -14,7 +14,7 @@ import { isExtensionFirstTradeFlowEnabled } from '../trades/extension-trade-flow
 import { LedgerService } from '../wallet/ledger.service';
 import { isRealSettlementEnabled, utcDayKey } from './settlement.config';
 import {
-  getSettlementHoldMs,
+  getSteamProtectionMs,
   isSettlementHoldWindowEnabled,
   settlementHoldEnterIdempotencyKey,
   settlementHoldReleaseIdempotencyKey,
@@ -46,7 +46,10 @@ type OrderForSettlement = {
     commissionMinor: bigint;
     inventoryAssetId: string;
   };
-  tradeOperation: { status: TradeOperationStatus } | null;
+  tradeOperation: {
+    status: TradeOperationStatus;
+    deliveryProof?: Prisma.JsonValue;
+  } | null;
 };
 
 export type SettlementAttemptResult = {
@@ -96,93 +99,104 @@ export class SettlementService {
         return { settled: true, inHold: false, guard: guardResult };
       }
 
-      if (this.shouldUseHoldWindow()) {
+      // The persisted hold is an obligation, independent of configuration for
+      // newly confirmed trades. A manual retry cannot turn it into legacy payout.
+      if (order.status === OrderStatus.SETTLEMENT_HOLD) {
+        if (!this.isHoldReleaseDue(order)) {
+          return { settled: false, inHold: true, guard: guardResult };
+        }
+        await this.releaseSettlementHold(client, order, idempotencyKey);
+        return { settled: true, inHold: false, guard: guardResult };
+      }
+
+      if (order.tradeOperation?.deliveryProof || this.shouldUseHoldWindow()) {
         if (order.status === OrderStatus.TRADE_CONFIRMED) {
           await this.enterSettlementHold(client, order, idempotencyKey);
           return { settled: false, inHold: true, guard: guardResult };
         }
-        if (
-          order.status === OrderStatus.SETTLEMENT_HOLD &&
-          this.isHoldReleaseDue(order.hold)
-        ) {
-          await this.releaseSettlementHold(client, order, idempotencyKey);
-          return { settled: true, inHold: false, guard: guardResult };
-        }
-        if (order.status === OrderStatus.SETTLEMENT_HOLD) {
-          return { settled: false, inHold: true, guard: guardResult };
-        }
       }
 
-      await this.settleCompletedOrder(client, order, idempotencyKey);
-      return { settled: true, inHold: false, guard: guardResult };
+      return {
+        settled: false,
+        inHold: false,
+        guard: {
+          allowed: false as const,
+          code: 'SETTLEMENT_EVIDENCE_INVALID' as const,
+          reason:
+            'Automatic payment requires durable proof and settlement hold',
+        },
+      };
     };
 
     if (tx) {
       return run(tx);
     }
-    return this.prisma.$transaction(run);
+    return this.prisma.$transaction(run, { timeout: 120_000, maxWait: 10_000 });
   }
 
   async releaseDueSettlementHold(
     orderId: string,
     idempotencyKey = settlementHoldReleaseIdempotencyKey(orderId),
   ): Promise<SettlementAttemptResult> {
-    return this.prisma.$transaction(async (tx) => {
-      const order = await this.loadOrder(orderId, tx);
-      if (!order) {
-        throw new NotFoundException('Order not found');
-      }
+    return this.prisma.$transaction(
+      async (tx) => {
+        const order = await this.loadOrder(orderId, tx);
+        if (!order) {
+          throw new NotFoundException('Order not found');
+        }
 
-      if (order.status === OrderStatus.COMPLETED) {
-        return {
-          settled: true,
-          inHold: false,
-          guard: { allowed: true },
-        };
-      }
+        if (order.status === OrderStatus.COMPLETED) {
+          return {
+            settled: true,
+            inHold: false,
+            guard: { allowed: true },
+          };
+        }
 
-      if (order.status !== OrderStatus.SETTLEMENT_HOLD) {
-        return {
-          settled: false,
-          inHold: false,
-          guard: {
-            allowed: false,
-            code: 'ORDER_NOT_TRADE_CONFIRMED',
-            reason: `Order status is ${order.status}, expected SETTLEMENT_HOLD`,
-          },
-        };
-      }
+        if (order.status !== OrderStatus.SETTLEMENT_HOLD) {
+          return {
+            settled: false,
+            inHold: false,
+            guard: {
+              allowed: false,
+              code: 'ORDER_NOT_TRADE_CONFIRMED',
+              reason: `Order status is ${order.status}, expected SETTLEMENT_HOLD`,
+            },
+          };
+        }
 
-      // A runtime kill switch must never shorten an existing protection period.
-      if (!isRealSettlementEnabled()) {
-        return {
-          settled: false,
-          inHold: true,
-          guard: {
-            allowed: false,
-            code: 'REAL_SETTLEMENT_DISABLED',
-            reason: 'Settlement releases are paused',
-          },
-        };
-      }
+        // A runtime kill switch must never shorten an existing protection period.
+        if (!isRealSettlementEnabled()) {
+          return {
+            settled: false,
+            inHold: true,
+            guard: {
+              allowed: false,
+              code: 'REAL_SETTLEMENT_DISABLED',
+              reason: 'Settlement releases are paused',
+            },
+          };
+        }
 
-      if (!this.isHoldReleaseDue(order.hold)) {
-        return {
-          settled: false,
-          inHold: true,
-          guard: { allowed: true },
-        };
-      }
+        if (!this.isHoldReleaseDue(order)) {
+          return {
+            settled: false,
+            inHold: true,
+            guard: { allowed: true },
+          };
+        }
 
-      const guardResult = await this.guard.canSettle(order, tx);
-      if (!guardResult.allowed) {
-        await this.emitSettlementBlocked(tx, orderId, guardResult);
-        return { settled: false, inHold: true, guard: guardResult };
-      }
+        const guardResult = await this.guard.canSettle(order, tx);
+        if (!guardResult.allowed) {
+          await this.emitSettlementBlocked(tx, orderId, guardResult);
+          return { settled: false, inHold: true, guard: guardResult };
+        }
 
-      await this.releaseSettlementHold(tx, order, idempotencyKey);
-      return { settled: true, inHold: false, guard: guardResult };
-    });
+        await this.releaseSettlementHold(tx, order, idempotencyKey);
+        return { settled: true, inHold: false, guard: guardResult };
+      },
+      { timeout: 120_000, maxWait: 10_000 },
+    );
   }
 
   async reverseSettlementHold(
@@ -301,31 +315,40 @@ export class SettlementService {
     idempotencyKey: string,
     actorUserId?: string,
   ) {
+    const lockedOrder = await this.loadOrder(order.id, tx);
+    if (!lockedOrder) throw new NotFoundException('Order not found');
+    order = lockedOrder;
     if (order.status === OrderStatus.COMPLETED) {
       return order;
     }
 
-    if (this.shouldUseHoldWindow()) {
+    if (order.status === OrderStatus.SETTLEMENT_HOLD) {
+      if (!isRealSettlementEnabled() || !this.isHoldReleaseDue(order)) {
+        return order;
+      }
+      const guardResult = await this.guard.canSettle(order, tx);
+      if (!guardResult.allowed) {
+        await this.emitSettlementBlocked(tx, order.id, guardResult);
+        return order;
+      }
+      return this.releaseSettlementHold(
+        tx,
+        order,
+        settlementHoldReleaseIdempotencyKey(order.id),
+        actorUserId,
+      );
+    }
+
+    if (order.tradeOperation?.deliveryProof || this.shouldUseHoldWindow()) {
       if (order.status === OrderStatus.TRADE_CONFIRMED) {
         return this.enterSettlementHold(tx, order, idempotencyKey, actorUserId);
       }
-      if (order.status === OrderStatus.SETTLEMENT_HOLD) {
-        return this.releaseSettlementHold(
-          tx,
-          order,
-          settlementHoldReleaseIdempotencyKey(order.id),
-          actorUserId,
-        );
-      }
     }
-
-    return this.releaseSettlementHold(tx, order, idempotencyKey, actorUserId, {
-      skipHoldWindowCheck: true,
-      legacyImmediate: true,
-    });
+    // No legacy immediate payment path. Missing proof must be reviewed.
+    return order;
   }
 
-  private async enterSettlementHold(
+  async enterSettlementHold(
     tx: Prisma.TransactionClient,
     order: OrderForSettlement,
     idempotencyKey: string,
@@ -344,7 +367,17 @@ export class SettlementService {
       return order;
     }
 
-    const holdUntil = new Date(Date.now() + getSettlementHoldMs());
+    const savedProof = order.tradeOperation?.deliveryProof as {
+      protectionUntil?: string;
+    } | null;
+    const savedUntil = savedProof?.protectionUntil
+      ? Date.parse(savedProof.protectionUntil)
+      : NaN;
+    const holdUntil = new Date(
+      Number.isFinite(savedUntil)
+        ? savedUntil
+        : Date.now() + getSteamProtectionMs(),
+    );
     const deliveryVerified = this.isDeliveryVerified(order);
 
     await this.orderStateService.transitionByEvent(tx, {
@@ -409,16 +442,15 @@ export class SettlementService {
     order: OrderForSettlement,
     idempotencyKey: string,
     actorUserId?: string,
-    options?: { skipHoldWindowCheck?: boolean; legacyImmediate?: boolean },
   ) {
     if (order.status === OrderStatus.COMPLETED) {
       return order;
     }
 
     if (
-      this.shouldUseHoldWindow() &&
-      !options?.skipHoldWindowCheck &&
-      !this.isHoldReleaseDue(order.hold)
+      order.status !== OrderStatus.SETTLEMENT_HOLD ||
+      !isRealSettlementEnabled() ||
+      !this.isHoldReleaseDue(order)
     ) {
       return order;
     }
@@ -450,7 +482,7 @@ export class SettlementService {
       totalAmountMinor: order.hold.amountMinor,
       sellerReceiveMinor: order.lot.sellerReceiveMinor,
       commissionMinor: order.lot.commissionMinor,
-      idempotencyKey,
+      idempotencyKey: settlementHoldReleaseIdempotencyKey(order.id),
       tx,
     });
 
@@ -463,7 +495,7 @@ export class SettlementService {
       },
     });
 
-    if (this.shouldUseHoldWindow() && !options?.legacyImmediate) {
+    if (order.status === OrderStatus.SETTLEMENT_HOLD) {
       await this.orderStateService.transitionByEvent(tx, {
         orderId: order.id,
         from: OrderStatus.SETTLEMENT_HOLD,
@@ -471,31 +503,6 @@ export class SettlementService {
         actorUserId,
         reason: 'SETTLEMENT_HOLD_RELEASED',
         guards: { deliveryVerified },
-      });
-    } else if (isExtensionFirstTradeFlowEnabled()) {
-      await this.orderStateService.transitionByEvent(tx, {
-        orderId: order.id,
-        from: order.status,
-        event: 'SETTLEMENT_STARTED',
-        actorUserId,
-        reason: 'REAL_SETTLEMENT_START',
-        guards: { deliveryVerified },
-      });
-      await this.orderStateService.transitionByEvent(tx, {
-        orderId: order.id,
-        from: OrderStatus.SETTLEMENT_HOLD,
-        event: 'SETTLEMENT_RELEASED',
-        actorUserId,
-        reason: 'REAL_SETTLEMENT_RELEASED',
-        guards: { deliveryVerified },
-      });
-    } else {
-      await this.orderStateService.transitionByEvent(tx, {
-        orderId: order.id,
-        from: OrderStatus.TRADE_CONFIRMED,
-        event: 'LEGACY_SETTLED',
-        actorUserId,
-        reason: 'REAL_SETTLEMENT',
       });
     }
 
@@ -527,7 +534,7 @@ export class SettlementService {
           status: OrderStatus.COMPLETED,
           capturedMinor: order.hold.amountMinor.toString(),
           settlementReleasedAt: releasedAt.toISOString(),
-          ledgerIdempotencyKey: idempotencyKey,
+          ledgerIdempotencyKey: releaseAuditKey,
         },
         idempotencyKey: releaseAuditKey,
         ...getAuditContext(),
@@ -573,13 +580,21 @@ export class SettlementService {
     );
   }
 
-  private isHoldReleaseDue(hold: {
-    settlementHoldUntil: Date | null;
-    settlementReleasedAt: Date | null;
-  }): boolean {
+  private isHoldReleaseDue(order: OrderForSettlement): boolean {
+    const hold = order.hold;
+    // Cache dates can have historical DB timezone skew. The guard validates the
+    // complete proof before payout; this is only scheduling eligibility.
+    const proof = order.tradeOperation?.deliveryProof as {
+      protectionUntil?: string;
+    } | null;
     if (hold.settlementReleasedAt) {
       return false;
     }
+    if (proof)
+      return (
+        typeof proof.protectionUntil === 'string' &&
+        Date.parse(proof.protectionUntil) <= Date.now()
+      );
     if (!hold.settlementHoldUntil) {
       return false;
     }
@@ -648,6 +663,12 @@ export class SettlementService {
     tx?: Prisma.TransactionClient,
   ): Promise<OrderForSettlement | null> {
     const db = tx ?? this.prisma;
+    if (tx) {
+      await tx.$queryRaw`SELECT 1 FROM pg_advisory_xact_lock(hashtext('settlement-daily-budget'))`;
+      await tx.$queryRaw`SELECT id FROM "Order" WHERE id=${orderId} FOR UPDATE`;
+      await tx.$queryRaw`SELECT id FROM "Hold" WHERE "orderId"=${orderId} FOR UPDATE`;
+      await tx.$queryRaw`SELECT id FROM "TradeOperation" WHERE "orderId"=${orderId} FOR UPDATE`;
+    }
     return db.order.findUnique({
       where: { id: orderId },
       include: {

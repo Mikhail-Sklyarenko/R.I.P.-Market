@@ -1,4 +1,5 @@
 import type { TradeVerificationResult } from '@rip-market/extension-orchestrator';
+import { buildSettlementTransparency, settlementTransparencyHtml } from '../shared/settlement-transparency.js';
 import {
   TRADE_VERIFICATION_RUNTIME,
   type AckTradeRuntimeRequest,
@@ -116,6 +117,13 @@ function maybeReportSteamOfferPage(trade: TradeVerificationResult): void {
   const offerId = trade.offerId?.trim();
   if (!offerId) {
     return;
+  }
+  if (trade.role === 'buyer' && location.pathname === `/tradeoffer/${offerId}/`) {
+    try {
+      sessionStorage.setItem('rip-market:receipt-context:v1', JSON.stringify({
+        orderId: trade.orderId, offerId, savedAt: Date.now(),
+      }));
+    } catch { /* Receipt hint is optional; never bypass server checks. */ }
   }
   const page = detectSteamOfferPageLifecycle(document);
   if (!isPostAcceptSteamLifecycle(page.lifecycle)) {
@@ -726,7 +734,7 @@ function primaryCtaHtml(
     const primaryAction =
       view.phase === 'armed' ? 'accept-steam-confirm' : 'accept-steam';
     const primaryClass =
-      view.phase === 'armed' ? 'btn danger' : 'btn primary accept-cta';
+      'btn primary accept-cta';
     const secondary =
       view.secondaryLabel != null
         ? `<button type="button" class="btn secondary" data-action="accept-steam-cancel">${escapeHtml(view.secondaryLabel)}</button>`
@@ -1146,7 +1154,7 @@ function buildPanel(context: OfferPageContext): HTMLElement {
             : 'Обмен в Steam уже закрыт',
         subtitle:
           trade.role === 'buyer'
-            ? 'Подтвердите «Предмет у меня» здесь — площадка закроет сделку. Accept больше не нужен.'
+            ? 'Steam сообщил о принятии. Площадка проверяет доставку автоматически. Повторный Accept не нужен.'
             : 'Покупатель принял обмен. Статус на площадке обновится после сверки доставки.',
         tone: 'ok',
       };
@@ -1162,19 +1170,19 @@ function buildPanel(context: OfferPageContext): HTMLElement {
     shield.partner.match === 'match' &&
     !scamBlocks;
 
-  const acceptAssistDone =
-    steamPostAccept ||
-    (acceptAssistUi?.offerId === trade.offerId &&
-      acceptAssistUi.phase === 'done');
+  // Dispatching a click does not prove Steam accepted it (readiness, errors,
+  // or a second Steam confirmation may still block completion).
+  const steamAcceptanceObserved = steamPostAccept;
   const confirmPhase = resolveDealConfirmPhase(trade, {
-    acceptAssistDone,
+    steamAcceptanceObserved,
   });
   const confirmBanner = buildDealConfirmBanner(trade, overlayLocale, {
-    acceptAssistDone,
+    steamAcceptanceObserved,
   });
 
   const showConfirmReceived =
-    needsBuyerReceivedConfirm(trade, { acceptAssistDone }) &&
+    trade.orderStatus !== 'SETTLEMENT_HOLD' &&
+    needsBuyerReceivedConfirm(trade, { steamAcceptanceObserved }) &&
     status !== 'mismatch' &&
     !scamBlocks;
 
@@ -1206,8 +1214,11 @@ function buildPanel(context: OfferPageContext): HTMLElement {
     'steam_panel_views',
   );
 
+  const settlementView = buildSettlementTransparency(trade, { locale: overlayLocale });
   const buyerCtaOverride =
-    trade.role === 'buyer' && onOfferPage && scamBlocks && status !== 'mismatch'
+    settlementView && !scamBlocks && status !== 'mismatch'
+      ? settlementTransparencyHtml(settlementView, escapeHtml)
+      : trade.role === 'buyer' && onOfferPage && scamBlocks && status !== 'mismatch'
       ? `<p class="primary-hint block">Сначала устраните anti-scam предупреждения — Accept пока не нажимайте</p>`
       : showPrimaryReceived
         ? `<button type="button" class="btn primary accept-cta" data-action="confirm-received">${escapeHtml(t('cta.confirmReceived'))}</button>`
@@ -1219,7 +1230,7 @@ function buildPanel(context: OfferPageContext): HTMLElement {
     !scamBlocks &&
     status !== 'mismatch' &&
     !showPrimaryReceived &&
-    !(acceptAllowed && !acceptAssistDone)
+    !(acceptAllowed && !steamAcceptanceObserved)
       ? dealConfirmBannerHtml(confirmBanner, escapeHtml)
       : '';
 

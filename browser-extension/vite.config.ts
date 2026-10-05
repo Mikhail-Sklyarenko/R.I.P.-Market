@@ -6,6 +6,7 @@ const root = __dirname;
 
 const isolatedScriptEntries = [
   'content/steam-bridge',
+  'content/steam-receipt-bridge',
   'content/trade-verification-bridge',
   'content/trade-offers-list-bridge',
   'content/inventory-bridge',
@@ -45,6 +46,7 @@ export default defineConfig({
           'src/background/service-worker.ts',
         ),
         'popup/popup': resolve(root, 'src/popup/popup.ts'),
+        'popup/order-consent': resolve(root, 'src/popup/order-consent.ts'),
       },
       output: {
         entryFileNames: '[name].js',

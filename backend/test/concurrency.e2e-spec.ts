@@ -54,7 +54,7 @@ describe('Concurrency protections (e2e)', () => {
     expect(ordersCount).toBe(1);
   });
 
-  it('prevents double settlement on repeated mock-success', async () => {
+  it('repeated mock-success confirms once without creating proof-less settlement', async () => {
     const seller = await api.login(UserRole.SELLER);
     const buyer = await api.login(UserRole.BUYER);
 
@@ -80,8 +80,8 @@ describe('Concurrency protections (e2e)', () => {
 
     expect([200, 201]).toContain(firstSuccess.status);
     expect([200, 201]).toContain(secondSuccess.status);
-    expect(firstSuccess.body.status).toBe('COMPLETED');
-    expect(secondSuccess.body.status).toBe('COMPLETED');
+    expect(firstSuccess.body.status).toBe('TRADE_CONFIRMED');
+    expect(secondSuccess.body.status).toBe('TRADE_CONFIRMED');
 
     const settlementEntries = await prisma.ledgerEntry.count({
       where: {
@@ -89,10 +89,27 @@ describe('Concurrency protections (e2e)', () => {
         type: 'SETTLEMENT_SELLER',
       },
     });
-    expect(settlementEntries).toBe(1);
+    expect(settlementEntries).toBe(0);
+    expect(
+      await prisma.orderStatusEvent.count({
+        where: { orderId: order.body.id, toStatus: 'TRADE_CONFIRMED' },
+      }),
+    ).toBe(1);
+    const hold = await prisma.hold.findUniqueOrThrow({
+      where: { orderId: order.body.id },
+    });
+    expect(hold.capturedMinor).toBe(0n);
+    expect(hold.releasedMinor).toBe(0n);
+    expect(
+      (
+        await prisma.tradeOperation.findUniqueOrThrow({
+          where: { orderId: order.body.id },
+        })
+      ).deliveryProof,
+    ).toBeNull();
   });
 
-  it('rejects second mock-success with different idempotency key after completion', async () => {
+  it('rejects second mock-success with different idempotency key after confirmation', async () => {
     const seller = await api.login(UserRole.SELLER);
     const buyer = await api.login(UserRole.BUYER);
 

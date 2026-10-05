@@ -1,6 +1,55 @@
 import { TtlLruCache } from './catalog-ttl-cache';
 
 describe('TtlLruCache', () => {
+  it('does not restore stale values when a request finishes after clear', async () => {
+    const cache = new TtlLruCache<string>(8, 60_000);
+    let resolveOld!: (value: string) => void;
+    const oldRequest = cache.getOrSet(
+      'k',
+      () =>
+        new Promise<string>((resolve) => {
+          resolveOld = resolve;
+        }),
+    );
+    cache.clear();
+    await cache.getOrSet('k', async () => 'fresh');
+    resolveOld('stale');
+    await expect(oldRequest).resolves.toBe('stale');
+    expect(cache.get('k')).toBe('fresh');
+  });
+
+  it('keeps a new in-flight request when an invalidated request fails', async () => {
+    const cache = new TtlLruCache<string>(8, 60_000);
+    let rejectOld!: (reason: Error) => void;
+    let resolveNew!: (value: string) => void;
+    const oldRequest = cache.getOrSet(
+      'k',
+      () =>
+        new Promise<string>((_, reject) => {
+          rejectOld = reject;
+        }),
+    );
+    const oldFailure = expect(oldRequest).rejects.toThrow('old request failed');
+    cache.clear();
+    const freshRequest = cache.getOrSet(
+      'k',
+      () =>
+        new Promise<string>((resolve) => {
+          resolveNew = resolve;
+        }),
+    );
+    rejectOld(new Error('old request failed'));
+    await oldFailure;
+    const duplicateFactory = jest.fn(async () => 'duplicate');
+    const joinedRequest = cache.getOrSet('k', duplicateFactory);
+    resolveNew('fresh');
+    await expect(Promise.all([freshRequest, joinedRequest])).resolves.toEqual([
+      'fresh',
+      'fresh',
+    ]);
+    expect(duplicateFactory).not.toHaveBeenCalled();
+  });
+
   it('returns cached value within TTL and evicts oldest entries', async () => {
     const cache = new TtlLruCache<number>(2, 60_000);
     cache.set('a', 1);

@@ -900,16 +900,22 @@ export class AdminService {
           reason: reasonCode,
         });
 
-        // Never auto-relist: skin may already be gone from seller Steam.
-        // Block the old lot; return asset to AVAILABLE so seller re-lists after sync.
-        await this.lotStateService.transition(tx, {
-          lotId: current.lotId,
-          from: current.lot.status,
-          to: LotStatus.BLOCKED,
-          actorUserId,
-          reason: reasonCode,
-          extra: { reservedByUserId: null },
-        });
+        // A disputed lot may already be blocked. Keep it blocked after refund.
+        if (current.lot.status !== LotStatus.BLOCKED) {
+          await this.lotStateService.transition(tx, {
+            lotId: current.lotId,
+            from: current.lot.status,
+            to: LotStatus.BLOCKED,
+            actorUserId,
+            reason: reasonCode,
+            extra: { reservedByUserId: null },
+          });
+        } else {
+          await tx.lot.update({
+            where: { id: current.lotId },
+            data: { reservedByUserId: null },
+          });
+        }
 
         await tx.inventoryAsset.update({
           where: { id: current.lot.inventoryAssetId },
@@ -971,6 +977,20 @@ export class AdminService {
         });
       }
 
+      const leases = await tx.steamMappingLease.deleteMany({
+        where: { orderId },
+      });
+      await tx.auditLog.create({
+        data: {
+          actorUserId,
+          entityType: 'order',
+          entityId: orderId,
+          action: 'ADMIN_ADJUDICATION_MAPPING_LEASE_RELEASED',
+          afterState: { releasedCount: leases.count, resolution },
+          idempotencyKey: `mapping-adjudication:${idempotencyKey}`,
+          ...getAuditContext(),
+        },
+      });
       await tx.auditLog.create({
         data: {
           actorUserId,
