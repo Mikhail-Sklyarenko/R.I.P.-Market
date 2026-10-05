@@ -5,12 +5,12 @@ import { resetDatabase } from './helpers/reset';
 
 const API_BASE = process.env.PLAYWRIGHT_API_BASE_URL ?? 'http://127.0.0.1:3001/api/v1';
 
-test.describe('Smoke: sell list and buyer complete', () => {
+test.describe('Smoke: sell list and buyer trade confirmation', () => {
   test.beforeEach(async ({ request }) => {
     await resetDatabase(request);
   });
 
-  test('seller lists item, buyer purchases via checkout and completes trade', async ({
+  test('seller lists item, buyer purchases and mock confirmation does not complete payment', async ({
     page,
     request,
   }) => {
@@ -61,9 +61,9 @@ test.describe('Smoke: sell list and buyer complete', () => {
     await expect(page.getByTestId('mock-trade-panel')).toBeVisible();
 
     await page.getByTestId('mock-trade-success').click();
-    await expect(page.getByTestId('order-status')).toHaveText('COMPLETED', {
+    await expect(page.getByTestId('order-status')).toHaveText('TRADE_CONFIRMED', {
       timeout: 15000,
     });
-    await expect(page.getByTestId('order-completed-message')).toBeVisible();
+    await expect(page.getByTestId('order-completed-message')).not.toBeVisible();
   });
 });

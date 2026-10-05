@@ -4,6 +4,7 @@ import { fundWallet } from './helpers/crypto-payments';
 import { processPendingOutbox } from './helpers/outbox';
 import { resetDatabase } from './helpers/reset';
 import { seedActiveLot } from './helpers/seed';
+import { completeProofBackedOrder } from './helpers/proof-settlement';
 
 const API_BASE = process.env.PLAYWRIGHT_API_BASE_URL ?? 'http://127.0.0.1:3001/api/v1';
 
@@ -12,7 +13,7 @@ test.describe('Buy complete flow', () => {
     await resetDatabase(request);
   });
 
-  test('buyer deposit -> buy -> mock-success -> completed with notifications', async ({
+  test('buyer deposit -> buy -> proof-backed settlement -> completed with notifications', async ({
     page,
     request,
   }) => {
@@ -40,6 +41,12 @@ test.describe('Buy complete flow', () => {
 
     await expect(page.getByTestId('order-status')).toHaveText('WAITING_TRADE');
     await page.getByTestId('mock-trade-success').click();
+    await expect(page.getByTestId('order-status')).toHaveText('TRADE_CONFIRMED');
+    await expect(page.getByTestId('order-completed-message')).not.toBeVisible();
+    const orderId = new URL(page.url()).pathname.split('/').pop();
+    expect(orderId).toBeTruthy();
+    await completeProofBackedOrder(orderId!);
+    await page.reload();
     await expect(page.getByTestId('order-status')).toHaveText('COMPLETED', { timeout: 15000 });
     await expect(page.getByTestId('order-completed-message')).toBeVisible();
 
