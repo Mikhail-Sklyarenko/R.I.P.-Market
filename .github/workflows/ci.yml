@@ -3,7 +3,7 @@ name: CI
 on:
   workflow_dispatch:
   push:
-    branches: [main, master, codex-mvp-hardening]
+    branches: [main, master]
   pull_request:
 
 jobs:
@@ -60,6 +60,7 @@ jobs:
         run: npm run prisma:generate
 
       - name: Apply database migrations
+        id: migrations
         run: npm run prisma:migrate:deploy
 
       - name: Lint
@@ -72,17 +73,38 @@ jobs:
         run: npm test -- --ci --runInBand
 
       - name: E2E tests
+        id: general-e2e
         run: npm run test:e2e
 
-      - name: Settlement PostgreSQL regression gate (UTC and UTC+3)
-        run: |
-          TZ=UTC npm run test:settlement:db
-          TZ=Europe/Moscow npm run test:settlement:db
+      - name: Settlement PostgreSQL regression gate (UTC)
+        id: settlement-utc
+        if: ${{ !cancelled() && steps.migrations.outcome == 'success' }}
+        run: TZ=UTC npm run test:settlement:db
+
+      - name: Settlement PostgreSQL regression gate (UTC+3)
+        id: settlement-moscow
+        if: ${{ !cancelled() && steps.migrations.outcome == 'success' }}
+        run: TZ=Europe/Moscow npm run test:settlement:db
 
       - name: PostgreSQL security constraints
+        id: postgres-security
+        if: ${{ !cancelled() && steps.migrations.outcome == 'success' }}
         env:
           AUDIT_DATABASE_URL: postgresql://cs2:cs2@localhost:5432/p2pcs_e2e?schema=public
         run: npm run test:security:postgres
+
+      - name: Require every PostgreSQL gate
+        if: ${{ !cancelled() }}
+        env:
+          GENERAL: ${{ steps.general-e2e.outcome }}
+          UTC_GATE: ${{ steps.settlement-utc.outcome }}
+          MOSCOW_GATE: ${{ steps.settlement-moscow.outcome }}
+          SECURITY_GATE: ${{ steps.postgres-security.outcome }}
+        run: |
+          test "$GENERAL" = success
+          test "$UTC_GATE" = success
+          test "$MOSCOW_GATE" = success
+          test "$SECURITY_GATE" = success
 
   frontend:
     runs-on: ubuntu-latest

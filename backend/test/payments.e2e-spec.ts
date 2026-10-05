@@ -11,6 +11,12 @@ import { signGatewayWebhook } from '../src/providers/payment/payment.util';
 import { ApiClient } from './helpers/api-client';
 import { resetDatabase } from './helpers/reset-database';
 import { TestCryptoPaymentProvider } from './helpers/test-crypto-payment.provider';
+import { SettlementService } from '../src/settlement/settlement.service';
+import {
+  prepareProofBackedHold,
+  withProofSettlementPolicy,
+  expectExactlyOneSettlement,
+} from './helpers/proof-backed-settlement';
 
 const WEBHOOK_SECRET = 'e2e-webhook-secret';
 
@@ -151,13 +157,14 @@ describe('Payments crypto flow (e2e)', () => {
     const order = await api.createOrder(buyer, lot.body.id, 'e2e-order-1');
     expect([200, 201]).toContain(order.status);
 
-    const trade = await api.mockSuccess(
-      buyer,
-      order.body.id,
-      'e2e-trade-success-1',
-    );
-    expect([200, 201]).toContain(trade.status);
-    expect(trade.body.status).toBe('COMPLETED');
+    await withProofSettlementPolicy(priceMinor, async () => {
+      await prepareProofBackedHold(app, order.body.id);
+      const result = await app
+        .get(SettlementService)
+        .releaseDueSettlementHold(order.body.id);
+      expect(result.settled).toBe(true);
+      await expectExactlyOneSettlement(prisma, order.body.id);
+    });
 
     const sellerWallet = await api.getWallet(seller);
     const sellerAvailable = Number(

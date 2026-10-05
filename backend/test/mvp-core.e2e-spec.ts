@@ -32,7 +32,7 @@ describe('MVP core flows (e2e)', () => {
     return { seller, lotId: lot.body.id as string, priceMinor };
   }
 
-  it('happy path: lot -> order -> mock-success -> completed', async () => {
+  it('mock confirmation without receipt keeps funds held and does not pay the seller', async () => {
     const { lotId, priceMinor } = await setupActiveLot();
     const buyer = await api.login(UserRole.BUYER);
     const seller = await api.login(UserRole.SELLER);
@@ -49,8 +49,8 @@ describe('MVP core flows (e2e)', () => {
       'trade-success-1',
     );
     expect([200, 201]).toContain(successResponse.status);
-    expect(successResponse.body.status).toBe('COMPLETED');
-    expect(successResponse.body.lot.status).toBe('SOLD');
+    expect(successResponse.body.status).toBe('TRADE_CONFIRMED');
+    expect(successResponse.body.lot.status).toBe('RESERVED');
 
     const buyerWallet = await api.getWallet(buyer);
     const sellerWallet = await api.getWallet(seller);
@@ -67,7 +67,25 @@ describe('MVP core flows (e2e)', () => {
     );
 
     expect(buyerAvailable).toBe(priceMinor);
-    expect(sellerAvailable).toBe(Math.floor(priceMinor * 0.95));
+    expect(sellerAvailable).toBe(0);
+    expect(
+      Number(
+        buyerWallet.body.accounts.find(
+          (a: { type: string }) => a.type === 'HOLD',
+        ).balanceMinor,
+      ),
+    ).toBe(priceMinor);
+    const hold = await prisma.hold.findUniqueOrThrow({
+      where: { orderId: orderResponse.body.id },
+    });
+    expect(hold.capturedMinor).toBe(0n);
+    expect(hold.releasedMinor).toBe(0n);
+    expect(hold.settlementReleasedAt).toBeNull();
+    expect(
+      await prisma.ledgerEntry.count({
+        where: { orderId: orderResponse.body.id, type: 'SETTLEMENT_SELLER' },
+      }),
+    ).toBe(0);
 
     const orderEvents = await prisma.orderStatusEvent.findMany({
       where: { orderId: orderResponse.body.id },
@@ -78,7 +96,6 @@ describe('MVP core flows (e2e)', () => {
       'PAYMENT_RESERVED',
       'WAITING_TRADE',
       'TRADE_CONFIRMED',
-      'COMPLETED',
     ]);
 
     const lotEvents = await prisma.lotStatusEvent.findMany({
@@ -88,7 +105,6 @@ describe('MVP core flows (e2e)', () => {
     expect(lotEvents.map((event) => event.toStatus)).toEqual([
       'ACTIVE',
       'RESERVED',
-      'SOLD',
     ]);
   });
 

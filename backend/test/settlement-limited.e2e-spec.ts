@@ -11,6 +11,7 @@ import { LedgerService } from '../src/wallet/ledger.service';
 import { AdminService } from '../src/admin/admin.service';
 import { DisputeResolution } from '../src/admin/dto/resolve-dispute.dto';
 import { SteamTradeProvider } from '../src/providers/trade/steam-trade.provider';
+import { prepareProofBackedHold } from './helpers/proof-backed-settlement';
 
 describe('Limited real settlement (e2e)', () => {
   let app: INestApplication<App>;
@@ -150,43 +151,13 @@ describe('Limited real settlement (e2e)', () => {
     });
     async function heldOrder(deadline?: string) {
       const { orderId } = await createOrderWithSteamIds();
-      const until = deadline ?? new Date(Date.now() - 1000).toISOString();
-      await prisma.tradeOperation.update({
-        where: { orderId },
-        data: {
-          status: TradeOperationStatus.DELIVERY_VERIFIED,
-          verificationStage: 'PROTECTION',
-          externalOfferId: '123456',
-          expectedAssetId: '789',
-          tradeBinding: `p2pcs:${orderId}`,
-          deliveryProof: {
-            version: 3,
-            authority: 'STEAM_RECEIPT',
-            orderId,
-            offerId: '123456',
-            tradeId: '987654',
-            originalAssetId: '789',
-            sellerSteamId,
-            buyerSteamId,
-            bindingVerified: true,
-            tradeBinding: `p2pcs:${orderId}`,
-            receiptStatus: 3,
-            offerState: 3,
-            verifiedAt: new Date(
-              Date.parse(until) - 8 * 86400000,
-            ).toISOString(),
-            protectionUntil: until,
-          },
-        },
-      });
-      await prisma.order.update({
-        where: { id: orderId },
-        data: { status: OrderStatus.SETTLEMENT_HOLD },
-      });
+      const proof = await prepareProofBackedHold(app, orderId, deadline);
       await prisma.hold.update({
         where: { orderId },
         data: {
-          settlementHoldUntil: new Date(Date.parse(until) - 3 * 3600000),
+          settlementHoldUntil: new Date(
+            Date.parse(proof.protectionUntil) - 3 * 3600000,
+          ),
         },
       });
       return orderId;
@@ -220,6 +191,20 @@ describe('Limited real settlement (e2e)', () => {
           .status,
       ).toBe(OrderStatus.COMPLETED);
     }
+
+    it('receipt fixture refuses to replace persisted proof', async () => {
+      const id = await heldOrder();
+      const before = await prisma.tradeOperation.findUniqueOrThrow({
+        where: { orderId: id },
+      });
+      await expect(prepareProofBackedHold(app, id)).rejects.toThrow(
+        'Fixture refuses to overwrite delivery proof',
+      );
+      const after = await prisma.tradeOperation.findUniqueOrThrow({
+        where: { orderId: id },
+      });
+      expect(after.deliveryProof).toEqual(before.deliveryProof);
+    });
 
     it.each(['UTC', 'Europe/Moscow'])(
       'honors the exact proof instant in PostgreSQL session %s despite an early cache',
